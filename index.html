@@ -7,7 +7,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="إسلامي">
-<!-- أيقونة المصحف الجديدة -->
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230f1117'/%3E%3Cpath d='M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z' fill='none' stroke='%23c9a84c' stroke-width='8' stroke-linejoin='round'/%3E%3Cpath d='M96 70 L 96 150' stroke='%23c9a84c' stroke-width='8' stroke-linecap='round'/%3E%3Cpath d='M60 90 L 80 100 M60 110 L 80 120 M132 90 L 112 100 M132 110 L 112 120' stroke='%23c9a84c' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
 <title>إسلامي</title>
 <style>
@@ -23,14 +22,12 @@
   --success: #4caf7d;
   --border: #2a2d3e;
   --radius: 12px;
-  /* القيم الافتراضية للخط (تتغير برمجياً) */
   --font-size: 26px;
   --line-height: 2.3;
   --header-h: 60px;
   --nav-h: 64px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-/* الاعتماد على خطوط النظام المحلية لدعم الأوفلاين والسرعة */
 html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Amiri', 'Traditional Arabic', 'Droid Arabic Naskh', 'Simplified Arabic', 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; overflow: hidden; }
 body::before {
   content: ''; position: fixed; inset: 0; opacity: 0.05; pointer-events: none; z-index: 0;
@@ -49,9 +46,11 @@ body::before {
 .nav-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: none; border: none; color: var(--text-dim); font-size: 13px; cursor: pointer; transition: color 0.2s; }
 .nav-tab.active { color: var(--accent); }
 .nav-tab .nav-icon { font-size: 22px; }
-/* تمركز الشاشات وتحديد العرض للكمبيوتر والموبايل */
+
+/* ================== تخطيط الشاشات ================== */
 .screen { display: none; animation: fadeIn 0.18s ease forwards; max-width: 680px; margin: 0 auto; width: 100%; padding: 16px; }
 .screen.active { display: block; }
+#screen-tasbih.active { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - var(--header-h) - var(--nav-h)); }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* ================= القرآن الكريم ================= */
@@ -69,12 +68,8 @@ body::before {
 .surah-h-meta { font-size: 14px; color: #3a2800; }
 .bismillah { text-align: center; font-size: calc(var(--font-size) + 4px); color: var(--accent); padding: 20px; line-height: var(--line-height); font-weight: bold; }
 .verse-card { background: var(--surface); border: 1px solid var(--border); border-right: 3px solid transparent; border-radius: var(--radius); padding: 16px; margin-bottom: 10px; }
-.verse-card.khatmah-active { border-right-color: var(--success); background: #16241d; }
 .verse-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .verse-num-badge { background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 6px; padding: 3px 10px; font-size: 13px; color: var(--accent); }
-.khatmah-mark-btn { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--text-dim); padding: 4px 10px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: Tahoma, Arial, sans-serif; }
-.khatmah-mark-btn:hover { border-color: var(--success); color: var(--success); }
-.khatmah-mark-btn.active { background: var(--success); color: #fff; border-color: var(--success); }
 .verse-text { font-size: var(--font-size); line-height: var(--line-height); color: var(--text); text-align: justify; }
 
 /* ================= الختمة ================= */
@@ -94,9 +89,9 @@ body::before {
 /* قراءة الختمة بالصفحات */
 .khatmah-page-reader { padding-bottom: 80px; }
 .khatmah-controls { position: fixed; bottom: calc(var(--nav-h) + 10px); left: 50%; transform: translateX(-50%); width: 100%; max-width: 680px; display: flex; gap: 8px; background: var(--surface-2); padding: 10px 16px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 50; }
-.k-ctrl-btn { flex: 1; background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; }
+.k-ctrl-btn { flex: 1; background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; transition: opacity 0.3s; }
 .k-ctrl-btn.primary { background: var(--success); color: #fff; border-color: var(--success); flex: 2; }
-.k-ctrl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.k-ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* ================= الأذكار والسبحة ================= */
 .quick-nav-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
@@ -128,16 +123,16 @@ body::before {
 .dua-occasion { font-size: 15px; font-weight: 700; color: var(--accent); margin-bottom: 10px; }
 .dua-text { font-size: calc(var(--font-size) * 0.85); line-height: var(--line-height); color: var(--text); text-align: justify; }
 
-.tasbih-laps { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
+.tasbih-laps { display: flex; gap: 10px; margin-bottom: 24px; justify-content: center; }
 .tasbih-lap-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); background: transparent; transition: background 0.3s; }
 .tasbih-lap-dot.filled { background: var(--accent); }
-#tasbih-circle-wrap { position: relative; width: 280px; height: 280px; max-width: 82vw; max-height: 82vw; margin: 0 auto 24px auto; }
+#tasbih-circle-wrap { position: relative; width: 280px; height: 280px; max-width: 82vw; max-height: 82vw; margin: 0 auto; }
 .tasbih-bead { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); transform: translate(-50%, -50%); transition: 0.2s; }
 .tasbih-bead.filled { background: var(--accent); border-color: var(--accent); transform: translate(-50%, -50%) scale(1.25); }
 #tasbih-tap-btn { position: absolute; inset: 34px; border-radius: 50%; background: linear-gradient(135deg, #c9a84c, #8a6820); border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
 #tasbih-count-num { font-size: 48px; font-weight: 700; color: #1a1000; }
 #tasbih-count-label { font-size: 13px; color: #3a2800; margin-top: 4px; }
-.tasbih-complete-banner { background: linear-gradient(135deg, #c9a84c22, #8a682011); border: 1px solid var(--accent); border-radius: var(--radius); padding: 14px; text-align: center; color: var(--accent); margin-bottom: 16px; display: none; }
+.tasbih-complete-banner { background: linear-gradient(135deg, #c9a84c22, #8a682011); border: 1px solid var(--accent); border-radius: var(--radius); padding: 14px; text-align: center; color: var(--accent); margin-bottom: 20px; display: none; width: 100%; max-width: 320px; }
 .tasbih-complete-banner.active { display: block; }
 </style>
 </head>
@@ -236,19 +231,19 @@ body::before {
 
     <div id="screen-thikr-view" class="screen"><div id="thikr-list-container"></div></div>
     <div id="screen-dua-list" class="screen"><div id="dua-list-container"></div></div>
+    
+    <!-- شاشة السبحة بعد ضبط التوسيط (Flexbox) -->
     <div id="screen-tasbih" class="screen">
-      <div id="tasbih-container" style="display:flex;flex-direction:column;align-items:center; padding-top:20px;">
-        <div class="tasbih-complete-banner" id="tasbih-msg">أتممت سبحة كاملة (٩٩) — تقبل الله 🤲</div>
-        <div class="tasbih-laps" id="tasbih-laps">
-          <div class="tasbih-lap-dot"></div>
-          <div class="tasbih-lap-dot"></div>
-          <div class="tasbih-lap-dot"></div>
-        </div>
-        <div id="tasbih-circle-wrap">
-          <button id="tasbih-tap-btn"><span id="tasbih-count-num">٠</span><span id="tasbih-count-label">اضغط للعدّ</span></button>
-        </div>
-        <button id="tasbih-reset-btn" style="padding:10px 20px; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:var(--radius); margin-top:20px; cursor:pointer;">تصفير العداد</button>
+      <div class="tasbih-complete-banner" id="tasbih-msg">أتممت سبحة كاملة (٩٩) — تقبل الله 🤲</div>
+      <div class="tasbih-laps" id="tasbih-laps">
+        <div class="tasbih-lap-dot"></div>
+        <div class="tasbih-lap-dot"></div>
+        <div class="tasbih-lap-dot"></div>
       </div>
+      <div id="tasbih-circle-wrap">
+        <button id="tasbih-tap-btn"><span id="tasbih-count-num">٠</span><span id="tasbih-count-label">اضغط للعدّ</span></button>
+      </div>
+      <button id="tasbih-reset-btn" style="padding:10px 30px; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:var(--radius); margin-top:30px; font-weight:bold; cursor:pointer;">تصفير العداد</button>
     </div>
   </main>
 
@@ -298,7 +293,6 @@ function loadState() {
 }
 function saveState() { try { localStorage.setItem('app_state', JSON.stringify(state)); } catch(e) {} }
 
-// أبعاد الخطوط بعد التعديل لتكون واضحة
 const fontSizes = { 
   small: { size: '20px', lh: '2.0' }, 
   medium: { size: '26px', lh: '2.3' }, 
@@ -337,7 +331,7 @@ function navigateBack() {
   else if (state.currentScreen === 'khatmah-read') { state.currentScreen = 'khatmah-main'; showScreen('khatmah-main'); updateKhatmahUI(); }
 }
 
-// ==================== نظام الختمة ====================
+// ==================== نظام الختمة المنطقي (المُعالج) ====================
 function updateKhatmahUI() {
   if (!state.khatmah || !state.khatmah.active) {
     document.getElementById('khatmah-setup').style.display = 'block';
@@ -359,16 +353,23 @@ function updateKhatmahUI() {
 
 window.startKhatmah = function() {
   const method = document.getElementById('k-method').value;
-  const val = parseInt(document.getElementById('k-val').value, 10) || 20;
-  const startPage = parseInt(document.getElementById('k-start').value, 10) || 1;
-  const pagesPerDay = method === 'pages' ? val : Math.ceil(604 / val);
+  // تأمين القيم المُدخلة لعدم تجاوز الحدود المنطقية
+  let val = parseInt(document.getElementById('k-val').value, 10);
+  if (isNaN(val) || val <= 0) val = method === 'days' ? 30 : 20;
   
+  let startPage = parseInt(document.getElementById('k-start').value, 10) || 1;
+  const safeStartPage = Math.max(1, Math.min(startPage, 604)); 
+  
+  const pagesPerDay = method === 'pages' ? val : Math.ceil(604 / val);
+  const safePagesPerDay = Math.max(1, pagesPerDay);
+
   state.khatmah = {
-    active: true, method, val, pagesPerDay,
-    currentPage: startPage,
-    todayWirdStart: startPage,
-    todayWirdEnd: Math.min(startPage + pagesPerDay - 1, 604),
-    lastPageRead: startPage - 1
+    active: true, method, val, pagesPerDay: safePagesPerDay,
+    currentPage: safeStartPage,
+    todayWirdStart: safeStartPage,
+    // الحساب الصحيح لنهاية الورد
+    todayWirdEnd: Math.min(safeStartPage + safePagesPerDay - 1, 604),
+    lastPageRead: safeStartPage > 1 ? safeStartPage - 1 : 0
   };
   saveState(); updateKhatmahUI();
 }
@@ -390,8 +391,9 @@ async function loadKhatmahPage(pageNum) {
   const container = document.getElementById('khatmah-page-container');
   container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--accent);">جاري تحميل صفحة ${toArabicNum(pageNum)}...</div>`;
   
-  document.getElementById('kp-prev').disabled = (pageNum <= 1);
-  document.getElementById('kp-next').disabled = (pageNum >= 604);
+  // إغلاق الأزرار بدقة لو كان المستخدم على حدود ورد اليوم
+  document.getElementById('kp-prev').disabled = (pageNum <= state.khatmah.todayWirdStart);
+  document.getElementById('kp-next').disabled = (pageNum >= state.khatmah.todayWirdEnd);
 
   try {
     const res = await fetch(`https://api.alquran.cloud/v1/page/${pageNum}/quran-uthmani`);
@@ -422,7 +424,8 @@ async function loadKhatmahPage(pageNum) {
 
 window.changeKhatmahPage = function(dir) {
   let newPage = kReadingPage + dir;
-  if (newPage >= 1 && newPage <= 604) {
+  // التأكد من عدم تجاوز حدود الورد اليومي
+  if (newPage >= state.khatmah.todayWirdStart && newPage <= state.khatmah.todayWirdEnd) {
     kReadingPage = newPage;
     state.khatmah.currentPage = kReadingPage; saveState();
     loadKhatmahPage(kReadingPage);
@@ -430,13 +433,15 @@ window.changeKhatmahPage = function(dir) {
 }
 
 window.completeWird = function() {
-  state.khatmah.currentPage = state.khatmah.todayWirdEnd + 1;
-  if (state.khatmah.currentPage > 604) {
+  const nextStart = state.khatmah.todayWirdEnd + 1;
+  if (nextStart > 604) {
     alert('ما شاء الله، مبارك عليك ختم القرآن الكريم! تقبل الله طاعتك 🤲');
     state.khatmah = null;
   } else {
-    state.khatmah.todayWirdStart = state.khatmah.currentPage;
-    state.khatmah.todayWirdEnd = Math.min(state.khatmah.currentPage + state.khatmah.pagesPerDay - 1, 604);
+    state.khatmah.currentPage = nextStart;
+    state.khatmah.todayWirdStart = nextStart;
+    state.khatmah.todayWirdEnd = Math.min(nextStart + state.khatmah.pagesPerDay - 1, 604);
+    state.khatmah.lastPageRead = nextStart - 1;
   }
   saveState(); navigateBack();
 }
@@ -502,7 +507,7 @@ window.openCategory = function(ci) {
     return `
       <div class="thikr-card">
         <div class="thikr-text">${item.text}</div><div class="thikr-source">${item.source || ''}</div>
-        <button class="thikr-tap-btn ${done ? 'done' : ''}" onclick="tapThikr(${ci}, ${i}, this)">
+        <button class="thikr-tap-btn ${done ? 'done' : ''}" onclick="tapThikr(${ci}, i, this)">
           ${done ? '✓ اكتمل' : `${toArabicNum(getProg(ci,i))} / ${toArabicNum(item.count)}`}
         </button>
       </div>`;
@@ -559,14 +564,13 @@ function init() {
   loadState();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
   
-  // إصلاح أزرار الخطوط بحيث تعمل بشكل سليم عند الضغط
   document.querySelectorAll('.font-btn').forEach(btn => {
     btn.addEventListener('click', function() {
       applyFontSize(this.dataset.size);
     });
   });
   
-  applyFontSize(state.fontSize || 'large'); // تطبيق الخط المحفوظ
+  applyFontSize(state.fontSize || 'large');
   
   document.getElementById('back-btn').addEventListener('click', navigateBack);
   
@@ -600,26 +604,6 @@ function init() {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.querySelector('.nav-tab[data-tab="quran"]').classList.add('active');
   showScreen('surah-list');
-  
-  // دالة الميتا داتا والأيقونة للتطبيق عند التثبيت
-  const manifest = {
-    name: 'إسلامي',
-    short_name: 'إسلامي',
-    start_url: './',
-    display: 'standalone',
-    background_color: '#0f1117',
-    theme_color: '#0f1117',
-    dir: 'rtl',
-    lang: 'ar',
-    icons: [
-      { src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230f1117'/%3E%3Cpath d='M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z' fill='none' stroke='%23c9a84c' stroke-width='8' stroke-linejoin='round'/%3E%3Cpath d='M96 70 L 96 150' stroke='%23c9a84c' stroke-width='8' stroke-linecap='round'/%3E%3Cpath d='M60 90 L 80 100 M60 110 L 80 120 M132 90 L 112 100 M132 110 L 112 120' stroke='%23c9a84c' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E", sizes: '192x192', type: 'image/svg+xml' }
-    ]
-  };
-  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-  const manifestURL = URL.createObjectURL(blob);
-  const link = document.createElement('link');
-  link.rel = 'manifest'; link.href = manifestURL;
-  document.head.appendChild(link);
 }
 
 document.addEventListener('DOMContentLoaded', init);
