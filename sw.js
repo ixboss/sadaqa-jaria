@@ -1,7 +1,6 @@
-// ==================== Service Worker — القرآن | حصن المسلم ====================
-const CACHE_NAME = 'quran-app-v3'; 
-const FONT_CACHE = 'quran-fonts-v3';
-const API_CACHE = 'quran-api-v3';
+// ==================== Service Worker — إسلامي ====================
+const CACHE_NAME = 'quran-app-v5'; 
+const API_CACHE = 'quran-api-v5';
 
 const PRECACHE_URLS = [
   './',
@@ -9,7 +8,6 @@ const PRECACHE_URLS = [
 ];
 
 const API_ORIGIN = 'api.alquran.cloud';
-const FONT_ORIGINS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -22,7 +20,7 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => {
       return Promise.all(
-        keys.filter(key => key !== CACHE_NAME && key !== FONT_CACHE && key !== API_CACHE)
+        keys.filter(key => key !== CACHE_NAME && key !== API_CACHE)
         .map(key => caches.delete(key))
       );
     }).then(() => self.clients.claim())
@@ -32,8 +30,8 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  if (FONT_ORIGINS.some(o => url.hostname.includes(o)) || url.hostname.includes(API_ORIGIN)) {
-    event.respondWith(cacheFirst(event.request, url.hostname.includes(API_ORIGIN) ? API_CACHE : FONT_CACHE));
+  if (url.hostname.includes(API_ORIGIN)) {
+    event.respondWith(cacheFirst(event.request, API_CACHE));
     return;
   }
 
