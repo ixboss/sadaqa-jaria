@@ -65,3 +65,4 @@ async function networkFirst(request, cacheName) {
     return new Response('لا يوجد اتصال بالإنترنت', { status: 503 });
   }
 }
+ 
