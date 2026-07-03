@@ -897,6 +897,35 @@ document.getElementById('tasbih-reset-btn').addEventListener('click', () => {
 
 // ==================== التهيئة الرئيسية ====================
 function init() {
+    // ==================== تفعيل خاصية البحث في القرآن ====================
+  document.getElementById('search-bar').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.trim();
+    
+    // دالة لتوحيد الحروف العربية (تتجاهل الفروق بين أ/إ/ا و ة/ه والتشكيل)
+    const normalizeArabic = (text) => {
+      return text.replace(/[أإآ]/g, 'ا')
+                 .replace(/ة/g, 'ه')
+                 .replace(/[\u064B-\u065F]/g, ''); // إزالة التشكيل
+    };
+
+    const normalizedSearch = normalizeArabic(searchTerm);
+
+    // فلترة قائمة السور
+    const filteredSurahs = allSurahs.filter(s => {
+      return normalizeArabic(s.name).includes(normalizedSearch) || 
+             s.number.toString() === searchTerm; // يسمح بالبحث برقم السورة أيضاً
+    });
+
+    // إعادة رسم القائمة بالسور المطابقة فقط
+    document.getElementById('surah-list-container').innerHTML = filteredSurahs.map(s => `
+      <div class="surah-row" onclick="openSurah(${s.number})">
+        <div class="surah-num">${toArabicNum(s.number)}</div>
+        <div class="surah-info">
+          <div class="surah-name">${s.name}</div><div class="surah-meta">${toArabicNum(s.numberOfAyahs)} آية</div>
+        </div>
+      </div>`).join('');
+  });
+
   loadState();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
   
