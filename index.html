@@ -795,7 +795,7 @@ window.openCategory = function(ci) {
   state.currentCatIndex = ci; showScreen('thikr-view', 'slide-left');
   document.getElementById('thikr-list-container').innerHTML = ATHKAR[ci].items.map((item, i) => {
     const done = getProg(ci, i) >= item.count;
-    return `<div class="thikr-card"><div class="thikr-text">${item.text}</div><button class="thikr-tap-btn ${done ? 'done' : ''}" onclick="tapThikr(${ci}, i, this)">${done ? '✓ اكتمل' : `${toArabicNum(getProg(ci,i))} / ${toArabicNum(item.count)}`}</button></div>`;
+    return `<div class="thikr-card"><div class="thikr-text">${item.text}</div><button class="thikr-tap-btn ${done ? 'done' : ''}" onclick="tapThikr(${ci}, ${i}, this)">${done ? '✓ اكتمل' : `${toArabicNum(getProg(ci,i))} / ${toArabicNum(item.count)}`}</button></div>`;
   }).join('');
 }
 
