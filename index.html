@@ -696,8 +696,8 @@ function handleSwipeEnd(x, y) {
     if (['surah-view', 'thikr-view', 'dua-list', 'tasbih', 'khatmah-read', 'occasion-list'].includes(state.currentScreen)) return;
     const currentIndex = tabsArray.indexOf(state.currentTab);
     
-    if (dx < 0 && currentIndex < tabsArray.length - 1) switchTab(tabsArray[currentIndex + 1]);
-    else if (dx > 0 && currentIndex > 0) switchTab(tabsArray[currentIndex - 1]);
+    if (dx > 0 && currentIndex < tabsArray.length - 1) switchTab(tabsArray[currentIndex + 1]);
+else if (dx < 0 && currentIndex > 0) switchTab(tabsArray[currentIndex - 1]);
   }
 }
 
