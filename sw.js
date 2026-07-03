@@ -1,6 +1,6 @@
 // ==================== Service Worker — إسلامي ====================
-const CACHE_NAME = 'quran-app-v6'; 
-const API_CACHE = 'quran-api-v6';
+const CACHE_NAME = 'quran-app-v10'; 
+const API_CACHE = 'quran-api-v10';
 
 const PRECACHE_URLS = [
   './',
@@ -29,12 +29,10 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-
   if (url.hostname.includes(API_ORIGIN)) {
     event.respondWith(cacheFirst(event.request, API_CACHE));
     return;
   }
-
   event.respondWith(networkFirst(event.request, CACHE_NAME));
 });
 
@@ -65,4 +63,3 @@ async function networkFirst(request, cacheName) {
     return new Response('لا يوجد اتصال بالإنترنت', { status: 503 });
   }
 }
- 
