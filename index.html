@@ -7,7 +7,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="إسلامي">
-<!-- تسريع الاتصال المسبق بـ API القرآن -->
 <link rel="preconnect" href="https://api.alquran.cloud">
 <link rel="dns-prefetch" href="https://api.alquran.cloud">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230f1117'/%3E%3Cpath d='M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z' fill='none' stroke='%23c9a84c' stroke-width='8' stroke-linejoin='round'/%3E%3Cpath d='M96 70 L 96 150' stroke='%23c9a84c' stroke-width='8' stroke-linecap='round'/%3E%3Cpath d='M60 90 L 80 100 M60 110 L 80 120 M132 90 L 112 100 M132 110 L 112 120' stroke='%23c9a84c' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
@@ -33,7 +32,8 @@ body.theme-paper {
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Amiri', 'Traditional Arabic', 'Segoe UI', Tahoma, sans-serif; direction: rtl; overflow: hidden; transition: background 0.4s, color 0.4s; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Amiri', 'Traditional Arabic', 'Segoe UI', Tahoma, sans-serif; direction: rtl; overflow: hidden; transition: background 0.4s, color 0.4s; user-select: none; -webkit-user-select: none; }
+.mushaf-block { user-select: text; -webkit-user-select: text; } /* السماح بالنسخ داخل المصحف فقط */
 
 body::before {
   content: ''; position: fixed; inset: 0; opacity: 0.05; pointer-events: none; z-index: 0;
@@ -52,13 +52,13 @@ body.theme-paper ::-webkit-scrollbar-thumb { background: rgba(176, 92, 0, 0.3); 
 body.theme-paper #header { background: linear-gradient(135deg, #d8c3a5, #bba37d); box-shadow: 0 2px 15px rgba(0,0,0,0.1); }
 
 /* ================== شريط تقدم القراءة ================== */
-#reading-progress-container { position: fixed; top: var(--header-h); left: 0; right: 0; height: 3px; background: transparent; z-index: 99; display: none; }
+#reading-progress-container { position: fixed; top: var(--header-h); left: 0; right: 0; height: 3px; background: transparent; z-index: 99; display: none; pointer-events: none; }
 #reading-progress-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.1s ease-out; }
 body.theme-paper #reading-progress-bar { background: #b05c00; }
 
 .header-center { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: center; }
 #header-title { font-size: 18px; font-weight: 700; color: #1a1000; }
-#header-subtitle { font-size: 11px; font-weight: bold; color: #4a3000; margin-top: 2px; }
+#header-subtitle { font-size: 11px; font-weight: bold; color: #4a3000; margin-top: 2px; direction: rtl; } /* تم التعديل لمنع انعكاس التاريخ */
 
 #back-btn { display: none; background: rgba(0,0,0,0.15); border: none; border-radius: 8px; color: #1a1000; font-size: 22px; cursor: pointer; width: 40px; height: 40px; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.2s; }
 #back-btn:active { transform: scale(0.9); }
@@ -70,7 +70,7 @@ body.theme-paper #reading-progress-bar { background: #b05c00; }
 .header-btn.active { background: #1a1000; color: #c9a84c; }
 body.theme-paper .header-btn.active { background: #3a2800; color: #e9d8bd; }
 
-#content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 110px; scroll-behavior: smooth; }
+#content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 110px; scroll-behavior: smooth; touch-action: pan-y; } /* منع المتصفح من التدخل العرضي */
 
 /* ================== شريط التنقل الزجاجي & الإخفاء الذكي ================== */
 #nav {
@@ -98,7 +98,7 @@ body.theme-paper .nav-indicator { background: linear-gradient(135deg, rgba(176, 
 }
 .nav-tab.active { color: var(--accent); font-weight: bold; }
 .nav-tab .nav-icon { font-size: 22px; transition: transform 0.4s cubic-bezier(0.5, 1.5, 0.4, 1); pointer-events: none; }
-.nav-tab.active .nav-icon { transform: translateY(-3px) scale(1.15); text-shadow: 0 4px 12px rgba(201, 168, 76, 0.4); }
+.nav-tab.active .nav-icon { transform: translateY(-3px) scale(1.15); filter: drop-shadow(0 4px 6px rgba(201, 168, 76, 0.5)); } /* توهج الأيقونة */
 .nav-tab .nav-text { pointer-events: none; transition: color 0.3s; }
 
 .ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple-anim 0.5s cubic-bezier(0.25, 1, 0.5, 1); background-color: rgba(201, 168, 76, 0.25); pointer-events: none; z-index: 0; }
@@ -368,7 +368,7 @@ body.theme-paper #tasbih-tap-btn { background: linear-gradient(135deg, #d8c3a5, 
         <div class="tasbih-lap-dot"></div>
       </div>
       <div id="tasbih-circle-wrap">
-        <button id="tasbih-tap-btn"><span id="tasbih-count-num">٠</span><div style="font-size:13px; color:#4a3000;">اضغط للعدّ</div></button>
+        <button id="tasbih-tap-btn"><span id="tasbih-count-num">٠</span><div style="font-size:calc(var(--font-size) * 0.5); color:#4a3000;">اضغط للعدّ</div></button>
       </div>
       <button class="btn-scale" id="tasbih-reset-btn" style="width:auto; padding:10px 30px; margin-top:40px; background:var(--surface-2); color:var(--text);">تصفير العداد</button>
     </div>
@@ -501,7 +501,8 @@ const HIJRI_MONTHS = ['محرم','صفر','ربيع الأول','ربيع الآ
 
 function initHijri() {
   try {
-    const fmt = new Intl.DateTimeFormat('ar-TN-u-ca-islamic-umalqura', { year: 'numeric', month: 'numeric', day: 'numeric' });
+    // تم استخدام en-US لضمان قراءة الأرقام بشكل صحيح وتجنب NaN
+    const fmt = new Intl.DateTimeFormat('en-US-u-ca-islamic-umalqura', { year: 'numeric', month: 'numeric', day: 'numeric' });
     const test = fmt.formatToParts(new Date());
     if (test.some(p => p.type === 'year' && parseInt(p.value)>1400)) { hijriFormatter = fmt; hijriEngineAvailable = true; }
   } catch(e) {}
@@ -553,7 +554,10 @@ function updateHeaderSubtitle() {
   }
   if (hijriEngineAvailable) {
     const h = getHijriDate(new Date());
-    if (h) { sub.textContent = `${toArabicNum(h.day)} ${HIJRI_MONTHS[h.month-1]} ${toArabicNum(h.year)}`; return; }
+    if (h && !isNaN(h.month)) { 
+        sub.textContent = `${toArabicNum(h.day)} ${HIJRI_MONTHS[h.month-1]} ${toArabicNum(h.year)} هـ`; 
+        return; 
+    }
   }
   sub.textContent = '';
 }
@@ -599,7 +603,6 @@ function showScreen(screenId, animClass = 'active') {
   document.getElementById('header-title').textContent = titles[screenId] || 'إسلامي';
   updateHeaderSubtitle(); updateBookmarkIcon();
   
-  // شريط تقدم القراءة
   if(['surah-view', 'khatmah-read'].includes(screenId)) {
       document.getElementById('reading-progress-container').style.display = 'block';
   } else {
@@ -650,25 +653,29 @@ function switchTab(tabId) {
 }
 window.addEventListener('resize', setNavIndicator);
 
+// Swipe Gestures - تم استخدام Touch Events لضمان عملها بقوة
 let pStartX = 0, pStartY = 0;
-const contentArea = document.getElementById('content');
-contentArea.addEventListener('pointerdown', e => { pStartX = e.clientX; pStartY = e.clientY; }, {passive: true});
-contentArea.addEventListener('pointerup', e => {
-  const dx = e.clientX - pStartX; const dy = e.clientY - pStartY;
-  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
+function onSwipeStart(x, y) { pStartX = x; pStartY = y; }
+function onSwipeEnd(x, y) {
+  const dx = x - pStartX; const dy = y - pStartY;
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) { 
     if (['surah-view', 'thikr-view', 'dua-list', 'tasbih', 'khatmah-read', 'occasion-list'].includes(state.currentScreen)) return;
     const idx = tabsArray.indexOf(state.currentTab);
     if (dx < 0 && idx < tabsArray.length - 1) switchTab(tabsArray[idx + 1]);
     else if (dx > 0 && idx > 0) switchTab(tabsArray[idx - 1]);
   }
-}, {passive: true});
+}
+const contentArea = document.getElementById('content');
+contentArea.addEventListener('touchstart', e => onSwipeStart(e.changedTouches[0].screenX, e.changedTouches[0].screenY), {passive: true});
+contentArea.addEventListener('touchend', e => onSwipeEnd(e.changedTouches[0].screenX, e.changedTouches[0].screenY), {passive: true});
+contentArea.addEventListener('mousedown', e => onSwipeStart(e.screenX, e.screenY), {passive: true});
+contentArea.addEventListener('mouseup', e => onSwipeEnd(e.screenX, e.screenY), {passive: true});
 
 let lastScrollY = 0;
 contentArea.addEventListener('scroll', () => {
   const sy = contentArea.scrollTop;
   const nav = document.getElementById('nav'); const kCtrl = document.getElementById('khatmah-controls'); const fab = document.getElementById('resume-fab');
   
-  // إخفاء ذكي للقوائم السفلية
   if (sy > lastScrollY && sy > 50) { 
       nav.classList.add('nav-hidden'); if(kCtrl) kCtrl.classList.add('controls-hidden'); if(fab) fab.classList.add('fab-hidden');
   } else { 
@@ -676,7 +683,6 @@ contentArea.addEventListener('scroll', () => {
   }
   lastScrollY = sy;
   
-  // شريط تقدم القراءة
   if (['surah-view', 'khatmah-read'].includes(state.currentScreen)) {
       const scrollHeight = contentArea.scrollHeight - contentArea.clientHeight;
       const progress = scrollHeight > 0 ? (sy / scrollHeight) * 100 : 0;
@@ -758,7 +764,7 @@ window.openSurah = async function(number) {
   html += `</div>`; container.innerHTML = html;
 }
 
-// ==================== Khatmah (Badges UI & Pulse Effect) ====================
+// ==================== Khatmah (Badges UI) ====================
 function updateKhatmahUI() {
   if (!state.khatmah || !state.khatmah.active) {
     document.getElementById('khatmah-setup').style.display = 'block'; document.getElementById('khatmah-dash').style.display = 'none';
@@ -772,10 +778,8 @@ function updateKhatmahUI() {
     document.getElementById('kd-prog-txt').textContent = `${toArabicNum(progPct)}%`;
     document.getElementById('kd-prog-circle').style.strokeDasharray = `${progPct}, 100`;
     
-    // تأثير النبض عند اكتمال الورد
     const ring = document.getElementById('khatmah-ring');
-    if(progPct === 100) ring.classList.add('pulse-success');
-    else ring.classList.remove('pulse-success');
+    if(progPct === 100) ring.classList.add('pulse-success'); else ring.classList.remove('pulse-success');
   }
 }
 
