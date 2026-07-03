@@ -134,6 +134,26 @@ body::before {
 #tasbih-count-label { font-size: 13px; color: #3a2800; margin-top: 4px; }
 .tasbih-complete-banner { background: linear-gradient(135deg, #c9a84c22, #8a682011); border: 1px solid var(--accent); border-radius: var(--radius); padding: 14px; text-align: center; color: var(--accent); margin-bottom: 20px; display: none; width: 100%; max-width: 320px; }
 .tasbih-complete-banner.active { display: block; }
+
+/* ================= المناسبات الدينية (Popup + صفحة السنن) ================= */
+#occasion-overlay { position: fixed; inset: 0; background: rgba(5,6,10,0.72); z-index: 999; display: none; align-items: center; justify-content: center; padding: 20px; }
+#occasion-overlay.active { display: flex; }
+#occasion-modal { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); max-width: 400px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 22px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
+.occasion-modal-icon { font-size: 34px; text-align: center; margin-bottom: 8px; }
+.occasion-modal-title { font-size: 19px; font-weight: 700; color: var(--accent); text-align: center; margin-bottom: 14px; }
+.occasion-modal-item { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; font-size: 15px; line-height: 1.9; color: var(--text); }
+.occasion-modal-item b { color: var(--accent); }
+.occasion-modal-btns { display: flex; gap: 10px; margin-top: 16px; }
+.occasion-btn { flex: 1; padding: 13px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; border: none; }
+.occasion-btn.ok { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+.occasion-btn.goto { background: var(--accent); color: #1a1000; }
+
+.occasion-card { background: var(--surface); border: 1px solid var(--border); border-right: 3px solid var(--accent); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; }
+.occasion-card-title { font-size: 17px; font-weight: 700; color: var(--accent); margin-bottom: 12px; }
+.occasion-sunnah-item { font-size: 15px; line-height: 1.9; color: var(--text); padding: 8px 0; border-bottom: 1px solid var(--border); }
+.occasion-sunnah-item:last-child { border-bottom: none; }
+.occasion-note { font-size: 12.5px; color: var(--text-dim); background: var(--surface-2); border-radius: 8px; padding: 10px 12px; margin-top: 16px; line-height: 1.8; }
+.occasion-empty { text-align: center; color: var(--text-dim); padding: 40px 16px; font-size: 15px; line-height: 2; }
 </style>
 </head>
 <body>
@@ -221,6 +241,12 @@ body::before {
           <span class="quick-nav-label">السبحة</span>
         </div>
       </div>
+      <div class="quick-nav-row" id="occasion-nav-row" style="display:none;">
+        <div class="quick-nav-card" id="nav-occasion-card" role="button" style="grid-column: span 2;">
+          <span class="quick-nav-icon">🌙</span>
+          <span class="quick-nav-label" id="occasion-nav-label">سنن المناسبة</span>
+        </div>
+      </div>
       <div class="section-heading">الأذكار اليومية</div>
       <div id="daily-progress">
         <div id="daily-progress-text">أكملت ٠ من فئات اليوم</div>
@@ -231,6 +257,7 @@ body::before {
 
     <div id="screen-thikr-view" class="screen"><div id="thikr-list-container"></div></div>
     <div id="screen-dua-list" class="screen"><div id="dua-list-container"></div></div>
+    <div id="screen-occasion-list" class="screen"><div id="occasion-list-container"></div></div>
     
     <!-- شاشة السبحة بعد ضبط التوسيط (Flexbox) -->
     <div id="screen-tasbih" class="screen">
@@ -252,6 +279,18 @@ body::before {
     <button class="nav-tab" data-tab="khatmah"><span class="nav-icon">🕋</span><span>الختمة</span></button>
     <button class="nav-tab" data-tab="athkar"><span class="nav-icon">📿</span><span>الأذكار</span></button>
   </nav>
+
+  <div id="occasion-overlay">
+    <div id="occasion-modal">
+      <div class="occasion-modal-icon">🌙</div>
+      <div class="occasion-modal-title" id="occasion-modal-title">مناسبة اليوم</div>
+      <div id="occasion-modal-body"></div>
+      <div class="occasion-modal-btns">
+        <button class="occasion-btn ok" id="occasion-modal-ok">حسناً</button>
+        <button class="occasion-btn goto" id="occasion-modal-goto">عرض السنن</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script type="module">
@@ -277,6 +316,302 @@ const DUA_LIST = [
   { occasion: 'دعاء دخول المنزل', text: 'بِسْمِ اللَّهِ وَلَجْنَا، وَبِسْمِ اللَّهِ خَرَجْنَا، وَعَلَى اللَّهِ رَبِّنَا تَوَكَّلْنَا.' },
   { occasion: 'دعاء الخروج من المنزل', text: 'بِسْمِ اللَّهِ، تَوَكَّلْتُ عَلَى اللَّهِ، وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ.' }
 ];
+
+// ==================== المناسبات الدينية (بيانات موثقة من دار الإفتاء المصرية والصحيحين) ====================
+// ملاحظة: كل نص هنا تمت مراجعته وتوثيقه قبل الدمج في الكود (راجع محادثة التطوير).
+const OCCASIONS_DB = {
+  friday: {
+    title: 'سنن يوم الجمعة',
+    icon: '🕌',
+    summary: 'يوم الجمعة عيد أسبوعي للمسلمين وأفضل أيام الأسبوع',
+    sunnahs: [
+      'الاغتسال قبل التوجه للصلاة',
+      'التطيّب (التعطر) ولبس أجمل الثياب',
+      'التسوك (استخدام السواك)',
+      'التبكير للمسجد مشياً على الأقدام',
+      'قراءة سورة الكهف في أي وقت من يومها أو ليلتها',
+      'الإكثار من الصلاة على النبي ﷺ',
+      'تحرّي ساعة الإجابة (وقت مستجاب للدعاء)'
+    ],
+    source: 'دار الإفتاء المصرية — وحديث: «الصَّلَاةُ الْخَمْسُ، وَالْجُمُعَةُ إِلَى الْجُمُعَةِ، كَفَّارَةٌ لِمَا بَيْنَهُنَّ» رواه مسلم'
+  },
+  monday_thursday: {
+    title: 'صيام الاثنين والخميس',
+    icon: '🌗',
+    summary: 'كان النبي ﷺ يتحرى صيام هذين اليومين من كل أسبوع',
+    sunnahs: [
+      'صيام اليوم تطوعاً لمن استطاع',
+      'الإكثار من الذكر والاستغفار فيه',
+      'استحضار أن الأعمال تُعرض على الله في هذين اليومين'
+    ],
+    source: 'حديث: «تُعْرَضُ الأعمالُ يومَ الاثنينِ والخميسِ، فأُحِبُّ أن يُعرَضَ عملي وأنا صائمٌ» رواه مسلم'
+  },
+  white_days: {
+    title: 'صيام الأيام البيض',
+    icon: '🌕',
+    summary: 'الأيام ١٣ و١٤ و١٥ من كل شهر هجري، تعدل صيام الدهر',
+    sunnahs: [
+      'صيام الأيام الثلاثة (١٣، ١٤، ١٥) كاملة إن أمكن',
+      'من فاته يوم منها فله صيام يوم آخر تعويضاً',
+      'لا يُشترط تبييت النية من الليل في صيام النفل'
+    ],
+    source: 'حديث جرير بن عبد الله: «صِيَامُ ثَلاثَةِ أَيَّامٍ مِنْ كُلِّ شَهْرٍ صِيَامُ الدَّهْرِ» رواه النسائي بإسناد صحيح'
+  },
+  ramadan: {
+    title: 'شهر رمضان المبارك',
+    icon: '☪️',
+    summary: 'الشهر الذي فرض الله صيامه وأنزل فيه القرآن',
+    sunnahs: [
+      'تناول السحور قبل الفجر',
+      'تعجيل الفطر عند غروب الشمس',
+      'قيام الليل (صلاة التراويح)',
+      'الإكثار من قراءة القرآن الكريم',
+      'الإكثار من الدعاء والصدقة'
+    ],
+    source: 'دار الإفتاء المصرية — حديث: «مَنْ قَامَ رَمَضَانَ إِيمَانًا وَاحْتِسَابًا غُفِرَ لَهُ مَا تَقَدَّمَ مِنْ ذَنْبِهِ» متفق عليه'
+  },
+  ramadan_last10: {
+    title: 'العشر الأواخر من رمضان',
+    icon: '✨',
+    summary: 'كان النبي ﷺ يجتهد فيها ما لا يجتهد في غيرها، وفيها ليلة القدر',
+    sunnahs: [
+      'الاعتكاف في المسجد لمن استطاع',
+      'إحياء الليل بالصلاة والقيام',
+      'تحرّي ليلة القدر في الليالي الوترية (٢١، ٢٣، ٢٥، ٢٧، ٢٩)',
+      'الإكثار من الدعاء: «اللَّهُمَّ إِنَّكَ عَفُوٌّ تُحِبُّ الْعَفْوَ فَاعْفُ عَنِّي»',
+      'الإكثار من قراءة القرآن والاستغفار'
+    ],
+    source: 'عائشة رضي الله عنها: «كَانَ النَّبِيُّ ﷺ إِذَا دَخَلَ الْعَشْرُ شَدَّ مِئْزَرَهُ، وَأَحْيَا لَيْلَهُ، وَأَيْقَظَ أَهْلَهُ» متفق عليه'
+  },
+  eid_fitr: {
+    title: 'عيد الفطر المبارك',
+    icon: '🎉',
+    summary: 'يوم الفرحة بعد إتمام صيام رمضان',
+    sunnahs: [
+      'الاغتسال والتطيّب ولبس أفضل الثياب',
+      'الفطر على تمرات قبل الخروج لصلاة العيد',
+      'إخراج زكاة الفطر قبل صلاة العيد',
+      'التكبير من فجر يوم العيد حتى الصلاة',
+      'الذهاب من طريق والعودة من طريق آخر',
+      'تبادل التهنئة بين المسلمين'
+    ],
+    source: 'دار الإفتاء المصرية — حديث ابن عمر في زكاة الفطر متفق عليه'
+  },
+  dhulhijjah_10: {
+    title: 'عشر ذي الحجة ويوم عرفة',
+    icon: '🕋',
+    summary: 'أفضل أيام العام عند الله، وفيها يوم عرفة',
+    sunnahs: [
+      'صيام التسع الأول (خاصة لغير الحاج)',
+      'صيام يوم عرفة تحديداً (لغير الحاج) لتكفير سنتين',
+      'الإكثار من التكبير والتهليل والتحميد',
+      'الإمساك عن قص الشعر والأظافر لمن أراد الأضحية',
+      'الإكثار من الدعاء يوم عرفة'
+    ],
+    source: 'حديث: «مَا الْعَمَلُ فِي أَيَّامٍ أَفْضَلَ مِنْهَا فِي هَذِهِ» أخرجه البخاري؛ وحديث تكفير يوم عرفة رواه مسلم'
+  },
+  eid_adha: {
+    title: 'عيد الأضحى المبارك',
+    icon: '🐑',
+    summary: 'يوم النحر، من أعظم أيام العام عند الله',
+    sunnahs: [
+      'صلاة العيد',
+      'الاغتسال والتطيّب ولبس أفضل الثياب',
+      'ذبح الأضحية لمن استطاع',
+      'صلة الأرحام',
+      'التكبير حتى عصر آخر أيام التشريق'
+    ],
+    source: 'دار الإفتاء المصرية — «أُمِرْنَا أَنْ نُضَحِّيَ بِأَسْمَنِ مَا نَجِدُ» أخرجه الحاكم'
+  },
+  new_hijri_year: {
+    title: 'العام الهجري الجديد',
+    icon: '🌙',
+    summary: 'بداية شهر محرم، أحد الأشهر الحرم',
+    sunnahs: [
+      'مراجعة النفس والتوبة إلى الله',
+      'الإكثار من الصيام في محرم',
+      'صلة الرحم والصدقة',
+      'التهنئة بقدوم العام الهجري (مستحبة شرعاً)'
+    ],
+    source: 'حديث: «أَفْضَلُ الصِّيَامِ بَعْدَ رَمَضَانَ شَهْرُ اللهِ الْمُحَرَّمُ» رواه مسلم'
+  },
+  ashura: {
+    title: 'يوم عاشوراء',
+    icon: '🌟',
+    summary: 'العاشر من محرم، يكفّر صيامه ذنوب سنة ماضية',
+    sunnahs: [
+      'صيام يوم عاشوراء (العاشر من محرم)',
+      'الأفضل ضم صيام التاسع (تاسوعاء) إليه مخالفةً لأهل الكتاب',
+      'من استطاع فليصم الحادي عشر أيضاً'
+    ],
+    source: 'حديث: «صِيَامُ يَوْمِ عَاشُورَاءَ أَحْتَسِبُ عَلَى اللهِ أَنْ يُكَفِّرَ السَّنَةَ الَّتِي قَبْلَهُ» رواه مسلم'
+  },
+  mid_shaaban: {
+    title: 'ليلة النصف من شعبان',
+    icon: '🌛',
+    summary: 'ليلة مباركة يستحب إحياؤها بحسب دار الإفتاء المصرية',
+    sunnahs: [
+      'قيام الليل بالصلاة',
+      'صيام نهار اليوم الخامس عشر من شعبان',
+      'الإكثار من الدعاء والاستغفار'
+    ],
+    source: 'دار الإفتاء المصرية: «الاحتفالُ بِلَيْلَةِ النصف مِن شعبان مشروعٌ على جهة الاستحباب»'
+  },
+  isra_miraj: {
+    title: 'ليلة الإسراء والمعراج',
+    icon: '🕌',
+    summary: 'ذكرى رحلة الإسراء والمعراج (٢٧ رجب)',
+    sunnahs: [
+      'الإكثار من الصلاة على النبي ﷺ',
+      'قيام الليل وقراءة القرآن',
+      'الذكر والاستغفار',
+      'صيام يوم ٢٧ رجب تطوعاً (جائز وليس فرضاً)',
+      'الصدقة وإطعام الطعام'
+    ],
+    source: 'دار الإفتاء المصرية، فتوى رقم ٨٧٢٨ بتاريخ ٧ أغسطس ٢٠٢٥'
+  }
+};
+
+// ==================== محرك حساب التقويم الهجري (Offline بالكامل) ====================
+let hijriEngineAvailable = null; // null = لم يُفحص بعد
+let hijriFormatter = null;
+
+function checkHijriEngineAvailability() {
+  try {
+    const fmt = new Intl.DateTimeFormat('en-TN-u-ca-islamic-umalqura', {
+      year: 'numeric', month: 'numeric', day: 'numeric'
+    });
+    // اختبار: تاريخ ميلادي معروف يجب أن يرجع سنة هجرية منطقية (بين 1400 و1500 تقريباً لضمان أن التقويم فعلياً هجري وليس ميلادياً بالخطأ)
+    const testParts = fmt.formatToParts(new Date(2024, 0, 1));
+    const testYear = parseInt(testParts.find(p => p.type === 'year')?.value || '0', 10);
+    if (testYear < 1400 || testYear > 1500) return false;
+    hijriFormatter = fmt;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function getHijriDate(date) {
+  if (!hijriFormatter) return null;
+  try {
+    const parts = hijriFormatter.formatToParts(date);
+    const day = parseInt(parts.find(p => p.type === 'day')?.value, 10);
+    const month = parseInt(parts.find(p => p.type === 'month')?.value, 10);
+    const year = parseInt(parts.find(p => p.type === 'year')?.value, 10);
+    if (!day || !month || !year) return null;
+    return { day, month, year };
+  } catch (e) {
+    return null;
+  }
+}
+
+// إرجاع مصفوفة بمفاتيح المناسبات النشطة اليوم (بحسب التاريخ الهجري المحسوب)
+function getActiveOccasionKeys(hijri, gregorianDayOfWeek) {
+  const keys = [];
+  const { day, month } = hijri;
+  const FRIDAY = 5, MONDAY = 1, THURSDAY = 4;
+
+  if (gregorianDayOfWeek === FRIDAY) keys.push('friday');
+  if (gregorianDayOfWeek === MONDAY || gregorianDayOfWeek === THURSDAY) keys.push('monday_thursday');
+  if (day >= 13 && day <= 15) keys.push('white_days');
+
+  if (month === 9) { // رمضان
+    if (day >= 20) keys.push('ramadan_last10');
+    else keys.push('ramadan');
+  }
+  if (month === 10 && day === 1) keys.push('eid_fitr');
+
+  if (month === 12) { // ذو الحجة
+    if (day >= 1 && day <= 9) keys.push('dhulhijjah_10');
+    if (day === 10) keys.push('eid_adha');
+  }
+
+  if (month === 1) { // محرم
+    if (day === 1) keys.push('new_hijri_year');
+    if (day === 9 || day === 10) keys.push('ashura');
+  }
+
+  if (month === 8 && day === 15) keys.push('mid_shaaban'); // شعبان
+
+  if (month === 7 && day === 27) keys.push('isra_miraj'); // رجب
+
+  return keys;
+}
+
+function todayDateKey(date) {
+  return `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}`;
+}
+
+function renderOccasionModal(keys) {
+  const body = document.getElementById('occasion-modal-body');
+  const titleEl = document.getElementById('occasion-modal-title');
+  titleEl.textContent = keys.length > 1 ? 'مناسبات اليوم' : (OCCASIONS_DB[keys[0]]?.title || 'مناسبة اليوم');
+  body.innerHTML = keys.map(k => {
+    const o = OCCASIONS_DB[k];
+    if (!o) return '';
+    return `<div class="occasion-modal-item"><b>${o.icon} ${o.title}</b><br>${o.summary}</div>`;
+  }).join('');
+}
+
+function renderOccasionPage(keys) {
+  const container = document.getElementById('occasion-list-container');
+  if (!keys || keys.length === 0) {
+    container.innerHTML = `<div class="occasion-empty">لا توجد مناسبة دينية خاصة مسجلة لهذا اليوم حالياً.</div>`;
+    return;
+  }
+  let html = keys.map(k => {
+    const o = OCCASIONS_DB[k];
+    if (!o) return '';
+    return `
+      <div class="occasion-card">
+        <div class="occasion-card-title">${o.icon} ${o.title}</div>
+        ${o.sunnahs.map(s => `<div class="occasion-sunnah-item">• ${s}</div>`).join('')}
+        <div class="occasion-note">📚 ${o.source}</div>
+      </div>`;
+  }).join('');
+  html += `<div class="occasion-note">التاريخ الهجري المعروض محسوب فلكياً (تقويم أم القرى) داخل التطبيق دون الحاجة للإنترنت، وقد يختلف بيوم عن الإعلان الرسمي لبعض المناسبات (كرمضان والعيدين) المعتمد على رؤية الهلال الفعلية.</div>`;
+  container.innerHTML = html;
+}
+
+let currentOccasionKeys = [];
+
+function initOccasionSystem() {
+  if (!checkHijriEngineAvailability()) {
+    hijriEngineAvailable = false;
+    return; // إخفاء الميزة بالكامل عند عدم توفر دعم موثوق للتقويم الهجري
+  }
+  hijriEngineAvailable = true;
+
+  const now = new Date();
+  const hijri = getHijriDate(now);
+  if (!hijri) { hijriEngineAvailable = false; return; }
+
+  currentOccasionKeys = getActiveOccasionKeys(hijri, now.getDay());
+
+  // إظهار/إخفاء بطاقة التنقل في تبويب الأذكار
+  const navRow = document.getElementById('occasion-nav-row');
+  const navLabel = document.getElementById('occasion-nav-label');
+  if (currentOccasionKeys.length > 0) {
+    navRow.style.display = '';
+    navLabel.textContent = currentOccasionKeys.length > 1
+      ? 'سنن مناسبات اليوم'
+      : (OCCASIONS_DB[currentOccasionKeys[0]]?.title || 'سنن المناسبة');
+  } else {
+    navRow.style.display = 'none';
+  }
+
+  // عرض الـ popup مرة واحدة فقط في اليوم (معيار ميلادي)
+  if (currentOccasionKeys.length > 0) {
+    const todayKey = todayDateKey(now);
+    const lastShown = localStorage.getItem('occasion_popup_last_shown');
+    if (lastShown !== todayKey) {
+      renderOccasionModal(currentOccasionKeys);
+      document.getElementById('occasion-overlay').classList.add('active');
+      localStorage.setItem('occasion_popup_last_shown', todayKey);
+    }
+  }
+}
 
 const SURAHS_DATA = Array.from({length: 114}, (_, i) => ({number: i+1, name: `سورة ${i+1}`, numberOfAyahs: 10})); 
 const toArabicNum = n => n.toString().replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
@@ -312,14 +647,15 @@ function showScreen(screenId) {
   const target = document.getElementById(`screen-${screenId}`);
   if (target) { target.classList.add('active'); document.getElementById('content').scrollTop = 0; }
   
-  const isSubScreen = ['surah-view', 'thikr-view', 'dua-list', 'tasbih', 'khatmah-read'].includes(screenId);
+  const isSubScreen = ['surah-view', 'thikr-view', 'dua-list', 'tasbih', 'khatmah-read', 'occasion-list'].includes(screenId);
   document.getElementById('back-btn').classList.toggle('visible', isSubScreen);
 
   const titles = {
     'surah-list': 'القرآن الكريم', 'surah-view': state.currentSurah?.name || 'القرآن الكريم',
     'khatmah-main': 'الختمة', 'khatmah-read': 'ورد اليوم',
     'athkar-list': 'حصن المسلم', 'thikr-view': state.currentCatIndex !== null ? ATHKAR[state.currentCatIndex].name : 'الأذكار',
-    'dua-list': 'أدعية النبي ﷺ', 'tasbih': 'السبحة'
+    'dua-list': 'أدعية النبي ﷺ', 'tasbih': 'السبحة',
+    'occasion-list': currentOccasionKeys.length === 1 ? (OCCASIONS_DB[currentOccasionKeys[0]]?.title || 'سنن المناسبة') : 'سنن المناسبات'
   };
   const titleEl = document.getElementById('header-title');
   if(titleEl) titleEl.textContent = titles[screenId] || 'إسلامي';
@@ -327,7 +663,7 @@ function showScreen(screenId) {
 
 function navigateBack() {
   if (state.currentScreen === 'surah-view') { state.currentScreen = 'surah-list'; showScreen('surah-list'); }
-  else if (['thikr-view', 'dua-list', 'tasbih'].includes(state.currentScreen)) { state.currentScreen = 'athkar-list'; showScreen('athkar-list'); }
+  else if (['thikr-view', 'dua-list', 'tasbih', 'occasion-list'].includes(state.currentScreen)) { state.currentScreen = 'athkar-list'; showScreen('athkar-list'); }
   else if (state.currentScreen === 'khatmah-read') { state.currentScreen = 'khatmah-main'; showScreen('khatmah-main'); updateKhatmahUI(); }
 }
 
@@ -585,6 +921,23 @@ function init() {
     state.currentScreen = 'tasbih'; showScreen('tasbih'); buildTasbih(); updateTasbihUI();
   });
 
+  document.getElementById('nav-occasion-card').addEventListener('click', () => {
+    state.currentScreen = 'occasion-list'; showScreen('occasion-list');
+    renderOccasionPage(currentOccasionKeys);
+  });
+
+  document.getElementById('occasion-modal-ok').addEventListener('click', () => {
+    document.getElementById('occasion-overlay').classList.remove('active');
+  });
+  document.getElementById('occasion-modal-goto').addEventListener('click', () => {
+    document.getElementById('occasion-overlay').classList.remove('active');
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('.nav-tab[data-tab="athkar"]').classList.add('active');
+    state.currentTab = 'athkar'; state.currentScreen = 'occasion-list'; saveState();
+    showScreen('occasion-list');
+    renderOccasionPage(currentOccasionKeys);
+  });
+
   document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -599,6 +952,7 @@ function init() {
   });
 
   loadSurahList();
+  initOccasionSystem();
   
   state.currentTab = 'quran'; state.currentScreen = 'surah-list';
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
