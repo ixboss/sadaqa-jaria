@@ -862,8 +862,9 @@ window.completeWird = function() {
 }
 
 // ==================== Athkar & Tasbih ====================
-function getProg(c, i) { return parseInt(localStorage.getItem(`ath_${new Date().toISOString().slice(0,10)}_${c}_${i}`) || '0', 10); }
-function setProg(c, i, v) { localStorage.setItem(`ath_${new Date().toISOString().slice(0,10)}_${c}_${i}`, v); }
+function getLocalToday() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+function getProg(c, i) { return parseInt(localStorage.getItem(`ath_${getLocalToday()}_${c}_${i}`) || '0', 10); }
+function setProg(c, i, v) { localStorage.setItem(`ath_${getLocalToday()}_${c}_${i}`, v); }
 
 function renderAthkarList() {
   document.getElementById('athkar-grid').innerHTML = ATHKAR.map((cat, ci) => {
