@@ -1,6 +1,6 @@
 // ==================== Service Worker — إسلامي ====================
-const CACHE_NAME = 'quran-app-v16'; 
-const API_CACHE = 'quran-api-v16';
+const CACHE_NAME = 'quran-app-v18'; 
+const API_CACHE = 'quran-api-v18';
 
 const PRECACHE_URLS = [
   './',
@@ -63,4 +63,3 @@ async function networkFirst(request, cacheName) {
     return new Response('لا يوجد اتصال بالإنترنت', { status: 503 });
   }
 }
-
