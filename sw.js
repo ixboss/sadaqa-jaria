@@ -1,6 +1,6 @@
 // ==================== Service Worker — إسلامي ====================
-const CACHE_NAME = 'quran-app-v19'; 
-const API_CACHE = 'quran-api-v19';
+const CACHE_NAME = 'quran-app-v20'; 
+const API_CACHE = 'quran-api-v20';
 
 const PRECACHE_URLS = [
   './',
