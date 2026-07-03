@@ -15,7 +15,7 @@
 /* ==================== استيراد خط المصحف العثماني ==================== */
 @import url('https://fonts.googleapis.com/css2?family=Amiri+Quran&display=swap');
 
-/* ==================== متغيرات التصميم (Dark & Paper Themes) ==================== */
+/* ==================== متغيرات التصميم ==================== */
 :root {
   --bg: #0f1117; --surface: #1a1d27; --surface-2: #22263a;
   --accent: #c9a84c; --accent-dim: #c9a84c22;
@@ -32,8 +32,8 @@ body.theme-paper {
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Amiri', 'Traditional Arabic', 'Segoe UI', Tahoma, sans-serif; direction: rtl; overflow: hidden; transition: background 0.4s, color 0.4s; user-select: none; -webkit-user-select: none; }
-.mushaf-block { user-select: text; -webkit-user-select: text; } /* السماح بالنسخ داخل المصحف فقط */
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Amiri', 'Traditional Arabic', 'Droid Arabic Naskh', 'Simplified Arabic', 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; overflow: hidden; transition: background 0.4s, color 0.4s; user-select: none; -webkit-user-select: none; }
+.mushaf-block { user-select: text; -webkit-user-select: text; }
 
 body::before {
   content: ''; position: fixed; inset: 0; opacity: 0.05; pointer-events: none; z-index: 0;
@@ -47,7 +47,6 @@ body.theme-paper::before { opacity: 0.03; stroke: #3a2800; }
 body.theme-paper ::-webkit-scrollbar-thumb { background: rgba(176, 92, 0, 0.3); }
 
 #app { position: fixed; inset: 0; display: flex; flex-direction: column; z-index: 1; }
-
 #header { height: var(--header-h); background: linear-gradient(135deg, #c9a84c, #8a6820); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; flex-shrink: 0; z-index: 100; box-shadow: 0 2px 15px rgba(0,0,0,0.3); transition: background 0.4s; }
 body.theme-paper #header { background: linear-gradient(135deg, #d8c3a5, #bba37d); box-shadow: 0 2px 15px rgba(0,0,0,0.1); }
 
@@ -58,7 +57,7 @@ body.theme-paper #reading-progress-bar { background: #b05c00; }
 
 .header-center { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: center; }
 #header-title { font-size: 18px; font-weight: 700; color: #1a1000; }
-#header-subtitle { font-size: 11px; font-weight: bold; color: #4a3000; margin-top: 2px; direction: rtl; } /* تم التعديل لمنع انعكاس التاريخ */
+#header-subtitle { font-size: 11px; font-weight: bold; color: #4a3000; margin-top: 2px; direction: rtl; }
 
 #back-btn { display: none; background: rgba(0,0,0,0.15); border: none; border-radius: 8px; color: #1a1000; font-size: 22px; cursor: pointer; width: 40px; height: 40px; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.2s; }
 #back-btn:active { transform: scale(0.9); }
@@ -70,7 +69,7 @@ body.theme-paper #reading-progress-bar { background: #b05c00; }
 .header-btn.active { background: #1a1000; color: #c9a84c; }
 body.theme-paper .header-btn.active { background: #3a2800; color: #e9d8bd; }
 
-#content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 110px; scroll-behavior: smooth; touch-action: pan-y; } /* منع المتصفح من التدخل العرضي */
+#content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 110px; scroll-behavior: smooth; touch-action: pan-y; }
 
 /* ================== شريط التنقل الزجاجي & الإخفاء الذكي ================== */
 #nav {
@@ -98,13 +97,13 @@ body.theme-paper .nav-indicator { background: linear-gradient(135deg, rgba(176, 
 }
 .nav-tab.active { color: var(--accent); font-weight: bold; }
 .nav-tab .nav-icon { font-size: 22px; transition: transform 0.4s cubic-bezier(0.5, 1.5, 0.4, 1); pointer-events: none; }
-.nav-tab.active .nav-icon { transform: translateY(-3px) scale(1.15); filter: drop-shadow(0 4px 6px rgba(201, 168, 76, 0.5)); } /* توهج الأيقونة */
+.nav-tab.active .nav-icon { transform: translateY(-3px) scale(1.15); filter: drop-shadow(0 4px 6px rgba(201, 168, 76, 0.5)); }
 .nav-tab .nav-text { pointer-events: none; transition: color 0.3s; }
 
 .ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple-anim 0.5s cubic-bezier(0.25, 1, 0.5, 1); background-color: rgba(201, 168, 76, 0.25); pointer-events: none; z-index: 0; }
 @keyframes ripple-anim { to { transform: scale(3.5); opacity: 0; } }
 
-/* ================== انتقالات الشاشات ================== */
+/* ================== انتقالات الشاشات الملساء ================== */
 .screen { display: none; width: 100%; max-width: 680px; margin: 0 auto; padding: 16px; }
 .screen.active { display: block; animation: fadeIn 0.25s ease forwards; }
 .screen.slide-left { display: block; animation: slideInLeft 0.35s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
@@ -115,7 +114,6 @@ body.theme-paper .nav-indicator { background: linear-gradient(135deg, rgba(176, 
 @keyframes slideInLeft { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
 
-/* ================== تأثيرات Shimmer ================== */
 .skeleton { background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite linear; border-radius: 8px; }
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 .sk-card { height: 80px; width: 100%; margin-bottom: 12px; }
@@ -158,7 +156,6 @@ body.theme-paper #surah-header-card { background: linear-gradient(135deg, #d8c3a
 .circle-path { fill: none; stroke: var(--accent); stroke-width: 3.5; stroke-linecap: round; transition: stroke-dasharray 1s cubic-bezier(0.5, 1.5, 0.4, 1); }
 .circle-text { position: absolute; font-size: 12px; font-weight: bold; color: var(--text); font-family: Tahoma; }
 
-/* نبض النجاح */
 .pulse-success { animation: pulse-green 2s infinite; }
 @keyframes pulse-green {
   0% { box-shadow: 0 0 0 0 rgba(76, 175, 125, 0.4); }
@@ -177,7 +174,6 @@ body.theme-paper #surah-header-card { background: linear-gradient(135deg, #d8c3a
 .k-dash-info { flex: 1; display: flex; flex-direction: column; gap: 12px; }
 .k-dash-title { font-size: calc(var(--font-size) * 0.6); color: var(--text-dim); margin-bottom: 6px; transition: font-size 0.3s; }
 
-/* بطاقات الورد المصححة (السهم لليسار) */
 .k-wird-container { display: flex; align-items: center; justify-content: space-between; background: var(--surface-2); border-radius: 8px; padding: 12px; width: 90%; }
 .k-wird-badge { display: flex; flex-direction: column; align-items: center; }
 .k-wird-badge span { font-size: calc(var(--font-size) * 0.85); font-weight: bold; color: var(--accent); transition: font-size 0.3s; }
@@ -219,7 +215,16 @@ body.theme-paper .thikr-tap-btn.done { background: #d0f0c0; color: #1a4d2e; bord
 .dua-occasion { font-size: calc(var(--font-size) * 0.6); font-weight: 700; color: var(--accent); margin-bottom: 10px; transition: font-size 0.3s; }
 .dua-text { font-size: calc(var(--font-size) * 0.85); line-height: var(--line-height); color: var(--text); text-align: justify; transition: font-size 0.3s; }
 
-/* ================= السبحة والمناسبات ================= */
+/* ================= السنن والمناسبات (تم تكبير الخط وراثة نوعه) ================= */
+.occasion-card { background: var(--surface); border: 1px solid var(--border); border-right: 4px solid var(--accent); border-radius: var(--radius); padding: 22px; margin-bottom: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: background 0.4s, border-color 0.4s; }
+body.theme-paper .occasion-card { border-right-color: var(--accent); }
+.occasion-card-title { font-size: calc(var(--font-size) * 0.8); font-weight: 700; color: var(--accent); margin-bottom: 14px; transition: font-size 0.3s; font-family: inherit; }
+.occasion-sunnah-item { font-size: calc(var(--font-size) * 0.7); line-height: 2; color: var(--text); padding: 10px 0; border-bottom: 1px solid var(--border); transition: font-size 0.3s, color 0.3s; font-family: inherit; }
+.occasion-sunnah-item:last-child { border-bottom: none; }
+.occasion-note { font-size: calc(var(--font-size) * 0.55); color: var(--text-dim); background: var(--surface-2); border-radius: 8px; padding: 12px; margin-top: 16px; line-height: 1.8; transition: font-size 0.3s; font-family: inherit; }
+.occasion-empty { text-align: center; color: var(--text-dim); padding: 40px 16px; font-size: calc(var(--font-size) * 0.7); line-height: 2; transition: font-size 0.3s; font-family: inherit; }
+
+/* ================= السبحة ================= */
 .tasbih-laps { display: flex; gap: 10px; margin-bottom: 24px; justify-content: center; }
 .tasbih-lap-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); background: transparent; transition: background 0.3s; }
 .tasbih-lap-dot.filled { background: var(--accent); }
@@ -238,7 +243,7 @@ body.theme-paper #tasbih-tap-btn { background: linear-gradient(135deg, #d8c3a5, 
 #occasion-modal { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 400px; padding: 22px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: fadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .occasion-modal-icon { font-size: 34px; text-align: center; margin-bottom: 8px; }
 .occasion-modal-title { font-size: 19px; font-weight: 700; color: var(--accent); text-align: center; margin-bottom: 14px; }
-.occasion-modal-item { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; font-size: calc(var(--font-size) * 0.6); line-height: 1.9; color: var(--text); transition: font-size 0.3s; }
+.occasion-modal-item { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; font-size: calc(var(--font-size) * 0.7); line-height: 1.9; color: var(--text); transition: font-size 0.3s; font-family: inherit; }
 .occasion-modal-item b { color: var(--accent); }
 
 /* ================= شاشة البداية ================= */
@@ -394,7 +399,7 @@ body.theme-paper #tasbih-tap-btn { background: linear-gradient(135deg, #d8c3a5, 
   </div>
 </div>
 
-<script type="module">
+<script>
 // ==================== Data (Athkar, Duas, Occasions) ====================
 const ATHKAR = [
   { name: 'أذكار الصباح', icon: '🌅', items: [ 
@@ -481,18 +486,18 @@ const OCCASIONS_DB = {
   pre_monday: { title: 'تذكير بصيام غدٍ الإثنين', icon: '⏰', summary: 'غداً تُعرض الأعمال على الله', sunnahs: ['تبييت النية للصيام', 'الاستعداد للسحور'] },
   pre_thursday: { title: 'تذكير بصيام غدٍ الخميس', icon: '⏰', summary: 'غداً تُرفع الأعمال إلى الله', sunnahs: ['تبييت النية للصيام', 'الاستعداد للسحور'] },
   pre_white_days: { title: 'تذكير بصيام الأيام البيض', icon: '🌕', summary: 'غداً تبدأ الأيام البيض', sunnahs: ['تبييت النية لصيام الغد', 'الاستعداد للسحور'] },
-  friday: { title: 'سنن يوم الجمعة', icon: '🕌', summary: 'يوم الجمعة عيد أسبوعي للمسلمين', sunnahs: ['الاغتسال', 'التطيّب', 'السواك', 'التبكير للمسجد', 'سورة الكهف', 'الإكثار من الصلاة على النبي', 'تحرّي ساعة الإجابة'] },
-  monday_thursday: { title: 'صيام الاثنين والخميس', icon: '🌗', summary: 'كان النبي ﷺ يتحرى صيام هذين اليومين', sunnahs: ['صيام اليوم تطوعاً', 'الإكثار من الذكر'] },
-  white_days: { title: 'صيام الأيام البيض', icon: '🌕', summary: 'الأيام ١٣ و١٤ و١٥ من كل شهر', sunnahs: ['صيام الأيام الثلاثة', 'التعويض لمن فاته يوم'] },
-  ramadan: { title: 'شهر رمضان المبارك', icon: '☪️', summary: 'الشهر الذي أنزل فيه القرآن', sunnahs: ['السحور', 'تعجيل الفطر', 'التراويح', 'قراءة القرآن', 'الدعاء'] },
-  ramadan_last10: { title: 'العشر الأواخر من رمضان', icon: '✨', summary: 'فيها ليلة القدر', sunnahs: ['الاعتكاف', 'إحياء الليل', 'تحرّي ليلة القدر', 'دعاء العفو'] },
-  eid_fitr: { title: 'عيد الفطر المبارك', icon: '🎉', summary: 'يوم الفرحة بعد الصيام', sunnahs: ['الاغتسال والتطيب', 'الفطر على تمرات', 'زكاة الفطر', 'التكبير'] },
-  dhulhijjah_10: { title: 'عشر ذي الحجة ويوم عرفة', icon: '🕋', summary: 'أفضل أيام العام، وفيها عرفة', sunnahs: ['صيام التسع', 'صيام عرفة', 'التكبير', 'الإمساك عن قص الشعر للمضحي'] },
-  eid_adha: { title: 'عيد الأضحى المبارك', icon: '🐑', summary: 'يوم النحر وأعظم الأيام', sunnahs: ['صلاة العيد', 'الاغتسال', 'الأضحية', 'التكبير'] },
-  new_hijri_year: { title: 'العام الهجري الجديد', icon: '🌙', summary: 'بداية شهر محرم', sunnahs: ['مراجعة النفس', 'صيام محرم', 'التهنئة'] },
-  ashura: { title: 'يوم عاشوراء', icon: '🌟', summary: 'العاشر من محرم', sunnahs: ['صيام عاشوراء', 'ضم التاسع إليه'] },
-  mid_shaaban: { title: 'ليلة النصف من شعبان', icon: '🌛', summary: 'ليلة مباركة', sunnahs: ['قيام الليل', 'صيام الخامس عشر', 'الدعاء'] },
-  isra_miraj: { title: 'ليلة الإسراء والمعراج', icon: '🕌', summary: 'ذكرى المعجزة العظيمة', sunnahs: ['الصلاة على النبي', 'قيام الليل', 'الاستغفار', 'الصدقة'] }
+  friday: { title: 'سنن يوم الجمعة', icon: '🕌', summary: 'يوم الجمعة عيد أسبوعي للمسلمين', sunnahs: ['الاغتسال والتطيّب', 'السواك والتبكير للمسجد', 'قراءة سورة الكهف لنورٍ بين الجمعتين', 'الإكثار من الصلاة على النبي ﷺ', 'تحرّي ساعة الإجابة آخر النهار'] },
+  monday_thursday: { title: 'صيام الاثنين والخميس', icon: '🌗', summary: 'كان النبي ﷺ يتحرى صيام هذين اليومين', sunnahs: ['صيام اليوم تطوعاً لله', 'الإكثار من الذكر والاستغفار'] },
+  white_days: { title: 'صيام الأيام البيض', icon: '🌕', summary: 'الأيام ١٣ و١٤ و١٥ من كل شهر', sunnahs: ['صيام الأيام الثلاثة المباركة', 'التعويض لمن فاته صيام أحد الأيام'] },
+  ramadan: { title: 'شهر رمضان المبارك', icon: '☪️', summary: 'الشهر الذي أنزل فيه القرآن هدى للناس', sunnahs: ['تسحّروا فإن في السحور بركة', 'تعجيل الفطر على تمرات', 'قيام الليل والتراويح', 'كثرة قراءة القرآن والصدقة'] },
+  ramadan_last10: { title: 'العشر الأواخر من رمضان', icon: '✨', summary: 'فيها ليلة القدر خير من ألف شهر', sunnahs: ['الاعتكاف وإحياء الليل كله', 'إيقاظ الأهل والجد والاجتهاد', 'تحرّي ليلة القدر في الأوتار', 'دعاء العفو: اللهم إنك عفو تحب العفو فاعف عني'] },
+  eid_fitr: { title: 'عيد الفطر المبارك', icon: '🎉', summary: 'يوم الفرحة والجوائز بعد الصيام', sunnahs: ['الاغتسال والتطيب ولبس الجميل', 'الفطر على تمرات وتراً قبل الخروج للصلة', 'أداء زكاة الفطر قبل الصلاة', 'التكبير والتهنئة وصلة الأرحام'] },
+  dhulhijjah_10: { title: 'عشر ذي الحجة ويوم عرفة', icon: '🕋', summary: 'أفضل أيام العام والأعمال فيها أحب إلى الله', sunnahs: ['صيام التسع الأوائل وخاصة عرفة', 'الإكثار من التكبير والتهليل والتحميد', 'الاجتهاد في العبادة والذكر', 'الإمساك عن قص الشعر والأظافر للمضحي'] },
+  eid_adha: { title: 'عيد الأضحى المبارك', icon: '🐑', summary: 'يوم النحر وأعظم الأيام عند الله', sunnahs: ['صلاة العيد والاغتسال', 'ذبح الأضحية بعد الصلاة وتوزيعها', 'الأكل من الأضحية', 'التكبير المطلق والمقيد دبر الصلوات'] },
+  new_hijri_year: { title: 'العام الهجري الجديد', icon: '🌙', summary: 'بداية شهر محرم الحرام', sunnahs: ['مراجعة النفس وتجديد التوبة', 'صيام ما تيسر من شهر الله محرم', 'تبادل التهنئة بالعام الجديد'] },
+  ashura: { title: 'يوم عاشوراء', icon: '🌟', summary: 'العاشر من محرم يوم نجا الله فيه موسى', sunnahs: ['صيام يوم عاشوراء ليكفر سنة ماضية', 'صيام يوم التاسع (تاسوعاء) مخالفة لليهود'] },
+  mid_shaaban: { title: 'ليلة النصف من شعبان', icon: '🌛', summary: 'ليلة مباركة ترفع فيها الأعمال السنوية', sunnahs: ['قيام الليل بالدعاء والاستغفار', 'صيام اليوم الخامس عشر تطوعاً', 'سلامة الصدر وترك الشحناء والخصومة'] },
+  isra_miraj: { title: 'ليلة الإسراء والمعراج', icon: '🕌', summary: 'ذكرى المعجزة والرحلة العظيمة وفرض الصلاة', sunnahs: ['الإكثار من الصلاة على النبي ﷺ', 'إحياء الليل بالذكر والعبادة', 'الاستغفار والصدقة وإدخال السرور على الأهل'] }
 };
 
 // ==================== Hijri & Date Engine ====================
@@ -501,7 +506,6 @@ const HIJRI_MONTHS = ['محرم','صفر','ربيع الأول','ربيع الآ
 
 function initHijri() {
   try {
-    // تم استخدام en-US لضمان قراءة الأرقام بشكل صحيح وتجنب NaN
     const fmt = new Intl.DateTimeFormat('en-US-u-ca-islamic-umalqura', { year: 'numeric', month: 'numeric', day: 'numeric' });
     const test = fmt.formatToParts(new Date());
     if (test.some(p => p.type === 'year' && parseInt(p.value)>1400)) { hijriFormatter = fmt; hijriEngineAvailable = true; }
@@ -566,10 +570,11 @@ function updateHeaderSubtitle() {
 const SURAHS_DATA = Array.from({length: 114}, (_, i) => ({number: i+1, name: `سورة ${i+1}`, numberOfAyahs: 10})); 
 const toArabicNum = n => n.toString().replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
 const tabsArray = ['quran', 'khatmah', 'athkar'];
-let state = { currentTab: 'quran', currentScreen: 'surah-list', currentSurah: null, fontSize: 'large', currentCatIndex: null, khatmah: null, theme: 'dark', bookmark: null };
+let state = { currentTab: 'quran', currentScreen: 'surah-list', currentSurah: null, fontSize: 'large', currentCatIndex: null, khatmah: null, theme: 'dark', bookmark: null, scrollPositions: {} };
 let allSurahs = [];
+let contentArea, searchBar, clearBtn;
 
-function loadState() { try { const s = localStorage.getItem('app_state'); if (s) Object.assign(state, JSON.parse(s)); } catch(e) {} }
+function loadState() { try { const s = localStorage.getItem('app_state'); if (s) Object.assign(state, JSON.parse(s)); if(!state.scrollPositions) state.scrollPositions = {}; } catch(e) {} }
 function saveState() { try { localStorage.setItem('app_state', JSON.stringify(state)); checkBookmarkFAB(); } catch(e) {} }
 
 function applyTheme(th) {
@@ -578,9 +583,7 @@ function applyTheme(th) {
   else { document.body.classList.remove('theme-paper'); document.getElementById('theme-btn').textContent = '🌙'; }
   saveState();
 }
-document.getElementById('theme-btn').addEventListener('click', () => applyTheme(state.theme === 'dark' ? 'paper' : 'dark'));
 
-// Global Font Sizing
 function applyFontSize(size) {
   const fontSizes = { small: { size: '20px', lh: '2.0' }, medium: { size: '26px', lh: '2.3' }, large: { size: '36px', lh: '2.6' } };
   const f = fontSizes[size] || fontSizes.large;
@@ -589,11 +592,14 @@ function applyFontSize(size) {
   state.fontSize = size; saveState();
 }
 
-// Navigation & Screens 
 function showScreen(screenId, animClass = 'active') {
+  if(state.currentScreen && ['surah-list', 'athkar-list'].includes(state.currentScreen)) {
+    state.scrollPositions[state.currentScreen] = contentArea.scrollTop;
+  }
+
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'slide-left', 'slide-right'));
   const target = document.getElementById(`screen-${screenId}`);
-  if (target) { target.classList.add(animClass); document.getElementById('content').scrollTop = 0; }
+  if (target) { target.classList.add(animClass); }
   
   state.currentScreen = screenId;
   const isSubScreen = ['surah-view', 'thikr-view', 'dua-list', 'tasbih', 'khatmah-read', 'occasion-list'].includes(screenId);
@@ -603,6 +609,14 @@ function showScreen(screenId, animClass = 'active') {
   document.getElementById('header-title').textContent = titles[screenId] || 'إسلامي';
   updateHeaderSubtitle(); updateBookmarkIcon();
   
+  setTimeout(() => {
+    if(['surah-list', 'athkar-list'].includes(screenId) && state.scrollPositions[screenId]) {
+      contentArea.scrollTop = state.scrollPositions[screenId];
+    } else {
+      contentArea.scrollTop = 0;
+    }
+  }, 30);
+
   if(['surah-view', 'khatmah-read'].includes(screenId)) {
       document.getElementById('reading-progress-container').style.display = 'block';
   } else {
@@ -618,7 +632,6 @@ function navigateBack() {
   saveState();
 }
 
-// ==================== Liquid Nav & Gestures ====================
 function setNavIndicator() {
   const activeTab = document.querySelector('.nav-tab.active');
   const indicator = document.getElementById('nav-indicator');
@@ -651,44 +664,60 @@ function switchTab(tabId) {
   
   saveState(); setNavIndicator(); checkBookmarkFAB();
 }
-window.addEventListener('resize', setNavIndicator);
 
-// Swipe Gestures - تم استخدام Touch Events لضمان عملها بقوة
-let pStartX = 0, pStartY = 0;
-function onSwipeStart(x, y) { pStartX = x; pStartY = y; }
-function onSwipeEnd(x, y) {
-  const dx = x - pStartX; const dy = y - pStartY;
-  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) { 
+// ==================== Bulletproof Gestures (التنقل بالسحب المضمون) ====================
+let swipeStartX = 0; let swipeStartY = 0;
+
+function handleSwipeStart(x, y) {
+  swipeStartX = x; 
+  swipeStartY = y;
+}
+
+function handleSwipeEnd(x, y) {
+  const dx = x - swipeStartX; 
+  const dy = y - swipeStartY;
+  
+  // لكي نعتبره "سحب عرضي" يجب أن تكون المسافة الأفقية واضحة (أكثر من 60) وأكبر بمرتين من المسافة الرأسية
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) { 
     if (['surah-view', 'thikr-view', 'dua-list', 'tasbih', 'khatmah-read', 'occasion-list'].includes(state.currentScreen)) return;
-    const idx = tabsArray.indexOf(state.currentTab);
-    if (dx < 0 && idx < tabsArray.length - 1) switchTab(tabsArray[idx + 1]);
-    else if (dx > 0 && idx > 0) switchTab(tabsArray[idx - 1]);
+    const currentIndex = tabsArray.indexOf(state.currentTab);
+    
+    if (dx < 0 && currentIndex < tabsArray.length - 1) switchTab(tabsArray[currentIndex + 1]);
+    else if (dx > 0 && currentIndex > 0) switchTab(tabsArray[currentIndex - 1]);
   }
 }
-const contentArea = document.getElementById('content');
-contentArea.addEventListener('touchstart', e => onSwipeStart(e.changedTouches[0].screenX, e.changedTouches[0].screenY), {passive: true});
-contentArea.addEventListener('touchend', e => onSwipeEnd(e.changedTouches[0].screenX, e.changedTouches[0].screenY), {passive: true});
-contentArea.addEventListener('mousedown', e => onSwipeStart(e.screenX, e.screenY), {passive: true});
-contentArea.addEventListener('mouseup', e => onSwipeEnd(e.screenX, e.screenY), {passive: true});
 
-let lastScrollY = 0;
-contentArea.addEventListener('scroll', () => {
-  const sy = contentArea.scrollTop;
-  const nav = document.getElementById('nav'); const kCtrl = document.getElementById('khatmah-controls'); const fab = document.getElementById('resume-fab');
+function bindGesturesAndScroll() {
+  // للـ Mobile Touch
+  contentArea.addEventListener('touchstart', e => handleSwipeStart(e.changedTouches[0].clientX, e.changedTouches[0].clientY), {passive: true});
+  contentArea.addEventListener('touchend', e => handleSwipeEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY), {passive: true});
   
-  if (sy > lastScrollY && sy > 50) { 
-      nav.classList.add('nav-hidden'); if(kCtrl) kCtrl.classList.add('controls-hidden'); if(fab) fab.classList.add('fab-hidden');
-  } else { 
-      nav.classList.remove('nav-hidden'); if(kCtrl) kCtrl.classList.remove('controls-hidden'); if(fab) fab.classList.remove('fab-hidden');
-  }
-  lastScrollY = sy;
-  
-  if (['surah-view', 'khatmah-read'].includes(state.currentScreen)) {
-      const scrollHeight = contentArea.scrollHeight - contentArea.clientHeight;
-      const progress = scrollHeight > 0 ? (sy / scrollHeight) * 100 : 0;
-      document.getElementById('reading-progress-bar').style.width = progress + '%';
-  }
-}, {passive: true});
+  // للـ Mouse / Laptop
+  contentArea.addEventListener('mousedown', e => { if(e.button === 0) handleSwipeStart(e.clientX, e.clientY); }, {passive: true});
+  contentArea.addEventListener('mouseup', e => { if(e.button === 0) handleSwipeEnd(e.clientX, e.clientY); }, {passive: true});
+
+  let lastScrollY = 0;
+  contentArea.addEventListener('scroll', () => {
+    const sy = contentArea.scrollTop;
+    // استشعار ذكي للوصول لأسفل الصفحة (لحل مشكلة أزرار الختمة)
+    const maxScroll = contentArea.scrollHeight - contentArea.clientHeight;
+    const isAtBottom = sy >= maxScroll - 20;
+
+    const nav = document.getElementById('nav'); const kCtrl = document.getElementById('khatmah-controls'); const fab = document.getElementById('resume-fab');
+    
+    if (sy > lastScrollY && sy > 50 && !isAtBottom) { 
+        nav.classList.add('nav-hidden'); if(kCtrl) kCtrl.classList.add('controls-hidden'); if(fab) fab.classList.add('fab-hidden');
+    } else { 
+        nav.classList.remove('nav-hidden'); if(kCtrl) kCtrl.classList.remove('controls-hidden'); if(fab) fab.classList.remove('fab-hidden');
+    }
+    lastScrollY = sy;
+    
+    if (['surah-view', 'khatmah-read'].includes(state.currentScreen)) {
+        const progress = maxScroll > 0 ? (sy / maxScroll) * 100 : 0;
+        document.getElementById('reading-progress-bar').style.width = progress + '%';
+    }
+  }, {passive: true});
+}
 
 // ==================== Bookmarks ====================
 window.toggleBookmark = function(type) {
@@ -731,16 +760,6 @@ function renderSurahList(list, query = '') {
   }).join('');
 }
 
-const searchBar = document.getElementById('search-bar'); const clearBtn = document.getElementById('clear-search');
-searchBar.addEventListener('input', e => {
-  const val = e.target.value.trim(); clearBtn.style.display = val ? 'block' : 'none';
-  const norm = text => text.replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/[\u064B-\u065F]/g, '');
-  const nVal = norm(val);
-  const filtered = allSurahs.filter(s => norm(s.name).includes(nVal) || s.number.toString() === val);
-  renderSurahList(filtered, nVal);
-});
-clearBtn.addEventListener('click', () => { searchBar.value = ''; clearBtn.style.display = 'none'; renderSurahList(allSurahs); searchBar.focus(); });
-
 window.openSurah = async function(number) {
   state.currentSurah = allSurahs.find(s => s.number === number) || { name: `سورة ${number}`, number: number };
   showScreen('surah-view', 'slide-left');
@@ -764,7 +783,7 @@ window.openSurah = async function(number) {
   html += `</div>`; container.innerHTML = html;
 }
 
-// ==================== Khatmah (Badges UI) ====================
+// ==================== Khatmah ====================
 function updateKhatmahUI() {
   if (!state.khatmah || !state.khatmah.active) {
     document.getElementById('khatmah-setup').style.display = 'block'; document.getElementById('khatmah-dash').style.display = 'none';
@@ -913,9 +932,13 @@ function renderOccasionPage(keys) {
   }).join('') + `<div class="occasion-note">التاريخ الهجري المعروض محسوب فلكياً داخل التطبيق.</div>`;
 }
 
-function init() {
+document.addEventListener('DOMContentLoaded', () => {
   const splash = document.getElementById('splash-screen');
-  if (splash) setTimeout(() => { splash.style.opacity = '0'; setTimeout(() => splash.style.display = 'none', 400); }, 2000);
+  if (splash) setTimeout(() => { splash.style.opacity = '0'; setTimeout(() => splash.style.display = 'none', 400); }, 1500);
+
+  contentArea = document.getElementById('content');
+  searchBar = document.getElementById('search-bar');
+  clearBtn = document.getElementById('clear-search');
 
   initHijri(); loadState();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
@@ -933,11 +956,21 @@ function init() {
 
   document.querySelectorAll('.nav-tab').forEach(t => { t.addEventListener('pointerdown', createRipple); t.addEventListener('click', () => switchTab(t.dataset.tab)); });
 
+  searchBar.addEventListener('input', e => {
+    const val = e.target.value.trim(); clearBtn.style.display = val ? 'block' : 'none';
+    const norm = text => text.replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/[\u064B-\u065F]/g, '');
+    const nVal = norm(val);
+    const filtered = allSurahs.filter(s => norm(s.name).includes(nVal) || s.number.toString() === val);
+    renderSurahList(filtered, nVal);
+  });
+  clearBtn.addEventListener('click', () => { searchBar.value = ''; clearBtn.style.display = 'none'; renderSurahList(allSurahs); searchBar.focus(); });
+
+  window.addEventListener('resize', setNavIndicator);
+  bindGesturesAndScroll();
+
   loadSurahList(); initOccasionSystem(); switchTab(state.currentTab || 'quran');
   setTimeout(setNavIndicator, 100); checkBookmarkFAB();
-}
-
-document.addEventListener('DOMContentLoaded', init);
+});
 </script>
 </body>
 </html>
