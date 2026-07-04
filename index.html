@@ -199,7 +199,8 @@ body.theme-light .btn-scale { color: #ffffff; }
 .k-wird-badge small { font-size: calc(var(--font-size) * 0.45); color: var(--text-dim); margin-bottom: 4px; transition: font-size 0.3s; }
 .k-wird-arrow { color: var(--accent); font-size: calc(var(--font-size) * 0.8); font-weight: bold; transition: font-size 0.3s; }
 
-.khatmah-controls { position: fixed; bottom: 93px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 680px; display: flex; gap: 8px; background: rgba(34, 38, 58, 0.85); backdrop-filter: blur(10px); padding: 10px 16px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 50; transition: transform 0.4s, opacity 0.4s, background 0.4s; }
+.khatmah-controls { position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 680px; display: flex; gap: 8px; background: rgba(34, 38, 58, 0.85); backdrop-filter: blur(10px); padding: 10px 16px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 50; transition: transform 0.4s, opacity 0.4s, background 0.4s; }
+
 body.theme-light .khatmah-controls { background: rgba(255, 255, 255, 0.9); box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid var(--border); }
 .khatmah-controls.controls-hidden { transform: translate(-50%, 150px); opacity: 0; pointer-events: none; }
 .k-ctrl-btn { flex: 1; background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: calc(var(--font-size) * 0.55); transition: transform 0.2s, font-size 0.3s, background 0.4s, color 0.4s; }
@@ -280,6 +281,23 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
   transform: scaleX(1.03) scaleY(0.92) !important;
   transition: transform 0.15s ease-out !important;
 }
+/* ==================== جعل شريط الختمة مرن وتحت الآيات ==================== */
+.khatmah-controls {
+  position: relative !important; /* خليه يتحرك مع الصفحة طبيعي مش ثابت */
+  bottom: 0 !important;
+  left: 0 !important;
+  transform: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-top: 30px !important; /* سيب مسافة مريحة بعد آخر آية */
+  margin-bottom: 20px !important;
+  box-shadow: none !important;
+}
+
+#content {
+  padding-bottom: 120px !important; /* مساحة مريحة عشان النيف بار الرئيسي */
+}
+
 
 </style>
 </head>
@@ -783,18 +801,18 @@ function bindGesturesAndScroll() {
     if(e.button === 0) handleSwipeEnd(e.clientX, e.clientY); 
   }, {passive: true});
 
-  let lastScrollY = 0;
+   let lastScrollY = 0;
   contentArea.addEventListener('scroll', () => {
     const sy = contentArea.scrollTop;
     const maxScroll = contentArea.scrollHeight - contentArea.clientHeight;
     const isAtBottom = sy >= maxScroll - 20;
 
-    const nav = document.getElementById('nav'); const kCtrl = document.getElementById('khatmah-controls'); const fab = document.getElementById('resume-fab');
+    const nav = document.getElementById('nav'); const fab = document.getElementById('resume-fab');
     
     if (sy > lastScrollY && sy > 50 && !isAtBottom) { 
-        nav.classList.add('nav-hidden'); if(kCtrl) kCtrl.classList.add('controls-hidden'); if(fab) fab.classList.add('fab-hidden');
+        nav.classList.add('nav-hidden'); if(fab) fab.classList.add('fab-hidden');
     } else { 
-        nav.classList.remove('nav-hidden'); if(kCtrl) kCtrl.classList.remove('controls-hidden'); if(fab) fab.classList.remove('fab-hidden');
+        nav.classList.remove('nav-hidden'); if(fab) fab.classList.remove('fab-hidden');
     }
     lastScrollY = sy;
     
@@ -803,6 +821,7 @@ function bindGesturesAndScroll() {
         document.getElementById('reading-progress-bar').style.width = progress + '%';
     }
   }, {passive: true});
+
 }
 
 
