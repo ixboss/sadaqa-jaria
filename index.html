@@ -1024,6 +1024,12 @@ window.completeWird = function() {
 
 // ==================== Athkar & Tasbih ====================
 function getLocalToday() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+// دالة ثابتة لحساب تاريخ اليوم بتوقيت الموبايل الفعلي
+function getLocalToday() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function getProg(c, i) { return parseInt(localStorage.getItem(`ath_${getLocalToday()}_${c}_${i}`) || '0', 10); }
 function setProg(c, i, v) { localStorage.setItem(`ath_${getLocalToday()}_${c}_${i}`, v); }
 
@@ -1107,12 +1113,14 @@ function renderOccasionPage(keys) {
 
 document.addEventListener('DOMContentLoaded', () => {
   // تنظيف الذاكرة من بيانات الأذكار للأيام السابقة
-  const todayDateStr = new Date().toISOString().slice(0,10);
+   // تنظيف الذاكرة من بيانات الأذكار للأيام السابقة (بالتوقيت المحلي)
+  const localTodayStr = getLocalToday();
   Object.keys(localStorage).forEach(key => {
-    if (key.startsWith('ath_') && !key.includes(todayDateStr)) {
+    if (key.startsWith('ath_') && !key.includes(localTodayStr)) {
       localStorage.removeItem(key);
     }
   });
+
 
   const splash = document.getElementById('splash-screen');
   if (splash) setTimeout(() => { splash.style.opacity = '0'; setTimeout(() => splash.style.display = 'none', 400); }, 1500);
