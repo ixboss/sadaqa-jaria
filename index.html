@@ -302,6 +302,7 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
     <div id="font-ctrl">
       <!-- زر الوضع الفاتح/الداكن تم تفعيله -->
       <button class="header-btn" id="theme-btn" title="الوضع الفاتح">☀️</button>
+    <button class="header-btn" id="share-btn" title="مشاركة التطبيق">📤</button>
       <button class="header-btn font-btn" data-size="small">ص</button>
       <button class="header-btn font-btn" data-size="medium">م</button>
       <button class="header-btn font-btn active" data-size="large">ك</button>
@@ -575,17 +576,27 @@ function getCurrentPeriod(date) {
 function updateHeaderSubtitle() {
   const sub = document.getElementById('header-subtitle');
   if (state.currentScreen === 'khatmah-read' && state.khatmah) {
-    sub.textContent = `ورد صفحة ${toArabicNum(state.khatmah.currentPage)}`; return;
+    if (state.khatmah.currentPage >= state.khatmah.todayWirdEnd) {
+       sub.textContent = `🎉 أتممت ورد اليوم (صفحة ${toArabicNum(state.khatmah.currentPage)})`; 
+       sub.style.color = 'var(--success)';
+    } else {
+       sub.textContent = `ورد صفحة ${toArabicNum(state.khatmah.currentPage)}`; 
+       sub.style.color = '';
+    }
+    return;
   }
   if (hijriEngineAvailable) {
     const h = getHijriDate(new Date());
     if (h && !isNaN(h.month)) { 
         sub.textContent = `${toArabicNum(h.day)} ${HIJRI_MONTHS[h.month-1]} ${toArabicNum(h.year)} هـ`; 
+        sub.style.color = '';
         return; 
     }
   }
   sub.textContent = '';
+  sub.style.color = '';
 }
+
 
 // ==================== State & Config ====================
 const SURAHS_DATA = Array.from({length: 114}, (_, i) => ({number: i+1, name: `سورة ${i+1}`, numberOfAyahs: 10})); 
@@ -862,21 +873,49 @@ window.openSurah = async function(number) {
 // ==================== Khatmah ====================
 function updateKhatmahUI() {
   if (!state.khatmah || !state.khatmah.active) {
-    document.getElementById('khatmah-setup').style.display = 'block'; document.getElementById('khatmah-dash').style.display = 'none';
+    document.getElementById('khatmah-setup').style.display = 'block'; 
+    document.getElementById('khatmah-dash').style.display = 'none';
   } else {
-    document.getElementById('khatmah-setup').style.display = 'none'; document.getElementById('khatmah-dash').style.display = 'block';
-    const start = state.khatmah.todayWirdStart; const end = state.khatmah.todayWirdEnd;
+    document.getElementById('khatmah-setup').style.display = 'none'; 
+    document.getElementById('khatmah-dash').style.display = 'block';
+    
+    const start = state.khatmah.todayWirdStart; 
+    const end = state.khatmah.todayWirdEnd;
     document.getElementById('kd-start-badge').textContent = toArabicNum(start);
     document.getElementById('kd-end-badge').textContent = toArabicNum(end);
     document.getElementById('kd-last').textContent = toArabicNum(state.khatmah.lastPageRead || start - 1);
+    
     const progPct = Math.min(Math.round(((state.khatmah.lastPageRead || 0) / 604) * 100), 100);
     document.getElementById('kd-prog-txt').textContent = `${toArabicNum(progPct)}%`;
     document.getElementById('kd-prog-circle').style.strokeDasharray = `${progPct}, 100`;
     
     const ring = document.getElementById('khatmah-ring');
-    if(progPct === 100) ring.classList.add('pulse-success'); else ring.classList.remove('pulse-success');
+    if(progPct === 100) ring.classList.add('pulse-success'); 
+    else ring.classList.remove('pulse-success');
+
+    const isDoneToday = (state.khatmah.lastPageRead >= end);
+    const dashInfo = document.querySelector('.k-dash-info');
+    let msg = document.getElementById('k-done-msg');
+    
+    if (isDoneToday) {
+        if (!msg) {
+            msg = document.createElement('div');
+            msg.id = 'k-done-msg';
+            msg.style = 'margin-top:12px; color:var(--success); font-weight:bold; font-size:13px; text-align:center; background:rgba(76,175,125,0.1); padding:8px; border-radius:6px; border: 1px dashed var(--success);';
+            msg.textContent = '🎉 لقد أتممت ورد اليوم بنجاح!';
+            dashInfo.appendChild(msg);
+        }
+    } else if (msg) {
+        msg.remove();
+    }
+
+    const resumeBtn = document.querySelector('#khatmah-dash button[onclick="openKhatmahReader()"]');
+    if (resumeBtn) {
+        resumeBtn.innerHTML = isDoneToday ? 'قراءة المزيد (إضافي) 📖' : 'متابعة القراءة 📖';
+    }
   }
 }
+
 
 window.startKhatmah = function() {
   let val = parseInt(document.getElementById('k-val').value, 10); if (isNaN(val) || val <= 0) val = 20;
@@ -890,18 +929,32 @@ window.openKhatmahReader = function() { showScreen('khatmah-read', 'slide-left')
 async function loadKhatmahPage(pageNum) {
   const container = document.getElementById('khatmah-page-container'); 
   container.innerHTML = getSkeletonHTML();
-  document.getElementById('kp-prev').disabled = (pageNum <= state.khatmah.todayWirdStart);
-  document.getElementById('kp-next').disabled = (pageNum >= state.khatmah.todayWirdEnd);
+  
+  // فك القيود عن الزراير السفلية لتقرأ بحرية
+  document.getElementById('kp-prev').disabled = (pageNum <= 1);
+  document.getElementById('kp-next').disabled = (pageNum >= 604);
+  
+  // تغيير شكل الزرار لو خلصت الورد
+  const doneBtn = document.getElementById('kp-done');
+  if (pageNum >= state.khatmah.todayWirdEnd) {
+      doneBtn.innerHTML = '🎉 أتممت الورد (حفظ)';
+      doneBtn.style.background = 'var(--accent)';
+      doneBtn.style.borderColor = 'var(--accent)';
+      doneBtn.style.color = '#1a1000';
+  } else {
+      doneBtn.innerHTML = '✓ إنهاء الورد';
+      doneBtn.style.background = ''; 
+      doneBtn.style.borderColor = '';
+      doneBtn.style.color = '';
+  }
+
   updateHeaderSubtitle();
 
   try {
-    // جلب الصفحة (الـ Service Worker سيتكفل بجلبها من الكاش فوراً لو كانت محملة مسبقاً)
     const res = await fetch(`https://api.alquran.cloud/v1/page/${pageNum}/quran-uthmani`); 
     const data = await res.json();
 
     let html = `<div style="text-align:center; font-size:14px; color:var(--text-dim); margin-bottom:10px;">صفحة ${toArabicNum(pageNum)}</div>`;
-    
-    // إصلاح مشكلة البسملة المتكررة
     let currentSurah = data.data.ayahs[0].surah.number;
     
     if (data.data.ayahs[0].numberInSurah === 1) {
@@ -933,11 +986,10 @@ async function loadKhatmahPage(pageNum) {
     saveState(); 
     updateKhatmahUI();
 
-    // السحر هنا: تحميل الصفحة القادمة في الخلفية بصمت لتجهيزها مسبقاً (Preloading)
     if (pageNum < 604) {
         setTimeout(() => {
             fetch(`https://api.alquran.cloud/v1/page/${pageNum + 1}/quran-uthmani`).catch(() => {});
-        }, 800); // الانتظار أقل من ثانية حتى لا نؤثر على أداء الصفحة الحالية
+        }, 800); 
     }
 
   } catch(e) { 
@@ -947,14 +999,27 @@ async function loadKhatmahPage(pageNum) {
 
 window.changeKhatmahPage = function(dir) {
   let np = state.khatmah.currentPage + dir;
-  if (np >= state.khatmah.todayWirdStart && np <= state.khatmah.todayWirdEnd) { state.khatmah.currentPage = np; saveState(); loadKhatmahPage(np); }
+  if (np >= 1 && np <= 604) { 
+      state.khatmah.currentPage = np; 
+      saveState(); 
+      loadKhatmahPage(np); 
+  }
 }
 
+
 window.completeWird = function() {
-  const nx = state.khatmah.todayWirdEnd + 1;
-  if (nx > 604) { alert('مبارك عليك ختم القرآن! 🤲'); state.khatmah = null; } 
-  else { state.khatmah.currentPage = nx; state.khatmah.todayWirdStart = nx; state.khatmah.todayWirdEnd = Math.min(nx + state.khatmah.pagesPerDay - 1, 604); state.khatmah.lastPageRead = nx - 1; }
-  saveState(); navigateBack();
+  const nx = Math.max(state.khatmah.todayWirdEnd, state.khatmah.lastPageRead) + 1;
+  if (nx > 604) { 
+      alert('مبارك عليك ختم القرآن! 🤲'); 
+      state.khatmah = null; 
+  } else { 
+      state.khatmah.currentPage = nx; 
+      state.khatmah.todayWirdStart = nx; 
+      state.khatmah.todayWirdEnd = Math.min(nx + state.khatmah.pagesPerDay - 1, 604); 
+      state.khatmah.lastPageRead = nx - 1; 
+  }
+  saveState(); 
+  navigateBack();
 }
 
 // ==================== Athkar & Tasbih ====================
@@ -1067,6 +1132,29 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // ربط زر الثيم (الفاتح / الداكن)
   document.getElementById('theme-btn').addEventListener('click', () => applyTheme(state.theme === 'dark' ? 'light' : 'dark'));
+  // زر مشاركة التطبيق
+  document.getElementById('share-btn').addEventListener('click', async () => {
+    // الكود بيسحب رابط الموقع الحالي أوتوماتيكياً
+    const shareData = {
+      title: 'تطبيق إسلامي',
+      text: 'جرب تطبيق إسلامي، صدقة جارية خفيف وسريع لقراءة القرآن الكريم، متابعة الختمة، وأذكار المسلم 🤍',
+      url: window.location.href 
+    };
+    
+    try {
+      if (navigator.share) {
+        // لو الموبايل بيدعم المشاركة هيفتح قايمة التطبيقات (واتساب، فيسبوك، الخ)
+        await navigator.share(shareData);
+      } else {
+        // لو متصفح قديم، هينسخ الرابط للـ Clipboard
+        await navigator.clipboard.writeText(shareData.url);
+        alert('تم نسخ رابط التطبيق بنجاح! يمكنك الآن لصقه ومشاركته مع أصدقائك.');
+      }
+    } catch (err) {
+      console.log('حدث خطأ أو تم إلغاء المشاركة:', err);
+    }
+  });
+
 
   document.getElementById('back-btn').addEventListener('click', navigateBack);
   
