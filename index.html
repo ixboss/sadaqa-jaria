@@ -1041,6 +1041,14 @@ function renderOccasionPage(keys) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // تنظيف الذاكرة من بيانات الأذكار للأيام السابقة
+  const todayDateStr = new Date().toISOString().slice(0,10);
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith('ath_') && !key.includes(todayDateStr)) {
+      localStorage.removeItem(key);
+    }
+  });
+
   const splash = document.getElementById('splash-screen');
   if (splash) setTimeout(() => { splash.style.opacity = '0'; setTimeout(() => splash.style.display = 'none', 400); }, 1500);
 
@@ -1170,3 +1178,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
