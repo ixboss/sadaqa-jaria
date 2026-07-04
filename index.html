@@ -298,6 +298,12 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
   padding-bottom: 120px !important; /* مساحة مريحة عشان النيف بار الرئيسي */
 }
 
+/* ==================== Custom Dialog Styles ==================== */
+#custom-dialog-overlay { position: fixed; inset: 0; background: rgba(5,6,10,0.72); z-index: 99999; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(5px); }
+#custom-dialog-overlay.active { display: flex; }
+#custom-dialog { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 340px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: fadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); text-align: center; }
+#custom-dialog-text { font-size: 18px; font-weight: bold; color: var(--text); line-height: 1.6; }
+
 
 </style>
 </head>
@@ -433,6 +439,16 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
     <button class="nav-tab" data-tab="khatmah"><span class="nav-icon">🕋</span><span class="nav-text">الختمة</span></button>
     <button class="nav-tab" data-tab="athkar"><span class="nav-icon">📿</span><span class="nav-text">الأذكار</span></button>
   </nav>
+    <!-- ==================== نافذة التنبيهات المخصصة ==================== -->
+  <div id="custom-dialog-overlay">
+    <div id="custom-dialog">
+      <div id="custom-dialog-text">هل أنت متأكد؟</div>
+      <div style="display:flex; gap:10px; margin-top:20px;">
+        <button class="btn-scale" id="custom-dialog-cancel" style="background:var(--surface-2); color:var(--text); flex:1;">إلغاء</button>
+        <button class="btn-scale" id="custom-dialog-ok" style="flex:1;">موافق</button>
+      </div>
+    </div>
+  </div>
 
   <div id="occasion-overlay">
     <div id="occasion-modal">
@@ -942,7 +958,15 @@ window.startKhatmah = function() {
   state.khatmah = { active: true, pagesPerDay: val, currentPage: startPage, todayWirdStart: startPage, todayWirdEnd: Math.min(startPage + val - 1, 604), lastPageRead: startPage > 1 ? startPage - 1 : 0 };
   saveState(); updateKhatmahUI();
 }
-window.resetKhatmah = function() { if(confirm('إنشاء ختمة جديدة؟')) { state.khatmah = null; saveState(); updateKhatmahUI(); } }
+window.resetKhatmah = async function() { 
+  const confirmed = await window.showAppDialog('هل تريد بالفعل إنشاء ختمة جديدة وإلغاء الختمة الحالية؟', true);
+  if(confirmed) { 
+      state.khatmah = null; 
+      saveState(); 
+      updateKhatmahUI(); 
+  } 
+}
+
 window.openKhatmahReader = function() { showScreen('khatmah-read', 'slide-left'); loadKhatmahPage(state.khatmah.currentPage); }
 
 async function loadKhatmahPage(pageNum) {
@@ -1026,20 +1050,23 @@ window.changeKhatmahPage = function(dir) {
 }
 
 
-window.completeWird = function() {
+window.completeWird = async function() {
   const nx = Math.max(state.khatmah.todayWirdEnd, state.khatmah.lastPageRead) + 1;
   if (nx > 604) { 
-      alert('مبارك عليك ختم القرآن! 🤲'); 
+      await window.showAppDialog('مبارك عليك ختم القرآن الكريم! 🤲<br><span style="font-size:14px; font-weight:normal; color:var(--text-dim)">تقبل الله منك صالح الأعمال.</span>', false);
       state.khatmah = null; 
+      saveState();
+      navigateBack();
   } else { 
       state.khatmah.currentPage = nx; 
       state.khatmah.todayWirdStart = nx; 
       state.khatmah.todayWirdEnd = Math.min(nx + state.khatmah.pagesPerDay - 1, 604); 
       state.khatmah.lastPageRead = nx - 1; 
+      saveState(); 
+      navigateBack();
   }
-  saveState(); 
-  navigateBack();
 }
+
 
 // ==================== Athkar & Tasbih ====================
 function getLocalToday() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
@@ -1160,8 +1187,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // ربط زر الثيم (الفاتح / الداكن)
   document.getElementById('theme-btn').addEventListener('click', () => applyTheme(state.theme === 'dark' ? 'light' : 'dark'));
   // زر مشاركة التطبيق
+   // زر مشاركة التطبيق (مُحدث بالنافذة الجديدة)
   document.getElementById('share-btn').addEventListener('click', async () => {
-    // الكود بيسحب رابط الموقع الحالي أوتوماتيكياً
     const shareData = {
       title: 'تطبيق إسلامي',
       text: 'جرب تطبيق إسلامي، صدقة جارية خفيف وسريع لقراءة القرآن الكريم، متابعة الختمة، وأذكار المسلم 🤍',
@@ -1170,17 +1197,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     try {
       if (navigator.share) {
-        // لو الموبايل بيدعم المشاركة هيفتح قايمة التطبيقات (واتساب، فيسبوك، الخ)
         await navigator.share(shareData);
       } else {
-        // لو متصفح قديم، هينسخ الرابط للـ Clipboard
         await navigator.clipboard.writeText(shareData.url);
-        alert('تم نسخ رابط التطبيق بنجاح! يمكنك الآن لصقه ومشاركته مع أصدقائك.');
+        // التعديل هنا: استخدام النافذة المخصصة بدل alert
+        await window.showAppDialog('تم نسخ رابط التطبيق بنجاح! 🤍<br><span style="font-size:13px; color:var(--text-dim)">يمكنك الآن لصقه ومشاركته مع أصدقائك.</span>', false);
       }
     } catch (err) {
       console.log('حدث خطأ أو تم إلغاء المشاركة:', err);
     }
   });
+
 
 
   document.getElementById('back-btn').addEventListener('click', navigateBack);
@@ -1287,6 +1314,26 @@ document.addEventListener('DOMContentLoaded', () => {
   navBar.addEventListener('mousedown', handleDragStart);
   window.addEventListener('mousemove', handleDragMove);
   window.addEventListener('mouseup', handleDragEnd);
+  // ==================== Custom App Dialog (بديل الـ alert و confirm) ====================
+  window.showAppDialog = function(message, isConfirm = false) {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('custom-dialog-overlay');
+      const msgEl = document.getElementById('custom-dialog-text');
+      const btnOk = document.getElementById('custom-dialog-ok');
+      const btnCancel = document.getElementById('custom-dialog-cancel');
+      
+      msgEl.innerHTML = message;
+      btnCancel.style.display = isConfirm ? 'block' : 'none';
+      btnOk.textContent = isConfirm ? 'موافق' : 'حسناً';
+      
+      overlay.classList.add('active');
+      
+      const cleanup = () => { overlay.classList.remove('active'); };
+      
+      btnOk.onclick = () => { cleanup(); resolve(true); };
+      btnCancel.onclick = () => { cleanup(); resolve(false); };
+    });
+  };
 
  
 });
