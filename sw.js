@@ -1,6 +1,6 @@
 // ==================== Service Worker — إسلامي ====================
-const CACHE_NAME = 'quran-app-v27'; 
-const API_CACHE = 'quran-api-v27';
+const CACHE_NAME = 'quran-app-v28'; 
+const API_CACHE = 'quran-api-v28';
 
 const PRECACHE_URLS = [
   './',
@@ -42,7 +42,13 @@ async function cacheFirst(request, cacheName) {
     const cached = await cache.match(request);
     if (cached) return cached;
     const response = await fetch(request);
-    if (response.ok) cache.put(request, response.clone()).catch(() => {});
+    // التحقق من أن الاستجابة صالحة ومحتواها JSON قبل تخزينها في الكاش
+    if (response.ok) {
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        cache.put(request, response.clone()).catch(() => {});
+      }
+    }
     return response;
   } catch(e) {
     return await caches.match(request) || new Response('خطأ اتصال', { status: 503 });
