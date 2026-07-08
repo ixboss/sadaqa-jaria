@@ -365,7 +365,7 @@ class ServiceWorkerManager {
     }
   }
 
-  static static async requestNotificationPermission() {
+  static async requestNotificationPermission() {
     if (!('Notification' in window)) return false;
     if (Notification.permission === 'granted') return true;
     if (Notification.permission !== 'denied') {
@@ -443,3 +443,129 @@ window.AdvancedSearch = AdvancedSearch;
 window.StorageManager = StorageManager;
 window.AccessibilityHelper = AccessibilityHelper;
 window.PerformanceMonitor = PerformanceMonitor;
+
+// ==================== Animation & Microinteraction Manager ====================
+class AnimationManager {
+  static init() {
+    this.setupReducedMotion();
+    this.initReveal();
+    this.initDelegation();
+  }
+
+  static setupReducedMotion() {
+    try {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.documentElement.classList.add('reduce-motion');
+      }
+    } catch (e) {}
+  }
+
+  static initReveal() {
+    const selector = '.surah-row, .mushaf-block, .thikr-card, .dua-card, .quick-nav-card, .occasion-card, .k-dash-card';
+    const items = Array.from(document.querySelectorAll(selector));
+    if (!items.length) return;
+
+    items.forEach((el, i) => {
+      if (!el.classList.contains('reveal-hidden')) el.classList.add('reveal-hidden');
+      el.style.setProperty('--reveal-delay', (i * 60) + 'ms');
+    });
+
+    const io = new IntersectionObserver((entries, obs) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in');
+          obs.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+
+    items.forEach(el => io.observe(el));
+
+    // Mount staggered lists
+    document.querySelectorAll('[data-stagger]').forEach(list => {
+      const children = Array.from(list.children);
+      children.forEach((c, idx) => c.style.setProperty('--stagger-delay', (idx * 40) + 'ms'));
+      // reveal when visible
+      const listObserver = new IntersectionObserver((entries, o) => {
+        entries.forEach(en => {
+          if (en.isIntersecting) {
+            list.classList.add('mounted');
+            o.unobserve(list);
+          }
+        });
+      }, { threshold: 0.05 });
+      listObserver.observe(list);
+    });
+  }
+
+  static initDelegation() {
+    // Bookmark toggle
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.bookmark-btn');
+      if (btn) {
+        try {
+          const isActive = btn.classList.toggle('active');
+          btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+          // Try to infer surah number
+          let surahNum = btn.dataset.surah || btn.getAttribute('data-surah');
+          if (!surahNum) {
+            const surahEl = btn.closest('[data-surah]');
+            if (surahEl) surahNum = surahEl.dataset.surah;
+          }
+          const surahName = document.getElementById('surah-view-name')?.textContent?.trim() || btn.title || 'سورة';
+          if (isActive) BookmarkManager.addSurahBookmark(surahNum || '0', surahName);
+          else BookmarkManager.removeSurahBookmark(surahNum || '0');
+          this.bounce(btn);
+        } catch (err) {
+          console.warn('Bookmark toggle error', err);
+        }
+      }
+
+      // Ripple for interactive elements
+      const rippleTarget = e.target.closest('.header-btn, .btn-scale, .nav-tab, .nav-indicator, .bookmark-btn');
+      if (rippleTarget) {
+        this.ripple(e, rippleTarget);
+      }
+    }, { passive: true });
+
+    // Pointerdown ripple for better responsiveness
+    document.addEventListener('pointerdown', (e) => {
+      const target = e.target.closest('.btn-scale, .header-btn, .nav-tab, .bookmark-btn');
+      if (target) this.ripple(e, target);
+    }, { passive: true });
+  }
+
+  static ripple(e, el) {
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const r = document.createElement('span');
+    r.className = 'ripple';
+    const size = Math.max(rect.width, rect.height) * 1.2;
+    r.style.width = r.style.height = size + 'px';
+    const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+    const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
+    r.style.left = (clientX - rect.left - size / 2) + 'px';
+    r.style.top = (clientY - rect.top - size / 2) + 'px';
+    el.style.position = getComputedStyle(el).position === 'static' ? 'relative' : getComputedStyle(el).position;
+    el.appendChild(r);
+    setTimeout(() => r.remove(), 520);
+  }
+
+  static bounce(el) {
+    el.animate([
+      { transform: 'scale(1)' },
+      { transform: 'scale(1.12)' },
+      { transform: 'scale(0.98)' },
+      { transform: 'scale(1)' }
+    ], { duration: 340, easing: 'cubic-bezier(.2,.9,.3,1)' });
+  }
+}
+
+window.AnimationManager = AnimationManager;
+
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  setTimeout(() => AnimationManager.init(), 50);
+} else {
+  document.addEventListener('DOMContentLoaded', () => AnimationManager.init());
+}
+
