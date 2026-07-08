@@ -1,0 +1,37 @@
+{
+  "name": "إسلامي - تطبيق إسلامي شامل",
+  "short_name": "إسلامي",
+  "description": "تطبيق إسلامي متقدم: قراءة القرآن الكريم، أذكار يومية، دعاء، سبحة رقمية، وختمة قرآنية",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0f1117",
+  "background_color": "#0f1117",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230f1117'/%3E%3Cpath d='M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z' fill='none' stroke='%23c9a84c' stroke-width='8' stroke-linejoin='round'/%3E%3Cpath d='M96 70 L 96 150' stroke='%23c9a84c' stroke-width='8' stroke-linecap='round'/%3E%3Cpath d='M60 90 L 80 100 M60 110 L 80 120 M132 90 L 112 100 M132 110 L 112 120' stroke='%23c9a84c' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='110' fill='%230f1117'/%3E%3Cpath d='M256 400 C 256 400 186 427 106 373 L 106 160 C 186 213 256 186 256 186 C 256 186 326 213 406 160 L 406 373 C 326 427 256 400 256 400 Z' fill='none' stroke='%23c9a84c' stroke-width='20' stroke-linejoin='round'/%3E%3Cpath d='M256 186 L 256 400' stroke='%23c9a84c' stroke-width='20' stroke-linecap='round'/%3E%3Cpath d='M160 240 L 213 267 M160 293 L 213 320 M352 240 L 299 267 M352 293 L 299 320' stroke='%23c9a84c' stroke-width='16' stroke-linecap='round'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "productivity"],
+  "screenshots": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'%3E%3Crect width='540' height='720' fill='%230f1117'/%3E%3C/svg%3E",
+      "sizes": "540x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow"
+    }
+  ],
+  "prefer_related_applications": false
+}
