@@ -72,7 +72,43 @@
   --border: #2a2d3e; --radius: 12px;
   --font-size: 26px; --line-height: 2.3;
   --header-h: 70px;
+
+/* Motion & animation tokens */
+--motion-ease-fast: cubic-bezier(.2,.9,.3,1);
+--motion-ease: cubic-bezier(.22,.9,.3,1);
+--motion-ease-slow: cubic-bezier(.2,.7,.3,1);
+--motion-duration-fast: 180ms;
+--motion-duration: 260ms;
+--motion-duration-slow: 420ms;
+--stagger-step: 60ms;
 }
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+* { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+.ripple { display: none !important; }
+}
+
+/* Reveal / entrance animations */
+.reveal-hidden { opacity: 0; transform: translateY(8px); will-change: opacity, transform; transition: opacity var(--motion-duration) var(--motion-ease), transform var(--motion-duration) var(--motion-ease); }
+.reveal-hidden.in { opacity: 1; transform: none; }
+.reveal-hidden[style*="--reveal-delay"] { transition-delay: var(--reveal-delay); }
+
+/* Bookmark microinteraction */
+.bookmark-btn { transition: transform var(--motion-duration-fast) var(--motion-ease-fast), color var(--motion-duration) var(--motion-ease); will-change: transform; }
+.bookmark-btn.active { transform: scale(1.12); color: var(--accent); }
+
+/* Ripple effect (lightweight) */
+.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple-anim 500ms linear; background-color: rgba(201,168,76,0.18); pointer-events: none; z-index: 0; }
+@keyframes ripple-anim { to { transform: scale(3.5); opacity: 0; } }
+
+/* Button microinteraction */
+.header-btn, .btn-scale, .nav-tab { will-change: transform; transition: transform var(--motion-duration-fast) var(--motion-ease-fast), box-shadow var(--motion-duration) var(--motion-ease); }
+.header-btn:active, .btn-scale:active, .nav-tab:active { transform: translateY(2px) scale(0.985); }
+
+/* Stagger helper for lists */
+[data-stagger] > * { opacity: 0; transform: translateY(8px); }
+[data-stagger].mounted > * { opacity: 1; transform: none; transition: opacity var(--motion-duration) var(--motion-ease) var(--stagger-delay), transform var(--motion-duration) var(--motion-ease) var(--stagger-delay); }
 
 /* ==================== الوضع الفاتح الاحترافي (Light Mode) ==================== */
 body.theme-light {
