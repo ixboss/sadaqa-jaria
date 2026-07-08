@@ -1,0 +1,16 @@
+Contact: mailto:security@islami-app.local
+Expires: 2027-12-31T23:59:59.000Z
+Preferred-Languages: ar, en
+Canonical: https://islami-app.local/.well-known/security.txt
+Policy: https://islami-app.local/security-policy
+
+# Security Policy
+# This file is for security researchers to report vulnerabilities
+# Please do not attempt unauthorized access or cause damage
+
+# Supported security features:
+# - HTTPS/TLS
+# - Content Security Policy (CSP)
+# - CORS
+# - X-Frame-Options
+# - X-Content-Type-Options

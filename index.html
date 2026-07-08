@@ -3,14 +3,63 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="description" content="تطبيق إسلامي شامل: اقرأ القرآن الكريم، أذكار يومية، دعاء، سبحة رقمية، وختمة قرآنية. تطبيق ويب متقدم للعبادة والتعليم الإسلامي.">
+<meta name="keywords" content="قرآن, إسلام, أذكار, دعاء, سبحة, ختمة, تطبيق إسلامي, عبادة">
+<meta name="author" content="ixboss">
 <meta name="theme-color" content="#0f1117">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="إسلامي">
-<link rel="preconnect" href="https://api.alquran.cloud">
+
+<!-- Open Graph Meta Tags -->
+<meta property="og:title" content="إسلامي - تطبيق إسلامي شامل">
+<meta property="og:description" content="قراءة القرآن الكريم والأذكار اليومية والأدعية والسبحة الرقمية">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ar_SA">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="إسلامي - تطبيق إسلامي شامل">
+<meta name="twitter:description" content="تطبيق متقدم للقراءة والعبادة الإسلامية">
+
+<!-- Performance Optimization -->
+<link rel="preconnect" href="https://api.alquran.cloud" crossorigin>
 <link rel="dns-prefetch" href="https://api.alquran.cloud">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Amiri+Quran&display=swap">
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230f1117'/%3E%3Cpath d='M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z' fill='none' stroke='%23c9a84c' stroke-width='8' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230f1117'/%3E%3Cpath d='M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z' fill='none' stroke='%23c9a84c' stroke-width='8' stroke-linejoin='round'/%3E%3Cpath d='M96 70 L 96 150' stroke='%23c9a84c' stroke-width='8' stroke-linecap='round'/%3E%3Cpath d='M60 90 L 80 100 M60 110 L 80 120 M132 90 L 112 100 M132 110 L 112 120' stroke='%23c9a84c' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
-<title>إسلامي</title>
+
+<title>إسلامي - تطبيق إسلامي شامل</title>
+
+<!-- JSON-LD Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "إسلامي",
+  "description": "تطبيق إسلامي شامل: قراءة القرآن الكريم والأذكار والأدعية والعبادات",
+  "url": "https://islamiapp.com",
+  "applicationCategory": "UtilitiesApplication",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "ixboss"
+  }
+}
+</script>
+
+<!-- Application Configuration -->
+<script src="./config.js"></script>
+
 <style>
 /* ==================== استيراد خط المصحف العثماني ==================== */
 @import url('https://fonts.googleapis.com/css2?family=Amiri+Quran&display=swap');
@@ -1159,6 +1208,48 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 });
+</script>
+
+<!-- Advanced Features and Performance Optimizations -->
+<script src="./app.js" defer></script>
+<script>
+// Register Service Worker with enhanced error handling
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
+      .then(reg => console.log('✅ SW registered:', reg.scope))
+      .catch(err => console.error('❌ SW registration failed:', err));
+  });
+}
+
+// Optimize performance with requestIdleCallback
+if ('requestIdleCallback' in window) {
+  requestIdleCallback(() => {
+    // Load non-critical resources
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'font';
+    link.href = 'https://fonts.gstatic.com/s/amiriquran/v1/SlGTmQieoJc-_EXiEtUe5cEB0En-fNRV.0.woff2';
+    link.crossOrigin = 'anonymous';
+    document.head.appendChild(link);
+  });
+}
+
+// Lazy load resources
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    // Pause heavy operations
+  } else {
+    // Resume operations
+  }
+});
+
+// Setup theme persistence
+(() => {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const savedTheme = localStorage.getItem('theme') || (prefersDark ? 'dark' : 'light');
+  if (savedTheme === 'light') document.body.classList.add('theme-light');
+})();
 </script>
 </body>
 </html>
