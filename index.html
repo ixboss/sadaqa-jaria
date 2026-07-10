@@ -77,6 +77,8 @@
 --motion-ease-fast: cubic-bezier(.2,.9,.3,1);
 --motion-ease: cubic-bezier(.22,.9,.3,1);
 --motion-ease-slow: cubic-bezier(.2,.7,.3,1);
+--motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+--motion-spring-soft: cubic-bezier(0.22, 1.12, 0.36, 1);
 --motion-duration-fast: 180ms;
 --motion-duration: 260ms;
 --motion-duration-slow: 420ms;
@@ -99,7 +101,7 @@
 .bookmark-btn.active { transform: scale(1.12); color: var(--accent); }
 
 /* Ripple effect (lightweight) */
-.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple-anim 500ms linear; background-color: rgba(201,168,76,0.18); pointer-events: none; z-index: 0; }
+.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple-anim 550ms var(--motion-ease-slow); background-color: rgba(201,168,76,0.22); mix-blend-mode: soft-light; pointer-events: none; z-index: 3; }
 @keyframes ripple-anim { to { transform: scale(3.5); opacity: 0; } }
 
 /* Button microinteraction */
@@ -170,17 +172,17 @@ body.theme-light .header-btn.active { background: var(--accent); color: #fff; }
   border: 1px solid rgba(201, 168, 76, 0.1); border-top: 1px solid rgba(255, 255, 255, 0.1); border-radius: 35px;
   display: flex; align-items: center; padding: 0 6px; z-index: 100;
   box-shadow: 0 15px 35px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s, background 0.4s, border-color 0.4s, box-shadow 0.4s;
+  transition: transform 0.45s var(--motion-spring), opacity 0.3s var(--motion-ease), background 0.4s, border-color 0.4s, box-shadow 0.4s;
   touch-action: none;
 }
 
 body.theme-light #nav { background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(181, 133, 0, 0.15); box-shadow: 0 15px 35px rgba(0,0,0,0.08); }
-#nav.nav-hidden { transform: translate(-50%, 150px); opacity: 0; pointer-events: none; }
+#nav.nav-hidden { transform: translate(-50%, 150px) scale(0.94); opacity: 0; pointer-events: none; transition: transform 0.3s var(--motion-ease-fast), opacity 0.25s var(--motion-ease-fast); }
 
 .nav-indicator {
   position: absolute; left: 0; top: 6px; bottom: 6px;
   background: linear-gradient(135deg, rgba(201, 168, 76, 0.35), rgba(138, 104, 32, 0.05)); border: 1px solid rgba(201, 168, 76, 0.4);
-  border-radius: 30px; z-index: 1; transition: transform 0.55s cubic-bezier(0.5, 1.5, 0.4, 1), width 0.55s cubic-bezier(0.5, 1.5, 0.4, 1);
+  border-radius: 30px; z-index: 1; transition: transform 0.5s var(--motion-spring), width 0.5s var(--motion-spring);
   pointer-events: none; box-shadow: 0 0 15px rgba(201, 168, 76, 0.2);
   will-change: transform, width;
 }
@@ -189,28 +191,36 @@ body.theme-light .nav-indicator { background: linear-gradient(135deg, rgba(181, 
 
 .nav-tab {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: none; border: none;
-  color: var(--text-dim); font-size: 13px; cursor: pointer; transition: all 0.3s; position: relative; z-index: 2; height: 100%; overflow: hidden; border-radius: 30px;
+  color: var(--text-dim); font-size: 13px; cursor: pointer; transition: transform var(--motion-duration-fast) var(--motion-ease-fast), box-shadow var(--motion-duration) var(--motion-ease), color 0.3s var(--motion-ease); position: relative; z-index: 2; height: 100%; overflow: hidden; border-radius: 30px;
 }
 .nav-tab.active { color: var(--accent); font-weight: bold; }
-.nav-tab .nav-icon { font-size: 22px; transition: transform 0.4s cubic-bezier(0.5, 1.5, 0.4, 1); pointer-events: none; }
+.nav-tab .nav-icon { font-size: 22px; display: inline-block; transition: transform 0.42s var(--motion-spring) 40ms, filter 0.3s var(--motion-ease) 40ms; pointer-events: none; }
 .nav-tab.active .nav-icon { transform: translateY(-3px) scale(1.15); filter: drop-shadow(0 4px 6px rgba(201, 168, 76, 0.5)); }
 body.theme-light .nav-tab.active .nav-icon { filter: drop-shadow(0 4px 6px rgba(181, 133, 0, 0.3)); }
-.nav-tab .nav-text { pointer-events: none; transition: color 0.3s; }
+.nav-tab .nav-text { pointer-events: none; transition: color 0.3s var(--motion-ease), transform 0.3s var(--motion-ease); display: inline-block; }
+.nav-tab.active .nav-text { transform: translateY(-1px); }
 
 .ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple-anim 0.5s cubic-bezier(0.25, 1, 0.5, 1); background-color: rgba(201, 168, 76, 0.25); pointer-events: none; z-index: 0; }
 body.theme-light .ripple { background-color: rgba(181, 133, 0, 0.15); }
 @keyframes ripple-anim { to { transform: scale(3.5); opacity: 0; } }
 
-/* ================== انتقالات الشاشات الملساء ================== */
-.screen { display: none; width: 100%; max-width: 680px; margin: 0 auto; padding: 16px; }
-.screen.active { display: block; animation: fadeIn 0.25s ease forwards; }
-.screen.slide-left { display: block; animation: slideInLeft 0.35s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
-.screen.slide-right { display: block; animation: slideInRight 0.35s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
-#screen-tasbih.active, #screen-tasbih.slide-left, #screen-tasbih.slide-right { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - var(--header-h) - 100px); }
+/* ================== انتقالات الشاشات الملساء (دخول وخروج) ================== */
+.screen { display: none; width: 100%; max-width: 680px; margin: 0 auto; padding: 16px; position: relative; }
+.screen.active { display: block; animation: fadeIn 0.3s var(--motion-ease-slow) forwards; }
+.screen.slide-left { display: block; animation: slideInLeft 0.38s var(--motion-spring-soft) forwards; }
+.screen.slide-right { display: block; animation: slideInRight 0.38s var(--motion-spring-soft) forwards; }
+.screen.leaving-left, .screen.leaving-right, .screen.leaving-fade { display: block; position: absolute; top: 0; left: 0; right: 0; padding: 16px; pointer-events: none; }
+.screen.leaving-left { animation: slideOutLeft 0.3s var(--motion-ease) forwards; }
+.screen.leaving-right { animation: slideOutRight 0.3s var(--motion-ease) forwards; }
+.screen.leaving-fade { animation: fadeOut 0.22s var(--motion-ease) forwards; }
+#screen-tasbih.active, #screen-tasbih.slide-left, #screen-tasbih.slide-right, #screen-tasbih.leaving-left, #screen-tasbih.leaving-right, #screen-tasbih.leaving-fade { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - var(--header-h) - 100px); }
 
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes slideInLeft { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px) scale(0.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes fadeOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-6px) scale(0.99); } }
+@keyframes slideInLeft { from { opacity: 0; transform: translateX(-48px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(48px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes slideOutLeft { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-32px); } }
+@keyframes slideOutRight { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(32px); } }
 
 .skeleton { background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite linear; border-radius: 8px; }
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
@@ -246,10 +256,9 @@ body.theme-light .bookmark-btn { background: var(--surface); border: 1px solid v
 .ayah-separator { color: var(--accent); font-family: Tahoma, sans-serif; font-size: 0.7em; margin: 0 4px; font-weight: bold; }
 .bismillah { text-align: center; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) + 10px); color: var(--accent); padding: 10px 10px 20px 10px; line-height: 2; transition: font-size 0.3s; }
 
-#resume-fab { position: fixed; bottom: 110px; right: 20px; background: var(--accent); color: #1a1000; border: none; border-radius: 30px; padding: 12px 20px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; z-index: 90; display: none; align-items: center; gap: 8px; transition: transform 0.3s, opacity 0.3s; }
+#resume-fab { position: fixed; bottom: 110px; right: 20px; background: var(--accent); color: #1a1000; border: none; border-radius: 30px; padding: 12px 20px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; z-index: 90; display: none; align-items: center; gap: 8px; }
 body.theme-light #resume-fab { color: #fff; box-shadow: 0 4px 15px rgba(181, 133, 0, 0.3); }
-#resume-fab:active { transform: scale(0.95); }
-#resume-fab.fab-hidden { transform: translateY(150px); opacity: 0; pointer-events: none; }
+#resume-fab.fab-hidden { transform: translateY(150px) scale(0.9); opacity: 0; pointer-events: none; transition: transform 0.28s var(--motion-ease-fast), opacity 0.22s var(--motion-ease-fast) !important; }
 
 /* ================= الحلقات الدائرية وتأثير النبض ================= */
 .circle-wrap { position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
@@ -283,9 +292,9 @@ body.theme-light .btn-scale { color: #ffffff; }
 .k-wird-badge small { font-size: calc(var(--font-size) * 0.45); color: var(--text-dim); margin-bottom: 4px; transition: font-size 0.3s; }
 .k-wird-arrow { color: var(--accent); font-size: calc(var(--font-size) * 0.8); font-weight: bold; transition: font-size 0.3s; }
 
-.khatmah-controls { position: relative; bottom: 0; left: 0; width: 100%; max-width: 100%; display: flex; gap: 8px; background: rgba(34, 38, 58, 0.85); backdrop-filter: blur(10px); padding: 10px 16px; border-radius: 12px; margin-top: 30px; margin-bottom: 20px; z-index: 50; transition: transform 0.4s, opacity 0.4s, background 0.4s; }
+.khatmah-controls { position: sticky; bottom: 12px; left: 0; width: 100%; max-width: 100%; display: flex; gap: 8px; background: rgba(34, 38, 58, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 10px 16px; border-radius: 12px; margin-top: 30px; margin-bottom: 20px; z-index: 50; transition: transform 0.32s var(--motion-ease-fast), opacity 0.24s var(--motion-ease-fast), background 0.4s; }
 body.theme-light .khatmah-controls { background: rgba(255, 255, 255, 0.9); border: 1px solid var(--border); }
-.khatmah-controls.controls-hidden { transform: translate(-50%, 150px); opacity: 0; pointer-events: none; }
+.khatmah-controls.controls-hidden { transform: translateY(150px) scale(0.94); opacity: 0; pointer-events: none; }
 .k-ctrl-btn { flex: 1; background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: calc(var(--font-size) * 0.55); transition: transform 0.2s, font-size 0.3s, background 0.4s, color 0.4s; }
 .k-ctrl-btn:active { transform: scale(0.95); }
 .k-ctrl-btn.primary { background: var(--success); color: #fff; border-color: var(--success); flex: 2; }
@@ -319,6 +328,9 @@ body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success
 .dua-occasion { font-size: calc(var(--font-size) * 0.6); font-weight: 700; color: var(--accent); margin-bottom: 10px; transition: font-size 0.3s; }
 .dua-text { font-size: calc(var(--font-size) * 0.85); line-height: var(--line-height); color: var(--text); text-align: justify; transition: font-size 0.3s; }
 
+/* ================= ترويسة القسم ================= */
+.section-heading { display: block; color: var(--accent); font-weight: 700; margin: 18px 4px 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+
 /* ================= السنن والمناسبات ================= */
 .occasion-card { background: var(--surface); border: 1px solid var(--border); border-right: 4px solid var(--accent); border-radius: var(--radius); padding: 22px; margin-bottom: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: background 0.4s, border-color 0.4s, box-shadow 0.4s; }
 body.theme-light .occasion-card { box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
@@ -333,19 +345,22 @@ body.theme-light .occasion-card { box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
 .tasbih-lap-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); background: transparent; transition: background 0.3s; }
 .tasbih-lap-dot.filled { background: var(--accent); }
 #tasbih-circle-wrap { position: relative; width: 280px; height: 280px; margin: 0 auto; }
-.tasbih-bead { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); transform: translate(-50%, -50%); transition: 0.2s; }
-.tasbih-bead.filled { background: var(--accent); border-color: var(--accent); transform: translate(-50%, -50%) scale(1.3); }
+.tasbih-bead { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); transform: translate(-50%, -50%); transition: transform 0.4s var(--motion-spring), background 0.25s var(--motion-ease), border-color 0.25s var(--motion-ease), box-shadow 0.3s var(--motion-ease); }
+.tasbih-bead.filled { background: var(--accent); border-color: var(--accent); transform: translate(-50%, -50%) scale(1.35); box-shadow: 0 0 8px rgba(201, 168, 76, 0.5); }
 #tasbih-tap-btn { position: absolute; inset: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #8a6820); border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: transform 0.1s; }
 body.theme-light #tasbih-tap-btn { background: var(--surface); border: 2px solid var(--accent); box-shadow: 0 4px 20px rgba(181, 133, 0, 0.15); }
 #tasbih-tap-btn:active { transform: scale(0.92); }
-#tasbih-count-num { font-size: calc(var(--font-size) * 1.8); font-weight: 700; color: #1a1000; transition: font-size 0.3s, color 0.4s; }
+#tasbih-count-num { font-size: calc(var(--font-size) * 1.8); font-weight: 700; color: #1a1000; display: inline-block; transition: font-size 0.3s, color 0.4s, transform 0.28s var(--motion-spring); }
+#tasbih-count-num.tick { transform: scale(1.22); }
 body.theme-light #tasbih-count-num { color: var(--accent); }
 .tasbih-complete-banner { background: linear-gradient(135deg, #c9a84c22, #8a682011); border: 1px solid var(--accent); border-radius: var(--radius); padding: 14px; text-align: center; color: var(--accent); margin-bottom: 20px; display: none; width: 100%; max-width: 320px; }
 .tasbih-complete-banner.active { display: block; }
 
-#occasion-overlay { position: fixed; inset: 0; background: rgba(5,6,10,0.72); z-index: 999; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(5px); }
-#occasion-overlay.active { display: flex; }
-#occasion-modal { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 400px; padding: 22px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: fadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+#occasion-overlay { position: fixed; inset: 0; background: rgba(5,6,10,0); z-index: 999; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(0px); transition: background 0.28s var(--motion-ease), backdrop-filter 0.28s var(--motion-ease); }
+#occasion-overlay.active { display: flex; background: rgba(5,6,10,0.72); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+#occasion-overlay.closing { background: rgba(5,6,10,0); backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+#occasion-modal { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 400px; padding: 22px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: modalIn 0.35s var(--motion-spring); }
+#occasion-overlay.closing #occasion-modal { animation: modalOut 0.22s var(--motion-ease) forwards; }
 .occasion-modal-icon { font-size: 34px; text-align: center; margin-bottom: 8px; }
 .occasion-modal-title { font-size: 19px; font-weight: 700; color: var(--accent); text-align: center; margin-bottom: 14px; }
 .occasion-modal-item { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; font-size: calc(var(--font-size) * 0.7); line-height: 1.9; color: var(--text); transition: font-size 0.3s, background 0.4s; font-family: inherit; }
@@ -357,18 +372,24 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
 .splash-user { color: var(--text-dim); font-size: 16px; }
 
 /* ==================== Universal Liquid Glass Effect ==================== */
+/* Adds a springy release to press states without erasing each element's own color/size transitions */
 .surah-row, .quick-nav-card, .athkar-cat-card, .thikr-tap-btn, .btn-scale, .bookmark-btn, .k-ctrl-btn, #resume-fab, #tasbih-tap-btn, .header-btn {
-  transition: transform 0.6s cubic-bezier(0.5, 1.5, 0.4, 1), background 0.4s, border-color 0.4s, box-shadow 0.4s !important;
+  transition: transform 0.55s var(--motion-spring), background 0.4s, border-color 0.4s, box-shadow 0.35s var(--motion-ease), font-size 0.3s, color 0.4s;
 }
 .surah-row:active, .quick-nav-card:active, .athkar-cat-card:active, .thikr-tap-btn:active, .btn-scale:active, .bookmark-btn:active, .k-ctrl-btn:active, #resume-fab:active, #tasbih-tap-btn:active, .header-btn:active {
-  transform: scaleX(1.03) scaleY(0.92) !important;
-  transition: transform 0.15s ease-out !important;
+  transform: scaleX(1.03) scaleY(0.92);
+  transition: transform 0.12s var(--motion-ease-fast), background 0.4s, border-color 0.4s, box-shadow 0.35s var(--motion-ease), font-size 0.3s, color 0.4s;
 }
 
 /* ==================== Custom Dialog Styles ==================== */
-#custom-dialog-overlay { position: fixed; inset: 0; background: rgba(5,6,10,0.72); z-index: 99999; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(5px); }
-#custom-dialog-overlay.active { display: flex; }
-#custom-dialog { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 340px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: fadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); text-align: center; }
+#custom-dialog-overlay { position: fixed; inset: 0; background: rgba(5,6,10,0); z-index: 99999; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(0px); transition: background 0.28s var(--motion-ease), backdrop-filter 0.28s var(--motion-ease); }
+#custom-dialog-overlay.active { display: flex; background: rgba(5,6,10,0.72); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+#custom-dialog-overlay.closing { background: rgba(5,6,10,0); backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+#custom-dialog { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 340px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: modalIn 0.35s var(--motion-spring); text-align: center; }
+#custom-dialog-overlay.closing #custom-dialog { animation: modalOut 0.22s var(--motion-ease) forwards; }
+
+@keyframes modalIn { from { opacity: 0; transform: scale(0.9) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes modalOut { from { opacity: 1; transform: scale(1) translateY(0); } to { opacity: 0; transform: scale(0.92) translateY(6px); } }
 #custom-dialog-text { font-size: 18px; font-weight: bold; color: var(--text); line-height: 1.6; }
 </style>
 </head>
@@ -383,7 +404,7 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
 
 <div id="app">
   <header id="header">
-    <button id="back-btn" aria-label="رجوع">&#8592;</button>
+    <button id="back-btn" aria-label="رجوع">&#8594;</button>
     <div class="header-center">
       <div id="header-title">إسلامي</div>
       <div id="header-subtitle"></div>
@@ -722,8 +743,9 @@ function saveState() { try { localStorage.setItem('app_state', JSON.stringify(st
 function applyTheme(th) {
   state.theme = th;
   const themeBtn = document.getElementById('theme-btn');
-  if(th === 'light') { document.body.classList.add('theme-light'); themeBtn.textContent = '☀️'; themeBtn.title = 'الوضع الداكن'; } 
+  if(th === 'light') { document.body.classList.add('theme-light'); themeBtn.textContent = '☀️'; themeBtn.title = 'الوضع الداكن'; }
   else { document.body.classList.remove('theme-light'); themeBtn.textContent = '🌙'; themeBtn.title = 'الوضع الفاتح'; }
+  try { localStorage.setItem('theme', th); } catch(e) {}
   saveState();
 }
 
@@ -735,12 +757,25 @@ function applyFontSize(size) {
   state.fontSize = size; saveState();
 }
 
+const SCREEN_ANIM_CLASSES = ['active', 'slide-left', 'slide-right', 'leaving-left', 'leaving-right', 'leaving-fade'];
 function showScreen(screenId, animClass = 'active') {
   if(state.currentScreen && ['surah-list', 'athkar-list'].includes(state.currentScreen)) state.scrollPositions[state.currentScreen] = contentArea.scrollTop;
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'slide-left', 'slide-right'));
+
+  const outgoing = document.querySelector('.screen.active, .screen.slide-left, .screen.slide-right');
   const target = document.getElementById(`screen-${screenId}`);
-  if (target) { target.classList.add(animClass); }
-  
+
+  // Animate the outgoing screen out instead of snapping it away
+  if (outgoing && outgoing !== target) {
+    outgoing.classList.remove(...SCREEN_ANIM_CLASSES);
+    const exitClass = animClass === 'slide-left' ? 'leaving-right' : animClass === 'slide-right' ? 'leaving-left' : 'leaving-fade';
+    outgoing.classList.add(exitClass);
+    const cleanupOutgoing = () => { outgoing.classList.remove(exitClass); outgoing.removeEventListener('animationend', cleanupOutgoing); };
+    outgoing.addEventListener('animationend', cleanupOutgoing);
+  }
+
+  document.querySelectorAll('.screen').forEach(s => { if (s !== outgoing) s.classList.remove(...SCREEN_ANIM_CLASSES); });
+  if (target) { target.classList.remove(...SCREEN_ANIM_CLASSES); target.classList.add(animClass); }
+
   state.currentScreen = screenId;
   const isSubScreen = ['surah-view', 'thikr-view', 'dua-list', 'tasbih', 'khatmah-read', 'occasion-list'].includes(screenId);
   document.getElementById('back-btn').classList.toggle('visible', isSubScreen);
@@ -773,18 +808,28 @@ function setNavIndicator() {
     const currentX = currentMatch ? parseFloat(currentMatch[1]) : targetX; const dx = targetX - currentX;
     
     if (Math.abs(dx) > 10) {
-        const stretch = 1 + Math.min(Math.abs(dx) / 150, 0.35);
-        indicator.style.transition = 'transform 0.2s ease-in, width 0.2s ease-in';
-        indicator.style.transform = `translateX(${currentX + (dx / 2)}px) scaleX(${stretch}) scaleY(0.85)`;
+        // Anticipation: a quick squash-and-stretch toward the direction of travel before the spring settle
+        const stretch = 1 + Math.min(Math.abs(dx) / 140, 0.4);
+        indicator.style.transition = 'transform 0.16s cubic-bezier(0.4, 0, 0.6, 1), width 0.16s cubic-bezier(0.4, 0, 0.6, 1)';
+        indicator.style.transform = `translateX(${currentX + (dx * 0.4)}px) scaleX(${stretch}) scaleY(0.82)`;
         setTimeout(() => {
-            indicator.style.transition = 'transform 0.5s cubic-bezier(0.5, 1.5, 0.4, 1), width 0.5s cubic-bezier(0.5, 1.5, 0.4, 1)';
+            indicator.style.transition = 'transform 0.48s var(--motion-spring), width 0.48s var(--motion-spring)';
             indicator.style.width = `${targetW}px`; indicator.style.transform = `translateX(${targetX}px) scaleX(1) scaleY(1)`;
-        }, 200);
+        }, 160);
     } else {
-        indicator.style.transition = 'transform 0.55s cubic-bezier(0.5, 1.5, 0.4, 1), width 0.55s cubic-bezier(0.5, 1.5, 0.4, 1)';
+        indicator.style.transition = 'transform 0.48s var(--motion-spring), width 0.48s var(--motion-spring)';
         indicator.style.width = `${targetW}px`; indicator.style.transform = `translateX(${targetX}px) scaleX(1) scaleY(1)`;
     }
   }
+}
+
+function closeOverlay(overlay) {
+  if (!overlay || !overlay.classList.contains('active')) return;
+  overlay.classList.add('closing');
+  const finish = () => { overlay.classList.remove('active', 'closing'); overlay.removeEventListener('transitionend', finish); };
+  overlay.addEventListener('transitionend', finish);
+  // Safety fallback in case transitionend doesn't fire (e.g. tab backgrounded)
+  setTimeout(finish, 320);
 }
 
 function createRipple(e) {
@@ -851,7 +896,7 @@ window.toggleBookmark = function(type) {
 
 function updateBookmarkIcon() {
   const btn = document.getElementById('btn-bm-surah'); if(!btn) return;
-  if (state.currentScreen === 'surah-view' && state.bookmark?.type === 'surah' && state.bookmark.id === state.currentSurah.number) { btn.style.background = 'var(--text)'; btn.style.color = 'var(--bg)'; } 
+  if (state.currentScreen === 'surah-view' && state.bookmark?.type === 'surah' && state.bookmark.id === state.currentSurah.number) { btn.style.background = 'var(--accent)'; btn.style.color = '#ffffff'; }
   else { btn.style.background = 'rgba(255,255,255,0.2)'; btn.style.color = '#1a1000'; }
 }
 
@@ -875,11 +920,32 @@ async function loadSurahList() {
 }
 
 function renderSurahList(list, query = '') {
-  document.getElementById('surah-list-container').innerHTML = list.map(s => {
+  const container = document.getElementById('surah-list-container');
+  container.innerHTML = list.map(s => {
     let nameHtml = s.name;
     if(query) { const regex = new RegExp(`(${query})`, 'gi'); nameHtml = s.name.replace(regex, '<span class="highlight">$1</span>'); }
     return `<div class="surah-row" onclick="openSurah(${s.number})"><div class="surah-num">${toArabicNum(s.number)}</div><div class="surah-info"><div class="surah-name">${nameHtml}</div><div class="surah-meta">${toArabicNum(s.numberOfAyahs)} آية</div></div></div>`;
   }).join('');
+  staggerReveal(container);
+}
+
+// Lightweight entrance stagger for freshly-rendered list containers.
+// Caps the visible cascade so long lists (e.g. 114 surahs) settle quickly instead of taking seconds.
+function staggerReveal(container, { maxDelayMs = 260, stepMs = 18 } = {}) {
+  const items = container.children;
+  const n = items.length; if (!n) return;
+  for (let i = 0; i < n; i++) {
+    const el = items[i];
+    const delay = Math.min(i * stepMs, maxDelayMs);
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(8px)';
+    el.style.transition = `opacity 0.32s var(--motion-ease) ${delay}ms, transform 0.32s var(--motion-ease) ${delay}ms`;
+  }
+  // Force layout so the initial (hidden) state is committed before we animate to visible
+  void container.offsetWidth;
+  requestAnimationFrame(() => {
+    for (let i = 0; i < n; i++) { items[i].style.opacity = '1'; items[i].style.transform = 'none'; }
+  });
 }
 
 window.openSurah = async function(number) {
@@ -975,7 +1041,7 @@ async function loadKhatmahPage(pageNum) {
   
   const doneBtn = document.getElementById('kp-done');
   if (pageNum >= state.khatmah.todayWirdEnd) {
-      doneBtn.innerHTML = '🎉 أتممت الورد (حفظ)'; doneBtn.style.background = 'var(--accent)'; doneBtn.style.borderColor = 'var(--accent)'; doneBtn.style.color = '#1a1000';
+      doneBtn.innerHTML = '✓ إتمام وحفظ الورد'; doneBtn.style.background = 'var(--accent)'; doneBtn.style.borderColor = 'var(--accent)'; doneBtn.style.color = '#1a1000';
   } else {
       doneBtn.innerHTML = '✓ إنهاء الورد'; doneBtn.style.background = ''; doneBtn.style.borderColor = ''; doneBtn.style.color = '';
   }
@@ -1057,14 +1123,17 @@ function renderAthkarList() {
       <div class="cat-info"><div class="cat-name">${cat.name}</div><div style="font-size:calc(var(--font-size) * 0.45);color:var(--text-dim)">${toArabicNum(doneCount)}/${toArabicNum(cat.items.length)}</div></div>
     </div>`;
   }).join('');
+  staggerReveal(document.getElementById('athkar-grid'));
 }
 
 window.openCategory = function(ci) {
   state.currentCatIndex = ci; showScreen('thikr-view', 'slide-left');
-  document.getElementById('thikr-list-container').innerHTML = ATHKAR[ci].items.map((item, i) => {
+  const thikrContainer = document.getElementById('thikr-list-container');
+  thikrContainer.innerHTML = ATHKAR[ci].items.map((item, i) => {
     const done = getProg(ci, i) >= item.count;
     return `<div class="thikr-card"><div class="thikr-text">${item.text}</div><button class="thikr-tap-btn ${done ? 'done' : ''}" onclick="tapThikr(${ci}, ${i}, this)">${done ? '✓ اكتمل' : `${toArabicNum(getProg(ci,i))} / ${toArabicNum(item.count)}`}</button></div>`;
   }).join('');
+  staggerReveal(thikrContainer, { maxDelayMs: 200, stepMs: 40 });
 }
 
 window.tapThikr = function(ci, i, btn) {
@@ -1098,6 +1167,9 @@ document.getElementById('tasbih-tap-btn').addEventListener('click', () => {
   document.getElementById('tasbih-msg').classList.remove('active'); tasbihCount++;
   if (tasbihCount >= 33) { tasbihCount = 0; tasbihLap++; if (tasbihLap >= 3) { tasbihLap = 0; document.getElementById('tasbih-msg').classList.add('active'); } }
   updateTasbihUI();
+  const countEl = document.getElementById('tasbih-count-num');
+  countEl.classList.remove('tick'); void countEl.offsetWidth; countEl.classList.add('tick');
+  setTimeout(() => countEl.classList.remove('tick'), 280);
 });
 document.getElementById('tasbih-reset-btn').addEventListener('click', () => { tasbihCount = 0; tasbihLap = 0; document.getElementById('tasbih-msg').classList.remove('active'); updateTasbihUI(); });
 
@@ -1128,6 +1200,7 @@ function renderOccasionPage(keys) {
     const o = OCCASIONS_DB[k]; if (!o) return '';
     return `<div class="occasion-card"><div class="occasion-card-title">${o.icon} ${o.title}</div>${o.sunnahs.map(s => `<div class="occasion-sunnah-item">• ${s}</div>`).join('')}</div>`;
   }).join('') + `<div class="occasion-note">التاريخ الهجري المعروض محسوب فلكياً داخل التطبيق.</div>`;
+  staggerReveal(container, { maxDelayMs: 220, stepMs: 50 });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1162,12 +1235,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('back-btn').addEventListener('click', navigateBack);
-  document.getElementById('nav-dua-card').addEventListener('click', () => { showScreen('dua-list', 'slide-left'); document.getElementById('dua-list-container').innerHTML = DUA_LIST.map(d => `<div class="dua-card"><div class="dua-occasion">${d.occasion}</div><div class="dua-text">${d.text}</div></div>`).join(''); });
+  document.getElementById('nav-dua-card').addEventListener('click', () => {
+    showScreen('dua-list', 'slide-left');
+    const duaContainer = document.getElementById('dua-list-container');
+    duaContainer.innerHTML = DUA_LIST.map(d => `<div class="dua-card"><div class="dua-occasion">${d.occasion}</div><div class="dua-text">${d.text}</div></div>`).join('');
+    staggerReveal(duaContainer, { maxDelayMs: 240, stepMs: 30 });
+  });
   document.getElementById('nav-tasbih-card').addEventListener('click', () => { showScreen('tasbih', 'slide-left'); buildTasbih(); updateTasbihUI(); });
   document.getElementById('nav-occasion-card').addEventListener('click', () => { showScreen('occasion-list', 'slide-left'); renderOccasionPage(currentOccasionKeys); });
   
-  document.getElementById('occasion-modal-ok').addEventListener('click', () => document.getElementById('occasion-overlay').classList.remove('active'));
-  document.getElementById('occasion-modal-goto').addEventListener('click', () => { document.getElementById('occasion-overlay').classList.remove('active'); switchTab('athkar'); showScreen('occasion-list', 'slide-left'); renderOccasionPage(currentOccasionKeys); });
+  document.getElementById('occasion-modal-ok').addEventListener('click', () => closeOverlay(document.getElementById('occasion-overlay')));
+  document.getElementById('occasion-modal-goto').addEventListener('click', () => { closeOverlay(document.getElementById('occasion-overlay')); switchTab('athkar'); showScreen('occasion-list', 'slide-left'); renderOccasionPage(currentOccasionKeys); });
 
   document.querySelectorAll('.nav-tab').forEach(t => { t.addEventListener('pointerdown', createRipple); t.addEventListener('click', () => switchTab(t.dataset.tab)); });
 
@@ -1201,15 +1279,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if(!isDraggingNav) return;
     const dx = getClientX(e) - navStartX; let newX = indicatorStartX + dx;
     const minX = 0; const maxX = navBar.offsetWidth - navIndicator.offsetWidth;
-    if (newX < minX) newX = minX - Math.pow(minX - newX, 0.8);
-    if (newX > maxX) newX = maxX + Math.pow(newX - maxX, 0.8);
-    const stretch = 1 + Math.min(Math.abs(dx) / 400, 0.25); 
+    if (newX < minX) newX = minX - Math.pow(minX - newX, 0.72);
+    if (newX > maxX) newX = maxX + Math.pow(newX - maxX, 0.72);
+    const stretch = 1 + Math.min(Math.abs(dx) / 420, 0.22);
     navIndicator.style.transform = `translateX(${newX}px) scaleX(${stretch}) scaleY(0.9)`;
   }
   function handleDragEnd(e) {
     if(!isDraggingNav) return;
     isDraggingNav = false;
-    navIndicator.style.transition = 'transform 0.55s cubic-bezier(0.5, 1.5, 0.4, 1), width 0.55s cubic-bezier(0.5, 1.5, 0.4, 1)';
+    navIndicator.style.transition = 'transform 0.5s var(--motion-spring), width 0.5s var(--motion-spring)';
     const currentTransformMatch = navIndicator.style.transform.match(/translateX\(([^p]+)px\)/);
     const currentTransformX = currentTransformMatch ? parseFloat(currentTransformMatch[1]) : indicatorStartX;
     const indicatorCenter = currentTransformX + (navIndicator.offsetWidth / 2);
@@ -1238,7 +1316,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btnCancel.style.display = isConfirm ? 'block' : 'none';
       btnOk.textContent = isConfirm ? 'موافق' : 'حسناً';
       overlay.classList.add('active');
-      const cleanup = () => { overlay.classList.remove('active'); };
+      const cleanup = () => closeOverlay(overlay);
       btnOk.onclick = () => { cleanup(); resolve(true); };
       btnCancel.onclick = () => { cleanup(); resolve(false); };
     });
