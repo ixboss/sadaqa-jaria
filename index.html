@@ -408,7 +408,8 @@ body.theme-light .surah-h-name { color: var(--accent); }
 body.theme-light .bookmark-btn { background: var(--surface); border: 1px solid var(--border); color: var(--accent); }
 .bookmark-btn:active { transform: scale(0.8); }
 
-.mushaf-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) + 6px); line-height: calc(var(--line-height) * 1.1); text-align: justify; text-justify: inter-word; color: var(--text); direction: rtl; transition: background 0.4s, color 0.4s, font-size 0.3s, line-height 0.3s; }
+.mushaf-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) + 16px); line-height: calc(var(--line-height) * 1.2); text-align: right; color: var(--text); direction: rtl; transition: background 0.4s, color 0.4s, font-size 0.3s, line-height 0.3s; }
+
 .ayah-separator { color: var(--accent); font-family: Tahoma, sans-serif; font-size: 0.7em; margin: 0 4px; font-weight: bold; }
 .bismillah { text-align: center; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) + 10px); color: var(--accent); padding: 10px 10px 20px 10px; line-height: 2; transition: font-size 0.3s; }
 
@@ -476,7 +477,8 @@ body.theme-light .quick-nav-label { color: var(--text); }
 .cat-name { font-size: calc(var(--font-size) * 0.6); color: var(--text); font-weight: bold; transition: font-size 0.3s; }
 
 .thikr-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; transition: background 0.4s, border-color 0.4s; }
-.thikr-text { font-size: var(--font-size); line-height: var(--line-height); color: var(--text); text-align: justify; margin-bottom: 12px; transition: font-size 0.3s; white-space: pre-line; }
+.thikr-text { font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) + 4px); line-height: calc(var(--line-height) * 1.1); color: var(--text); text-align: right; margin-bottom: 12px; transition: font-size 0.3s; white-space: pre-line; }
+
 .thikr-tap-btn { width: 100%; min-height: 56px; background: var(--surface-2); border: 2px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: calc(var(--font-size) * 0.7); cursor: pointer; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), font-size 0.3s; }
 .thikr-tap-btn:active { transform: scale(0.96); }
 .thikr-tap-btn.done { background: #0d2b1a; border-color: var(--success); color: var(--success); transform: scale(1); }
@@ -1492,7 +1494,7 @@ window.tapThikr = function(ci, i, btn) {
     Motion.burst(btn, 10, 'var(--success)');
     Motion.floater(btn, '✓', 'var(--success)');
   } else {
-    btn.textContent = `<span class="count-anim">${toArabicNum(curr)}</span> / ${toArabicNum(max)}`;
+        btn.innerHTML = `<span class="count-anim">${toArabicNum(curr)}</span> / ${toArabicNum(max)}`;
     // Re-trigger pop on the count
     const counter = btn.querySelector('.count-anim');
     if (counter) { counter.classList.remove('pop'); void counter.offsetWidth; counter.classList.add('pop'); }
