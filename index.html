@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="تطبيق إسلامي شامل: اقرأ القرآن الكريم، أذكار يومية، دعاء، سبحة رقمية، وختمة قرآنية. تطبيق ويب متقدم للعبادة والتعليم الإسلامي.">
 <meta name="keywords" content="قرآن, إسلام, أذكار, دعاء, سبحة, ختمة, تطبيق إسلامي, عبادة">
 <meta name="author" content="ixboss">
@@ -111,7 +111,7 @@
 }
 
 /* New: depth-in adds a subtle scale for layered feel */
-@keyframes depthIn { from { opacity: 0; transform: scale(0.97) translateY(14px); filter: blur(4px); } to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } }
+@keyframes depthIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes depthOut { from { opacity: 1; transform: scale(1); filter: blur(0); } to { opacity: 0; transform: scale(1.02); filter: blur(2px); } }
 
 /* New: count pop for number feedback */
@@ -206,11 +206,11 @@
 .count-anim.pop { animation: countPop 480ms var(--ease-spring-snap); }
 
 /* Reading progress with gradient flow */
-#reading-progress-bar { background: linear-gradient(90deg, #ffffff 0%, #ffe7a3 50%, #ffffff 100%); background-size: 200% 100%; animation: gradientFlow 2.4s linear infinite; }
-body.theme-light #reading-progress-bar { background: linear-gradient(90deg, var(--accent) 0%, #ffd57a 50%, var(--accent) 100%); background-size: 200% 100%; animation: gradientFlow 2.4s linear infinite; }
+#reading-progress-bar { background: #ffffff; }
+body.theme-light #reading-progress-bar { background: var(--accent); }
 
 /* Theme crossfade: when html.theme-transitioning, all themed colors interpolate */
-html.theme-transitioning, html.theme-transitioning * { transition: background-color 480ms var(--ease-out-quart), color 480ms var(--ease-out-quart), border-color 480ms var(--ease-out-quart) !important; }
+html.theme-transitioning body, html.theme-transitioning #header, html.theme-transitioning #nav, html.theme-transitioning .screen, html.theme-transitioning .khatmah-controls { transition: background-color 280ms var(--ease-out-quart), color 280ms var(--ease-out-quart), border-color 280ms var(--ease-out-quart); }
 
 /* Header parallax root */
 #header { will-change: transform, box-shadow; }
@@ -237,8 +237,8 @@ html.theme-transitioning, html.theme-transitioning * { transition: background-co
 /* Splash screen polish */
 #splash-screen { animation: none; transition: opacity 500ms var(--ease-out-quart), transform 500ms var(--ease-out-quart), background 480ms var(--ease-out-quart); }
 @keyframes splashBreathe { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.04); opacity: 0.92; } }
-.splash-content > * { animation: splashBreathe 1.6s ease-in-out infinite; }
-.splash-content > *:nth-child(2) { animation-delay: 200ms; }
+.splash-content > * { animation: fadeIn 260ms var(--ease-out-quart) both; }
+.splash-content > *:nth-child(2) { animation-delay: 80ms; }
 
 /* Header title pop on screen change */
 #header-title { display: inline-block; }
@@ -262,7 +262,7 @@ html.theme-transitioning, html.theme-transitioning * { transition: background-co
 .pop { animation: countPop 480ms var(--ease-spring-snap); }
 
 /* Card hover lift */
-.surah-row, .quick-nav-card, .athkar-cat-card, .dua-card, .occasion-card, .thikr-card, .k-dash-card, .khatmah-setup-box, .sk-card { transition: transform 280ms var(--ease-out-quart), border-color 280ms var(--ease-out-quart), box-shadow 280ms var(--ease-out-quart), background 280ms var(--ease-out-quart); will-change: transform; }
+.surah-row, .quick-nav-card, .athkar-cat-card, .dua-card, .occasion-card, .thikr-card, .k-dash-card, .khatmah-setup-box, .sk-card { transition: transform 220ms var(--ease-out-quart), border-color 220ms var(--ease-out-quart), box-shadow 220ms var(--ease-out-quart), background 220ms var(--ease-out-quart); }
 @media (hover: hover) {
   .surah-row:hover, .quick-nav-card:hover, .athkar-cat-card:hover, .dua-card:hover, .occasion-card:hover, .thikr-card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 10px 28px rgba(0,0,0,0.25); }
   body.theme-light .surah-row:hover, body.theme-light .quick-nav-card:hover, body.theme-light .athkar-cat-card:hover, body.theme-light .dua-card:hover, body.theme-light .occasion-card:hover, body.theme-light .thikr-card:hover { box-shadow: 0 10px 28px rgba(0,0,0,0.08); }
@@ -287,7 +287,7 @@ body.theme-light {
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Amiri', 'Traditional Arabic', 'Segoe UI', Tahoma, sans-serif; direction: rtl; overflow: hidden; transition: background 0.4s, color 0.4s; user-select: none; -webkit-user-select: none; }
+html, body { height: 100%; min-height: 100dvh; background: var(--bg); color: var(--text); font-family: 'Amiri', 'Traditional Arabic', 'Segoe UI', Tahoma, sans-serif; direction: rtl; overflow: hidden; transition: background 0.4s, color 0.4s; user-select: text; -webkit-user-select: text; }
 .mushaf-block { user-select: text; -webkit-user-select: text; }
 
 /* نقش الخلفية */
@@ -302,7 +302,7 @@ body.theme-light::before { opacity: 0.03; filter: grayscale(100%) brightness(0%)
 ::-webkit-scrollbar-thumb { background: rgba(201, 168, 76, 0.3); border-radius: 10px; }
 body.theme-light ::-webkit-scrollbar-thumb { background: rgba(181, 133, 0, 0.2); }
 
-#app { position: fixed; inset: 0; display: flex; flex-direction: column; z-index: 1; }
+#app { position: fixed; inset: 0; min-height: 100dvh; display: flex; flex-direction: column; z-index: 1; }
 
 /* ==================== الشريط العلوي ==================== */
 #header { height: var(--header-h); background: linear-gradient(135deg, #c9a84c, #8a6820); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; flex-shrink: 0; z-index: 100; box-shadow: 0 2px 15px rgba(0,0,0,0.3); transition: background 0.4s, box-shadow 0.4s; }
@@ -330,17 +330,17 @@ body.theme-light .header-btn { background: var(--surface-2); color: var(--text);
 .header-btn.active { background: #1a1000; color: #c9a84c; }
 body.theme-light .header-btn.active { background: var(--accent); color: #fff; }
 
-#content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 120px; scroll-behavior: smooth; touch-action: pan-y; }
+#content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: calc(120px + env(safe-area-inset-bottom)); scroll-behavior: smooth; touch-action: pan-y; }
 
 /* ==================== الشريط السفلي الزجاجي ==================== */
 #nav {
-  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 420px; height: 70px;
+  position: fixed; bottom: max(12px, calc(env(safe-area-inset-bottom) + 12px)); left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 420px; height: 70px;
   background: rgba(26, 29, 39, 0.6); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
   border: 1px solid rgba(201, 168, 76, 0.1); border-top: 1px solid rgba(255, 255, 255, 0.1); border-radius: 35px;
   display: flex; align-items: center; padding: 0 6px; z-index: 100;
   box-shadow: 0 15px 35px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s, background 0.4s, border-color 0.4s, box-shadow 0.4s;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 body.theme-light #nav { background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(181, 133, 0, 0.15); box-shadow: 0 15px 35px rgba(0,0,0,0.08); }
@@ -349,7 +349,7 @@ body.theme-light #nav { background: rgba(255, 255, 255, 0.85); border: 1px solid
 .nav-indicator {
   position: absolute; left: 0; top: 6px; bottom: 6px;
   background: linear-gradient(135deg, rgba(201, 168, 76, 0.35), rgba(138, 104, 32, 0.05)); border: 1px solid rgba(201, 168, 76, 0.4);
-  border-radius: 30px; z-index: 1; transition: transform 0.55s cubic-bezier(0.5, 1.5, 0.4, 1), width 0.55s cubic-bezier(0.5, 1.5, 0.4, 1);
+  border-radius: 30px; z-index: 1; transition: transform 280ms var(--ease-out-quart), width 280ms var(--ease-out-quart);
   pointer-events: none; box-shadow: 0 0 15px rgba(201, 168, 76, 0.2);
   will-change: transform, width;
 }
@@ -361,8 +361,8 @@ body.theme-light .nav-indicator { background: linear-gradient(135deg, rgba(181, 
   color: var(--text-dim); font-size: 13px; cursor: pointer; transition: all 0.3s; position: relative; z-index: 2; height: 100%; overflow: hidden; border-radius: 30px;
 }
 .nav-tab.active { color: var(--accent); font-weight: bold; }
-.nav-tab .nav-icon { font-size: 22px; transition: transform 0.4s cubic-bezier(0.5, 1.5, 0.4, 1); pointer-events: none; }
-.nav-tab.active .nav-icon { transform: translateY(-3px) scale(1.15); filter: drop-shadow(0 4px 6px rgba(201, 168, 76, 0.5)); }
+.nav-tab .nav-icon { font-size: 22px; transition: transform 220ms var(--ease-out-quart); pointer-events: none; }
+.nav-tab.active .nav-icon { transform: translateY(-2px) scale(1.08); filter: drop-shadow(0 3px 4px rgba(201, 168, 76, 0.35)); }
 body.theme-light .nav-tab.active .nav-icon { filter: drop-shadow(0 4px 6px rgba(181, 133, 0, 0.3)); }
 .nav-tab .nav-text { pointer-events: none; transition: color 0.3s; }
 
@@ -371,9 +371,9 @@ body.theme-light .ripple { background-color: rgba(181, 133, 0, 0.15); }
 
 /* ================== انتقالات الشاشات الملساء ================== */
 .screen { display: none; width: 100%; max-width: 680px; margin: 0 auto; padding: 16px; }
-.screen.active { display: block; animation: depthIn 360ms var(--ease-out-quart) both; }
-.screen.slide-left { display: block; animation: slideInLeft 380ms var(--ease-out-quart) both; }
-.screen.slide-right { display: block; animation: slideInRight 380ms var(--ease-out-quart) both; }
+.screen.active { display: block; animation: depthIn 240ms var(--ease-out-quart) both; }
+.screen.slide-left { display: block; animation: slideInLeft 260ms var(--ease-out-quart) both; }
+.screen.slide-right { display: block; animation: slideInRight 260ms var(--ease-out-quart) both; }
 #screen-tasbih.active, #screen-tasbih.slide-left, #screen-tasbih.slide-right { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - var(--header-h) - 100px); }
 
 .skeleton { background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 30%, var(--surface) 60%, var(--surface-2) 100%); background-size: 200% 100%; animation: shimmerWave 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite; border-radius: 8px; position: relative; overflow: hidden; }
@@ -391,14 +391,14 @@ body.theme-light .ripple { background-color: rgba(181, 133, 0, 0.15); }
 #clear-search:active { transform: translateY(-50%) scale(0.85); }
 .highlight { color: var(--accent); font-weight: bold; background: var(--accent-dim); padding: 0 2px; border-radius: 4px; }
 
-.surah-row { background: var(--surface); border: 1px solid var(--border); border-right: 3px solid transparent; border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: transform 0.2s, border-color 0.2s; }
+.surah-row { background: var(--surface); border: 1px solid var(--border); border-right: 3px solid transparent; border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: transform 0.2s, border-color 0.2s; width: 100%; font: inherit; text-align: right; }
 .surah-row:active { transform: scale(0.98); }
 .surah-row:hover { border-right-color: var(--accent); }
 .surah-num { width: 36px; height: 36px; background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--accent); flex-shrink: 0; transition: background 0.3s, color 0.3s; }
 body.theme-light .surah-num { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
 .surah-info { flex: 1; }
-.surah-name { font-size: calc(var(--font-size) * 0.7); font-weight: 700; color: var(--text); transition: font-size 0.3s; }
-.surah-meta { font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); transition: font-size 0.3s; }
+.surah-name { display: block; font-size: calc(var(--font-size) * 0.7); font-weight: 700; color: var(--text); transition: font-size 0.3s; }
+.surah-meta { display: block; font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); transition: font-size 0.3s; }
 
 #surah-header-card { background: linear-gradient(135deg, var(--accent), #8a6820); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; text-align: center; box-shadow: 0 4px 15px var(--accent-dim); position: relative; }
 body.theme-light #surah-header-card { background: linear-gradient(135deg, var(--surface-2), #f8f9fa); border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
@@ -461,7 +461,7 @@ body.theme-light .khatmah-controls { background: rgba(255, 255, 255, 0.9); borde
 
 /* ================= الأذكار ================= */
 .quick-nav-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
-.quick-nav-card { background: linear-gradient(135deg, var(--accent), #8a6820); border-radius: var(--radius); padding: 16px 12px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: transform 0.2s; }
+.quick-nav-card { background: linear-gradient(135deg, var(--accent), #8a6820); border: none; border-radius: var(--radius); padding: 16px 12px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: transform 0.2s; width: 100%; font: inherit; }
 body.theme-light .quick-nav-card { background: var(--surface); border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
 .quick-nav-card:active { transform: scale(0.95); }
 .quick-nav-icon { font-size: calc(var(--font-size) * 1.1); display: block; margin-bottom: 6px; transition: font-size 0.3s; }
@@ -469,7 +469,7 @@ body.theme-light .quick-nav-card { background: var(--surface); border: 1px solid
 body.theme-light .quick-nav-label { color: var(--text); }
 
 .athkar-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-.athkar-cat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 12px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: transform 0.2s, border-color 0.2s, background 0.4s; }
+.athkar-cat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 12px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: transform 0.2s, border-color 0.2s, background 0.4s; width: 100%; font: inherit; text-align: right; }
 .athkar-cat-card:active { transform: scale(0.95); }
 .athkar-cat-card.completed { border-color: var(--success); }
 .cat-info { flex: 1; text-align: right; }
@@ -542,6 +542,10 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
 #custom-dialog-overlay.active { display: flex; }
 #custom-dialog { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 340px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: fadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); text-align: center; }
 #custom-dialog-text { font-size: 18px; font-weight: bold; color: var(--text); line-height: 1.6; }
+
+/* Accessibility and calm-motion refinements */
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+button, .quick-nav-card, .surah-row, .athkar-cat-card { -webkit-user-select: none; user-select: none; }
 </style>
 </head>
 <body>
@@ -558,14 +562,14 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
     <button id="back-btn" aria-label="رجوع">&#8594;</button>
     <div class="header-center">
       <div id="header-title">إسلامي</div>
-      <div id="header-subtitle"></div>
+      <div id="header-subtitle" aria-live="polite"></div>
     </div>
-    <div id="font-ctrl">
-      <button class="header-btn" id="theme-btn" title="الوضع الفاتح">☀️</button>
-      <button class="header-btn" id="share-btn" title="مشاركة التطبيق">📤</button>
-      <button class="header-btn font-btn" data-size="small">ص</button>
-      <button class="header-btn font-btn" data-size="medium">م</button>
-      <button class="header-btn font-btn active" data-size="large">ك</button>
+    <div id="font-ctrl" role="group" aria-label="إعدادات العرض">
+      <button class="header-btn" id="theme-btn" title="الوضع الفاتح" aria-label="التبديل إلى الوضع الفاتح">☀️</button>
+      <button class="header-btn" id="share-btn" title="مشاركة التطبيق" aria-label="مشاركة التطبيق">📤</button>
+      <button class="header-btn font-btn" data-size="small" aria-label="حجم خط صغير" aria-pressed="false">ص</button>
+      <button class="header-btn font-btn" data-size="medium" aria-label="حجم خط متوسط" aria-pressed="false">م</button>
+      <button class="header-btn font-btn active" data-size="large" aria-label="حجم خط كبير" aria-pressed="true">ك</button>
     </div>
   </header>
 
@@ -578,8 +582,8 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
 
     <div id="screen-surah-list" class="screen active">
       <div class="search-wrapper">
-        <input type="search" id="search-bar" placeholder="ابحث عن سورة باسمها أو رقمها...">
-        <button id="clear-search">&times;</button>
+        <input type="search" id="search-bar" placeholder="ابحث عن سورة باسمها أو رقمها..." aria-label="البحث عن سورة باسمها أو رقمها">
+        <button id="clear-search" aria-label="مسح البحث">&times;</button>
       </div>
       <div id="surah-list-container"></div>
     </div>
@@ -597,11 +601,11 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
       <div id="khatmah-setup" style="display:none;">
         <div class="khatmah-setup-box">
           <h2 style="font-size: 18px; margin-bottom: 16px; color: var(--accent);">إعداد ختمة جديدة</h2>
-          <label class="k-label">طريقة الختم المريحة لك:</label>
+          <label class="k-label" for="k-method">طريقة الختم المريحة لك:</label>
           <select id="k-method" class="k-input"><option value="pages">بعدد الصفحات يومياً</option><option value="days">بعدد الأيام</option></select>
-          <label class="k-label">العدد:</label>
+          <label class="k-label" for="k-val">العدد:</label>
           <input type="number" id="k-val" class="k-input" placeholder="مثال: 20" value="20" min="1">
-          <label class="k-label">تبدأ من أي صفحة؟ (1 - 604):</label>
+          <label class="k-label" for="k-start">تبدأ من أي صفحة؟ (1 - 604):</label>
           <input type="number" id="k-start" class="k-input" value="1" min="1" max="604">
           <button class="btn-scale" onclick="startKhatmah()">على بركة الله ➔</button>
         </div>
@@ -641,11 +645,11 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
 
     <div id="screen-athkar-list" class="screen">
       <div class="quick-nav-row">
-        <div class="quick-nav-card" id="nav-dua-card" role="button"><span class="quick-nav-icon">🤲</span><span class="quick-nav-label">أدعية النبي</span></div>
-        <div class="quick-nav-card" id="nav-tasbih-card" role="button"><span class="quick-nav-icon">📿</span><span class="quick-nav-label">السبحة</span></div>
+        <button type="button" class="quick-nav-card" id="nav-dua-card"><span class="quick-nav-icon">🤲</span><span class="quick-nav-label">أدعية النبي</span></button>
+        <button type="button" class="quick-nav-card" id="nav-tasbih-card"><span class="quick-nav-icon">📿</span><span class="quick-nav-label">السبحة</span></button>
       </div>
       <div class="quick-nav-row" id="occasion-nav-row" style="display:none;">
-        <div class="quick-nav-card" id="nav-occasion-card" role="button" style="grid-column: span 2;"><span class="quick-nav-icon">🌙</span><span class="quick-nav-label" id="occasion-nav-label">سنن المناسبة</span></div>
+        <button type="button" class="quick-nav-card" id="nav-occasion-card" style="grid-column: span 2;"><span class="quick-nav-icon">🌙</span><span class="quick-nav-label" id="occasion-nav-label">سنن المناسبة</span></button>
       </div>
       <div class="section-heading" style="margin-top:10px; font-size:calc(var(--font-size) * 0.7);">الأذكار اليومية</div>
       <div class="athkar-grid" id="athkar-grid"></div>
@@ -663,21 +667,21 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
         <div class="tasbih-lap-dot"></div>
       </div>
       <div id="tasbih-circle-wrap">
-        <button id="tasbih-tap-btn"><span id="tasbih-count-num">٠</span><div style="font-size:calc(var(--font-size) * 0.5); color:var(--text-dim); transition: color 0.4s;">اضغط للعدّ</div></button>
+        <button id="tasbih-tap-btn" aria-label="إضافة تسبيحة"><span id="tasbih-count-num" aria-live="polite">٠</span><div style="font-size:calc(var(--font-size) * 0.5); color:var(--text-dim); transition: color 0.4s;">اضغط للعدّ</div></button>
       </div>
       <button class="btn-scale" id="tasbih-reset-btn" style="width:auto; padding:10px 30px; margin-top:40px; background:var(--surface-2); color:var(--text);">تصفير العداد</button>
     </div>
   </main>
 
-  <nav id="nav">
+  <nav id="nav" aria-label="التنقل الرئيسي">
     <div class="nav-indicator" id="nav-indicator"></div>
-    <button class="nav-tab active" data-tab="quran"><span class="nav-icon">📖</span><span class="nav-text">القرآن</span></button>
+    <button class="nav-tab active" data-tab="quran" aria-current="page"><span class="nav-icon">📖</span><span class="nav-text">القرآن</span></button>
     <button class="nav-tab" data-tab="khatmah"><span class="nav-icon">🕋</span><span class="nav-text">الختمة</span></button>
     <button class="nav-tab" data-tab="athkar"><span class="nav-icon">📿</span><span class="nav-text">الأذكار</span></button>
   </nav>
 
   <div id="custom-dialog-overlay">
-    <div id="custom-dialog">
+    <div id="custom-dialog" role="dialog" aria-modal="true" aria-labelledby="custom-dialog-text" tabindex="-1">
       <div id="custom-dialog-text">هل أنت متأكد؟</div>
       <div style="display:flex; gap:10px; margin-top:20px;">
         <button class="btn-scale" id="custom-dialog-cancel" style="background:var(--surface-2); color:var(--text); flex:1;">إلغاء</button>
@@ -687,7 +691,7 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
   </div>
 
   <div id="occasion-overlay">
-    <div id="occasion-modal">
+    <div id="occasion-modal" role="dialog" aria-modal="true" aria-labelledby="occasion-modal-title" tabindex="-1">
       <div class="occasion-modal-icon">🌙</div>
       <div class="occasion-modal-title" id="occasion-modal-title">مناسبة اليوم</div>
       <div id="occasion-modal-body"></div>
@@ -1079,8 +1083,8 @@ function saveState() { try { localStorage.setItem('app_state', JSON.stringify(st
 function applyTheme(th) {
   state.theme = th;
   const themeBtn = document.getElementById('theme-btn');
-  if(th === 'light') { document.body.classList.add('theme-light'); themeBtn.textContent = '☀️'; themeBtn.title = 'الوضع الداكن'; }
-  else { document.body.classList.remove('theme-light'); themeBtn.textContent = '🌙'; themeBtn.title = 'الوضع الفاتح'; }
+  if(th === 'light') { document.body.classList.add('theme-light'); themeBtn.textContent = '☀️'; themeBtn.title = 'الوضع الداكن'; themeBtn.setAttribute('aria-label', 'التبديل إلى الوضع الداكن'); }
+  else { document.body.classList.remove('theme-light'); themeBtn.textContent = '🌙'; themeBtn.title = 'الوضع الفاتح'; themeBtn.setAttribute('aria-label', 'التبديل إلى الوضع الفاتح'); }
   try { localStorage.setItem('theme', th); } catch(e) {}
   saveState();
 }
@@ -1092,6 +1096,7 @@ function applyFontSize(size) {
   document.querySelectorAll('.font-btn').forEach(btn => {
     const isActive = btn.dataset.size === size;
     btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', String(isActive));
     if (isActive) { btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop'); }
   });
   state.fontSize = size; saveState();
@@ -1148,14 +1153,14 @@ function setNavIndicator() {
 
     if (Math.abs(dx) > 10) {
         const stretch = 1 + Math.min(Math.abs(dx) / 150, 0.35);
-        indicator.style.transition = 'transform 0.2s ease-in, width 0.2s ease-in';
+        indicator.style.transition = 'transform 160ms var(--ease-out-quart), width 160ms var(--ease-out-quart)';
         indicator.style.transform = `translateX(${currentX + (dx / 2)}px) scaleX(${stretch}) scaleY(0.85)`;
         setTimeout(() => {
-            indicator.style.transition = 'transform 0.5s cubic-bezier(0.5, 1.5, 0.4, 1), width 0.5s cubic-bezier(0.5, 1.5, 0.4, 1)';
+            indicator.style.transition = 'transform 280ms var(--ease-out-quart), width 280ms var(--ease-out-quart)';
             indicator.style.width = `${targetW}px`; indicator.style.transform = `translateX(${targetX}px) scaleX(1) scaleY(1)`;
-        }, 200);
+        }, 160);
     } else {
-        indicator.style.transition = 'transform 0.55s cubic-bezier(0.5, 1.5, 0.4, 1), width 0.55s cubic-bezier(0.5, 1.5, 0.4, 1)';
+        indicator.style.transition = 'transform 280ms var(--ease-out-quart), width 280ms var(--ease-out-quart)';
         indicator.style.width = `${targetW}px`; indicator.style.transform = `translateX(${targetX}px) scaleX(1) scaleY(1)`;
     }
   }
@@ -1178,8 +1183,10 @@ function switchTab(tabId) {
   const oldI = tabsArray.indexOf(state.currentTab); const newI = tabsArray.indexOf(tabId);
   let anim = 'active'; if (oldI !== -1 && newI !== -1 && oldI !== newI) anim = newI > oldI ? 'slide-left' : 'slide-right';
 
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.querySelector(`.nav-tab[data-tab="${tabId}"]`)?.classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t => { t.classList.remove('active'); t.removeAttribute('aria-current'); });
+  const activeTab = document.querySelector(`.nav-tab[data-tab="${tabId}"]`);
+  activeTab?.classList.add('active');
+  activeTab?.setAttribute('aria-current', 'page');
   state.currentTab = tabId;
 
   if (tabId === 'quran') { showScreen('surah-list', anim); }
@@ -1195,8 +1202,8 @@ function handleSwipeEnd(x, y) {
   if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) {
     if (['surah-view', 'thikr-view', 'dua-list', 'tasbih', 'khatmah-read', 'occasion-list'].includes(state.currentScreen)) return;
     const currentIndex = tabsArray.indexOf(state.currentTab);
-    if (dx > 0 && currentIndex < tabsArray.length - 1) switchTab(tabsArray[currentIndex + 1]);
-    else if (dx < 0 && currentIndex > 0) switchTab(tabsArray[currentIndex - 1]);
+    if (dx < 0 && currentIndex < tabsArray.length - 1) switchTab(tabsArray[currentIndex + 1]);
+    else if (dx > 0 && currentIndex > 0) switchTab(tabsArray[currentIndex - 1]);
   }
 }
 
@@ -1288,7 +1295,7 @@ function renderSurahList(list, query = '') {
   document.getElementById('surah-list-container').innerHTML = list.map(s => {
     let nameHtml = s.name;
     if(query) { const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); const regex = new RegExp(`(${safeQuery})`, 'gi'); nameHtml = s.name.replace(regex, '<span class="highlight">$1</span>'); }
-    return `<div class="surah-row" data-magnetic onclick="openSurah(${s.number})"><div class="surah-num">${toArabicNum(s.number)}</div><div class="surah-info"><div class="surah-name">${nameHtml}</div><div class="surah-meta">${toArabicNum(s.numberOfAyahs)} آية</div></div></div>`;
+    return `<button type="button" class="surah-row" onclick="openSurah(${s.number})" aria-label="فتح ${s.name}"><span class="surah-num">${toArabicNum(s.number)}</span><span class="surah-info"><span class="surah-name">${nameHtml}</span><span class="surah-meta">${toArabicNum(s.numberOfAyahs)} آية</span></span></button>`;
   }).join('');
   Motion.staggerIn(document.getElementById('surah-list-container'));
 }
@@ -1439,14 +1446,13 @@ window.changeKhatmahPage = function(dir) {
 window.completeWird = async function() {
   const nx = Math.max(state.khatmah.todayWirdEnd, state.khatmah.lastPageRead) + 1;
   if (nx > 604) {
-      Motion.confetti(120);
+      Motion.confetti(48);
       await new Promise(r => setTimeout(r, 300));
       await window.showAppDialog('مبارك عليك ختم القرآن الكريم! 🤲<br><span style="font-size:14px; font-weight:normal; color:var(--text-dim)">تقبل الله منك صالح الأعمال.</span>', false);
       state.khatmah = null; saveState(); navigateBack();
   } else {
-      // Mini celebration for completing a wird
-      Motion.confetti(30);
-      await new Promise(r => setTimeout(r, 100));
+      // A quiet confirmation keeps the reading flow uninterrupted.
+      Motion.surgeRing(document.getElementById('kp-done'));
       state.khatmah.currentPage = nx; state.khatmah.todayWirdStart = nx; state.khatmah.todayWirdEnd = Math.min(nx + state.khatmah.pagesPerDay - 1, 604);
       state.khatmah.lastPageRead = nx - 1; saveState(); navigateBack();
   }
@@ -1468,10 +1474,10 @@ function renderAthkarList() {
 
     const doneCount = cat.items.filter((_, ii) => getProg(ci, ii) >= cat.items[ii].count).length;
 
-    return `<div class="athkar-cat-card ${pct === 100 ? 'completed' : ''}" data-magnetic onclick="openCategory(${ci})">
+    return `<button type="button" class="athkar-cat-card ${pct === 100 ? 'completed' : ''}" onclick="openCategory(${ci})" aria-label="فتح ${cat.name}، مكتمل ${doneCount} من ${cat.items.length}">
       <div class="circle-wrap" style="width:40px;height:40px;"><svg viewBox="0 0 36 36" class="circular-chart"><path class="circle-bg" stroke-width="4" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="circle-path" stroke-width="4" stroke-dasharray="${pct}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /></svg></div>
       <div class="cat-info"><div class="cat-name">${cat.name}</div><div style="font-size:calc(var(--font-size) * 0.45);color:var(--text-dim)">${toArabicNum(doneCount)}/${toArabicNum(cat.items.length)}</div></div>
-    </div>`;
+    </button>`;
   }).join('');
   Motion.staggerIn(document.getElementById('athkar-grid'));
 }
@@ -1557,7 +1563,7 @@ document.getElementById('tasbih-tap-btn').addEventListener('click', (e) => {
       document.getElementById('tasbih-msg').classList.add('active');
       // Big celebration: confetti + surge ring
       Motion.surgeRing(btn);
-      Motion.confetti(80);
+      Motion.confetti(36);
     } else {
       // Lap complete: small celebration
       Motion.surgeRing(btn);
@@ -1581,14 +1587,7 @@ function initOccasionSystem() {
   if (currentOccasionKeys.length > 0) { navRow.style.display = ''; navLabel.textContent = currentOccasionKeys.length > 1 ? 'سنن وتذكيرات اليوم' : (OCCASIONS_DB[currentOccasionKeys[0]]?.title || 'سنن المناسبة'); }
   else { navRow.style.display = 'none'; }
 
-  if (currentOccasionKeys.length > 0) {
-    const periodKey = `${todayDateKey(now)}_${getCurrentPeriod(now)}`;
-    if (localStorage.getItem('occasion_popup_last_period') !== periodKey) {
-      const body = document.getElementById('occasion-modal-body'); document.getElementById('occasion-modal-title').textContent = currentOccasionKeys.length > 1 ? 'مناسبات وتذكيرات اليوم' : (OCCASIONS_DB[currentOccasionKeys[0]]?.title || 'مناسبة اليوم');
-      body.innerHTML = currentOccasionKeys.map(k => { const o = OCCASIONS_DB[k]; return o ? `<div class="occasion-modal-item"><b>${o.icon} ${o.title}</b><br>${o.summary}</div>` : ''; }).join('');
-      document.getElementById('occasion-overlay').classList.add('active'); localStorage.setItem('occasion_popup_last_period', periodKey);
-    }
-  }
+  // The occasion is available from its card instead of interrupting reading with a popup.
 }
 
 function renderOccasionPage(keys) {
@@ -1606,7 +1605,11 @@ document.addEventListener('DOMContentLoaded', () => {
   Object.keys(localStorage).forEach(key => { if (key.startsWith('ath_') && !key.includes(localTodayStr)) localStorage.removeItem(key); });
 
   const splash = document.getElementById('splash-screen');
-  if (splash) setTimeout(() => { splash.style.opacity = '0'; splash.style.transform = 'scale(1.06)'; setTimeout(() => splash.style.display = 'none', 500); }, 1500);
+  if (splash) {
+    const splashDelay = sessionStorage.getItem('splash_seen') ? 0 : 450;
+    sessionStorage.setItem('splash_seen', '1');
+    setTimeout(() => { splash.style.opacity = '0'; splash.style.transform = 'scale(1.02)'; setTimeout(() => splash.style.display = 'none', 350); }, splashDelay);
+  }
 
   contentArea = document.getElementById('content');
   searchBar = document.getElementById('search-bar');
@@ -1620,11 +1623,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('.font-btn').forEach(btn => btn.addEventListener('click', function() { applyFontSize(this.dataset.size); }));
   document.getElementById('theme-btn').addEventListener('click', () => applyTheme(state.theme === 'dark' ? 'light' : 'dark'));
-
-  // Magnetic hover for primary action buttons (desktop / hover devices)
-  if (window.matchMedia('(hover: hover)').matches) {
-    document.querySelectorAll('.btn-scale.primary, .athkar-cat-card, .surah-row, .quick-nav-card').forEach(el => Motion.magnetic(el, 0.08));
-  }
 
   document.getElementById('share-btn').addEventListener('click', async () => {
     const shareData = { title: 'تطبيق إسلامي', text: 'جرب تطبيق إسلامي، صدقة جارية خفيف وسريع لقراءة القرآن الكريم، متابعة الختمة، وأذكار المسلم 🤍', url: window.location.href };
@@ -1687,7 +1685,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function handleDragEnd(e) {
     if(!isDraggingNav) return;
     isDraggingNav = false;
-    navIndicator.style.transition = 'transform 0.55s cubic-bezier(0.5, 1.5, 0.4, 1), width 0.55s cubic-bezier(0.5, 1.5, 0.4, 1)';
+    navIndicator.style.transition = 'transform 280ms var(--ease-out-quart), width 280ms var(--ease-out-quart)';
     const currentTransformMatch = navIndicator.style.transform.match(/translateX\(([^p]+)px\)/);
     const currentTransformX = currentTransformMatch ? parseFloat(currentTransformMatch[1]) : indicatorStartX;
     const indicatorCenter = currentTransformX + (navIndicator.offsetWidth / 2);
@@ -1714,8 +1712,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const btnCancel = document.getElementById('custom-dialog-cancel');
       msgEl.innerHTML = message;
       btnCancel.style.display = isConfirm ? 'block' : 'none';
-      btnOk.textContent = isConfirm ? 'موافق' : 'حسناً';
-      overlay.classList.add('active');
+       btnOk.textContent = isConfirm ? 'موافق' : 'حسناً';
+       overlay.classList.add('active');
+       setTimeout(() => btnOk.focus(), 0);
       const cleanup = () => { overlay.classList.remove('active'); };
       btnOk.onclick = () => { cleanup(); resolve(true); };
       btnCancel.onclick = () => { cleanup(); resolve(false); };
