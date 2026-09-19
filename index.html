@@ -2,13 +2,13 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="description" content="تطبيق إسلامي شامل: اقرأ القرآن الكريم، أذكار يومية، دعاء، سبحة رقمية، وختمة قرآنية. تطبيق ويب متقدم للعبادة والتعليم الإسلامي.">
 <meta name="keywords" content="قرآن, إسلام, أذكار, دعاء, سبحة, ختمة, تطبيق إسلامي, عبادة">
 <meta name="author" content="ixboss">
-<meta name="theme-color" content="#0f1117">
+<meta name="theme-color" content="#0a1f28" id="meta-theme-color">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="إسلامي">
 
 <!-- Open Graph Meta Tags -->
@@ -31,8 +31,8 @@
 
 <!-- PWA Manifest -->
 <link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230f1117'/%3E%3Cpath d='M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z' fill='none' stroke='%23c9a84c' stroke-width='8' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230f1117'/%3E%3Cpath d='M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z' fill='none' stroke='%23c9a84c' stroke-width='8' stroke-linejoin='round'/%3E%3Cpath d='M96 70 L 96 150' stroke='%23c9a84c' stroke-width='8' stroke-linecap='round'/%3E%3Cpath d='M60 90 L 80 100 M60 110 L 80 120 M132 90 L 112 100 M132 110 L 112 120' stroke='%23c9a84c' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230a1f28'/%3E%3Cpath d='M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z' fill='none' stroke='%233ecf9e' stroke-width='8' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230a1f28'/%3E%3Cpath d='M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z' fill='none' stroke='%233ecf9e' stroke-width='8' stroke-linejoin='round'/%3E%3Cpath d='M96 70 L 96 150' stroke='%233ecf9e' stroke-width='8' stroke-linecap='round'/%3E%3Cpath d='M60 90 L 80 100 M60 110 L 80 120 M132 90 L 112 100 M132 110 L 112 120' stroke='%2346c8d6' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
 
 <title>إسلامي - تطبيق إسلامي شامل</title>
 
@@ -66,11 +66,26 @@
 
 /* ==================== متغيرات التصميم (الوضع الداكن الافتراضي) ==================== */
 :root {
-  --bg: #0f1117; --surface: #1a1d27; --surface-2: #22263a;
-  --accent: #c9a84c; --accent-dim: #c9a84c22;
-  --text: #f0ece0; --text-dim: #9a9aaa; --success: #4caf7d;
-  --border: #2a2d3e; --radius: 12px;
-  --font-size: 26px; --line-height: 2.3;
+  /* ===== الهوية اللونية الجديدة: زمردی + فيروزي + أزرق ليلي + كريمي ===== */
+  --bg: #0a1f28;            /* أزرق ليلي عميق مائل للفيروز (ليس أسوداً) */
+  --surface: #10333f;       /* سطح فيروزي عميق */
+  --surface-2: #16414e;     /* سطح أفتح للتباين */
+  --accent: #3ecf9e;        /* أخضر زمردي مضيء - للعناصر الصغيرة على الخلفيات الداكنة */
+  --accent-deep: #12805e;   /* زمردي عميق - للخلفيات والأزرار (مع نص كريمي) */
+  --accent-2: #46c8d6;      /* فيروزي - لون ثانوي */
+  --accent-dim: rgba(62, 207, 158, 0.14);
+  --accent-grad: linear-gradient(135deg, #16906b, #0f6d7a);
+  --header-grad: linear-gradient(135deg, #15604c, #0e4a57);
+  --text: #f3f0e7;          /* أبيض دافئ */
+  --text-dim: #9fb8b6;      /* رمادي ناعم مائل للأخضر */
+  --success: #4fd1a5;
+  --border: #1f4b5a;
+  --radius: 12px;
+  /* ===== نظام الخطوط: حجم أساسي واحد × نسبة تكبير واحدة ===== */
+  --font-base: 26px;                        /* الحجم المرجعي (متوسط) */
+  --font-scale: 1;                          /* نسبة التكبير: 0.8 / 1 / 1.4 */
+  --font-size: calc(var(--font-base) * var(--font-scale));  /* الحجم الفعلي المشتق */
+  --line-height: 2.3;
   --header-h: 70px;
 
 /* Motion & animation tokens */
@@ -156,7 +171,7 @@
 .bookmark-btn.pop { animation: countPop 480ms var(--ease-spring-snap); }
 
 /* Ripple effect (lightweight) */
-.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple-anim 500ms linear; background-color: rgba(201,168,76,0.18); pointer-events: none; z-index: 0; }
+.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple-anim 500ms linear; background-color: rgba(255,255,255,0.22); pointer-events: none; z-index: 0; }
 .ripple.dark { background-color: rgba(255,255,255,0.25); }
 
 /* Floating counter badge (+1 / +3) */
@@ -206,8 +221,8 @@
 .count-anim.pop { animation: countPop 480ms var(--ease-spring-snap); }
 
 /* Reading progress with gradient flow */
-#reading-progress-bar { background: linear-gradient(90deg, #ffffff 0%, #ffe7a3 50%, #ffffff 100%); background-size: 200% 100%; animation: gradientFlow 2.4s linear infinite; }
-body.theme-light #reading-progress-bar { background: linear-gradient(90deg, var(--accent) 0%, #ffd57a 50%, var(--accent) 100%); background-size: 200% 100%; animation: gradientFlow 2.4s linear infinite; }
+#reading-progress-bar { background: linear-gradient(90deg, #eafff6 0%, #8fe3c0 50%, #eafff6 100%); background-size: 200% 100%; animation: gradientFlow 2.4s linear infinite; }
+body.theme-light #reading-progress-bar { background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 50%, var(--accent) 100%); background-size: 200% 100%; animation: gradientFlow 2.4s linear infinite; }
 
 /* Theme crossfade: when html.theme-transitioning, all themed colors interpolate */
 html.theme-transitioning, html.theme-transitioning * { transition: background-color 480ms var(--ease-out-quart), color 480ms var(--ease-out-quart), border-color 480ms var(--ease-out-quart) !important; }
@@ -274,16 +289,25 @@ html.theme-transitioning, html.theme-transitioning * { transition: background-co
 /* Subtle shrink on press for cards */
 .surah-row:active, .athkar-cat-card:active, .quick-nav-card:active { transform: scale(0.985); }
 
-/* Reveal / entrance animations */
-.reveal-hidden { opacity: 0; transform: translateY(8px); will-change: opacity, transform; transition: opacity var(--motion-duration) var(--motion-ease), transform var(--motion-duration) var(--motion-ease); }
-.reveal-hidden.in { opacity: 1; transform: none; }
-.reveal-hidden[style*="--reveal-delay"] { transition-delay: var(--reveal-delay); }
+/* Focus indicators for keyboard users */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
 
 /* ==================== الوضع الفاتح الاحترافي (Light Mode) ==================== */
 body.theme-light {
-  --bg: #f4f6f8; --surface: #ffffff; --surface-2: #e9ecef;
-  --text: #1a1d20; --text-dim: #6c757d; --border: #dee2e6;
-  --accent: #b58500; --accent-dim: #b585001a; --success: #2e8b57;
+  --bg: #f5f1e8;            /* كريمي دافئ */
+  --surface: #fffdf7;       /* أبيض دافئ */
+  --surface-2: #ece5d6;     /* بيج فاتح */
+  --accent: #1f7a5a;        /* زمردي عميق للنصوص على الخلفيات الفاتحة */
+  --accent-deep: #1f7a5a;
+  --accent-2: #12837f;      /* فيروزي عميق */
+  --accent-dim: rgba(31, 122, 90, 0.12);
+  --accent-grad: linear-gradient(135deg, #1f7a5a, #12837f);
+  --header-grad: linear-gradient(135deg, #e8f1eb, #eef3ef);
+  --text: #14333a;          /* أزرق مخضر عميق (ليس أسوداً) */
+  --text-dim: #5c7276;      /* رمادي ناعم */
+  --success: #2e8b57;
+  --border: #ddd4c1;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -293,81 +317,138 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 /* نقش الخلفية */
 body::before {
   content: ''; position: fixed; inset: 0; opacity: 0.05; pointer-events: none; z-index: 0; transition: opacity 0.4s;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%23c9a84c' stroke-width='1'%3E%3Cpolygon points='60,10 70,35 97,35 75,52 84,77 60,60 36,77 45,52 23,35 50,35'/%3E%3Crect x='30' y='30' width='60' height='60' transform='rotate(45 60 60)'/%3E%3Ccircle cx='60' cy='60' r='25'/%3E%3Ccircle cx='60' cy='60' r='12'/%3E%3C/g%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='none' stroke='%233ecf9e' stroke-width='1'%3E%3Cpolygon points='60,10 70,35 97,35 75,52 84,77 60,60 36,77 45,52 23,35 50,35'/%3E%3Crect x='30' y='30' width='60' height='60' transform='rotate(45 60 60)'/%3E%3Ccircle cx='60' cy='60' r='25'/%3E%3Ccircle cx='60' cy='60' r='12'/%3E%3C/g%3E%3C/svg%3E");
 }
-body.theme-light::before { opacity: 0.03; filter: grayscale(100%) brightness(0%); }
+body.theme-light::before { opacity: 0.04; filter: grayscale(60%); }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(201, 168, 76, 0.3); border-radius: 10px; }
-body.theme-light ::-webkit-scrollbar-thumb { background: rgba(181, 133, 0, 0.2); }
+::-webkit-scrollbar-thumb { background: rgba(62, 207, 158, 0.3); border-radius: 10px; }
+body.theme-light ::-webkit-scrollbar-thumb { background: rgba(31, 122, 90, 0.25); }
 
 #app { position: fixed; inset: 0; display: flex; flex-direction: column; z-index: 1; }
 
 /* ==================== الشريط العلوي ==================== */
-#header { height: var(--header-h); background: linear-gradient(135deg, #c9a84c, #8a6820); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; flex-shrink: 0; z-index: 100; box-shadow: 0 2px 15px rgba(0,0,0,0.3); transition: background 0.4s, box-shadow 0.4s; }
-body.theme-light #header { background: #ffffff; box-shadow: 0 2px 15px rgba(0,0,0,0.06); border-bottom: 1px solid var(--border); }
+#header { height: var(--header-h); background: var(--header-grad); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; flex-shrink: 0; z-index: 100; box-shadow: 0 2px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10); transition: background 0.4s, box-shadow 0.4s; }
+body.theme-light #header { box-shadow: 0 2px 15px rgba(20, 51, 58, 0.08), inset 0 1px 0 rgba(255,255,255,0.9); border-bottom: 1px solid var(--border); }
 
 #reading-progress-container { position: fixed; top: var(--header-h); left: 0; right: 0; height: 3px; background: transparent; z-index: 99; display: none; pointer-events: none; }
-#reading-progress-bar { height: 100%; width: 0%; background: #ffffff; transition: width 0.1s ease-out; }
-body.theme-light #reading-progress-bar { background: var(--accent); }
+#reading-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #3ecf9e 0%, #46c8d6 50%, #3ecf9e 100%); transition: width 0.1s ease-out; }
 
 .header-center { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: center; }
-#header-title { font-size: 18px; font-weight: 700; color: #1a1000; transition: color 0.4s; }
+#header-title { font-size: calc(var(--font-size) * 0.7); font-weight: 700; color: #f0f7f2; transition: color 0.4s; }
 body.theme-light #header-title { color: var(--accent); }
-#header-subtitle { font-size: calc(var(--font-size) * 0.42); font-weight: bold; color: #4a3000; margin-top: 2px; direction: rtl; transition: color 0.4s, font-size 0.3s; }
+#header-subtitle { font-size: calc(var(--font-size) * 0.42); font-weight: bold; color: #c3ded2; margin-top: 2px; direction: rtl; transition: color 0.4s, font-size 0.3s; }
 body.theme-light #header-subtitle { color: var(--text-dim); }
 
-#back-btn { display: none; background: rgba(0,0,0,0.15); border: none; border-radius: 8px; color: #1a1000; font-size: 22px; cursor: pointer; width: 40px; height: 40px; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
+#back-btn { display: none; background: rgba(255,255,255,0.14); border: none; border-radius: 8px; color: #f0f7f2; font-size: calc(var(--font-size) * 0.85); cursor: pointer; width: 40px; height: 40px; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
 body.theme-light #back-btn { background: var(--surface-2); color: var(--text); }
 #back-btn:active { transform: scale(0.9); }
 #back-btn.visible { display: flex; }
 
 #font-ctrl { display: flex; gap: 4px; flex-shrink: 0; }
-.header-btn { background: rgba(0,0,0,0.15); border: none; border-radius: 6px; color: #1a1000; font-size: 15px; cursor: pointer; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-weight: bold; }
+.header-btn { background: rgba(255,255,255,0.14); border: none; border-radius: 6px; color: #f0f7f2; font-size: calc(var(--font-size) * 0.58); cursor: pointer; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-weight: bold; }
 body.theme-light .header-btn { background: var(--surface-2); color: var(--text); }
 .header-btn:active { transform: scale(0.9); }
-.header-btn.active { background: #1a1000; color: #c9a84c; }
+.header-btn.active { background: rgba(255,255,255,0.22); color: #eafff5; }
 body.theme-light .header-btn.active { background: var(--accent); color: #fff; }
 
 #content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 120px; scroll-behavior: smooth; touch-action: pan-y; }
 
-/* ==================== الشريط السفلي الزجاجي ==================== */
+/* ==================== الشريط السفلي الزجاجي (Liquid Glass) ==================== */
 #nav {
-  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 420px; height: 70px;
-  background: rgba(26, 29, 39, 0.6); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(201, 168, 76, 0.1); border-top: 1px solid rgba(255, 255, 255, 0.1); border-radius: 35px;
+  position: fixed; bottom: max(20px, env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%);
+  width: calc(100% - 32px); max-width: 420px; height: 70px;
+  /* طبقات زجاجية: تدرج علوي لامع + قاعدة فيروزية عميقة شفافة */
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.03) 55%, rgba(255,255,255,0.06)),
+    rgba(12, 42, 52, 0.55);
+  backdrop-filter: blur(26px) saturate(185%); -webkit-backdrop-filter: blur(26px) saturate(185%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 35px;
   display: flex; align-items: center; padding: 0 6px; z-index: 100;
-  box-shadow: 0 15px 35px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+  /* عمق: ظل خارجي ناعم + ضوء داخلي علوي + ظل داخلي سفلي */
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25),
+    inset 0 1px 1px rgba(255, 255, 255, 0.22),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.25);
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s, background 0.4s, border-color 0.4s, box-shadow 0.4s;
   touch-action: none;
 }
 
-body.theme-light #nav { background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(181, 133, 0, 0.15); box-shadow: 0 15px 35px rgba(0,0,0,0.08); }
+body.theme-light #nav {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.72) 55%, rgba(255,255,255,0.85)),
+    rgba(255, 253, 247, 0.7);
+  border: 1px solid rgba(31, 122, 90, 0.18);
+  box-shadow:
+    0 18px 40px rgba(20, 51, 58, 0.14),
+    0 2px 8px rgba(20, 51, 58, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 1),
+    inset 0 -1px 2px rgba(20, 51, 58, 0.08);
+}
 #nav.nav-hidden { transform: translate(-50%, 150px); opacity: 0; pointer-events: none; }
 
+/* ===== المؤشر الزجاجي السائل (Liquid Glass indicator) ===== */
 .nav-indicator {
-  position: absolute; left: 0; top: 6px; bottom: 6px;
-  background: linear-gradient(135deg, rgba(201, 168, 76, 0.35), rgba(138, 104, 32, 0.05)); border: 1px solid rgba(201, 168, 76, 0.4);
-  border-radius: 30px; z-index: 1; transition: transform 0.55s cubic-bezier(0.5, 1.5, 0.4, 1), width 0.55s cubic-bezier(0.5, 1.5, 0.4, 1);
-  pointer-events: none; box-shadow: 0 0 15px rgba(201, 168, 76, 0.2);
+  position: absolute; left: 0; top: 6px; bottom: 6px; width: 0;
+  /* طبقات: ضوء علوي داخلي + صبغة زمردي/فيروزية شفافة */
+  background:
+    linear-gradient(160deg, rgba(255,255,255,0.30), rgba(255,255,255,0.06) 46%, rgba(255,255,255,0.14)),
+    linear-gradient(135deg, rgba(62, 207, 158, 0.42), rgba(70, 200, 214, 0.20));
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 26px; z-index: 1;
+  /* ضوء داخلي ناعم + حدود ناعمة + توهج زمردي خفيف */
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.38),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.18),
+    0 6px 16px rgba(0, 0, 0, 0.30),
+    0 0 20px rgba(62, 207, 158, 0.22);
+  backdrop-filter: blur(6px) saturate(140%); -webkit-backdrop-filter: blur(6px) saturate(140%);
+  pointer-events: none;
+  transform-origin: center;
   will-change: transform, width;
+  overflow: hidden;
+  /* لا تستخدم transition: الحركة يقودها محرك الـ spring في JS */
 }
+/* ضوء علوي ثابت داخل المؤشر (Inner light) */
+.nav-indicator::before {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 45%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.30), transparent);
+  border-radius: 26px 26px 0 0; pointer-events: none;
+}
+/* وميض زجاجي يمر عند الاستقرار (Specular sheen) */
+.nav-indicator::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 42%; left: -55%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,0.38), transparent);
+  transform: skewX(-18deg); pointer-events: none;
+}
+.nav-indicator.sheen::after { animation: sheenSweep 720ms var(--ease-out-quart); }
+@keyframes sheenSweep { from { left: -55%; } to { left: 115%; } }
 
-body.theme-light .nav-indicator { background: linear-gradient(135deg, rgba(181, 133, 0, 0.15), rgba(181, 133, 0, 0.03)); border-color: rgba(181, 133, 0, 0.2); box-shadow: none; }
+body.theme-light .nav-indicator {
+  background:
+    linear-gradient(160deg, rgba(255,255,255,0.85), rgba(255,255,255,0.4) 46%, rgba(255,255,255,0.6)),
+    linear-gradient(135deg, rgba(31, 122, 90, 0.20), rgba(18, 131, 127, 0.10));
+  border-color: rgba(31, 122, 90, 0.25);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 1),
+    inset 0 -1px 2px rgba(20, 51, 58, 0.10),
+    0 6px 16px rgba(20, 51, 58, 0.16),
+    0 0 18px rgba(31, 122, 90, 0.14);
+}
 
 .nav-tab {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: none; border: none;
-  color: var(--text-dim); font-size: 13px; cursor: pointer; transition: all 0.3s; position: relative; z-index: 2; height: 100%; overflow: hidden; border-radius: 30px;
+  color: var(--text-dim); font-size: calc(var(--font-size) * 0.5); cursor: pointer; transition: color 0.3s, background 0.3s; position: relative; z-index: 2; height: 100%; overflow: hidden; border-radius: 30px;
 }
 .nav-tab.active { color: var(--accent); font-weight: bold; }
-.nav-tab .nav-icon { font-size: 22px; transition: transform 0.4s cubic-bezier(0.5, 1.5, 0.4, 1); pointer-events: none; }
-.nav-tab.active .nav-icon { transform: translateY(-3px) scale(1.15); filter: drop-shadow(0 4px 6px rgba(201, 168, 76, 0.5)); }
-body.theme-light .nav-tab.active .nav-icon { filter: drop-shadow(0 4px 6px rgba(181, 133, 0, 0.3)); }
+body.theme-light .nav-tab.active { color: var(--accent); }
+.nav-tab .nav-icon { font-size: calc(var(--font-size) * 0.85); transition: transform 0.4s cubic-bezier(0.5, 1.5, 0.4, 1); pointer-events: none; }
+.nav-tab.active .nav-icon { transform: translateY(-3px) scale(1.15); filter: drop-shadow(0 4px 6px rgba(62, 207, 158, 0.5)); }
+body.theme-light .nav-tab.active .nav-icon { filter: drop-shadow(0 4px 6px rgba(31, 122, 90, 0.35)); }
 .nav-tab .nav-text { pointer-events: none; transition: color 0.3s; }
-
-.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple-anim 0.5s cubic-bezier(0.25, 1, 0.5, 1); background-color: rgba(201, 168, 76, 0.25); pointer-events: none; z-index: 0; }
-body.theme-light .ripple { background-color: rgba(181, 133, 0, 0.15); }
 
 /* ================== انتقالات الشاشات الملساء ================== */
 .screen { display: none; width: 100%; max-width: 680px; margin: 0 auto; padding: 16px; }
@@ -386,7 +467,7 @@ body.theme-light .ripple { background-color: rgba(181, 133, 0, 0.15); }
 .search-wrapper { position: relative; margin-bottom: 16px; }
 #search-bar { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 40px 12px 16px; color: var(--text); font-size: calc(var(--font-size) * 0.65); outline: none; transition: border-color 0.3s, box-shadow 0.3s, font-size 0.3s; }
 #search-bar:focus { border-color: var(--accent); box-shadow: 0 0 10px var(--accent-dim); }
-#clear-search { position: absolute; right: 12px; top: 50%; transform: translateY(-50%) scale(0.7); background: none; border: none; color: var(--text-dim); font-size: 18px; cursor: pointer; display: none; padding: 5px; border-radius: 50%; transition: transform 280ms var(--ease-spring-snap), color 240ms var(--ease-out-quart), background 240ms var(--ease-out-quart); }
+#clear-search { position: absolute; right: 12px; top: 50%; transform: translateY(-50%) scale(0.7); background: none; border: none; color: var(--text-dim); font-size: calc(var(--font-size) * 0.7); cursor: pointer; display: none; padding: 5px; border-radius: 50%; transition: transform 280ms var(--ease-spring-snap), color 240ms var(--ease-out-quart), background 240ms var(--ease-out-quart); }
 #clear-search:hover { color: var(--accent); background: var(--accent-dim); }
 #clear-search:active { transform: translateY(-50%) scale(0.85); }
 .highlight { color: var(--accent); font-weight: bold; background: var(--accent-dim); padding: 0 2px; border-radius: 4px; }
@@ -394,27 +475,28 @@ body.theme-light .ripple { background-color: rgba(181, 133, 0, 0.15); }
 .surah-row { background: var(--surface); border: 1px solid var(--border); border-right: 3px solid transparent; border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: transform 0.2s, border-color 0.2s; }
 .surah-row:active { transform: scale(0.98); }
 .surah-row:hover { border-right-color: var(--accent); }
-.surah-num { width: 36px; height: 36px; background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--accent); flex-shrink: 0; transition: background 0.3s, color 0.3s; }
+.surah-num { width: 36px; height: 36px; background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: calc(var(--font-size) * 0.5); color: var(--accent); flex-shrink: 0; transition: background 0.3s, color 0.3s; }
 body.theme-light .surah-num { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
 .surah-info { flex: 1; }
 .surah-name { font-size: calc(var(--font-size) * 0.7); font-weight: 700; color: var(--text); transition: font-size 0.3s; }
 .surah-meta { font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); transition: font-size 0.3s; }
 
-#surah-header-card { background: linear-gradient(135deg, var(--accent), #8a6820); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; text-align: center; box-shadow: 0 4px 15px var(--accent-dim); position: relative; }
-body.theme-light #surah-header-card { background: linear-gradient(135deg, var(--surface-2), #f8f9fa); border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
-.surah-h-name { font-size: calc(var(--font-size)); font-weight: 700; color: #1a1000; transition: font-size 0.3s, color 0.3s; }
-body.theme-light .surah-h-name { color: var(--accent); }
-.bookmark-btn { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.2); border: none; color: #1a1000; font-size: 20px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; transition: transform 0.2s; }
-body.theme-light .bookmark-btn { background: var(--surface); border: 1px solid var(--border); color: var(--accent); }
+#surah-header-card { background: var(--accent-grad); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; text-align: center; box-shadow: 0 4px 15px var(--accent-dim); position: relative; }
+body.theme-light #surah-header-card { box-shadow: 0 4px 15px rgba(31, 122, 90, 0.12); }
+.surah-h-name { font-size: calc(var(--font-size)); font-weight: 700; color: #f4f1e8; transition: font-size 0.3s, color 0.3s; }
+body.theme-light .surah-h-name { color: #f4f1e8; }
+.surah-h-meta { font-size: calc(var(--font-size) * 0.5); color: rgba(244, 241, 232, 0.85); margin-top: 4px; transition: font-size 0.3s, color 0.3s; }
+.bookmark-btn { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.2); border: none; color: #f4f1e8; font-size: calc(var(--font-size) * 0.77); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; transition: transform 0.2s; }
+body.theme-light .bookmark-btn { background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); color: #f4f1e8; }
 .bookmark-btn:active { transform: scale(0.8); }
 
-.mushaf-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) + 16px); line-height: calc(var(--line-height) * 1.2); text-align: right; color: var(--text); direction: rtl; transition: background 0.4s, color 0.4s, font-size 0.3s, line-height 0.3s; }
+.mushaf-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) * 1.6); line-height: calc(var(--line-height) * 1.2); text-align: right; color: var(--text); direction: rtl; transition: background 0.4s, color 0.4s, font-size 0.3s, line-height 0.3s; }
 
 .ayah-separator { color: var(--accent); font-family: Tahoma, sans-serif; font-size: 0.7em; margin: 0 4px; font-weight: bold; }
-.bismillah { text-align: center; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) + 10px); color: var(--accent); padding: 10px 10px 20px 10px; line-height: 2; transition: font-size 0.3s; }
+.bismillah { text-align: center; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) * 1.4); color: var(--accent); padding: 10px 10px 20px 10px; line-height: 2; transition: font-size 0.3s; }
 
-#resume-fab { position: fixed; bottom: 110px; right: 20px; background: var(--accent); color: #1a1000; border: none; border-radius: 30px; padding: 12px 20px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; z-index: 90; display: none; align-items: center; gap: 8px; transition: transform 380ms var(--ease-spring-snap), opacity 320ms var(--ease-out-quart), background 320ms var(--ease-out-quart), box-shadow 320ms var(--ease-out-quart); opacity: 0; transform: translateY(20px) scale(0.9); pointer-events: none; }
-body.theme-light #resume-fab { color: #fff; box-shadow: 0 4px 15px rgba(181, 133, 0, 0.3); }
+#resume-fab { position: fixed; bottom: max(110px, calc(20px + env(safe-area-inset-bottom, 0px) + 90px)); right: 20px; background: var(--accent-grad); color: #f4f1e8; border: none; border-radius: 30px; padding: 12px 20px; font-weight: bold; font-size: calc(var(--font-size) * 0.54); box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; z-index: 90; display: none; align-items: center; gap: 8px; transition: transform 380ms var(--ease-spring-snap), opacity 320ms var(--ease-out-quart), background 320ms var(--ease-out-quart), box-shadow 320ms var(--ease-out-quart); opacity: 0; transform: translateY(20px) scale(0.9); pointer-events: none; }
+body.theme-light #resume-fab { box-shadow: 0 4px 15px rgba(31, 122, 90, 0.3); }
 #resume-fab:active { transform: scale(0.95); }
 #resume-fab.visible { display: flex; opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; animation: fabSpringIn 480ms var(--ease-spring-snap) both; }
 @keyframes fabSpringIn { 0% { opacity: 0; transform: translateY(24px) scale(0.85); } 60% { opacity: 1; transform: translateY(-3px) scale(1.04); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
@@ -427,17 +509,12 @@ body.theme-light #resume-fab { color: #fff; box-shadow: 0 4px 15px rgba(181, 133
 .circle-text { position: absolute; font-size: calc(var(--font-size) * 0.45); font-weight: bold; color: var(--text); font-family: Tahoma; }
 
 .pulse-success { animation: pulse-green 2s infinite; }
-@keyframes pulse-green {
-  0% { box-shadow: 0 0 0 0 rgba(76, 175, 125, 0.4); }
-  70% { box-shadow: 0 0 0 15px rgba(76, 175, 125, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(76, 175, 125, 0); }
-}
 
 /* ================= الختمة ================= */
 .khatmah-setup-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
 .k-label { display: block; margin-bottom: 8px; color: var(--text-dim); font-size: calc(var(--font-size) * 0.55); transition: font-size 0.3s; }
-.k-input { width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 16px; font-family: inherit; transition: background 0.4s, color 0.4s; }
-.btn-scale { width: 100%; background: var(--accent); color: #1a1000; font-weight: bold; font-size: calc(var(--font-size) * 0.65); padding: 14px; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, font-size 0.3s; }
+.k-input { width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: calc(var(--font-size) * 0.62); font-family: inherit; transition: background 0.4s, color 0.4s; }
+.btn-scale { width: 100%; background: var(--accent-grad); color: #f4f1e8; font-weight: bold; font-size: calc(var(--font-size) * 0.65); padding: 14px; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, font-size 0.3s; }
 body.theme-light .btn-scale { color: #ffffff; }
 .btn-scale:active { transform: scale(0.96); box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
 
@@ -451,7 +528,7 @@ body.theme-light .btn-scale { color: #ffffff; }
 .k-wird-badge small { font-size: calc(var(--font-size) * 0.45); color: var(--text-dim); margin-bottom: 4px; transition: font-size 0.3s; }
 .k-wird-arrow { color: var(--accent); font-size: calc(var(--font-size) * 0.8); font-weight: bold; transition: font-size 0.3s; }
 
-.khatmah-controls { position: sticky; bottom: 12px; left: 0; width: 100%; max-width: 100%; display: flex; gap: 8px; background: rgba(34, 38, 58, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 10px 16px; border-radius: 12px; margin-top: 30px; margin-bottom: 20px; z-index: 50; transition: transform 0.4s, opacity 0.4s, background 0.4s; }
+.khatmah-controls { position: sticky; bottom: 12px; left: 0; width: 100%; max-width: 100%; display: flex; gap: 8px; background: rgba(16, 51, 63, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 10px 16px; border-radius: 12px; margin-top: 30px; margin-bottom: 20px; z-index: 50; transition: transform 0.4s, opacity 0.4s, background 0.4s; }
 body.theme-light .khatmah-controls { background: rgba(255, 255, 255, 0.9); border: 1px solid var(--border); }
 .khatmah-controls.controls-hidden { transform: translateY(150px); opacity: 0; pointer-events: none; }
 .k-ctrl-btn { flex: 1; background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: calc(var(--font-size) * 0.55); transition: transform 0.2s, font-size 0.3s, background 0.4s, color 0.4s; }
@@ -461,30 +538,35 @@ body.theme-light .khatmah-controls { background: rgba(255, 255, 255, 0.9); borde
 
 /* ================= الأذكار ================= */
 .quick-nav-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
-.quick-nav-card { background: linear-gradient(135deg, var(--accent), #8a6820); border-radius: var(--radius); padding: 16px 12px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: transform 0.2s; }
-body.theme-light .quick-nav-card { background: var(--surface); border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+.quick-nav-card { background: var(--accent-grad); border-radius: var(--radius); padding: 16px 12px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: transform 0.2s; }
+body.theme-light .quick-nav-card { box-shadow: 0 2px 10px rgba(31, 122, 90, 0.10); }
 .quick-nav-card:active { transform: scale(0.95); }
 .quick-nav-icon { font-size: calc(var(--font-size) * 1.1); display: block; margin-bottom: 6px; transition: font-size 0.3s; }
-.quick-nav-label { font-size: calc(var(--font-size) * 0.6); font-weight: 700; color: #1a1000; display: block; transition: font-size 0.3s, color 0.3s; }
-body.theme-light .quick-nav-label { color: var(--text); }
+.quick-nav-label { font-size: calc(var(--font-size) * 0.6); font-weight: 700; color: #f4f1e8; display: block; transition: font-size 0.3s, color 0.3s; }
+body.theme-light .quick-nav-label { color: #ffffff; }
 
 .athkar-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .athkar-cat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 12px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: transform 0.2s, border-color 0.2s, background 0.4s; }
 .athkar-cat-card:active { transform: scale(0.95); }
 .athkar-cat-card.completed { border-color: var(--success); }
 .cat-info { flex: 1; text-align: right; }
-.cat-icon { font-size: 26px; }
+.cat-icon { font-size: calc(var(--font-size) * 1.0); }
 .cat-name { font-size: calc(var(--font-size) * 0.6); color: var(--text); font-weight: bold; transition: font-size 0.3s; }
 
-.thikr-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; transition: background 0.4s, border-color 0.4s; }
-.thikr-text { font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) + 4px); line-height: calc(var(--line-height) * 1.1); color: var(--text); text-align: right; margin-bottom: 12px; transition: font-size 0.3s; white-space: pre-line; }
+.thikr-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 46px 20px 20px; margin-bottom: 16px; transition: background 0.4s, border-color 0.4s; position: relative; }
+
+/* زر نسخ نص الذكر/الدعاء */
+.copy-btn { position: absolute; top: 10px; left: 10px; display: inline-flex; align-items: center; gap: 4px; background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border); border-radius: 20px; padding: 5px 10px; font-size: calc(var(--font-size) * 0.45); font-family: inherit; font-weight: bold; cursor: pointer; transition: transform 200ms var(--ease-spring-snap), color 200ms var(--ease-out-quart), background 200ms var(--ease-out-quart), border-color 200ms var(--ease-out-quart); }
+.copy-btn:active { transform: scale(0.92); }
+.copy-btn.copied { color: var(--success); border-color: var(--success); background: rgba(79, 209, 165, 0.12); }
+.thikr-text { font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) * 1.15); line-height: calc(var(--line-height) * 1.1); color: var(--text); text-align: right; margin-bottom: 12px; transition: font-size 0.3s; white-space: pre-line; }
 
 .thikr-tap-btn { width: 100%; min-height: 56px; background: var(--surface-2); border: 2px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: calc(var(--font-size) * 0.7); cursor: pointer; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), font-size 0.3s; }
 .thikr-tap-btn:active { transform: scale(0.96); }
-.thikr-tap-btn.done { background: #0d2b1a; border-color: var(--success); color: var(--success); transform: scale(1); }
+.thikr-tap-btn.done { background: #0f3a26; border-color: var(--success); color: var(--success); transform: scale(1); }
 body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success); border-color: var(--success); }
 
-.dua-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; transition: background 0.4s, border-color 0.4s; }
+.dua-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 46px 18px 18px; margin-bottom: 14px; transition: background 0.4s, border-color 0.4s; position: relative; }
 .dua-occasion { font-size: calc(var(--font-size) * 0.6); font-weight: 700; color: var(--accent); margin-bottom: 10px; transition: font-size 0.3s; }
 .dua-text { font-size: calc(var(--font-size) * 0.85); line-height: var(--line-height); color: var(--text); text-align: justify; transition: font-size 0.3s; }
 
@@ -507,26 +589,26 @@ body.theme-light .occasion-card { box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
 #tasbih-circle-wrap { position: relative; width: 280px; height: 280px; margin: 0 auto; }
 .tasbih-bead { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); transform: translate(-50%, -50%); transition: 0.2s; }
 .tasbih-bead.filled { background: var(--accent); border-color: var(--accent); transform: translate(-50%, -50%) scale(1.3); }
-#tasbih-tap-btn { position: absolute; inset: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #8a6820); border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: transform 0.1s; }
-body.theme-light #tasbih-tap-btn { background: var(--surface); border: 2px solid var(--accent); box-shadow: 0 4px 20px rgba(181, 133, 0, 0.15); }
+#tasbih-tap-btn { position: absolute; inset: 34px; border-radius: 50%; background: var(--accent-grad); border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: transform 0.1s; }
+body.theme-light #tasbih-tap-btn { box-shadow: 0 4px 20px rgba(31, 122, 90, 0.2); }
 #tasbih-tap-btn:active { transform: scale(0.92); }
-#tasbih-count-num { font-size: calc(var(--font-size) * 1.8); font-weight: 700; color: #1a1000; transition: font-size 0.3s, color 0.4s; }
-body.theme-light #tasbih-count-num { color: var(--accent); }
-.tasbih-complete-banner { background: linear-gradient(135deg, #c9a84c22, #8a682011); border: 1px solid var(--accent); border-radius: var(--radius); padding: 14px; text-align: center; color: var(--accent); margin-bottom: 20px; display: none; width: 100%; max-width: 320px; }
+#tasbih-count-num { font-size: calc(var(--font-size) * 1.8); font-weight: 700; color: #f4f1e8; transition: font-size 0.3s, color 0.4s; }
+body.theme-light #tasbih-count-num { color: #ffffff; }
+.tasbih-complete-banner { background: linear-gradient(135deg, rgba(62, 207, 158, 0.14), rgba(70, 200, 214, 0.07)); border: 1px solid var(--accent); border-radius: var(--radius); padding: 14px; text-align: center; color: var(--accent); margin-bottom: 20px; display: none; width: 100%; max-width: 320px; }
 .tasbih-complete-banner.active { display: block; }
 
 #occasion-overlay { position: fixed; inset: 0; background: rgba(5,6,10,0.72); z-index: 999; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(5px); }
 #occasion-overlay.active { display: flex; }
 #occasion-modal { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 400px; padding: 22px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: fadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.occasion-modal-icon { font-size: 34px; text-align: center; margin-bottom: 8px; }
-.occasion-modal-title { font-size: 19px; font-weight: 700; color: var(--accent); text-align: center; margin-bottom: 14px; }
+.occasion-modal-icon { font-size: calc(var(--font-size) * 1.3); text-align: center; margin-bottom: 8px; }
+.occasion-modal-title { font-size: calc(var(--font-size) * 0.73); font-weight: 700; color: var(--accent); text-align: center; margin-bottom: 14px; }
 .occasion-modal-item { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; font-size: calc(var(--font-size) * 0.7); line-height: 1.9; color: var(--text); transition: font-size 0.3s, background 0.4s; font-family: inherit; }
 .occasion-modal-item b { color: var(--accent); }
 
 #splash-screen { position: fixed; inset: 0; background: var(--bg); z-index: 10000; display: flex; align-items: center; justify-content: center; transition: opacity 500ms var(--ease-out-quart), transform 500ms var(--ease-out-quart), background 480ms var(--ease-out-quart); }
 .splash-content { text-align: center; }
-.splash-title { color: var(--accent); font-size: 24px; margin-bottom: 10px; font-weight: bold; }
-.splash-user { color: var(--text-dim); font-size: 16px; }
+.splash-title { color: var(--accent); font-size: calc(var(--font-size) * 0.92); margin-bottom: 10px; font-weight: bold; }
+.splash-user { color: var(--text-dim); font-size: calc(var(--font-size) * 0.62); }
 
 /* ==================== Universal Liquid Glass Effect ==================== */
 .surah-row, .quick-nav-card, .athkar-cat-card, .thikr-tap-btn, .btn-scale, .bookmark-btn, .k-ctrl-btn, #resume-fab, #tasbih-tap-btn, .header-btn {
@@ -541,7 +623,7 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
 #custom-dialog-overlay { position: fixed; inset: 0; background: rgba(5,6,10,0.72); z-index: 99999; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(5px); }
 #custom-dialog-overlay.active { display: flex; }
 #custom-dialog { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 340px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: fadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); text-align: center; }
-#custom-dialog-text { font-size: 18px; font-weight: bold; color: var(--text); line-height: 1.6; }
+#custom-dialog-text { font-size: calc(var(--font-size) * 0.7); font-weight: bold; color: var(--text); line-height: 1.6; }
 </style>
 </head>
 <body>
@@ -596,7 +678,7 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
     <div id="screen-khatmah-main" class="screen">
       <div id="khatmah-setup" style="display:none;">
         <div class="khatmah-setup-box">
-          <h2 style="font-size: 18px; margin-bottom: 16px; color: var(--accent);">إعداد ختمة جديدة</h2>
+          <h2 style="font-size: calc(var(--font-size) * 0.7); margin-bottom: 16px; color: var(--accent);">إعداد ختمة جديدة</h2>
           <label class="k-label">طريقة الختم المريحة لك:</label>
           <select id="k-method" class="k-input"><option value="pages">بعدد الصفحات يومياً</option><option value="days">بعدد الأيام</option></select>
           <label class="k-label">العدد:</label>
@@ -641,11 +723,11 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
 
     <div id="screen-athkar-list" class="screen">
       <div class="quick-nav-row">
-        <div class="quick-nav-card" id="nav-dua-card" role="button"><span class="quick-nav-icon">🤲</span><span class="quick-nav-label">أدعية النبي</span></div>
-        <div class="quick-nav-card" id="nav-tasbih-card" role="button"><span class="quick-nav-icon">📿</span><span class="quick-nav-label">السبحة</span></div>
+        <div class="quick-nav-card" id="nav-dua-card" role="button" tabindex="0" aria-label="أدعية النبي"><span class="quick-nav-icon">🤲</span><span class="quick-nav-label">أدعية النبي</span></div>
+        <div class="quick-nav-card" id="nav-tasbih-card" role="button" tabindex="0" aria-label="السبحة الرقمية"><span class="quick-nav-icon">📿</span><span class="quick-nav-label">السبحة</span></div>
       </div>
       <div class="quick-nav-row" id="occasion-nav-row" style="display:none;">
-        <div class="quick-nav-card" id="nav-occasion-card" role="button" style="grid-column: span 2;"><span class="quick-nav-icon">🌙</span><span class="quick-nav-label" id="occasion-nav-label">سنن المناسبة</span></div>
+        <div class="quick-nav-card" id="nav-occasion-card" role="button" tabindex="0" aria-label="سنن المناسبة" style="grid-column: span 2;"><span class="quick-nav-icon">🌙</span><span class="quick-nav-label" id="occasion-nav-label">سنن المناسبة</span></div>
       </div>
       <div class="section-heading" style="margin-top:10px; font-size:calc(var(--font-size) * 0.7);">الأذكار اليومية</div>
       <div class="athkar-grid" id="athkar-grid"></div>
@@ -669,11 +751,11 @@ body.theme-light #tasbih-count-num { color: var(--accent); }
     </div>
   </main>
 
-  <nav id="nav">
-    <div class="nav-indicator" id="nav-indicator"></div>
-    <button class="nav-tab active" data-tab="quran"><span class="nav-icon">📖</span><span class="nav-text">القرآن</span></button>
-    <button class="nav-tab" data-tab="khatmah"><span class="nav-icon">🕋</span><span class="nav-text">الختمة</span></button>
-    <button class="nav-tab" data-tab="athkar"><span class="nav-icon">📿</span><span class="nav-text">الأذكار</span></button>
+  <nav id="nav" role="tablist" aria-label="التنقل الرئيسي">
+    <div class="nav-indicator" id="nav-indicator" aria-hidden="true"></div>
+    <button class="nav-tab active" role="tab" aria-selected="true" data-tab="quran"><span class="nav-icon">📖</span><span class="nav-text">القرآن</span></button>
+    <button class="nav-tab" role="tab" aria-selected="false" data-tab="khatmah"><span class="nav-icon">🕋</span><span class="nav-text">الختمة</span></button>
+    <button class="nav-tab" role="tab" aria-selected="false" data-tab="athkar"><span class="nav-icon">📿</span><span class="nav-text">الأذكار</span></button>
   </nav>
 
   <div id="custom-dialog-overlay">
@@ -976,7 +1058,7 @@ const Motion = {
   // Confetti burst
   confetti(count = 60) {
     if (prefersReducedMotion) return;
-    const colors = ['#c9a84c', '#4caf7d', '#f0ece0', '#7c5fff', '#ff7a59', '#5ed3f3'];
+    const colors = ['#3ecf9e', '#46c8d6', '#f3f0e7', '#4fd1a5', '#2aa8a8', '#8fe3c0'];
     for (let i = 0; i < count; i++) {
       const piece = document.createElement('div');
       piece.className = 'confetti-piece';
@@ -1082,13 +1164,18 @@ function applyTheme(th) {
   if(th === 'light') { document.body.classList.add('theme-light'); themeBtn.textContent = '☀️'; themeBtn.title = 'الوضع الداكن'; }
   else { document.body.classList.remove('theme-light'); themeBtn.textContent = '🌙'; themeBtn.title = 'الوضع الفاتح'; }
   try { localStorage.setItem('theme', th); } catch(e) {}
+  // لون شريط الحالة يتطابق مع الوضع الحالي (PWA)
+  const metaTheme = document.getElementById('meta-theme-color');
+  if (metaTheme) metaTheme.setAttribute('content', th === 'light' ? '#f5f1e8' : '#0a1f28');
   saveState();
 }
 
 function applyFontSize(size) {
-  const fontSizes = { small: { size: '20px', lh: '2.0' }, medium: { size: '26px', lh: '2.3' }, large: { size: '36px', lh: '2.6' } };
-  const f = fontSizes[size] || fontSizes.large;
-  document.documentElement.style.setProperty('--font-size', f.size); document.documentElement.style.setProperty('--line-height', f.lh);
+  // حجم واحد أساسي × نسبة ثابتة → تكبير متناسب لكل النصوص في كل الصفحات
+  const fontSizes = { small: { scale: '0.8', lh: '2.0' }, medium: { scale: '1', lh: '2.3' }, large: { scale: '1.4', lh: '2.6' } };
+  const f = fontSizes[size] || fontSizes.medium;
+  document.documentElement.style.setProperty('--font-scale', f.scale);
+  document.documentElement.style.setProperty('--line-height', f.lh);
   document.querySelectorAll('.font-btn').forEach(btn => {
     const isActive = btn.dataset.size === size;
     btn.classList.toggle('active', isActive);
@@ -1120,6 +1207,8 @@ function showScreen(screenId, animClass = 'active') {
   if (titleEl) {
     titleEl.textContent = titles[screenId] || 'إسلامي';
     titleEl.classList.remove('title-in'); void titleEl.offsetWidth; titleEl.classList.add('title-in');
+    // عنوان التبويب يتبع الشاشة الحالية (SEO + تجربة المستخدم)
+    document.title = `${titles[screenId] || 'إسلامي'} | تطبيق إسلامي`;
   }
   updateHeaderSubtitle(); updateBookmarkIcon();
 
@@ -1139,25 +1228,88 @@ function navigateBack() {
   saveState();
 }
 
-function setNavIndicator() {
-  const activeTab = document.querySelector('.nav-tab.active'); const indicator = document.getElementById('nav-indicator');
-  if (activeTab && indicator) {
-    const targetX = activeTab.offsetLeft; const targetW = activeTab.offsetWidth;
-    const currentMatch = indicator.style.transform.match(/translateX\(([^p]+)px\)/);
-    const currentX = currentMatch ? parseFloat(currentMatch[1]) : targetX; const dx = targetX - currentX;
+/* ==================== محرك الزنبرك للمؤشر الزجاجي (Spring Physics) ==================== */
+/* محاكاة فيزيائية حقيقية (Mass-Spring-Damper) بحركة طبيعية غير خطية،
+   بدلاً من انتقالات CSS الثابتة. تدعم استمرار السرعة عند السحب والإفلات. */
+const navIndicatorEl = document.getElementById('nav-indicator');
+const navSpring = {
+  x: 0, w: 0, vx: 0, vw: 0, targetX: 0, targetW: 0,
+  k: 190, c: 19,            /* ثابت الصلابة + التخميد ← حركة زنبركية ناعمة مع تردد بسيط */
+  raf: null, running: false, lastT: 0, traveled: 0
+};
 
-    if (Math.abs(dx) > 10) {
-        const stretch = 1 + Math.min(Math.abs(dx) / 150, 0.35);
-        indicator.style.transition = 'transform 0.2s ease-in, width 0.2s ease-in';
-        indicator.style.transform = `translateX(${currentX + (dx / 2)}px) scaleX(${stretch}) scaleY(0.85)`;
-        setTimeout(() => {
-            indicator.style.transition = 'transform 0.5s cubic-bezier(0.5, 1.5, 0.4, 1), width 0.5s cubic-bezier(0.5, 1.5, 0.4, 1)';
-            indicator.style.width = `${targetW}px`; indicator.style.transform = `translateX(${targetX}px) scaleX(1) scaleY(1)`;
-        }, 200);
-    } else {
-        indicator.style.transition = 'transform 0.55s cubic-bezier(0.5, 1.5, 0.4, 1), width 0.55s cubic-bezier(0.5, 1.5, 0.4, 1)';
-        indicator.style.width = `${targetW}px`; indicator.style.transform = `translateX(${targetX}px) scaleX(1) scaleY(1)`;
+function applyNavIndicator(x, w, stretchX, squashY) {
+  navIndicatorEl.style.width = `${w}px`;
+  navIndicatorEl.style.transform = `translateX(${x}px) scaleX(${stretchX}) scaleY(${squashY})`;
+}
+
+function snapNavIndicator() {
+  const activeTab = document.querySelector('.nav-tab.active');
+  if (!activeTab) return;
+  if (navSpring.raf) { cancelAnimationFrame(navSpring.raf); navSpring.running = false; }
+  navSpring.x = navSpring.targetX = activeTab.offsetLeft;
+  navSpring.w = navSpring.targetW = activeTab.offsetWidth;
+  navSpring.vx = navSpring.vw = 0;
+  applyNavIndicator(navSpring.x, navSpring.w, 1, 1);
+}
+
+function navSpringStep(now) {
+  const s = navSpring;
+  if (!s.lastT) s.lastT = now;
+  let dt = (now - s.lastT) / 1000;
+  s.lastT = now;
+  if (dt <= 0) { s.raf = requestAnimationFrame(navSpringStep); return; }
+  dt = Math.min(dt, 1 / 30); // منع الانفجار العددي عند الرجوع للتبويب
+
+  // خطوات فرعية لضمان الاستقرار مع ثابت صلابة عالٍ
+  const sub = 4, h = dt / sub;
+  for (let i = 0; i < sub; i++) {
+    s.vx += (-s.k * (s.x - s.targetX) - s.c * s.vx) * h;
+    s.vw += (-s.k * (s.w - s.targetW) - s.c * s.vw) * h;
+    s.x += s.vx * h;
+    s.w += s.vw * h;
+  }
+
+  // التمدد/الانضغاط حسب السرعة ← إحساس "السائل الزجاجي"
+  const speed = Math.abs(s.vx);
+  const stretchX = 1 + Math.min(speed / 900, 0.16);
+  const squashY = 1 - Math.min(speed / 1400, 0.10);
+  applyNavIndicator(s.x, s.w, stretchX, squashY);
+
+  // شرط الاستقرار: وصول للهدف بسرعة شبه صفرية
+  if (Math.abs(s.x - s.targetX) < 0.3 && Math.abs(s.vx) < 3 && Math.abs(s.w - s.targetW) < 0.5) {
+    s.x = s.targetX; s.w = s.targetW; s.vx = s.vw = 0;
+    applyNavIndicator(s.x, s.w, 1, 1);
+    s.running = false; s.lastT = 0;
+    // وميض زجاجي خفيف عند الوصول إذا تحرك المؤشر فعلاً
+    if (s.traveled > 8) {
+      navIndicatorEl.classList.remove('sheen');
+      void navIndicatorEl.offsetWidth;
+      navIndicatorEl.classList.add('sheen');
     }
+    s.traveled = 0;
+    return;
+  }
+  s.raf = requestAnimationFrame(navSpringStep);
+}
+
+function setNavIndicator() {
+  const activeTab = document.querySelector('.nav-tab.active');
+  if (!activeTab || !navIndicatorEl) return;
+  navSpring.targetX = activeTab.offsetLeft;
+  navSpring.targetW = activeTab.offsetWidth;
+  navSpring.traveled = Math.max(navSpring.traveled, Math.abs(navSpring.targetX - navSpring.x));
+
+  if (prefersReducedMotion) {
+    if (navSpring.raf) { cancelAnimationFrame(navSpring.raf); navSpring.running = false; }
+    navSpring.x = navSpring.targetX; navSpring.w = navSpring.targetW; navSpring.vx = navSpring.vw = 0;
+    applyNavIndicator(navSpring.x, navSpring.w, 1, 1);
+    return;
+  }
+  if (!navSpring.running) {
+    navSpring.running = true;
+    navSpring.lastT = 0;
+    navSpring.raf = requestAnimationFrame(navSpringStep);
   }
 }
 
@@ -1178,8 +1330,12 @@ function switchTab(tabId) {
   const oldI = tabsArray.indexOf(state.currentTab); const newI = tabsArray.indexOf(tabId);
   let anim = 'active'; if (oldI !== -1 && newI !== -1 && oldI !== newI) anim = newI > oldI ? 'slide-left' : 'slide-right';
 
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.querySelector(`.nav-tab[data-tab="${tabId}"]`)?.classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    t.classList.remove('active');
+    t.setAttribute('aria-selected', 'false');
+  });
+  const activeTab = document.querySelector(`.nav-tab[data-tab="${tabId}"]`);
+  if (activeTab) { activeTab.classList.add('active'); activeTab.setAttribute('aria-selected', 'true'); }
   state.currentTab = tabId;
 
   if (tabId === 'quran') { showScreen('surah-list', anim); }
@@ -1238,7 +1394,7 @@ window.toggleBookmark = function(type) {
 function updateBookmarkIcon() {
   const btn = document.getElementById('btn-bm-surah'); if(!btn) return;
   if (state.currentScreen === 'surah-view' && state.bookmark?.type === 'surah' && state.bookmark.id === state.currentSurah.number) { btn.style.background = 'var(--accent)'; btn.style.color = '#ffffff'; }
-  else { btn.style.background = 'rgba(255,255,255,0.2)'; btn.style.color = '#1a1000'; }
+  else { btn.style.background = 'rgba(255,255,255,0.2)'; btn.style.color = '#f4f1e8'; }
 }
 
 function updateResumeFAB() {
@@ -1354,7 +1510,7 @@ function updateKhatmahUI() {
     if (isDoneToday) {
         if (!msg) {
             msg = document.createElement('div'); msg.id = 'k-done-msg';
-            msg.style = 'margin-top:12px; color:var(--success); font-weight:bold; font-size:13px; text-align:center; background:rgba(76,175,125,0.1); padding:8px; border-radius:6px; border: 1px dashed var(--success);';
+            msg.style = 'margin-top:12px; color:var(--success); font-weight:bold; font-size:calc(var(--font-size) * 0.5); text-align:center; background:rgba(76,175,125,0.1); padding:8px; border-radius:6px; border: 1px dashed var(--success);';
             msg.textContent = '🎉 لقد أتممت ورد اليوم بنجاح!'; dashInfo.appendChild(msg);
         }
     } else if (msg) { msg.remove(); }
@@ -1386,7 +1542,7 @@ async function loadKhatmahPage(pageNum) {
 
   const doneBtn = document.getElementById('kp-done');
   if (pageNum >= state.khatmah.todayWirdEnd) {
-      doneBtn.innerHTML = '✓ إتمام وحفظ الورد'; doneBtn.style.background = 'var(--accent)'; doneBtn.style.borderColor = 'var(--accent)'; doneBtn.style.color = '#1a1000';
+      doneBtn.innerHTML = '✓ إتمام وحفظ الورد'; doneBtn.style.background = 'var(--accent-deep)'; doneBtn.style.borderColor = 'var(--accent-deep)'; doneBtn.style.color = '#f4f1e8';
   } else {
       doneBtn.innerHTML = '✓ إنهاء الورد'; doneBtn.style.background = ''; doneBtn.style.borderColor = ''; doneBtn.style.color = '';
   }
@@ -1397,7 +1553,7 @@ async function loadKhatmahPage(pageNum) {
     const res = await fetch(`https://api.alquran.cloud/v1/page/${pageNum}/quran-uthmani`);
     const data = await res.json();
 
-    let html = `<div style="text-align:center; font-size:14px; color:var(--text-dim); margin-bottom:10px;">صفحة ${toArabicNum(pageNum)}</div>`;
+    let html = `<div style="text-align:center; font-size:calc(var(--font-size) * 0.54); color:var(--text-dim); margin-bottom:10px;">صفحة ${toArabicNum(pageNum)}</div>`;
     let currentSurah = data.data.ayahs[0].surah.number;
 
     if (data.data.ayahs[0].numberInSurah === 1) {
@@ -1441,7 +1597,7 @@ window.completeWird = async function() {
   if (nx > 604) {
       Motion.confetti(120);
       await new Promise(r => setTimeout(r, 300));
-      await window.showAppDialog('مبارك عليك ختم القرآن الكريم! 🤲<br><span style="font-size:14px; font-weight:normal; color:var(--text-dim)">تقبل الله منك صالح الأعمال.</span>', false);
+      await window.showAppDialog('مبارك عليك ختم القرآن الكريم! 🤲<br><span style="font-size:calc(var(--font-size) * 0.54); font-weight:normal; color:var(--text-dim)">تقبل الله منك صالح الأعمال.</span>', false);
       state.khatmah = null; saveState(); navigateBack();
   } else {
       // Mini celebration for completing a wird
@@ -1480,7 +1636,7 @@ window.openCategory = function(ci) {
   state.currentCatIndex = ci; showScreen('thikr-view', 'slide-left');
   document.getElementById('thikr-list-container').innerHTML = ATHKAR[ci].items.map((item, i) => {
     const done = getProg(ci, i) >= item.count;
-    return `<div class="thikr-card" data-magnetic><div class="thikr-text">${item.text}</div><button class="thikr-tap-btn ${done ? 'done' : ''}" onclick="tapThikr(${ci}, ${i}, this)">${done ? '✓ اكتمل' : `<span class="count-anim">${toArabicNum(getProg(ci,i))}</span> / ${toArabicNum(item.count)}`}</button></div>`;
+    return `<div class="thikr-card" data-magnetic><button class="copy-btn" data-copy-from=".thikr-text" aria-label="نسخ الذكر" title="نسخ"><span aria-hidden="true">⧉</span> نسخ</button><div class="thikr-text">${item.text}</div><button class="thikr-tap-btn ${done ? 'done' : ''}" onclick="tapThikr(${ci}, ${i}, this)">${done ? '✓ اكتمل' : `<span class="count-anim">${toArabicNum(getProg(ci,i))}</span> / ${toArabicNum(item.count)}`}</button></div>`;
   }).join('');
   Motion.staggerIn(document.getElementById('thikr-list-container'));
 }
@@ -1632,17 +1788,51 @@ document.addEventListener('DOMContentLoaded', () => {
       if (navigator.share) await navigator.share(shareData);
       else {
         await navigator.clipboard.writeText(shareData.url);
-        await window.showAppDialog('تم نسخ رابط التطبيق بنجاح! 🤍<br><span style="font-size:13px; color:var(--text-dim)">يمكنك الآن لصقه ومشاركته.</span>', false);
+        await window.showAppDialog('تم نسخ رابط التطبيق بنجاح! 🤍<br><span style="font-size:calc(var(--font-size) * 0.5); color:var(--text-dim)">يمكنك الآن لصقه ومشاركته.</span>', false);
       }
     } catch (err) {}
   });
 
+  // ===== نسخ نص الأذكار/الأدعية (تفويض الأحداث ليعمل على البطاقات المُعادة رسمها) =====
+  document.addEventListener('click', async (e) => {
+    const copyBtn = e.target.closest('.copy-btn');
+    if (!copyBtn) return;
+    const selector = copyBtn.dataset.copyFrom;
+    const card = copyBtn.closest('.thikr-card, .dua-card');
+    const textEl = card && selector ? card.querySelector(selector) : null;
+    if (!textEl) return;
+    const text = textEl.textContent.trim();
+    const setDone = (ok) => {
+      copyBtn.classList.toggle('copied', ok);
+      copyBtn.setAttribute('aria-label', ok ? 'تم النسخ' : 'نسخ');
+      setTimeout(() => copyBtn.classList.remove('copied'), 1600);
+    };
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        setDone(true);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed'; ta.style.top = '-9999px'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        ta.remove();
+        setDone(ok);
+      }
+    } catch (err) {
+      setDone(false);
+    }
+  });
+
   document.getElementById('back-btn').addEventListener('click', navigateBack);
-  document.getElementById('nav-dua-card').addEventListener('click', () => { showScreen('dua-list', 'slide-left'); document.getElementById('dua-list-container').innerHTML = DUA_LIST.map(d => `<div class="dua-card" data-magnetic><div class="dua-occasion">${d.occasion}</div><div class="dua-text">${d.text}</div></div>`).join(''); Motion.staggerIn(document.getElementById('dua-list-container')); });
+  document.getElementById('nav-dua-card').addEventListener('click', () => { showScreen('dua-list', 'slide-left'); document.getElementById('dua-list-container').innerHTML = DUA_LIST.map(d => `<div class="dua-card" data-magnetic><button class="copy-btn" data-copy-from=".dua-text" aria-label="نسخ الدعاء" title="نسخ"><span aria-hidden="true">⧉</span> نسخ</button><div class="dua-occasion">${d.occasion}</div><div class="dua-text">${d.text}</div></div>`).join(''); Motion.staggerIn(document.getElementById('dua-list-container')); });
   document.getElementById('nav-tasbih-card').addEventListener('click', () => { showScreen('tasbih', 'slide-left'); buildTasbih(); updateTasbihUI(); });
   document.getElementById('nav-occasion-card').addEventListener('click', () => { showScreen('occasion-list', 'slide-left'); renderOccasionPage(currentOccasionKeys); });
 
   document.getElementById('occasion-modal-ok').addEventListener('click', () => document.getElementById('occasion-overlay').classList.remove('active'));
+  document.getElementById('occasion-overlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('active'); });
   document.getElementById('occasion-modal-goto').addEventListener('click', () => { document.getElementById('occasion-overlay').classList.remove('active'); switchTab('athkar'); showScreen('occasion-list', 'slide-left'); renderOccasionPage(currentOccasionKeys); });
 
   document.querySelectorAll('.nav-tab').forEach(t => { t.addEventListener('pointerdown', createRipple); t.addEventListener('click', () => switchTab(t.dataset.tab)); });
@@ -1658,21 +1848,27 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   clearBtn.addEventListener('click', () => { searchBar.value = ''; clearBtn.style.transform = 'translateY(-50%) scale(0.7)'; setTimeout(() => clearBtn.style.display = 'none', 200); renderSurahList(allSurahs); searchBar.focus(); });
 
-  window.addEventListener('resize', setNavIndicator);
+  window.addEventListener('resize', () => snapNavIndicator());
   bindGesturesAndScroll();
 
+  snapNavIndicator();
   loadSurahList(); initOccasionSystem(); switchTab(state.currentTab || 'quran');
-  setTimeout(setNavIndicator, 100); checkBookmarkFAB();
+  checkBookmarkFAB();
 
   let isDraggingNav = false; let navStartX = 0; let indicatorStartX = 0;
+  let navDragLastX = 0, navDragLastT = 0;
   const navBar = document.getElementById('nav'); const navIndicator = document.getElementById('nav-indicator');
 
   function getClientX(e) { return e.touches ? e.touches[0].clientX : e.clientX; }
   function handleDragStart(e) {
     if (e.target.closest('#nav')) {
       const activeTab = document.querySelector('.nav-tab.active'); if(!activeTab) return;
+      // أوقف أي حركة زنبركية جارية أثناء السحب
+      if (navSpring.raf) { cancelAnimationFrame(navSpring.raf); navSpring.running = false; }
       isDraggingNav = true; navStartX = getClientX(e); indicatorStartX = activeTab.offsetLeft;
-      navIndicator.style.transition = 'none'; navIndicator.style.transform = `translateX(${indicatorStartX}px) scale(0.95)`;
+      navDragLastX = indicatorStartX; navDragLastT = performance.now();
+      navSpring.x = indicatorStartX; navSpring.w = activeTab.offsetWidth;
+      applyNavIndicator(indicatorStartX, activeTab.offsetWidth, 0.96, 0.94);
     }
   }
   function handleDragMove(e) {
@@ -1681,15 +1877,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const minX = 0; const maxX = navBar.offsetWidth - navIndicator.offsetWidth;
     if (newX < minX) newX = minX - Math.pow(minX - newX, 0.8);
     if (newX > maxX) newX = maxX + Math.pow(newX - maxX, 0.8);
-    const stretch = 1 + Math.min(Math.abs(dx) / 400, 0.25);
-    navIndicator.style.transform = `translateX(${newX}px) scaleX(${stretch}) scaleY(0.9)`;
+    const stretch = 1 + Math.min(Math.abs(dx) / 400, 0.22);
+    applyNavIndicator(newX, navSpring.w, stretch, 0.92);
+    // تتبع السرعة اللحظية لتسليمها للزنبرك عند الإفلات
+    const now = performance.now();
+    const dtMs = now - navDragLastT;
+    if (dtMs > 0) { navSpring.vx = (newX - navDragLastX) / dtMs * 1000; }
+    navDragLastX = newX; navDragLastT = now;
+    navSpring.x = newX;
   }
   function handleDragEnd(e) {
     if(!isDraggingNav) return;
     isDraggingNav = false;
-    navIndicator.style.transition = 'transform 0.55s cubic-bezier(0.5, 1.5, 0.4, 1), width 0.55s cubic-bezier(0.5, 1.5, 0.4, 1)';
     const currentTransformMatch = navIndicator.style.transform.match(/translateX\(([^p]+)px\)/);
     const currentTransformX = currentTransformMatch ? parseFloat(currentTransformMatch[1]) : indicatorStartX;
+    navSpring.x = currentTransformX;
+    // حدّد السرعة القصوى لتجنب رد فعل عنيف
+    navSpring.vx = Math.max(-1600, Math.min(1600, navSpring.vx));
     const indicatorCenter = currentTransformX + (navIndicator.offsetWidth / 2);
     let closestTab = null; let minDistance = Infinity;
     document.querySelectorAll('.nav-tab').forEach(tab => {
@@ -1716,9 +1920,22 @@ document.addEventListener('DOMContentLoaded', () => {
       btnCancel.style.display = isConfirm ? 'block' : 'none';
       btnOk.textContent = isConfirm ? 'موافق' : 'حسناً';
       overlay.classList.add('active');
-      const cleanup = () => { overlay.classList.remove('active'); };
-      btnOk.onclick = () => { cleanup(); resolve(true); };
-      btnCancel.onclick = () => { cleanup(); resolve(false); };
+
+      // نضمن إنهاء الـ Promise دائماً (زر، خلفية، أو Escape) حتى لا يعلق الكود
+      let settled = false;
+      const dismiss = (result) => {
+        if (settled) return;
+        settled = true;
+        overlay.classList.remove('active');
+        document.removeEventListener('keydown', onKey);
+        resolve(result);
+      };
+      const onKey = (e) => { if (e.key === 'Escape') dismiss(isConfirm ? false : true); };
+      document.addEventListener('keydown', onKey);
+
+      btnOk.onclick = () => dismiss(true);
+      btnCancel.onclick = () => dismiss(false);
+      overlay.onclick = (e) => { if (e.target === overlay) dismiss(isConfirm ? false : true); };
     });
   };
 });
