@@ -550,13 +550,13 @@ body.theme-light .btn-scale { color: var(--color-on-accent); }
 .k-wird-badge small { font-size: calc(var(--font-size) * 0.45); color: var(--text-dim); margin-bottom: 4px; transition: font-size 0.3s; }
 .k-wird-arrow { color: var(--accent); font-size: calc(var(--font-size) * 0.8); font-weight: bold; transition: font-size 0.3s; }
 
-.khatmah-controls { position: fixed; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 680px; display: flex; gap: 8px; background: rgba(16, 51, 63, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 10px 16px; border-radius: 12px; z-index: 50; transition: bottom 380ms var(--ease-spring), transform 380ms var(--ease-spring), opacity 0.4s, background 0.4s; }
+.khatmah-controls { position: fixed; bottom: calc(178px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 680px; display: flex; gap: 8px; background: rgba(16, 51, 63, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 10px 16px; border-radius: 12px; z-index: 50; transition: bottom 380ms var(--ease-spring), transform 380ms var(--ease-spring), opacity 0.4s, background 0.4s; }
 body.theme-light .khatmah-controls { background: rgba(255, 255, 255, 0.9); border: 1px solid var(--border); }
 /* عندما يكون شريط التنقل مخفياً، تنزل الأزرار لأسفل مباشرة */
 #nav.nav-hidden ~ .khatmah-controls { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 .khatmah-controls.controls-hidden { transform: translateX(-50%) translateY(150px); opacity: 0; pointer-events: none; }
 /* مساحة سفلية إضافية في قارئ الختمة حتى لا تغطي الأزرار آخر الآيات */
-#screen-khatmah-read { padding-bottom: 60px; }
+#screen-khatmah-read { padding-bottom: 250px; }
 .k-ctrl-btn { flex: 1; background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: calc(var(--font-size) * 0.55); transition: transform 0.2s, font-size 0.3s, background 0.4s, color 0.4s; }
 .k-ctrl-btn:active { transform: scale(0.95); }
 .k-ctrl-btn.primary { background: var(--success); color: #fff; border-color: var(--success); flex: 2; }
@@ -1349,6 +1349,10 @@ function showScreen(screenId, animClass = 'active') {
 
   if(['surah-view', 'khatmah-read'].includes(screenId)) document.getElementById('reading-progress-container').style.display = 'block';
   else { document.getElementById('reading-progress-container').style.display = 'none'; document.getElementById('reading-progress-bar').style.width = '0%'; }
+
+  // شريط تحكم الختمة يظهر فقط داخل قارئ الختمة
+  const kctrl = document.getElementById('khatmah-controls');
+  if (kctrl) kctrl.classList.toggle('controls-hidden', screenId !== 'khatmah-read');
 }
 
 // الشاشات الجذرية لكل تبويب: للرجوع إلى التبويب الأصلي بدل athkar-list دائماً
@@ -1515,7 +1519,7 @@ function bindGesturesAndScroll() {
       if(kctrl) kctrl.classList.add('controls-hidden');
     } else {
       nav.classList.remove('nav-hidden'); if(fab) fab.style.transform = '';
-      if(kctrl) kctrl.classList.remove('controls-hidden');
+      if(kctrl && state.currentScreen === 'khatmah-read') kctrl.classList.remove('controls-hidden');
     }
     lastScrollY = sy;
     if (['surah-view', 'khatmah-read'].includes(state.currentScreen)) { document.getElementById('reading-progress-bar').style.width = (maxScroll > 0 ? (sy / maxScroll) * 100 : 0) + '%'; }
