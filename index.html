@@ -59,6 +59,8 @@
 
 <!-- Application Configuration -->
 <script src="./config.js"></script>
+<!-- بيانات السور المحلية (Offline fallback) -->
+<script src="./surah-meta.js"></script>
 
 <style>
 /* ==================== استيراد خط المصحف العثماني ==================== */
@@ -80,6 +82,11 @@
   --text-dim: #9fb8b6;      /* رمادي ناعم مائل للأخضر */
   --success: #4fd1a5;
   --border: #1f4b5a;
+  /* ===== أسماء دلالية للألوان (لتسهيل التغيير المستقبلي) ===== */
+  --color-success: var(--success);
+  --color-on-accent: #f4f1e8;   /* نص فوق الأزرار الملوّنة */
+  --color-on-accent-soft: rgba(244, 241, 232, 0.85);
+  --color-shadow: rgba(0, 0, 0, 0.4);
   --radius: 12px;
   /* ===== نظام الخطوط: حجم أساسي واحد × نسبة تكبير واحدة ===== */
   --font-base: 26px;                        /* الحجم المرجعي (متوسط) */
@@ -308,6 +315,11 @@ body.theme-light {
   --text-dim: #5c7276;      /* رمادي ناعم */
   --success: #2e8b57;
   --border: #ddd4c1;
+  /* أسماء دلالية (الوضع الفاتح) */
+  --color-success: var(--success);
+  --color-on-accent: #ffffff;
+  --color-on-accent-soft: rgba(255, 255, 255, 0.9);
+  --color-shadow: rgba(20, 51, 58, 0.15);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -483,11 +495,11 @@ body.theme-light .surah-num { background: var(--surface-2); color: var(--text); 
 
 #surah-header-card { background: var(--accent-grad); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; text-align: center; box-shadow: 0 4px 15px var(--accent-dim); position: relative; }
 body.theme-light #surah-header-card { box-shadow: 0 4px 15px rgba(31, 122, 90, 0.12); }
-.surah-h-name { font-size: calc(var(--font-size)); font-weight: 700; color: #f4f1e8; transition: font-size 0.3s, color 0.3s; }
-body.theme-light .surah-h-name { color: #f4f1e8; }
+.surah-h-name { font-size: calc(var(--font-size)); font-weight: 700; color: var(--color-on-accent); transition: font-size 0.3s, color 0.3s; }
+body.theme-light .surah-h-name { color: var(--color-on-accent); }
 .surah-h-meta { font-size: calc(var(--font-size) * 0.5); color: rgba(244, 241, 232, 0.85); margin-top: 4px; transition: font-size 0.3s, color 0.3s; }
-.bookmark-btn { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.2); border: none; color: #f4f1e8; font-size: calc(var(--font-size) * 0.77); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; transition: transform 0.2s; }
-body.theme-light .bookmark-btn { background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); color: #f4f1e8; }
+.bookmark-btn { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.2); border: none; color: var(--color-on-accent); font-size: calc(var(--font-size) * 0.77); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; transition: transform 0.2s; }
+body.theme-light .bookmark-btn { background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); color: var(--color-on-accent); }
 .bookmark-btn:active { transform: scale(0.8); }
 
 .mushaf-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) * 1.15); line-height: calc(var(--line-height) * 1.2); text-align: right; color: var(--text); direction: rtl; transition: background 0.4s, color 0.4s, font-size 0.3s, line-height 0.3s; }
@@ -495,7 +507,7 @@ body.theme-light .bookmark-btn { background: rgba(255,255,255,0.25); border: 1px
 .ayah-separator { color: var(--accent); font-family: Tahoma, sans-serif; font-size: 0.7em; margin: 0 4px; font-weight: bold; }
 .bismillah { text-align: center; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) * 0.95); color: var(--accent); padding: 10px 10px 20px 10px; line-height: 2; transition: font-size 0.3s; }
 
-#resume-fab { position: fixed; bottom: max(110px, calc(20px + env(safe-area-inset-bottom, 0px) + 90px)); right: 20px; background: var(--accent-grad); color: #f4f1e8; border: none; border-radius: 30px; padding: 12px 20px; font-weight: bold; font-size: calc(var(--font-size) * 0.54); box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; z-index: 90; display: none; align-items: center; gap: 8px; transition: transform 380ms var(--ease-spring-snap), opacity 320ms var(--ease-out-quart), background 320ms var(--ease-out-quart), box-shadow 320ms var(--ease-out-quart); opacity: 0; transform: translateY(20px) scale(0.9); pointer-events: none; }
+#resume-fab { position: fixed; bottom: max(110px, calc(20px + env(safe-area-inset-bottom, 0px) + 90px)); right: 20px; background: var(--accent-grad); color: var(--color-on-accent); border: none; border-radius: 30px; padding: 12px 20px; font-weight: bold; font-size: calc(var(--font-size) * 0.54); box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; z-index: 90; display: none; align-items: center; gap: 8px; transition: transform 380ms var(--ease-spring-snap), opacity 320ms var(--ease-out-quart), background 320ms var(--ease-out-quart), box-shadow 320ms var(--ease-out-quart); opacity: 0; transform: translateY(20px) scale(0.9); pointer-events: none; }
 body.theme-light #resume-fab { box-shadow: 0 4px 15px rgba(31, 122, 90, 0.3); }
 #resume-fab:active { transform: scale(0.95); }
 #resume-fab.visible { display: flex; opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; animation: fabSpringIn 480ms var(--ease-spring-snap) both; }
@@ -514,8 +526,8 @@ body.theme-light #resume-fab { box-shadow: 0 4px 15px rgba(31, 122, 90, 0.3); }
 .khatmah-setup-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
 .k-label { display: block; margin-bottom: 8px; color: var(--text-dim); font-size: calc(var(--font-size) * 0.55); transition: font-size 0.3s; }
 .k-input { width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: calc(var(--font-size) * 0.62); font-family: inherit; transition: background 0.4s, color 0.4s; }
-.btn-scale { width: 100%; background: var(--accent-grad); color: #f4f1e8; font-weight: bold; font-size: calc(var(--font-size) * 0.65); padding: 14px; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, font-size 0.3s; }
-body.theme-light .btn-scale { color: #ffffff; }
+.btn-scale { width: 100%; background: var(--accent-grad); color: var(--color-on-accent); font-weight: bold; font-size: calc(var(--font-size) * 0.65); padding: 14px; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, font-size 0.3s; }
+body.theme-light .btn-scale { color: var(--color-on-accent); }
 .btn-scale:active { transform: scale(0.96); box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
 
 .k-dash-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
@@ -544,8 +556,8 @@ body.theme-light .khatmah-controls { background: rgba(255, 255, 255, 0.9); borde
 body.theme-light .quick-nav-card { box-shadow: 0 2px 10px rgba(31, 122, 90, 0.10); }
 .quick-nav-card:active { transform: scale(0.95); }
 .quick-nav-icon { font-size: calc(var(--font-size) * 1.1); display: block; margin-bottom: 6px; transition: font-size 0.3s; }
-.quick-nav-label { font-size: calc(var(--font-size) * 0.6); font-weight: 700; color: #f4f1e8; display: block; transition: font-size 0.3s, color 0.3s; }
-body.theme-light .quick-nav-label { color: #ffffff; }
+.quick-nav-label { font-size: calc(var(--font-size) * 0.6); font-weight: 700; color: var(--color-on-accent); display: block; transition: font-size 0.3s, color 0.3s; }
+body.theme-light .quick-nav-label { color: var(--color-on-accent); }
 
 .athkar-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .athkar-cat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 12px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: transform 0.2s, border-color 0.2s, background 0.4s; }
@@ -594,8 +606,8 @@ body.theme-light .occasion-card { box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
 #tasbih-tap-btn { position: absolute; inset: 34px; border-radius: 50%; background: var(--accent-grad); border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: transform 0.1s; }
 body.theme-light #tasbih-tap-btn { box-shadow: 0 4px 20px rgba(31, 122, 90, 0.2); }
 #tasbih-tap-btn:active { transform: scale(0.92); }
-#tasbih-count-num { font-size: calc(var(--font-size) * 1.8); font-weight: 700; color: #f4f1e8; transition: font-size 0.3s, color 0.4s; }
-body.theme-light #tasbih-count-num { color: #ffffff; }
+#tasbih-count-num { font-size: calc(var(--font-size) * 1.8); font-weight: 700; color: var(--color-on-accent); transition: font-size 0.3s, color 0.4s; }
+body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 .tasbih-complete-banner { background: linear-gradient(135deg, rgba(62, 207, 158, 0.14), rgba(70, 200, 214, 0.07)); border: 1px solid var(--accent); border-radius: var(--radius); padding: 14px; text-align: center; color: var(--accent); margin-bottom: 20px; display: none; width: 100%; max-width: 320px; }
 .tasbih-complete-banner.active { display: block; }
 
@@ -626,6 +638,63 @@ body.theme-light #tasbih-count-num { color: #ffffff; }
 #custom-dialog-overlay.active { display: flex; }
 #custom-dialog { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 340px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: fadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); text-align: center; }
 #custom-dialog-text { font-size: calc(var(--font-size) * 0.7); font-weight: bold; color: var(--text); line-height: 1.6; }
+
+/* ==================== مؤشر عدم الاتصال ==================== */
+#offline-banner { position: fixed; top: var(--header-h); left: 0; right: 0; z-index: 98; background: var(--accent-deep); color: var(--color-on-accent); text-align: center; font-size: calc(var(--font-size) * 0.45); padding: 6px 12px; font-weight: bold; transform: translateY(-110%); transition: transform 320ms var(--ease-spring); pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,0.3); }
+#offline-banner.active { transform: translateY(0); }
+
+/* ==================== شريط التلاوة الصوتية ==================== */
+#audio-bar { position: fixed; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); right: 20px; z-index: 95; display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--accent); border-radius: 30px; padding: 8px 8px 8px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); transform: translateX(calc(100% + 30px)); opacity: 0; transition: transform 420ms var(--ease-spring), opacity 320ms; max-width: calc(100vw - 40px); }
+#audio-bar.visible { transform: translateX(0); opacity: 1; }
+#audio-bar #audio-title { font-size: calc(var(--font-size) * 0.5); font-weight: bold; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 38vw; }
+#audio-bar button { background: var(--accent-deep); color: var(--color-on-accent); border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: calc(var(--font-size) * 0.6); cursor: pointer; flex-shrink: 0; }
+#audio-bar #audio-close { background: var(--surface-2); color: var(--text-dim); }
+#audio-bar.playing #audio-play-btn { animation: audioPulse 1.8s ease-in-out infinite; }
+@keyframes audioPulse { 0%, 100% { box-shadow: 0 0 0 0 var(--accent-dim); } 50% { box-shadow: 0 0 0 10px transparent; } }
+.audio-play { position: absolute; top: 10px; right: 10px; left: auto; background: rgba(255,255,255,0.2); border: none; color: var(--color-on-accent); font-size: calc(var(--font-size) * 0.6); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
+.audio-play:active { transform: scale(0.85); }
+
+/* ==================== شاشة المرجعيات ==================== */
+.bm-remove { position: absolute; top: 50%; left: 10px; transform: translateY(-50%); background: var(--surface-2); color: var(--text-dim); border: none; border-radius: 50%; width: 30px; height: 30px; font-size: calc(var(--font-size) * 0.55); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 180ms var(--ease-spring-snap), color 180ms; }
+.bm-remove:active { transform: translateY(-50%) scale(0.85); }
+.surah-row:has(.bm-remove:hover) .surah-info { margin-left: 34px; }
+
+/* ==================== شاشة الإحصائيات ==================== */
+.stats-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 14px; text-align: center; transition: transform 280ms var(--ease-out-quart), border-color 280ms; }
+.stat-card:active { transform: scale(0.97); }
+.stat-value { font-size: calc(var(--font-size) * 1.2); font-weight: 800; color: var(--accent); font-family: Tahoma, sans-serif; }
+.stat-label { font-size: calc(var(--font-size) * 0.48); color: var(--text-dim); margin-top: 6px; }
+.stats-chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 16px; }
+.stats-bars { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; height: 130px; margin-top: 10px; }
+.stats-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; }
+.stats-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; position: relative; }
+.stats-bar { width: 70%; max-width: 34px; background: linear-gradient(180deg, var(--accent), var(--accent-deep)); border-radius: 8px 8px 4px 4px; transition: height 600ms var(--ease-spring); min-height: 4px; position: relative; }
+.stats-bar-tip { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--accent); font-weight: bold; font-family: Tahoma, sans-serif; }
+.stats-bar-label { font-size: 11px; color: var(--text-dim); font-family: Tahoma, sans-serif; }
+
+/* ==================== شاشة الإعدادات ==================== */
+.settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; }
+.settings-label { font-size: calc(var(--font-size) * 0.58); font-weight: bold; color: var(--text); margin-bottom: 12px; }
+.settings-targets { display: flex; flex-wrap: wrap; gap: 8px; }
+.settings-chip { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 20px; padding: 9px 16px; font-size: calc(var(--font-size) * 0.52); font-family: inherit; font-weight: bold; cursor: pointer; transition: all 200ms var(--ease-spring-snap); }
+.settings-chip.active { background: var(--accent-deep); color: var(--color-on-accent); border-color: var(--accent-deep); transform: scale(1.04); }
+.settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
+.settings-arrow { color: var(--accent); font-size: calc(var(--font-size) * 0.8); font-weight: bold; }
+.settings-toggle { position: relative; width: 52px; height: 30px; border-radius: 20px; background: var(--surface-2); border: 1px solid var(--border); cursor: pointer; flex-shrink: 0; transition: background 240ms var(--ease-out-quart), border-color 240ms; }
+.settings-toggle .settings-toggle-knob { position: absolute; top: 2px; right: 2px; width: 24px; height: 24px; border-radius: 50%; background: var(--text-dim); transition: transform 280ms var(--ease-spring-snap), background 240ms; }
+.settings-toggle.on { background: var(--accent-deep); border-color: var(--accent-deep); }
+.settings-toggle.on .settings-toggle-knob { transform: translateX(-22px); background: #ffffff; }
+
+/* ==================== تنفّس دائرة السبحة ==================== */
+#tasbih-tap-btn.breathe { animation: tasbihBreathe 3.2s ease-in-out infinite; }
+@keyframes tasbihBreathe { 0%, 100% { transform: scale(1); box-shadow: 0 4px 20px rgba(0,0,0,0.4); } 50% { transform: scale(1.025); box-shadow: 0 8px 30px var(--accent-dim); } }
+
+/* ==================== حلقة التقدم بحركة زنبركية ==================== */
+.circle-path { transition: stroke-dasharray 900ms var(--ease-spring), stroke 0.4s; }
+
+/* ==================== زر إضافي في الشريط العلوي للمرجعيات ==================== */
+#header { }
 </style>
 </head>
 <body>
@@ -645,6 +714,7 @@ body.theme-light #tasbih-count-num { color: #ffffff; }
       <div id="header-subtitle"></div>
     </div>
     <div id="font-ctrl">
+      <button class="header-btn" id="bookmarks-btn" title="المرجعيات" aria-label="المرجعيات">🔖</button>
       <button class="header-btn" id="theme-btn" title="الوضع الفاتح">☀️</button>
       <button class="header-btn" id="share-btn" title="مشاركة التطبيق">📤</button>
       <button class="header-btn font-btn" data-size="small">ص</button>
@@ -660,7 +730,7 @@ body.theme-light #tasbih-count-num { color: #ffffff; }
   <main id="content">
     <button id="resume-fab" onclick="resumeBookmark()"><span>🔖 متابعة القراءة</span></button>
 
-    <div id="screen-surah-list" class="screen active">
+    <div id="screen-surah-list" class="screen active" role="tabpanel" aria-label="القرآن الكريم">
       <div class="search-wrapper">
         <input type="search" id="search-bar" placeholder="ابحث عن سورة باسمها أو رقمها...">
         <button id="clear-search">&times;</button>
@@ -677,7 +747,7 @@ body.theme-light #tasbih-count-num { color: #ffffff; }
       <div id="verses-container"></div>
     </div>
 
-    <div id="screen-khatmah-main" class="screen">
+    <div id="screen-khatmah-main" class="screen" role="tabpanel" aria-label="الختمة">
       <div id="khatmah-setup" style="display:none;">
         <div class="khatmah-setup-box">
           <h2 style="font-size: calc(var(--font-size) * 0.7); margin-bottom: 16px; color: var(--accent);">إعداد ختمة جديدة</h2>
@@ -723,7 +793,7 @@ body.theme-light #tasbih-count-num { color: #ffffff; }
       </div>
     </div>
 
-    <div id="screen-athkar-list" class="screen">
+    <div id="screen-athkar-list" class="screen" role="tabpanel" aria-label="الأذكار">
       <div class="quick-nav-row">
         <div class="quick-nav-card" id="nav-dua-card" role="button" tabindex="0" aria-label="أدعية النبي"><span class="quick-nav-icon">🤲</span><span class="quick-nav-label">أدعية النبي</span></div>
         <div class="quick-nav-card" id="nav-tasbih-card" role="button" tabindex="0" aria-label="السبحة الرقمية"><span class="quick-nav-icon">📿</span><span class="quick-nav-label">السبحة</span></div>
@@ -751,6 +821,10 @@ body.theme-light #tasbih-count-num { color: #ffffff; }
       </div>
       <button class="btn-scale" id="tasbih-reset-btn" style="width:auto; padding:10px 30px; margin-top:40px; background:var(--surface-2); color:var(--text);">تصفير العداد</button>
     </div>
+
+    <div id="screen-bookmarks" class="screen"><div id="bookmarks-container"></div></div>
+    <div id="screen-settings" class="screen"><div id="settings-container"></div></div>
+    <div id="screen-stats" class="screen"><div id="stats-container"></div></div>
   </main>
 
   <nav id="nav" role="tablist" aria-label="التنقل الرئيسي">
@@ -1060,6 +1134,8 @@ const Motion = {
   // Confetti burst
   confetti(count = 60) {
     if (prefersReducedMotion) return;
+    // حدود أصغر على الشاشات الصغيرة للأداء
+    if (window.innerWidth < 500) count = Math.min(count, 50);
     const colors = ['#3ecf9e', '#46c8d6', '#f3f0e7', '#4fd1a5', '#2aa8a8', '#8fe3c0'];
     for (let i = 0; i < count; i++) {
       const piece = document.createElement('div');
@@ -1192,8 +1268,9 @@ function showScreen(screenId, animClass = 'active') {
   const target = document.getElementById(`screen-${screenId}`);
   if (target) { target.classList.add(animClass); }
 
+  if (state.currentScreen !== screenId) state.previousScreen = state.currentScreen;
   state.currentScreen = screenId;
-  const isSubScreen = ['surah-view', 'thikr-view', 'dua-list', 'tasbih', 'khatmah-read', 'occasion-list'].includes(screenId);
+  const isSubScreen = ['surah-view', 'thikr-view', 'dua-list', 'tasbih', 'khatmah-read', 'occasion-list', 'bookmarks', 'settings', 'stats'].includes(screenId);
   const backBtn = document.getElementById('back-btn');
   if (backBtn) {
     if (isSubScreen && !backBtn.classList.contains('visible')) {
@@ -1204,7 +1281,7 @@ function showScreen(screenId, animClass = 'active') {
     }
   }
 
-  const titles = { 'surah-list': 'القرآن الكريم', 'surah-view': state.currentSurah?.name || 'القرآن الكريم', 'khatmah-main': 'الختمة', 'khatmah-read': 'الختمة', 'athkar-list': 'حصن المسلم', 'thikr-view': state.currentCatIndex !== null ? ATHKAR[state.currentCatIndex].name : 'الأذكار', 'dua-list': 'أدعية النبي ﷺ', 'tasbih': 'السبحة', 'occasion-list': 'المناسبات والتذكيرات' };
+  const titles = { 'surah-list': 'القرآن الكريم', 'surah-view': state.currentSurah?.name || 'القرآن الكريم', 'khatmah-main': 'الختمة', 'khatmah-read': 'الختمة', 'athkar-list': 'حصن المسلم', 'thikr-view': state.currentCatIndex !== null ? ATHKAR[state.currentCatIndex].name : 'الأذكار', 'dua-list': 'أدعية النبي ﷺ', 'tasbih': 'السبحة', 'occasion-list': 'المناسبات والتذكيرات', 'bookmarks': 'المرجعيات', 'settings': 'الإعدادات', 'stats': 'الإحصائيات' };
   const titleEl = document.getElementById('header-title');
   if (titleEl) {
     titleEl.textContent = titles[screenId] || 'إسلامي';
@@ -1224,9 +1301,11 @@ function showScreen(screenId, animClass = 'active') {
 }
 
 function navigateBack() {
-  if (state.currentScreen === 'surah-view') showScreen('surah-list', 'slide-right');
-  else if (['thikr-view', 'dua-list', 'tasbih', 'occasion-list'].includes(state.currentScreen)) { showScreen('athkar-list', 'slide-right'); renderAthkarList(); }
-  else if (state.currentScreen === 'khatmah-read') { showScreen('khatmah-main', 'slide-right'); updateKhatmahUI(); }
+  const prev = state.previousScreen;
+  const backTo = ['surah-list', 'athkar-list', 'khatmah-main'].includes(prev) ? prev : null;
+  if (state.currentScreen === 'surah-view') { showScreen(backTo || 'surah-list', 'slide-right'); }
+  else if (state.currentScreen === 'khatmah-read') { showScreen(backTo || 'khatmah-main', 'slide-right'); updateKhatmahUI(); }
+  else { showScreen(backTo || 'athkar-list', 'slide-right'); if (!backTo || backTo === 'athkar-list') renderAthkarList(); }
   saveState();
 }
 
@@ -1341,7 +1420,7 @@ function switchTab(tabId) {
   state.currentTab = tabId;
 
   if (tabId === 'quran') { showScreen('surah-list', anim); }
-  else if (tabId === 'khatmah') { showScreen('khatmah-main', anim); updateKhatmahUI(); }
+  else if (tabId === 'khatmah') { checkMissedDays(); showScreen('khatmah-main', anim); updateKhatmahUI(); }
   else { showScreen('athkar-list', anim); renderAthkarList(); Motion.staggerIn(document.querySelector('#screen-athkar-list .quick-nav-row')); }
   saveState(); setNavIndicator(); checkBookmarkFAB();
 }
@@ -1404,21 +1483,6 @@ function updateBookmarkIcon() {
   else { btn.style.background = 'rgba(255,255,255,0.2)'; btn.style.color = '#f4f1e8'; }
 }
 
-function updateResumeFAB() {
-  const fab = document.getElementById('resume-fab');
-  if (!fab) return;
-  const shouldShow = state.bookmark && ['surah-list', 'khatmah-main'].includes(state.currentScreen);
-  if (shouldShow && !fab.classList.contains('visible')) {
-    fab.classList.add('visible');
-    fab.querySelector('span').textContent = `متابعة: ${state.bookmark.name}`;
-  } else if (shouldShow) {
-    fab.querySelector('span').textContent = `متابعة: ${state.bookmark.name}`;
-  } else {
-    fab.classList.remove('visible');
-  }
-}
-const _origCheckBookmarkFAB = typeof checkBookmarkFAB !== 'undefined' ? checkBookmarkFAB : null;
-
 function checkBookmarkFAB() {
   const fab = document.getElementById('resume-fab');
   if (!fab) return;
@@ -1440,10 +1504,35 @@ window.resumeBookmark = function() {
   else if(state.bookmark.type === 'khatmah' && state.khatmah) { state.khatmah.currentPage = state.bookmark.id; saveState(); window.openKhatmahReader(); }
 };
 
+window.openBookmarks = function() {
+  showScreen('bookmarks', 'slide-left');
+  if (window.BookmarksView) BookmarksView.render();
+};
+
+window.openSettings = function() {
+  showScreen('settings', 'slide-left');
+  if (window.Settings) { Settings.render(); Settings.bind(); }
+};
+
+window.showStats = function() {
+  showScreen('stats', 'slide-left');
+  if (window.StatsManager) StatsManager.render();
+};
+
+// مُسهّل فتح السبحة من روابط مباشرة
+window.openTasbih = function() {
+  switchTab('athkar');
+  showScreen('tasbih', 'slide-left');
+  buildTasbih(); updateTasbihUI();
+};
+
 function getSkeletonHTML() { return `<div style="padding:20px;"><div class="skeleton sk-card"></div><div class="skeleton sk-text"></div><div class="skeleton sk-text"></div><div class="skeleton sk-text short"></div><div class="skeleton sk-card" style="margin-top:20px"></div></div>`; }
 
 async function loadSurahList() {
-  try { const res = await fetch('https://api.alquran.cloud/v1/surah'); allSurahs = (await res.json()).data; } catch(e) { allSurahs = SURAHS_DATA; }
+  try { const res = await fetch('https://api.alquran.cloud/v1/surah'); allSurahs = (await res.json()).data; } catch(e) {
+    // fallback محلي: بيانات السور الحقيقية (أسماء + عدد الآيات) تعمل دون إنترنت
+    allSurahs = (window.SURAH_META && SURAH_META.length) ? SURAH_META : SURAHS_DATA;
+  }
   renderSurahList(allSurahs);
 }
 
@@ -1454,6 +1543,8 @@ function renderSurahList(list, query = '') {
     return `<div class="surah-row" data-magnetic onclick="openSurah(${s.number})"><div class="surah-num">${toArabicNum(s.number)}</div><div class="surah-info"><div class="surah-name">${nameHtml}</div><div class="surah-meta">${toArabicNum(s.numberOfAyahs)} آية</div></div></div>`;
   }).join('');
   Motion.staggerIn(document.getElementById('surah-list-container'));
+  // أعد استخدام المراقب الدائم للعناصر الجديدة (بدل إنشاء مراقب لكل ضغطة)
+  if (window.AnimationManager?.observeReveal) AnimationManager.observeReveal();
 }
 
 window.openSurah = async function(number) {
@@ -1461,15 +1552,22 @@ window.openSurah = async function(number) {
   showScreen('surah-view', 'slide-left');
   const container = document.getElementById('verses-container'); container.innerHTML = getSkeletonHTML();
   document.getElementById('surah-view-name').textContent = state.currentSurah.name; updateBookmarkIcon();
+  if (window.AudioPlayer) AudioPlayer.bindSurahHeader();
 
   let surahData = null;
   try {
+    // TTL: 7 أيام للنسخة المخزّنة
     const cached = localStorage.getItem(`q_s_u_${number}`);
-    if (cached) surahData = JSON.parse(cached);
-    else {
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      const age = Date.now() - (parsed._ts || 0);
+      if (age < 7 * 24 * 60 * 60 * 1000) surahData = parsed.data;
+      else localStorage.removeItem(`q_s_u_${number}`);
+    }
+    if (!surahData) {
       const res = await fetch(`https://api.alquran.cloud/v1/surah/${number}/quran-uthmani`);
       surahData = (await res.json()).data;
-      localStorage.setItem(`q_s_u_${number}`, JSON.stringify(surahData));
+      localStorage.setItem(`q_s_u_${number}`, JSON.stringify({ data: surahData, _ts: Date.now() }));
     }
 
     if(state.currentSurah.numberOfAyahs && surahData.ayahs && surahData.ayahs.length !== state.currentSurah.numberOfAyahs) {
@@ -1530,12 +1628,26 @@ function updateKhatmahUI() {
 window.startKhatmah = function() {
   let val = parseInt(document.getElementById('k-val').value, 10); if (isNaN(val) || val <= 0) val = 20;
   let startPage = parseInt(document.getElementById('k-start').value, 10) || 1;
-  state.khatmah = { active: true, pagesPerDay: val, currentPage: startPage, todayWirdStart: startPage, todayWirdEnd: Math.min(startPage + val - 1, 604), lastPageRead: startPage > 1 ? startPage - 1 : 0 };
+  state.khatmah = { active: true, pagesPerDay: val, currentPage: startPage, todayWirdStart: startPage, todayWirdEnd: Math.min(startPage + val - 1, 604), lastPageRead: startPage > 1 ? startPage - 1 : 0, lastActiveDate: getLocalToday() };
   saveState(); updateKhatmahUI();
 }
 window.resetKhatmah = async function() {
   const confirmed = await window.showAppDialog('هل تريد بالفعل إنشاء ختمة جديدة وإلغاء الختمة الحالية؟', true);
   if(confirmed) { state.khatmah = null; saveState(); updateKhatmahUI(); }
+}
+
+// معالجة الأيام الفائتة: إذا فات المستخدم يوم أو أكثر، يُعاد جدولة الورد
+function checkMissedDays() {
+  if (!state.khatmah || !state.khatmah.active) return;
+  const last = state.khatmah.lastActiveDate;
+  if (!last || last === getLocalToday()) return;
+  // أعد الجدولة من حيث توقف
+  const cont = Math.max(state.khatmah.lastPageRead + 1, state.khatmah.todayWirdStart);
+  state.khatmah.todayWirdStart = Math.min(cont, 604);
+  state.khatmah.todayWirdEnd = Math.min(state.khatmah.todayWirdStart + state.khatmah.pagesPerDay - 1, 604);
+  state.khatmah.currentPage = state.khatmah.todayWirdStart;
+  state.khatmah.lastActiveDate = getLocalToday();
+  saveState();
 }
 
 window.openKhatmahReader = function() { showScreen('khatmah-read', 'slide-left'); loadKhatmahPage(state.khatmah.currentPage); }
@@ -1603,17 +1715,22 @@ window.changeKhatmahPage = function(dir) {
 
 window.completeWird = async function() {
   const nx = Math.max(state.khatmah.todayWirdEnd, state.khatmah.lastPageRead) + 1;
+  // تسجيل القراءة في الإحصائيات
+  if (window.StatsManager) {
+    const pagesRead = Math.max(1, (state.khatmah.lastPageRead || nx - 1) - (state.khatmah.todayWirdStart || nx - 1) + 1);
+    StatsManager.recordRead(pagesRead);
+  }
   if (nx > 604) {
-      Motion.confetti(120);
+      window.Celebrate ? Celebrate(null, { confetti: 120, burst: 0, ring: false }) : Motion.confetti(120);
       await new Promise(r => setTimeout(r, 300));
       await window.showAppDialog('مبارك عليك ختم القرآن الكريم! 🤲<br><span style="font-size:calc(var(--font-size) * 0.54); font-weight:normal; color:var(--text-dim)">تقبل الله منك صالح الأعمال.</span>', false);
       state.khatmah = null; saveState(); navigateBack();
   } else {
-      // Mini celebration for completing a wird
-      Motion.confetti(30);
+      // احتفال صغير بإتمام الورد
+      if (window.Celebrate) Celebrate(null, { confetti: 30, burst: 0, ring: false, haptic: true });
       await new Promise(r => setTimeout(r, 100));
       state.khatmah.currentPage = nx; state.khatmah.todayWirdStart = nx; state.khatmah.todayWirdEnd = Math.min(nx + state.khatmah.pagesPerDay - 1, 604);
-      state.khatmah.lastPageRead = nx - 1; saveState(); navigateBack();
+      state.khatmah.lastPageRead = nx - 1; state.khatmah.lastActiveDate = getLocalToday(); saveState(); navigateBack();
   }
 }
 
@@ -1655,9 +1772,10 @@ window.tapThikr = function(ci, i, btn) {
   if (curr >= max) {
     btn.classList.add('done');
     btn.textContent = '✓ اكتمل';
-    Motion.surgeRing(btn);
-    Motion.burst(btn, 10, 'var(--success)');
+    if (window.Celebrate) Celebrate(btn, { confetti: 0, burst: 10, ring: true, haptic: true });
+    if (window.StatsManager) StatsManager.recordAthkarDay();
     Motion.floater(btn, '✓', 'var(--success)');
+    if (window.AccessibilityHelper) AccessibilityHelper.announceMessage('اكتمل هذا الذكر');
   } else {
         btn.innerHTML = `<span class="count-anim">${toArabicNum(curr)}</span> / ${toArabicNum(max)}`;
     // Re-trigger pop on the count
@@ -1672,14 +1790,34 @@ window.tapThikr = function(ci, i, btn) {
 let tasbihCount = parseInt(localStorage.getItem('tasbihCount') || '0', 10);
 let tasbihLap = parseInt(localStorage.getItem('tasbihLap') || '0', 10);
 
+function tasbihTarget() { return (window.Settings ? Settings.getTasbihTarget() : 33) || 33; }
+// الجولات: ٣ جولات لكل هدف (دائماً ٣ للتجربة التقليدية)
+function tasbihTotalLaps() { return 3; }
+
+window.rebuildTasbih = function() {
+  tasbihCount = 0; tasbihLap = 0;
+  document.getElementById('tasbih-msg').classList.remove('active');
+  // أعد بناء الخرزات حسب الهدف
+  const wrap = document.getElementById('tasbih-circle-wrap');
+  wrap.querySelectorAll('.tasbih-bead').forEach(b => b.remove());
+  const t = tasbihTarget();
+  const beads = Math.min(t, 99);
+  for (let i = 0; i < beads; i++) {
+    const angle = (i / beads) * 2 * Math.PI - Math.PI / 2;
+    const bead = document.createElement('div'); bead.className = 'tasbih-bead';
+    bead.style.left = `${50 + 47 * Math.cos(angle)}%`; bead.style.top = `${50 + 47 * Math.sin(angle)}%`; wrap.appendChild(bead);
+  }
+  // أعد بناء نقاط الجولات
+  const lapsWrap = document.getElementById('tasbih-laps');
+  lapsWrap.innerHTML = '';
+  for (let i = 0; i < tasbihTotalLaps(); i++) lapsWrap.appendChild(Object.assign(document.createElement('div'), { className: 'tasbih-lap-dot' }));
+  updateTasbihUI();
+};
+
 function buildTasbih() {
   const wrap = document.getElementById('tasbih-circle-wrap');
   if(wrap.querySelectorAll('.tasbih-bead').length === 0) {
-    for (let i = 0; i < 33; i++) {
-      const angle = (i / 33) * 2 * Math.PI - Math.PI / 2;
-      const bead = document.createElement('div'); bead.className = 'tasbih-bead';
-      bead.style.left = `${50 + 47 * Math.cos(angle)}%`; bead.style.top = `${50 + 47 * Math.sin(angle)}%`; wrap.appendChild(bead);
-    }
+    window.rebuildTasbih();
   }
 }
 
@@ -1691,6 +1829,8 @@ function updateTasbihUI() {
     Motion.animateNumber(numEl, _tasbihDisplayedCount, tasbihCount, 280);
     _tasbihDisplayedCount = tasbihCount;
   }
+  // أعلن القيمة لقارئ الشاشة بشكل غير متكرر (تجنب الإزعاج)
+  numEl.setAttribute('aria-live', 'off');
   document.querySelectorAll('.tasbih-lap-dot').forEach((dot, i) => {
     const wasFilled = dot.classList.contains('filled');
     const shouldFill = i < tasbihLap;
@@ -1699,6 +1839,9 @@ function updateTasbihUI() {
       if (shouldFill) { dot.classList.remove('pop'); void dot.offsetWidth; dot.classList.add('pop'); }
     }
   });
+  // تنفّس هادئ عندما يكون العدد صفراً (يدعو للضغط)
+  const tapBtn = document.getElementById('tasbih-tap-btn');
+  tapBtn.classList.toggle('breathe', tasbihCount === 0 && !prefersReducedMotion);
   document.querySelectorAll('.tasbih-bead').forEach((b, i) => b.classList.toggle('filled', i < tasbihCount));
   localStorage.setItem('tasbihCount', tasbihCount);
   localStorage.setItem('tasbihLap', tasbihLap);
@@ -1708,25 +1851,31 @@ document.getElementById('tasbih-tap-btn').addEventListener('click', (e) => {
   const btn = e.currentTarget;
   document.getElementById('tasbih-msg').classList.remove('active');
   tasbihCount++;
+  // اهتزاز لمسي خفيف عند كل تسبيحة
+  if (window.Haptics) Haptics.tap(10);
   // Animate the bead that just got filled
   const beads = document.querySelectorAll('.tasbih-bead');
   const target = beads[tasbihCount - 1];
   if (target) { target.classList.add('flash'); setTimeout(() => target.classList.remove('flash'), 320); }
   // Floater
   Motion.floater(btn, '+1', 'var(--accent)');
-  if (tasbihCount >= 33) {
+  const goal = tasbihTarget();
+  if (tasbihCount >= goal) {
+    // تسجيل الجولة في الإحصائيات
+    if (window.StatsManager) StatsManager.recordTasbih(goal);
     tasbihCount = 0;
     tasbihLap++;
-    if (tasbihLap >= 3) {
+    if (tasbihLap >= tasbihTotalLaps()) {
       tasbihLap = 0;
       document.getElementById('tasbih-msg').classList.add('active');
-      // Big celebration: confetti + surge ring
-      Motion.surgeRing(btn);
-      Motion.confetti(80);
+      document.getElementById('tasbih-msg').textContent = `أتممت ${toArabicNum(goal * tasbihTotalLaps())} تسبيحة - تقبل الله 🤲`;
+      // احتفال كبير موحّد
+      if (window.Celebrate) Celebrate(btn, { confetti: 80, burst: 14, ring: true, haptic: true });
+      if (window.AccessibilityHelper) AccessibilityHelper.announceMessage('أتممت سبحة كاملة، تقبل الله');
     } else {
       // Lap complete: small celebration
-      Motion.surgeRing(btn);
-      Motion.burst(btn, 14, 'var(--accent)');
+      if (window.Celebrate) Celebrate(btn, { confetti: 0, burst: 14, ring: true, haptic: true });
+      if (window.AccessibilityHelper) AccessibilityHelper.announceMessage(`جولة ${toArabicNum(tasbihLap)} مكتملة`);
     }
   } else {
     // Subtle tap pulse
@@ -1770,8 +1919,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const localTodayStr = getLocalToday();
   Object.keys(localStorage).forEach(key => { if (key.startsWith('ath_') && !key.includes(localTodayStr)) localStorage.removeItem(key); });
 
-  const splash = document.getElementById('splash-screen');
-  if (splash) setTimeout(() => { splash.style.opacity = '0'; splash.style.transform = 'scale(1.06)'; setTimeout(() => splash.style.display = 'none', 500); }, 1500);
+  // شاشة البداية تُخفى عند جاهزية البيانات (انظر نهاية التهيئة)
 
   contentArea = document.getElementById('content');
   searchBar = document.getElementById('search-bar');
@@ -1786,18 +1934,33 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.font-btn').forEach(btn => btn.addEventListener('click', function() { applyFontSize(this.dataset.size); }));
   document.getElementById('theme-btn').addEventListener('click', () => applyTheme(state.theme === 'dark' ? 'light' : 'dark'));
 
-  // Magnetic hover for primary action buttons (desktop / hover devices)
-  if (window.matchMedia('(hover: hover)').matches) {
-    document.querySelectorAll('.btn-scale.primary, .athkar-cat-card, .surah-row, .quick-nav-card').forEach(el => Motion.magnetic(el, 0.08));
+  // Reduced-motion: استجب للتغيير أثناء التشغيل وليس مرة واحدة فقط
+  const rmMedia = window.matchMedia('(prefers-reduced-motion: reduce)');
+  rmMedia.addEventListener?.('change', (e) => {
+    if (e.matches) snapNavIndicator();
+  });
+
+  // Magnetic hover فقط للأزرار الرئيسية وعلى أجهزة المؤشر الدقيق
+  if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    document.querySelectorAll('.btn-scale.primary, .quick-nav-card').forEach(el => Motion.magnetic(el, 0.08));
   }
 
   document.getElementById('share-btn').addEventListener('click', async () => {
-    const shareData = { title: 'تطبيق إسلامي', text: 'جرب تطبيق إسلامي، صدقة جارية خفيف وسريع لقراءة القرآن الكريم، متابعة الختمة، وأذكار المسلم 🤍', url: window.location.href };
+    // شارك المحتوى الحالي إن وُجد، وإلا شارك التطبيق
+    let text = 'جرب تطبيق إسلامي، صدقة جارية خفيف وسريع لقراءة القرآن الكريم، متابعة الختمة، وأذكار المسلم 🤍';
+    if (state.currentScreen === 'surah-view' && state.currentSurah) {
+      text = `﴿${state.currentSurah.name}﴾ — من تطبيق إسلامي 🤍`;
+    } else if (state.currentScreen === 'thikr-view' && state.currentCatIndex !== null && ATHKAR[state.currentCatIndex]) {
+      text = `${ATHKAR[state.currentCatIndex].name} — من تطبيق إسلامي 🤍\n${window.location.href}`;
+    } else if (state.currentScreen === 'dua-list') {
+      text = `أدعية النبي ﷺ — من تطبيق إسلامي 🤍`;
+    }
+    const shareData = { title: 'تطبيق إسلامي', text, url: window.location.href };
     try {
       if (navigator.share) await navigator.share(shareData);
       else {
-        await navigator.clipboard.writeText(shareData.url);
-        await window.showAppDialog('تم نسخ رابط التطبيق بنجاح! 🤍<br><span style="font-size:calc(var(--font-size) * 0.5); color:var(--text-dim)">يمكنك الآن لصقه ومشاركته.</span>', false);
+        await navigator.clipboard.writeText(`${text}\n${shareData.url}`);
+        await window.showAppDialog('تم نسخ الرابط بنجاح! 🤍<br><span style="font-size:calc(var(--font-size) * 0.5); color:var(--text-dim)">يمكنك الآن لصقه ومشاركته.</span>', false);
       }
     } catch (err) {}
   });
@@ -1836,6 +1999,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('back-btn').addEventListener('click', navigateBack);
+  document.getElementById('bookmarks-btn').addEventListener('click', () => window.openBookmarks());
   document.getElementById('nav-dua-card').addEventListener('click', () => { showScreen('dua-list', 'slide-left'); document.getElementById('dua-list-container').innerHTML = DUA_LIST.map(d => `<div class="dua-card" data-magnetic><button class="copy-btn" data-copy-from=".dua-text" aria-label="نسخ الدعاء" title="نسخ"><span aria-hidden="true">⧉</span> نسخ</button><div class="dua-occasion">${d.occasion}</div><div class="dua-text">${d.text}</div></div>`).join(''); Motion.staggerIn(document.getElementById('dua-list-container')); });
   document.getElementById('nav-tasbih-card').addEventListener('click', () => { showScreen('tasbih', 'slide-left'); buildTasbih(); updateTasbihUI(); });
   document.getElementById('nav-occasion-card').addEventListener('click', () => { showScreen('occasion-list', 'slide-left'); renderOccasionPage(currentOccasionKeys); });
@@ -1844,7 +2008,23 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('occasion-overlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('active'); });
   document.getElementById('occasion-modal-goto').addEventListener('click', () => { document.getElementById('occasion-overlay').classList.remove('active'); switchTab('athkar'); showScreen('occasion-list', 'slide-left'); renderOccasionPage(currentOccasionKeys); });
 
-  document.querySelectorAll('.nav-tab').forEach(t => { t.addEventListener('pointerdown', createRipple); t.addEventListener('click', () => switchTab(t.dataset.tab)); });
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    t.addEventListener('pointerdown', createRipple);
+    t.addEventListener('click', () => switchTab(t.dataset.tab));
+    t.id = 'nav-tab-' + t.dataset.tab;
+    t.setAttribute('aria-controls', 'screen-' + (t.dataset.tab === 'quran' ? 'surah-list' : t.dataset.tab === 'khatmah' ? 'khatmah-main' : 'athkar-list'));
+  });
+  // تنقل بين التبويبات بأسهم لوحة المفاتيح
+  document.getElementById('nav').addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const tabs = tabsArray;
+    const cur = tabs.indexOf(state.currentTab);
+    // RTL: السهم الأيمن يذهب للتبويب السابق
+    const next = e.key === 'ArrowRight' ? (cur + tabs.length - 1) % tabs.length : (cur + 1) % tabs.length;
+    e.preventDefault();
+    switchTab(tabs[next]);
+    document.querySelector(`.nav-tab[data-tab="${tabs[next]}"]`)?.focus();
+  });
 
   searchBar.addEventListener('input', e => {
     const val = e.target.value.trim();
@@ -1861,8 +2041,16 @@ document.addEventListener('DOMContentLoaded', () => {
   bindGesturesAndScroll();
 
   snapNavIndicator();
-  loadSurahList(); initOccasionSystem(); switchTab(state.currentTab || 'quran');
+  initOccasionSystem(); switchTab(state.currentTab || 'quran');
   checkBookmarkFAB();
+
+  // هيكل تحميل (Skeleton) للقائمة الرئيسية حتى جلب البيانات
+  document.getElementById('surah-list-container').innerHTML = getSkeletonHTML();
+  // أخفِ شاشة البداية فور جاهزية البيانات (بدلاً من مدة ثابتة)
+  const _splash = document.getElementById('splash-screen');
+  const hideSplash = () => { if (_splash && _splash.style.display !== 'none') { _splash.style.opacity = '0'; _splash.style.transform = 'scale(1.06)'; setTimeout(() => _splash.style.display = 'none', 500); } };
+  loadSurahList().then(hideSplash).catch(hideSplash);
+  setTimeout(hideSplash, 2500); // حد أقصى احتياطي
 
   let isDraggingNav = false; let navStartX = 0; let indicatorStartX = 0;
   let navDragLastX = 0, navDragLastT = 0;
@@ -1952,6 +2140,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <!-- Advanced Features and Performance Optimizations -->
 <script src="./app.js" defer></script>
+<!-- وحدات الميزات: المرجعيات، الإحصائيات، الإعدادات، التلاوة، التذكيرات -->
+<script src="./features.js" defer></script>
 <script>
 // Register Service Worker with enhanced error handling
 if ('serviceWorker' in navigator) {
