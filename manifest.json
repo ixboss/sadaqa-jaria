@@ -25,6 +25,32 @@
     }
   ],
   "categories": ["lifestyle", "productivity"],
+  "shortcuts": [
+    {
+      "name": "الختمة",
+      "short_name": "الختمة",
+      "description": "متابعة ورد الختمة القرآنية",
+      "url": "./#/khatmah"
+    },
+    {
+      "name": "أذكار اليوم",
+      "short_name": "الأذكار",
+      "description": "أذكار الصباح والمساء",
+      "url": "./#/athkar"
+    },
+    {
+      "name": "السبحة",
+      "short_name": "السبحة",
+      "description": "السبحة الرقمية للتسبيح",
+      "url": "./#/tasbih"
+    },
+    {
+      "name": "المرجعيات",
+      "short_name": "المرجعيات",
+      "description": "السور والآيات المحفوظة",
+      "url": "./#/bookmarks"
+    }
+  ],
   "screenshots": [
     {
       "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'%3E%3Crect width='540' height='720' fill='%230a1f28'/%3E%3C/svg%3E",

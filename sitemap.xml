@@ -35,4 +35,28 @@
     <mobile:mobile/>
   </url>
 
+  <url>
+    <loc>https://islami-app.local/#/tasbih</loc>
+    <lastmod>2026-01-01T00:00:00Z</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <mobile:mobile/>
+  </url>
+
+  <url>
+    <loc>https://islami-app.local/#/bookmarks</loc>
+    <lastmod>2026-01-01T00:00:00Z</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <mobile:mobile/>
+  </url>
+
+  <url>
+    <loc>https://islami-app.local/#/settings</loc>
+    <lastmod>2026-01-01T00:00:00Z</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+    <mobile:mobile/>
+  </url>
+
 </urlset>

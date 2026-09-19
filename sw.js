@@ -1,13 +1,17 @@
 // ==================== Service Worker — إسلامي ====================
-const CACHE_NAME = 'quran-app-v34'; 
-const API_CACHE = 'quran-api-v34';
-const STATIC_CACHE = 'static-v34';
+const CACHE_NAME = 'quran-app-v35'; 
+const API_CACHE = 'quran-api-v35';
+const STATIC_CACHE = 'static-v35';
 
 const PRECACHE_URLS = [
   './',
   './index.html',
   './sw.js',
-  './manifest.json'
+  './manifest.json',
+  './surah-meta.js',
+  './features.js',
+  './config.js',
+  './app.js'
 ];
 
 const API_ORIGIN = 'api.alquran.cloud';

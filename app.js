@@ -474,16 +474,8 @@ class AnimationManager {
   }
 
   static initReveal() {
-    const selector = '.surah-row, .mushaf-block, .thikr-card, .dua-card, .quick-nav-card, .occasion-card, .k-dash-card';
-    const items = Array.from(document.querySelectorAll(selector));
-    if (!items.length) return;
-
-    items.forEach((el, i) => {
-      if (!el.classList.contains('reveal-hidden')) el.classList.add('reveal-hidden');
-      el.style.setProperty('--reveal-delay', (i * 60) + 'ms');
-    });
-
-    const io = new IntersectionObserver((entries, obs) => {
+    // مراقب واحد دائم يُعاد استخدامه عبر جميع عمليات إعادة الرسم
+    this._revealIO = new IntersectionObserver((entries, obs) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           entry.target.classList.add('in');
@@ -491,23 +483,32 @@ class AnimationManager {
         }
       });
     }, { threshold: 0.12 });
+    this._listIO = new IntersectionObserver((entries, o) => {
+      entries.forEach(en => {
+        if (en.isIntersecting) {
+          en.target.classList.add('mounted');
+          o.unobserve(en.target);
+        }
+      });
+    }, { threshold: 0.05 });
 
-    items.forEach(el => io.observe(el));
+    this.observeReveal();
+  }
 
-    // Mount staggered lists
-    document.querySelectorAll('[data-stagger]').forEach(list => {
-      const children = Array.from(list.children);
-      children.forEach((c, idx) => c.style.setProperty('--stagger-delay', (idx * 40) + 'ms'));
-      // reveal when visible
-      const listObserver = new IntersectionObserver((entries, o) => {
-        entries.forEach(en => {
-          if (en.isIntersecting) {
-            list.classList.add('mounted');
-            o.unobserve(list);
-          }
-        });
-      }, { threshold: 0.05 });
-      listObserver.observe(list);
+  static observeReveal() {
+    const selector = '.surah-row, .mushaf-block, .thikr-card, .dua-card, .quick-nav-card, .occasion-card, .k-dash-card, .stat-card, .settings-card';
+    const items = Array.from(document.querySelectorAll(selector)).filter(el => !el.dataset.revealObserved);
+    items.forEach((el, i) => {
+      if (!el.classList.contains('reveal-hidden')) el.classList.add('reveal-hidden');
+      el.style.setProperty('--reveal-delay', (i % 12 * 60) + 'ms');
+      el.dataset.revealObserved = '1';
+      this._revealIO.observe(el);
+    });
+
+    document.querySelectorAll('[data-stagger]:not([data-stagger-observed])').forEach(list => {
+      list.dataset.staggerObserved = '1';
+      Array.from(list.children).forEach((c, idx) => c.style.setProperty('--stagger-delay', (idx * 40) + 'ms'));
+      this._listIO.observe(list);
     });
   }
 
