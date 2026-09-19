@@ -414,7 +414,7 @@ class DataSyncManager {
 // ==================== Initialization ====================
 document.addEventListener('DOMContentLoaded', async () => {
   // Initialize all managers
-  ServiceWorkerManager.register();
+  // ملاحظة: تسجيل Service Worker يتم مرة واحدة فقط في نهاية <body> في index.html
   AccessibilityHelper.initKeyboardNavigation();
   AccessibilityHelper.initScreenReaderSupport();
   AccessibilityHelper.enhanceFormAccessibility();
@@ -509,22 +509,28 @@ class AnimationManager {
   }
 
   static initDelegation() {
-    // Bookmark toggle
+    // Bookmark toggle (delegation)
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('.bookmark-btn');
-      if (btn) {
+      // #btn-bm-surah له معالجه الخاص في index.html (toggleBookmark) — تجنّب الازدواج
+      if (btn && btn.id !== 'btn-bm-surah') {
         try {
-          const isActive = btn.classList.toggle('active');
-          btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-          // Try to infer surah number
+          // استخرج رقم السورة من الزر أو من أقرب عنصر يحتوي data-surah
           let surahNum = btn.dataset.surah || btn.getAttribute('data-surah');
           if (!surahNum) {
             const surahEl = btn.closest('[data-surah]');
             if (surahEl) surahNum = surahEl.dataset.surah;
           }
+          // رفض الحفظ برقم سورة غير معروف بدلاً من كتابة قيمة '0' مزيفة
+          if (!surahNum || surahNum === '0') {
+            console.warn('تم تجاهل حفظ المرجعية: رقم السورة غير معروف');
+            return;
+          }
+          const isActive = btn.classList.toggle('active');
+          btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
           const surahName = document.getElementById('surah-view-name')?.textContent?.trim() || btn.title || 'سورة';
-          if (isActive) BookmarkManager.addSurahBookmark(surahNum || '0', surahName);
-          else BookmarkManager.removeSurahBookmark(surahNum || '0');
+          if (isActive) BookmarkManager.addSurahBookmark(surahNum, surahName);
+          else BookmarkManager.removeSurahBookmark(surahNum);
           this.bounce(btn);
         } catch (err) {
           console.warn('Bookmark toggle error', err);
@@ -562,12 +568,11 @@ class AnimationManager {
   }
 
   static bounce(el) {
-    el.animate([
-      { transform: 'scale(1)' },
-      { transform: 'scale(1.12)' },
-      { transform: 'scale(0.98)' },
-      { transform: 'scale(1)' }
-    ], { duration: 340, easing: 'cubic-bezier(.2,.9,.3,1)' });
+    // نهج CSS class بدلاً من WAAPI el.animate لتجنّب التعارض مع transitions الموجودة على الأزرار
+    if (!el) return;
+    el.classList.remove('pop');
+    void el.offsetWidth;
+    el.classList.add('pop');
   }
 }
 

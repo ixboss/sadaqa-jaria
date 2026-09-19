@@ -32,13 +32,9 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => {
+      // احذف أي ذاكرة مخزنة لا تطابق تماماً أسماء الحالية (بما فيها الإصدارات القديمة quran-app-v*)
       return Promise.all(
-        keys.filter(key => {
-          return key !== CACHE_NAME && 
-                 key !== API_CACHE && 
-                 key !== STATIC_CACHE &&
-                 !key.startsWith('quran-app-v');
-        })
+        keys.filter(key => key !== CACHE_NAME && key !== API_CACHE && key !== STATIC_CACHE)
         .map(key => {
           console.log('Deleting old cache:', key);
           return caches.delete(key);
@@ -130,16 +126,16 @@ async function networkFirstWithFallback(request, cacheName, timeout = 5000) {
 }
 
 function fetchWithTimeout(request, timeout) {
-  return Promise.race([
-    fetch(request),
-    new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Network timeout')), timeout)
-    )
-  ]);
+  // استخدم AbortController حقيقي ليُلغي الـ fetch الأساسي عند انتهاء المهلة
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  return fetch(request, { signal: controller.signal })
+    .finally(() => clearTimeout(timer));
 }
 
 function updateCacheInBackground(request, cacheName) {
-  fetch(request)
+  // no-store: تجاوز ذاكرة HTTP المؤقتة لضمان التحديث الفعلي
+  fetch(request, { cache: 'no-store' })
     .then(response => {
       if (response && response.ok) {
         const cache = caches.open(cacheName);
@@ -176,8 +172,9 @@ self.addEventListener('push', event => {
   if (event.data) {
     const options = {
       body: event.data.text(),
-      icon: './data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"%3E%3Crect width="192" height="192" rx="32" fill="%230a1f28"/%3E%3Cpath d="M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z" fill="none" stroke="%233ecf9e" stroke-width="8" stroke-linejoin="round"/%3E%3C/svg%3E',
-      badge: './data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"%3E%3Crect width="192" height="192" rx="32" fill="%230a1f28"/%3E%3C/svg%3E',
+      // data URLs must not be prefixed with ./
+      icon: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"%3E%3Crect width="192" height="192" rx="32" fill="%230a1f28"/%3E%3Cpath d="M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z" fill="none" stroke="%233ecf9e" stroke-width="8" stroke-linejoin="round"/%3E%3C/svg%3E',
+      badge: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"%3E%3Crect width="192" height="192" rx="32" fill="%230a1f28"/%3E%3C/svg%3E',
       tag: 'islamic-app-notification',
       requireInteraction: false
     };

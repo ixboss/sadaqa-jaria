@@ -115,6 +115,11 @@ const StatsManager = {
 window.StatsManager = StatsManager;
 
 /* ==================== 5) Bookmarks view — شاشة المرجعيات ==================== */
+// مساعد تهريب نص HTML لمنع حقن المحتوى عبر innerHTML
+const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+}[c]));
+
 const BookmarksView = {
   render() {
     const el = document.getElementById('bookmarks-container');
@@ -135,7 +140,7 @@ const BookmarksView = {
       ${surahList.map(([num, info]) => `
         <div class="surah-row" data-magnetic onclick="window.BookmarksView.openSurah(${num})">
           <div class="surah-num">${this.toArabic(num)}</div>
-          <div class="surah-info"><div class="surah-name">${info.name || 'سورة'}</div>
+          <div class="surah-info"><div class="surah-name">${escapeHtml(info.name || 'سورة')}</div>
           <div class="surah-meta">محفوظة ${this.timeAgo(info.timestamp)}</div></div>
           <button class="bm-remove" aria-label="حذف" onclick="event.stopPropagation(); window.BookmarksView.removeSurah(${num})">×</button>
         </div>`).join('')}
@@ -143,7 +148,7 @@ const BookmarksView = {
       ${verses.map((v, i) => `
         <div class="thikr-card" style="padding:16px 20px">
           <div class="surah-meta" style="margin-bottom:6px">سورة ${this.surahName(v.surah)} — آية ${this.toArabic(v.ayah)}</div>
-          <div class="dua-text" style="font-size:calc(var(--font-size) * 0.8)">${(v.text || '').slice(0, 160)}…</div>
+          <div class="dua-text" style="font-size:calc(var(--font-size) * 0.8)">${escapeHtml((v.text || '').slice(0, 160))}…</div>
           <button class="bm-remove" aria-label="حذف" onclick="window.BookmarksView.removeVerse(${v.surah}, ${v.ayah})">×</button>
         </div>`).join('')}`;
   },
@@ -221,7 +226,7 @@ const Settings = {
       <div class="settings-card settings-row">
         <div>
           <div class="settings-label" style="margin-bottom:2px">تذكيرات يومية</div>
-          <div class="surah-meta">تذكير بأذكار الصباح/المساء وورد الختمة (يحتاج إذن الإشعارات)</div>
+          <div class="surah-meta">تذكير بأذكار الصباح/المساء وورد الختمة. تعمل التذكيرات أثناء فتح التطبيق فقط (المتصفح لا يسمح بتذكيرات في الخلفية بدون تثبيت التطبيق).</div>
         </div>
         <button id="settings-reminders" class="settings-toggle ${remOn ? 'on' : ''}" role="switch" aria-checked="${remOn}" aria-label="تذكيرات يومية"><span class="settings-toggle-knob"></span></button>
       </div>
@@ -320,6 +325,9 @@ const AudioPlayer = {
         <div id="audio-title"></div>
         <button id="audio-close" aria-label="إغلاق">×</button>`;
       document.body.appendChild(bar);
+      // اضبط موضع الشريط حسب حالة شريط التنقل السفلية
+      const nav = document.getElementById('nav');
+      if (nav) bar.classList.toggle('nav-lowered', nav.classList.contains('nav-hidden'));
       bar.querySelector('#audio-play-btn').addEventListener('click', () => {
         if (this.audio && this.audio.paused) this.resume(); else this.pause();
       });
@@ -339,10 +347,12 @@ const AudioPlayer = {
   },
   // أضف زر التشغيل لبطاقة رأس السورة
   bindSurahHeader() {
-    const card = document.getElementById('surah-header-card');
+    // استخدم class بدلاً من id مكرر، واقتصر على بطاقة رأس السورة في شاشة العرض
+    const card = document.querySelector('#screen-surah-view .surah-header-card');
     if (!card || card.querySelector('.audio-play')) return;
     const btn = document.createElement('button');
-    btn.className = 'audio-play bookmark-btn';
+    // بدون bookmark-btn حتى لا يلتقطه مفوّض المرجعيات في app.js
+    btn.className = 'audio-play';
     btn.setAttribute('aria-label', 'استمع للسورة');
     btn.innerHTML = '▶';
     btn.addEventListener('click', e => {
@@ -450,7 +460,22 @@ const DeepLinks = {
 window.DeepLinks = DeepLinks;
 
 /* ==================== 10) Boot ==================== */
+// ملاحظة: التذكيرات تعتمد على setTimeout فتعمل فقط أثناء فتح التطبيق؛
+// لا يمكن للمتصفح إطلاقها في الخلفية بدون تثبيت PWA + Periodic Sync.
 document.addEventListener('DOMContentLoaded', () => {
   Reminders.init();
-  DeepLinks.init();
+  // انتظر حتى تصبح showScreen متاحة (ترتيب التحميل غير المضمون مع السكربتات المؤجلة)
+  const initDeepLinks = () => {
+    if (typeof window.showScreen === 'function') {
+      DeepLinks.init();
+    } else {
+      // أعد المحاولة في الإطار التالي حتى تتوفر الدالة
+      requestAnimationFrame(initDeepLinks);
+    }
+  };
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(initDeepLinks);
+  } else {
+    initDeepLinks();
+  }
 });
