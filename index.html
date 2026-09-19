@@ -445,7 +445,7 @@ body.theme-light .nav-indicator {
 }
 .nav-tab.active { color: var(--accent); font-weight: bold; }
 body.theme-light .nav-tab.active { color: var(--accent); }
-.nav-tab .nav-icon { font-size: calc(var(--font-size) * 0.85); transition: transform 0.4s cubic-bezier(0.5, 1.5, 0.4, 1); pointer-events: none; }
+.nav-tab .nav-icon { font-size: calc(var(--font-size) * 0.7); transition: transform 0.4s cubic-bezier(0.5, 1.5, 0.4, 1); pointer-events: none; }
 .nav-tab.active .nav-icon { transform: translateY(-3px) scale(1.15); filter: drop-shadow(0 4px 6px rgba(62, 207, 158, 0.5)); }
 body.theme-light .nav-tab.active .nav-icon { filter: drop-shadow(0 4px 6px rgba(31, 122, 90, 0.35)); }
 .nav-tab .nav-text { pointer-events: none; transition: color 0.3s; }
@@ -490,10 +490,10 @@ body.theme-light .surah-h-name { color: #f4f1e8; }
 body.theme-light .bookmark-btn { background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); color: #f4f1e8; }
 .bookmark-btn:active { transform: scale(0.8); }
 
-.mushaf-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) * 1.6); line-height: calc(var(--line-height) * 1.2); text-align: right; color: var(--text); direction: rtl; transition: background 0.4s, color 0.4s, font-size 0.3s, line-height 0.3s; }
+.mushaf-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) * 1.15); line-height: calc(var(--line-height) * 1.2); text-align: right; color: var(--text); direction: rtl; transition: background 0.4s, color 0.4s, font-size 0.3s, line-height 0.3s; }
 
 .ayah-separator { color: var(--accent); font-family: Tahoma, sans-serif; font-size: 0.7em; margin: 0 4px; font-weight: bold; }
-.bismillah { text-align: center; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) * 1.4); color: var(--accent); padding: 10px 10px 20px 10px; line-height: 2; transition: font-size 0.3s; }
+.bismillah { text-align: center; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) * 0.95); color: var(--accent); padding: 10px 10px 20px 10px; line-height: 2; transition: font-size 0.3s; }
 
 #resume-fab { position: fixed; bottom: max(110px, calc(20px + env(safe-area-inset-bottom, 0px) + 90px)); right: 20px; background: var(--accent-grad); color: #f4f1e8; border: none; border-radius: 30px; padding: 12px 20px; font-weight: bold; font-size: calc(var(--font-size) * 0.54); box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; z-index: 90; display: none; align-items: center; gap: 8px; transition: transform 380ms var(--ease-spring-snap), opacity 320ms var(--ease-out-quart), background 320ms var(--ease-out-quart), box-shadow 320ms var(--ease-out-quart); opacity: 0; transform: translateY(20px) scale(0.9); pointer-events: none; }
 body.theme-light #resume-fab { box-shadow: 0 4px 15px rgba(31, 122, 90, 0.3); }
@@ -528,9 +528,11 @@ body.theme-light .btn-scale { color: #ffffff; }
 .k-wird-badge small { font-size: calc(var(--font-size) * 0.45); color: var(--text-dim); margin-bottom: 4px; transition: font-size 0.3s; }
 .k-wird-arrow { color: var(--accent); font-size: calc(var(--font-size) * 0.8); font-weight: bold; transition: font-size 0.3s; }
 
-.khatmah-controls { position: sticky; bottom: 12px; left: 0; width: 100%; max-width: 100%; display: flex; gap: 8px; background: rgba(16, 51, 63, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 10px 16px; border-radius: 12px; margin-top: 30px; margin-bottom: 20px; z-index: 50; transition: transform 0.4s, opacity 0.4s, background 0.4s; }
+.khatmah-controls { position: fixed; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 680px; display: flex; gap: 8px; background: rgba(16, 51, 63, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 10px 16px; border-radius: 12px; z-index: 50; transition: transform 0.4s var(--ease-spring), opacity 0.4s, background 0.4s; }
 body.theme-light .khatmah-controls { background: rgba(255, 255, 255, 0.9); border: 1px solid var(--border); }
-.khatmah-controls.controls-hidden { transform: translateY(150px); opacity: 0; pointer-events: none; }
+.khatmah-controls.controls-hidden { transform: translateX(-50%) translateY(150px); opacity: 0; pointer-events: none; }
+/* مساحة سفلية إضافية في قارئ الختمة حتى لا تغطي الأزرار آخر الآيات */
+#screen-khatmah-read { padding-bottom: 60px; }
 .k-ctrl-btn { flex: 1; background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: calc(var(--font-size) * 0.55); transition: transform 0.2s, font-size 0.3s, background 0.4s, color 0.4s; }
 .k-ctrl-btn:active { transform: scale(0.95); }
 .k-ctrl-btn.primary { background: var(--success); color: #fff; border-color: var(--success); flex: 2; }
@@ -1370,9 +1372,14 @@ function bindGesturesAndScroll() {
   contentArea.addEventListener('scroll', () => {
     const sy = contentArea.scrollTop; const maxScroll = contentArea.scrollHeight - contentArea.clientHeight;
     const isAtBottom = sy >= maxScroll - 20;
-    const nav = document.getElementById('nav'); const fab = document.getElementById('resume-fab');
-    if (sy > lastScrollY && sy > 50 && !isAtBottom) { nav.classList.add('nav-hidden'); if(fab) fab.style.transform = 'translateY(140px) scale(0.85)'; }
-    else { nav.classList.remove('nav-hidden'); if(fab) fab.style.transform = ''; }
+    const nav = document.getElementById('nav'); const fab = document.getElementById('resume-fab'); const kctrl = document.getElementById('khatmah-controls');
+    if (sy > lastScrollY && sy > 50 && !isAtBottom) {
+      nav.classList.add('nav-hidden'); if(fab) fab.style.transform = 'translateY(140px) scale(0.85)';
+      if(kctrl) kctrl.classList.add('controls-hidden');
+    } else {
+      nav.classList.remove('nav-hidden'); if(fab) fab.style.transform = '';
+      if(kctrl) kctrl.classList.remove('controls-hidden');
+    }
     lastScrollY = sy;
     if (['surah-view', 'khatmah-read'].includes(state.currentScreen)) { document.getElementById('reading-progress-bar').style.width = (maxScroll > 0 ? (sy / maxScroll) * 100 : 0) + '%'; }
   }, {passive: true});
@@ -1536,6 +1543,8 @@ window.openKhatmahReader = function() { showScreen('khatmah-read', 'slide-left')
 async function loadKhatmahPage(pageNum) {
   const container = document.getElementById('khatmah-page-container');
   container.innerHTML = getSkeletonHTML();
+  // إعادة إظهار شريط التحكم عند فتح صفحة جديدة (المستخدم في وضع القراءة)
+  document.getElementById('khatmah-controls').classList.remove('controls-hidden');
 
   document.getElementById('kp-prev').disabled = (pageNum <= 1);
   document.getElementById('kp-next').disabled = (pageNum >= 604);
