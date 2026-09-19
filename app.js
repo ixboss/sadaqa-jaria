@@ -283,6 +283,18 @@ class AccessibilityHelper {
       }
     });
   }
+
+  // جعل العناصر ذات role="button" قابلة للتفعيل بلوحة المفاتيح (Enter/Space)
+  static initKeyboardActivation() {
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+      const target = e.target.closest('[role="button"]');
+      if (!target) return;
+      e.preventDefault();
+      e.stopPropagation();
+      target.click();
+    });
+  }
 }
 
 // ==================== Performance Monitor ====================
@@ -386,7 +398,7 @@ class DataSyncManager {
 
     if ('serviceWorker' in navigator && 'SyncManager' in window) {
       try {
-        await navigator.serviceWorker.ready;
+        const registration = await navigator.serviceWorker.ready;
         await registration.sync.register('sync-data');
         console.log('✅ Background sync registered');
         return true;
@@ -406,6 +418,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   AccessibilityHelper.initKeyboardNavigation();
   AccessibilityHelper.initScreenReaderSupport();
   AccessibilityHelper.enhanceFormAccessibility();
+  AccessibilityHelper.initKeyboardActivation();
   DataSyncManager.sync();
 
   // Setup event listeners
