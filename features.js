@@ -23,23 +23,7 @@ window.Celebrate = function (target, opts = {}) {
   } catch (e) { /* تجاهل */ }
 };
 
-/* ==================== 3) Offline banner — مؤشر عدم الاتصال ==================== */
-const OfflineBanner = {
-  init() {
-    const b = document.createElement('div');
-    b.id = 'offline-banner';
-    b.setAttribute('role', 'status');
-    b.innerHTML = '📭 <span>تعمل دون اتصال — المحتوى المعروض محفوظ سابقاً</span>';
-    document.body.appendChild(b);
-    const sync = () => b.classList.toggle('active', !navigator.onLine);
-    sync();
-    window.addEventListener('online', sync);
-    window.addEventListener('offline', sync);
-  }
-};
-window.OfflineBanner = OfflineBanner;
-
-/* ==================== 4) Stats Manager — الإحصائيات والسلاسل ==================== */
+/* ==================== 3) Stats Manager — الإحصائيات والسلاسل ==================== */
 const StatsManager = {
   KEY: 'app_stats_v1',
   DEFAULT: { days: {}, totalTasbih: 0, totalPages: 0, athkarDays: {} },
@@ -467,7 +451,6 @@ window.DeepLinks = DeepLinks;
 
 /* ==================== 10) Boot ==================== */
 document.addEventListener('DOMContentLoaded', () => {
-  OfflineBanner.init();
   Reminders.init();
   DeepLinks.init();
 });

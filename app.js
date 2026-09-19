@@ -427,10 +427,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     DataSyncManager.sync();
   });
 
-  window.addEventListener('offline', () => {
-    console.log('📵 Going offline');
-  });
-
   // Performance monitoring
   if (window.PerformanceObserver) {
     try {
