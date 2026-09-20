@@ -113,13 +113,20 @@
   /* الفراغ البصري بين الشريط وأسفل الشاشة — صغير ومقصود ليلتصق الشريط
      بالحافة السفلية. منطقة الأمان (safe area) تُضاف فوقه دائماً عبر env(). */
   --nav-gap: 10px;
-  /* إجمالي المسافة من أسفل الشاشة = فراغ بصري + منطقة الأمان */
-  --nav-bottom: calc(var(--nav-gap) + env(safe-area-inset-bottom, 0px));
+  /* إزاحة إضافية لأسفل الشريط (تصميمية لا وظيفية).
+     الشريط كان ملتصقاً بالحافة تماماً (كان --nav-gap يُصفَّر إلى 6px على
+     الأجهزة ذات المنطقة الآمنة السميكة) فيبدو مضغوطاً نحو الأسفل بلا تنفّس.
+     الآن نضيف نزولاً حقيقياً فوق منطقة الأمان ليتوازن الشكل.
+     0 = بلا إزاحة. لزيادة النزول: كبّر هذه القيمة.
+     لا تلمس --nav-gap: قيمة سالبة هناك تُخرج الشريط خارج الشاشة. */
+  --nav-drop: 10px;
+  /* إجمالي المسافة من أسفل الشاشة = فراغ بصري + منطقة الأمان + إزاحة اختيارية */
+  --nav-bottom: calc(var(--nav-gap) + env(safe-area-inset-bottom, 0px) + var(--nav-drop));
   /* المسافة التي يحتاجها أي عنصر ليجلس فوق الشريط بارتياح.
-     20px هامش فوق الشريط — كافٍ للعناصر التي تجلس فوقه مباشرة. */
-  --nav-clearance: calc(var(--nav-h) + var(--nav-gap) + 20px);
+     = ارتفاع الشريط + الفراغ أسفله + هامش مريح فوقه. */
+  --nav-clearance: calc(var(--nav-h) + var(--nav-gap) + var(--nav-drop) + 20px);
   /* نفس المسافة + منطقة الأمان: للعناصر الثابتة فوق الشريط */
-  --nav-clearance-safe: calc(var(--nav-h) + var(--nav-gap) + 20px + env(safe-area-inset-bottom, 0px));
+  --nav-clearance-safe: calc(var(--nav-h) + var(--nav-gap) + var(--nav-drop) + 20px + env(safe-area-inset-bottom, 0px));
 
 /* Motion & animation tokens */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
@@ -438,8 +445,9 @@ body.theme-light #nav {
     inset 0 1px 1px rgba(255, 255, 255, 1),
     inset 0 -1px 2px rgba(20, 51, 58, 0.08);
 }
-/* عند إخفاء شريط التنقل أثناء التمرير: ينزلق للأسفل بسلاسة (bottom) بدل التحول المفاجئ */
-#nav.nav-hidden { bottom: calc(-1 * (var(--nav-h) + var(--nav-gap) + 20px) + env(safe-area-inset-bottom, 0px)); opacity: 0; pointer-events: none; }
+/* عند إخفاء شريط التنقل أثناء التمرير: ينزلق للأسفل بسلاسة (bottom) بدل التحول المفاجئ.
+   يُحسب من --nav-bottom نفسه حتى تنزلق المسافة الصحيحة تماماً بعد إضافة --nav-drop. */
+#nav.nav-hidden { bottom: calc(-1 * (var(--nav-h) + var(--nav-gap) + var(--nav-drop) + 20px) + env(safe-area-inset-bottom, 0px)); opacity: 0; pointer-events: none; }
 
 /* ===== المؤشر الزجاجي السائل (Liquid Glass indicator) ===== */
 /* طبقة تعتيم خلف الشريط: تمنع ظهور نص المحتوى المقصوص من حول حواف
@@ -761,12 +769,17 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 
 /* ==================== تكييف شريط التنقل مع المقاسات والاتجاهات ==================== */
 
+/* ملاحظة مهمة: --nav-gap يُكتب كـ inline style على <html> من syncNavSafeArea()،
+   والـ inline style يتغلّب على قواعد :root داخل @media. لذلك لا نضبط --nav-gap
+   هنا إطلاقاً — القيمة تُدار من JS وحدها (المتغير navGapBase أدناه).
+   نضبط هنا --nav-h و --nav-drop فقط، وكلاهما لا يلمسه JS. */
+
 /* شاشات قصيرة (هواتف صغيرة أو عرض أفقي): نصغّر الشريط والفراغ معاً
    حتى يبقى المحتوى مرئياً ولا يأكل الشريط ثلث الشاشة. */
 @media (max-height: 620px) {
   :root {
     --nav-h: 58px;
-    --nav-gap: 8px;
+    --nav-drop: 8px;
     --header-h: 58px;
   }
 }
@@ -775,7 +788,7 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 @media (orientation: landscape) and (max-height: 500px) {
   :root {
     --nav-h: 54px;
-    --nav-gap: 6px;
+    --nav-drop: 6px;
     --header-h: 52px;
   }
   /* في الوضع الأفقي يكون الشريط أعرض والشاشة أطول أفقياً */
@@ -2260,6 +2273,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // اضبط الفراغ البصري لشريط التنقل حسب منطقة الأمان الفعلية للجهاز.
   // CSS لا يستطيع قياس env() كرقم، لذا نقيسه هنا مرة واحدة عند البدء
   // وعند أي تغيير في المقاس أو الاتجاه.
+  //
+  // هذه الدالة هي المالك الوحيد لـ --nav-gap. لا تضبطه في @media داخل CSS:
+  // الكتابة هنا تذهب كـ inline style على <html>، وهي تتغلّب على قواعد
+  // :root داخل @media — فأي قيمة هناك ستكون ميتة.
   function syncNavSafeArea() {
     // نقيس منطقة الأمان بواسطة عنصر وهمي يعتمد على env()
     const probe = document.createElement('div');
@@ -2268,11 +2285,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const inset = probe.getBoundingClientRect().height || 0;
     document.body.removeChild(probe);
 
-    // الفراغ البصري المطلوب: 10px افتراضياً — يكفي ليبقى الشريط ملتصقاً
-    // بالحافة دون أن يبدو ملتصقاً بها. على الأجهزة ذات شريط تنقّل سفلي سميك
-    // (أندرويد بثلاثة أزرار ≈ 48px) نقلّله قليلاً حتى لا يرتفع الشريط كثيراً.
-    // ملاحظة: التخفيض بسيط (حتى 4px) لأن منطقة الأمان نفسها تحجز المسافة.
-    const gap = Math.max(6, Math.min(10, 10 - Math.max(0, inset - 28) * 0.2));
+    // 10px هو الأساس المقصود: الشريط لأسفل قليلاً عن الحافة ليتنفّس،
+    // لا ملتصقاً بها. و--nav-drop في CSS تضيف النزول الإضافي فوق المنطقة الآمنة.
+    //
+    // الاستثناءان — كلاهما يقلّل الفراغ بدل أن يزيده:
+    //  1. شاشات قصيرة/أفقية: نمرّر ارتفاع الشريط المصغّر هنا لأن الدالة
+    //     لا تستطيع قراءة ما تضبطه @media. بدون هذا يبقى فراغ شاشة 620px
+    //     كما هو على شاشة 900px.
+    //  2. منطقة آمنة سميكة (أندرويد بثلاثة أزرار ≈ 48px): المنطقة وحدها تحجز
+    //     مسافة كبيرة، فنقلّل الفراغ تدريجياً حتى لا يرتفع الشريط أكثر من اللازم.
+    const shortScreen = window.innerHeight <= 620;
+    const landscape  = window.innerHeight <= 500 && window.innerWidth > window.innerHeight;
+    const baseGap    = landscape ? 6 : (shortScreen ? 8 : 10);
+    const gap = Math.max(6, Math.min(baseGap, baseGap - Math.max(0, inset - 28) * 0.2));
     document.documentElement.style.setProperty('--nav-gap', gap.toFixed(2) + 'px');
   }
   syncNavSafeArea();
