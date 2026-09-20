@@ -29,7 +29,13 @@
 .Trashes
 .AppleDouble
 .LSOverride
-Icon?
+# The classic macOS custom-folder-icon file is literally named "Icon\r"
+# (with a carriage return). Commonly-written template rules `Icon?` or `/Icon?`
+# ALSO match the `icons/` directory -- gitignore globs are case-insensitive on
+# Windows/macOS and `?` matches any single char -- which silently excludes every
+# app icon and breaks PWA install. Use a character class that cannot match 's'.
+Icon[\r]
+Icon
 .fseventsd
 .TemporaryItems
 
