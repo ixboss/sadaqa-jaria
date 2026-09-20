@@ -27,7 +27,7 @@
 <link rel="dns-prefetch" href="https://api.alquran.cloud">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Amiri+Quran&display=swap">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Amiri:wght@400;700&display=swap">
 
 <!-- PWA Manifest -->
 <link rel="manifest" href="manifest.json">
@@ -63,8 +63,8 @@
 <script src="./surah-meta.js"></script>
 
 <style>
-/* ==================== استيراد خط المصحف العثماني ==================== */
-@import url('https://fonts.googleapis.com/css2?family=Amiri+Quran&display=swap');
+/* ==================== استيراد خط المصحف العثماني + Amiri للواجهة ==================== */
+@import url('https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Amiri:wght@400;700&display=swap');
 
 /* ==================== متغيرات التصميم (الوضع الداكن الافتراضي) ==================== */
 :root {
@@ -93,6 +93,12 @@
   --font-scale: 1;                          /* نسبة التكبير: 0.8 / 1 / 1.4 */
   --font-size: calc(var(--font-base) * var(--font-scale));  /* الحجم الفعلي المشتق */
   --line-height: 2.3;
+  /* ===== نظام المصحف: حجم مستقل عن حجم الواجهة ===== */
+  /* حتى لو صغّر المستخدم الواجهة، يبقى نص المصحف مريحاً للقراءة */
+  --mushaf-base: 34px;                      /* حجم نص المصحف المرجعي */
+  --mushaf-scale: 1;                        /* نسبة تكبير مستقلة: 0.8 / 1 / 1.4 */
+  --mushaf-size: calc(var(--mushaf-base) * var(--mushaf-scale));
+  --mushaf-lh: 2.15;                        /* ارتفاع سطر مستقل للمصحف */
   --header-h: 70px;
 
 /* Motion & animation tokens */
@@ -445,6 +451,10 @@ body.theme-light #nav {
 }
 .nav-indicator.sheen::after { animation: sheenSweep 720ms var(--ease-out-quart); }
 @keyframes sheenSweep { from { left: -55%; } to { left: 115%; } }
+/* الوميض مخصص فقط للاستقرار — يُضاف صنف .sheen بعد انتهاء الحركة في JS،
+   لذا لا يظهر أي وميض أثناء انزلاق المؤشر. هذا السطر يضمن ذلك حتى لو
+   أُضيف .sheen بالنقر السريع قبل استقرار المحرك. */
+.nav-indicator.is-moving::after { animation: none; opacity: 0; }
 
 body.theme-light .nav-indicator {
   background:
@@ -511,10 +521,10 @@ body.theme-light .surah-h-name { color: var(--color-on-accent); }
 body.theme-light .bookmark-btn { background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); color: var(--color-on-accent); }
 .bookmark-btn:active { transform: scale(0.8); }
 
-.mushaf-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) * 1.15); line-height: calc(var(--line-height) * 1.2); text-align: right; color: var(--text); direction: rtl; transition: background 0.4s, color 0.4s, font-size 0.3s, line-height 0.3s; }
+.mushaf-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 24px; margin-bottom: 16px; font-family: 'Amiri Quran', 'Amiri', serif; font-size: var(--mushaf-size); line-height: var(--mushaf-lh); text-align: right; color: var(--text); direction: rtl; word-spacing: 0.04em; transition: background 0.4s, color 0.4s, font-size 0.3s, line-height 0.3s; }
 
-.ayah-separator { color: var(--accent); font-family: Tahoma, sans-serif; font-size: 0.7em; margin: 0 4px; font-weight: bold; }
-.bismillah { text-align: center; font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) * 0.95); color: var(--accent); padding: 10px 10px 20px 10px; line-height: 2; transition: font-size 0.3s; }
+.ayah-separator { color: var(--accent); font-family: Tahoma, sans-serif; font-size: 0.62em; margin: 0 6px; font-weight: bold; vertical-align: middle; }
+.bismillah { text-align: center; font-family: 'Amiri Quran', 'Amiri', serif; font-size: calc(var(--mushaf-size) * 1.08); color: var(--accent); padding: 14px 10px 22px 10px; line-height: var(--mushaf-lh); transition: font-size 0.3s; }
 
 /* display غير قابل للتحريك؛ نستخدم visibility + opacity للحصول على تلاشٍ ناعم */
 #resume-fab { position: fixed; bottom: calc(98px + env(safe-area-inset-bottom, 0px)); right: 20px; background: var(--accent-grad); color: var(--color-on-accent); border: none; border-radius: 30px; padding: 12px 20px; font-weight: bold; font-size: calc(var(--font-size) * 0.54); box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; z-index: 90; display: flex; align-items: center; gap: 8px; visibility: hidden; opacity: 0; transform: translateY(20px) scale(0.9); pointer-events: none; transition: visibility 0s linear 320ms, transform 380ms var(--ease-spring-snap), opacity 320ms var(--ease-out-quart), background 320ms var(--ease-out-quart), box-shadow 320ms var(--ease-out-quart); }
@@ -1299,6 +1309,10 @@ function applyFontSize(size) {
   const f = fontSizes[size] || fontSizes.medium;
   document.documentElement.style.setProperty('--font-scale', f.scale);
   document.documentElement.style.setProperty('--line-height', f.lh);
+  // نص المصحف يتكبّر بنسبة مستقلة أهدأ، وله ارتفاع سطر خاص
+  const mushafScales = { small: '0.9', medium: '1', large: '1.25' };
+  document.documentElement.style.setProperty('--mushaf-scale', mushafScales[size] || '1');
+  document.documentElement.style.setProperty('--mushaf-lh', size === 'large' ? '1.95' : '2.15');
   document.querySelectorAll('.font-btn').forEach(btn => {
     const isActive = btn.dataset.size === size;
     btn.classList.toggle('active', isActive);
