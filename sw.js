@@ -1,7 +1,10 @@
 // ==================== Service Worker — إسلامي ====================
-const CACHE_NAME = 'quran-app-v35'; 
-const API_CACHE = 'quran-api-v35';
-const STATIC_CACHE = 'static-v35';
+// v36: أُضيفت أيقونات PNG حقيقية (icons/) وتحديث manifest.json.
+// رفعنا رقم الإصدار حتى يتخلّص التطبيق المثبّت من نسخة index.html القديمة
+// التي كانت تشير إلى apple-touch-icon بصيغة SVG (لا يدعمها سفاري).
+const CACHE_NAME = 'quran-app-v36'; 
+const API_CACHE = 'quran-api-v36';
+const STATIC_CACHE = 'static-v36';
 
 const PRECACHE_URLS = [
   './',
@@ -11,7 +14,16 @@ const PRECACHE_URLS = [
   './surah-meta.js',
   './features.js',
   './config.js',
-  './app.js'
+  './app.js',
+  // أيقونات التثبيت: تُخزَّن مسبقاً حتى تعمل الشاشة الرئيسية دون اتصال
+  './icons/icon-120.png',
+  './icons/icon-152.png',
+  './icons/icon-167.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/apple-touch-icon-180.png',
+  './icons/maskable-192.png',
+  './icons/maskable-512.png'
 ];
 
 const API_ORIGIN = 'api.alquran.cloud';
