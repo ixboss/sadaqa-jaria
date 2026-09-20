@@ -11,7 +11,9 @@
 #      index.html, features.js, app.js, config.js, sw.js, surah-meta.js,
 #      manifest.json, .htaccess, robots.txt, sitemap.xml, security.txt,
 #      README.md, LICENSE, CONTRIBUTING.md, CODE_OF_CONDUCT.md,
-#      and the review reports 01-bugs.md … 04-architecture.md
+#      the icons/ directory (PNG app icons — required for PWA install),
+#      the icon generator + validator scripts, and the review reports
+#      01-bugs.md … 04-architecture.md
 #
 #  Do NOT add patterns here that could match any of the above.
 # ============================================================================
