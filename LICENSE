@@ -1,0 +1,101 @@
+MIT License
+
+Copyright (c) 2026 ixboss and contributors to the Islami / Sadaqah Jariyah project
+
+---
+
+## Permission
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+---
+
+## THE SOFTWARE IS PROVIDED "AS IS"
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+# ⚠️ Important: This License Covers the Code Only
+
+The MIT License above applies to the **source code** in this repository. It
+does **not** grant rights over the third-party and sacred content the
+application uses or displays. Please read this section carefully.
+
+## Sacred and third-party content is excluded
+
+| Content | Owner / Source | Terms |
+|---|---|---|
+| **The Holy Quran (Uthmani text)** | Revealed text; distributed via AlQuran Cloud API | Must never be altered, truncated, or misrepresented |
+| **Audio recitations** | Each individual reciter | Streamed from the Islamic Network CDN under their terms |
+| **`Amiri` and `Amiri Quran` fonts** | Their respective type designers | SIL Open Font License (OFL) |
+| **Quran text API** | AlQuran Cloud | Subject to their terms of service |
+| **Audio CDN** | Islamic Network | Subject to their terms of service |
+
+If you fork or redistribute this project, **you are responsible** for
+complying with the terms of each of these sources.
+
+## A condition of use: do not alter the sacred text
+
+Because this project presents the words of Allah ﷻ, the following conditions
+apply to any use or redistribution of this software, in addition to the MIT
+terms above:
+
+1. **The Quranic text must not be modified, added to, removed from, or
+   reordered.** The Uthmani script is transmitted exactly as received.
+2. **The sacred text must not be used to mislead.** Do not present altered or
+   fabricated text as Quran.
+3. **Attribution must not be removed** from Quranic content or recitations.
+4. **The app must not be used to cause harm, spread falsehood, or for any
+   purpose contrary to Islamic ethics.** This is an act of worship, and should
+   be treated as one.
+
+These conditions reflect the purpose of the project — an ongoing charity
+intended for the sake of Allah ﷻ. They are stated plainly so that anyone
+reusing this work understands what is being handled.
+
+## Attribution
+
+If you build on this project, please keep the attribution in place, and — if
+you are able — make du'a for those who contributed to it. That is the only
+compensation the authors seek.
+
+---
+
+## Summary
+
+| | |
+|---|---|
+| ✅ **Use** the code for anything, including commercially | Permitted |
+| ✅ **Modify** and redistribute | Permitted |
+| ✅ **Sublicense** and sell copies | Permitted |
+| ✅ **Private** and **personal** use | Permitted |
+| ❗ **Keep** the copyright notice and license | Required |
+| 🚫 **Alter** the Quranic text | Prohibited |
+| 🚫 **Remove** attribution from sacred content or recitations | Prohibited |
+| 🚫 **Implied warranty** | None — provided "as is" |
+
+---
+
+**صدقة جارية — Sadaqah Jariyah**
+
+*وَأَنفِقُوا مِن مَّا رَزَقْنَاكُم — "And spend from what We have provided you."*
+
+May Allah accept it from all who contributed, and make it of benefit to
+whoever reads, learns, or remembers Him through it.
+
+**آمين**
