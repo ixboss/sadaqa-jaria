@@ -15,54 +15,74 @@
 - 🔍 **بحث متقدم** - بحث سريع وفعّال عن السور والآيات
 - ♿ **إمكانية الوصول** - دعم كامل للوصول الرقمي والملاحة الكلاسيكية
 
-## 🚀 التحسينات الحديثة
+## 🚀 حالة التحسينات
+
+> **⚠️ تنبيه مصداقية:** هذا القسم كان سابقاً يزعم اكتمال تحسينات ونشر «تقرير اختبار
+> 19/19» وتقييم «Lighthouse 95+». **لا يوجد أي ملف اختبار ولا تقرير Lighthouse في
+> المشروع.** تم تصحيح ذلك في 2026-09-20. البنود أدناه مُصنَّفة بصدق حسب حالتها الفعلية.
+>
+> 📖 للحصول على قائمة الأخطاء المؤكدة بمراجع أسطر دقيقة، راجع **[`01-bugs.md`](01-bugs.md)**.
 
 ### الأداء ⚡
-- ✅ Service Worker محسّن لـ Offline Mode
-- ✅ Caching Strategy متقدمة
-- ✅ صور وخطوط محسّنة
-- ✅ Lazy Loading للموارد غير الحرجة
+- ✅ Service Worker باستراتيجيات متعددة (Network-First / Cache-First)
+- ⚠️ **لا يوجد منطق TTL فعلي** — الـ API يُخدَم من الكاش بلا انتهاء صلاحية *(B-14)*
+- ❌ **لا دعم أوفلاين للخطوط** — خطوط المصحف لا تُخزَّن *(B-15)*
 
 ### الأمان 🔐
-- ✅ Content Security Policy (CSP)
-- ✅ HTTPS Validation
-- ✅ XSS Protection
-- ✅ CSRF Protection
-- ✅ Security Headers
+- ⚠️ **الرؤوس موجودة لكن معطوبة وظيفياً — راجع التحذير أدناه**
+- ⚠️ `X-Frame-Options` و`X-Content-Type-Options` و`Referrer-Policy` — سليمة
+- ❌ **CSRF Protection** — لا يوجد خادم أو نماذج، فلا وجود لـ CSRF. الادعاء حُذف.
+- ❌ **SQL Injection Prevention** — لا قاعدة بيانات ولا استعلامات SQL. حُذف.
+
+> **🚨 تحذير حرج:** الرؤوس في `.htaccess` **تكسر التطبيق حالياً**:
+> 1. `connect-src` يفتقد `cdn.islamic.network` → **التلاوة الصوتية تفشل** *(B-17)*
+> 2. `FilesMatch "\.json$"` يمنع `manifest.json` → **تثبيت PWA يفشل** *(B-18)*
+> 3. `'unsafe-inline'` في CSP → حماية XSS شكلياً بلا قيمة *(B-17)*
+>
+> **يجب إصلاح الثلاثة معاً كتغيير واحد** ثم التحقق على خادم Apache حقيقي.
 
 ### SEO 🔍
-- ✅ Meta Tags محسّنة
-- ✅ Structured Data (JSON-LD)
-- ✅ Open Graph Tags
-- ✅ Sitemap و Robots.txt
-- ✅ Mobile-First Design
+- ✅ Meta Tags و Open Graph و Twitter Card و JSON-LD
+- ✅ `robots.txt` و `sitemap.xml` موجودة
+- ❌ **جميعها تشير إلى نطاق وهمي `islami-app.local`** — يجب استبداله قبل النشر *(B-26)*
+- ❌ **`ErrorDocument 404 /index.html` يُرجع HTTP 200** لكل مسار مفقود (soft 404s) *(B-19)*
 
 ### الوصولية ♿
-- ✅ ARIA Labels
-- ✅ Keyboard Navigation
-- ✅ Screen Reader Support
-- ✅ High Contrast Mode
-- ✅ Semantic HTML
+- ✅ ARIA Labels و Keyboard Navigation و Screen Reader Support
+- ✅ **احترام `prefers-reduced-motion` مُطبَّق في كل مسار حركة** — نقطة قوة حقيقية
+- ⚠️ **`user-select: none` عالمي** يقيّد بعض استخدامات الوصولية *(U-9)*
+- ❌ **«High Contrast Mode»** — لم يُنفَّذ فعلياً رغم ذكره سابقاً. حُذف.
 
 ### PWA 📦
-- ✅ PWA Manifest
-- ✅ Installable App
-- ✅ Background Sync
-- ✅ Push Notifications
+- ✅ `manifest.json` موجود مع اختصارات التطبيق
+- ✅ تسجيل Service Worker مع `updateViaCache: 'none'`
+- ❌ **«Installable App» غير صحيح حالياً** — الأيقونات كـ `data:` URI **يرفضها
+  iOS Safari** *(B-16)*، و`manifest.json` **محجوب بـ `.htaccess`** *(B-18)*.
+  التثبيت سيفشل على جميع المنصات حتى يُصلَح الاثنان.
+- ⚠️ **Background Sync موجود بلا بيانات تُزامَن** — ميزة بلا غرض *(B-1)*
+- ⚠️ **التذكيرات تعمل بـ `setTimeout` أثناء فتح التطبيق فقط** — لا تذكيرات خلفية حقيقية
 
 ## 📦 الملفات الرئيسية
 
 ```
-islami-app/
-├── index.html          # الصفحة الرئيسية
+sadaqa-jaria/
+├── index.html          # الصفحة الرئيسية (تحوي كل منطق التطبيق)
 ├── sw.js               # Service Worker
-├── app.js              # ميزات متقدمة
+├── features.js         # وحدات الميزات (مستخدمة بالكامل)
+├── surah-meta.js       # بيانات 114 سورة (عمل دون إنترنت)
+├── app.js              # ⚠️ ~80% كود ميت — 5 من 7 فئات لا تُستدعى
+├── config.js           # ❌ كود ميت بالكامل — لا يقرأه أي كود
 ├── manifest.json       # PWA Manifest
 ├── robots.txt          # SEO Robots
 ├── sitemap.xml         # SEO Sitemap
 ├── security.txt        # Security Policy
-├── .htaccess          # Server Config
-└── README.md          # التوثيق
+├── .htaccess           # ⚠️ يحتوي عيوباً تكسر الصوت وتثبيت PWA
+├── IMPROVEMENTS.md     # سجل التحسينات وحالة المشروع
+├── 01-bugs.md          # 📖 تقرير المراجعة — الأخطاء
+├── 02-uiux.md          # 🎨 تقرير المراجعة — الواجهة والحركة
+├── 03-features.md      # 🎁 تقرير المراجعة — ميزات مقترحة
+├── 04-architecture.md  # 🏗️ تقرير المراجعة — إعادة الهيكلة
+└── README.md           # التوثيق
 ```
 
 ## 🔧 المتطلبات
@@ -109,29 +129,39 @@ http://localhost:8000
 
 ### Backend/Storage
 - LocalStorage للبيانات المحلية
-- IndexedDB للبيانات الكبيرة
-- Service Worker للـ Offline
+- ⚠️ **IndexedDB: مذكور في `config.js:56` لكنه غير مُنفَّذ** — لا يوجد أي استخدام
+  فعلي لـ IndexedDB في الكود. *(بند أُزيل من قائمة الميزات المكتملة)*
+- Service Worker للـ Offline (نص القرآن فقط — الخطوط لا تُخزَّن)
 
 ### Performance
-- Critical CSS Inlining
-- Font Preloading
-- Image Optimization
-- Code Splitting
+- ⚠️ **«Critical CSS Inlining» غير صحيح** — الـ CSS موجود في `<style>` مضمّن
+  داخل `index.html` وليس مُحسَّناً أو مُجزَّأاً
+- ✅ Font Preloading (نعم، لكن رابط `preload` مُثبَّت يدوياً ويتقادم مع تحديثات Google)
+- ❌ **«Image Optimization» و«Code Splitting» غير مُنفَّذين** — لا توجد صور
+  (الأيقونات SVG مضمّنة) ولا تقسيم للكود. حُذفا.
 
 ## 📊 الإحصائيات
 
-- 📦 حجم الملف الإجمالي: ~100KB
-- ⚡ وقت التحميل: < 2 ثانية
-- 🎯 Lighthouse Score: 95+
-- 📱 Mobile Friendly: ✅
+- 📦 حجم الملف الإجمالي: **~133 KB** (مقيس فعلياً)
+- ⚡ وقت التحميل: **غير مقيس**
+- 🎯 Lighthouse Score: **غير مقيس** — الرقم «95+» المذكور سابقاً كان مُختلقاً ولا
+  يوجد أي تقرير Lighthouse في المشروع
+- 📱 Mobile Friendly: **نعم مع تحفظات** — لا يوجد أي `@media (min-width)` في
+  المشروع، وهناك مشاكل تجاوب معروفة *(U-1، U-3، U-4)*
+- 🧪 **الاختبارات: لا يوجد أي ملف اختبار آلي في المشروع**
+
+> 📖 القياسات والأخطاء المؤكدة موثَّقة بالتفصيل في [`01-bugs.md`](01-bugs.md).
 
 ## 🔒 الأمان
 
-يتم التعامل مع الأمان بجدية:
-- بدون تخزين بيانات حساسة على السيرفر
-- بدون تتبع للمستخدمين
-- بدون إعلانات أو محتوى خارجي مشبوه
-- شفرة المصدر مفتوحة للمراجعة
+يتم التعامل مع الأمان بجدية — **مع تحفظات مؤكدة يجب معالجتها قبل النشر:**
+- ✅ بدون تخزين بيانات حساسة على السيرفر (لا يوجد سيرفر أصلاً)
+- ✅ بدون تتبع للمستخدمين
+- ✅ بدون إعلانات أو محتوى خارجي مشبوه
+- ✅ شفرة المصدر مفتوحة للمراجعة
+- ❌ **معالجة المدخلات غير متسقة** — ثلاثة دوال تحقن HTML بلا تهريب، خلافاً
+  لبقية التطبيق *(B-5)*
+- ❌ **رؤوس `.htaccess` معطوبة** وتكسر الصوت وتثبيت PWA *(B-17، B-18)*
 
 ## 📝 الترخيص
 
@@ -145,15 +175,21 @@ MIT License - اجعلها منفعة للجميع
 3. أضف ميزات جديدة
 4. شارك المشروع
 
+> **قبل المساهمة:** راجع [`01-bugs.md`](01-bugs.md) و[`04-architecture.md`](04-architecture.md)
+> للحصول على قائمة العيوب المؤكدة وخطة إعادة الهيكلة.
+
 ## 📧 التواصل
 
-- **Email**: info@islami-app.local
 - **GitHub Issues**: للإبلاغ عن الأخطاء
 - **Discussions**: للنقاش والأفكار
+
+> ⚠️ بيانات التواصل السابقة (`info@islami-app.local`) كانت نطاقاً وهمياً وحُذفت.
+> يجب إضافة بيانات تواصل حقيقية قبل النشر.
 
 ## 🙏 الشكر والتقدير
 
 - API: Quran.com للـ Quran API
+- Audio: Islamic Network CDN للتلاوات
 - Fonts: Google Fonts
 - Icons: Unicode Emoji
 - Inspiration: الحمد لله على كل نعمة

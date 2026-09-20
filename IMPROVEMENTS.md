@@ -1,337 +1,293 @@
-# 📋 تحسينات المشروع - تقرير شامل
+# 📋 سجل التحسينات والتطوير - تقرير حالة صادق
 
-## 📅 التاريخ: 2026-01-01
-## ✅ الحالة: جميع التحسينات تم تطبيقها بنجاح
+## 📅 آخر تحديث: 2026-09-20
+## ⚠️ الحالة: مسودة قيد التطوير — لم تُختبر بعد
+
+> **ملاحظة مهمة قبل القراءة:**
+> هذا الملف كان سابقاً يحتوي على ادعاءات تحقق غير صحيحة (مثل «19/19 اختبار نجح»
+> و«Lighthouse 95+») بينما لا يوجد في المشروع أي ملف اختبار ولا تقرير Lighthouse.
+> تم تصحيح ذلك في 2026-09-20. هذا الملف الآن **سجل نوايا تطويرية ووصف معماري**،
+> وليس شهادة تحقق. للحصول على قائمة الأخطاء المؤكدة والقابلة للتحقق، راجع:
+>
+> **📖 [`01-bugs.md`](01-bugs.md)** — تقرير المراجعة الشاملة (27 ملاحظة مؤكدة بمراجع أسطر)
+> **🎨 [`02-uiux.md`](02-uiux.md)** · **🎁 [`03-features.md`](03-features.md)** · **🏗️ [`04-architecture.md`](04-architecture.md)**
 
 ---
 
-## 🚀 التحسينات الرئيسية المطبقة
+## 🧭 كيف تقرأ هذا الملف
 
-### 1️⃣ **تحسينات الأداء (Performance)**
+| الرمز | المعنى |
+|------|--------|
+| ✅ **مُنفَّذ** | الكود موجود فعلاً في المستودع ويمكن التحقق منه بالقراءة |
+| ⏳ **نية تصميمية** | مقصود ومصمَّم لكن غير مُتحقَّق منه عملياً |
+| ❌ **غير مُنفَّذ** | مذكور هنا سابقاً بشكل مضلِّل، لكنه غير موجود في الكود |
 
-#### Service Worker المحسّن (sw.js)
-- ✅ **Strategy متقدمة**
-  - `networkFirstWithFallback`: للصفحات والأصول الديناميكية
-  - `cacheFirstWithTimeout`: لـ API requests مع timeout
-  - Background update للبيانات المُخزنة
-  
-- ✅ **معالجة الأخطاء**
-  - Timeout للطلبات (3-5 ثواني)
-  - Fallback للبيانات المُخزنة
-  - رسائل خطأ واضحة للمستخدم
-  
-- ✅ **مميزات متقدمة**
-  - Background Sync للبيانات
-  - Push Notifications Support
-  - Cleanup تلقائي للـ Caches القديمة
+**لا يوجد في هذا المشروع حالياً أي اختبار آلي.** أي بند يصف سلوكاً وظيفياً هو
+وصف لما *يُفترض* أن يفعله الكود، لا دليل على أنه يعمل.
 
-#### تحسينات الـ Caching
-- ✅ Version-based Cache (v30)
-- ✅ Multiple cache stores (Static, API, Main)
-- ✅ Smart invalidation strategy
-- ✅ Content-Type validation قبل التخزين
+---
+
+## 🚀 التحسينات المُنفَّذة فعلياً في الكود
+
+### 1️⃣ **الأداء (Performance)**
+
+#### Service Worker (`sw.js`)
+- ✅ **استراتيجيات متعددة** — مذكورة وموجودة في الكود:
+  - `networkFirstWithFallback` للصفحات والأصول الديناميكية
+  - `cacheFirstWithTimeout` لطلبات الـ API مع مهلة
+  - تحديث خلفي للبيانات المُخزّنة (`updateCacheInBackground`)
+- ✅ **معالجة الأخطاء** — `AbortController` حقيقي مع مهلة، ورسائل خطأ نصية للمستخدم
+- ✅ **تنظيف تلقائي** للـ Caches القديمة عند التنشيط
+
+#### ⚠️ ثغرات معروفة في هذا القسم (راجع `01-bugs.md`)
+- ❌ **لا يوجد منطق TTL فعلي في الـ Service Worker.** الـ API يُخدَم دائماً من الكاش
+  بلا انتهاء صلاحية — أي خطأ مؤقت يُخزَّن للأبد. *(الملاحظة B-14)*
+- ❌ **لا دعم أوفلاين للخطوط.** خطوط `fonts.gstatic.com` لا تُخزَّن إطلاقاً، فيفقد
+  المصحف سِمته الأساسية دون إنترنت. *(الملاحظة B-15)*
+- ❌ **Background Sync بلا بيانات تُزامَن.** `syncData()` يُرسل رسالة فقط — ميزة بلا غرض. *(B-1)*
 
 #### تحسينات التحميل
-- ✅ Preload للخطوط الحرجة
-- ✅ DNS prefetch للـ APIs
-- ✅ requestIdleCallback للموارد غير الحرجة
-- ✅ Lazy loading للبيانات
+- ✅ `preconnect` و `dns-prefetch` لـ `api.alquran.cloud` والخطوط
+- ✅ `requestIdleCallback` للموارد غير الحرجة
+- ⚠️ **ملاحظة:** رابط `preload` للخط مُثبَّت يدوياً في `index.html` — سيتقادم
+  عند تحديث Google للخط.
 
 ---
 
 ### 2️⃣ **تحسينات SEO**
 
-#### Meta Tags (index.html)
-```html
-✅ og:title, og:description, og:type, og:locale
-✅ twitter:card, twitter:title, twitter:description
-✅ description, keywords, author
-✅ application-name, theme-color
-```
+#### Meta Tags (`index.html`)
+- ✅ `og:title`, `og:description`, `og:type`, `og:locale`
+- ✅ `twitter:card`, `twitter:title`, `twitter:description`
+- ✅ `description`, `keywords`, `author`, `theme-color`
 
 #### Structured Data (JSON-LD)
-- ✅ WebApplication Schema
-- ✅ Basic pricing information
-- ✅ Author information
-- ✅ Application category metadata
+- ✅ WebApplication Schema مع معلومات السعر والكاتب
 
 #### ملفات SEO
-- ✅ **robots.txt**: للـ crawlers والـ search engines
-- ✅ **sitemap.xml**: للصفحات الرئيسية
-- ✅ **manifest.json**: للـ PWA والـ app listing
-- ✅ **security.txt**: لـ security researchers
+- ✅ `robots.txt` — موجود
+- ✅ `sitemap.xml` — موجود
+- ✅ `manifest.json` — موجود
+- ✅ `security.txt` — موجود
 
-#### Accessibility المرتبطة بـ SEO
-- ✅ Semantic HTML5 tags
-- ✅ Proper heading hierarchy
-- ✅ Alt text support
-- ✅ ARIA labels
-
----
-
-### 3️⃣ **تحسينات تجربة المستخدم (UX)**
-
-#### Bookmark Manager (app.js)
-- ✅ حفظ السور المفضلة
-- ✅ حفظ الآيات المفضلة مع النص
-- ✅ استرجاع المفضلة بسهولة
-- ✅ إشعارات عند تغيير المفضلة
-
-#### Reading Progress Manager
-- ✅ حفظ آخر موضع قراءة تلقائياً
-- ✅ تذكر رقم السورة والآية
-- ✅ حفظ وقت القراءة
-- ✅ استئناف من الموضع الأخير
-
-#### Advanced Search
-- ✅ بحث بالاسم العربي
-- ✅ بحث برقم السورة
-- ✅ Fuzzy matching للأسماء المتشابهة
-- ✅ تحديد النتائج بحسب الصلة
-
-#### Storage Manager
-- ✅ قائمة سوداء للعناصر الحساسة
-- ✅ معالجة أخطاء التخزين
-- ✅ Quota management
-- ✅ Secure serialization
+#### ⚠️ ثغرات معروفة في هذا القسم (راجع `01-bugs.md`)
+- ❌ **جميع ملفات SEO تشير إلى نطاق وهمي `islami-app.local`** — يجب استبداله
+  بالنطاق الحقيقي قبل النشر، وإلا فهرسة خاطئة و`security.txt` غير صالح (RFC 9116). *(B-26)*
+- ❌ **`ErrorDocument 404 /index.html` يُرجع HTTP 200 لكل مسار مفقود** → soft 404s
+  تُضيّق ميزانية الزحف. *(B-19)*
 
 ---
 
-### 4️⃣ **تحسينات الوصولية (Accessibility)**
+### 3️⃣ **تجربة المستخدم (UX)**
 
-#### Keyboard Navigation
-- ✅ ESC لإغلاق النوافذ المنبثقة
-- ✅ Ctrl+F للبحث (يركز على input)
-- ✅ Alt+Right/Left للملاحة بين الصفحات
-- ✅ Tab navigation كامل
+#### Bookmark Manager (`app.js`)
+- ✅ حفظ السور المفضلة والآيات المفضلة مع النص
+- ✅ إشعارات تغيير عبر حدث `bookmarksChanged`
+- ✅ **مستخدم فعلياً** في `bookmarks` و`AnimationManager`
 
-#### Screen Reader Support
-- ✅ ARIA Live Regions
-- ✅ ARIA Labels على الأزرار
-- ✅ Role attributes على العناصر التفاعلية
-- ✅ Semantic HTML structure
+#### Reading Progress Manager (`app.js`)
+- ❌ **غير مُستخدَم من أي مكان في الكود.** لا يوجد أي استدعاء لهذه الفئة. *(B-1)*
 
-#### Visual Accessibility
-- ✅ High contrast support
-- ✅ Focus indicators مرئية
-- ✅ Semantic color meanings
-- ✅ Font size customization
+#### Advanced Search (`app.js`)
+- ❌ **غير مُستخدَم، ولن يعمل لو استُخدم.** `fuzzyMatch` يقارن الحروف حرفاً بحرف
+  ولا يطبِّع الهمزات أو التاء المربوطة، فيفشل مع العربية. البديل العامل موجود
+  فعلاً في `index.html:2157`. *(B-8، B-12)*
 
-#### Form Accessibility
-- ✅ Proper label associations
-- ✅ Error messages واضحة
-- ✅ Required field indicators
-- ✅ Input validation feedback
+#### Storage Manager (`app.js`)
+- ⚠️ **مكتوب بشكل جيد ومُحصَّن، لكن لا يستخدمه أحد.** الكود يستدعي `localStorage`
+  مباشرة في أكثر من 30 موضعاً، بعضها بلا `try/catch` — وهو سبب فقدان بيانات
+  التسبيح. *(B-7)*
 
 ---
 
-### 5️⃣ **تحسينات الأمان (Security)**
+### 4️⃣ **الوصولية (Accessibility)**
 
-#### Security Headers (.htaccess)
-```
-✅ Content-Security-Policy (CSP)
-✅ X-Frame-Options: DENY
-✅ X-XSS-Protection
-✅ X-Content-Type-Options: nosniff
-✅ Referrer-Policy
-✅ Permissions-Policy
-```
+- ✅ **ملاحقة لوحة المفاتيح** — ESC لإغلاق النوافذ، Ctrl+F للبحث، Alt+الأسهم للتنقل
+- ✅ **دعم قارئ الشاشة** — `aria-live` regions وأسماء `aria-label` على الأزرار
+- ✅ **مؤشرات تركيز مرئية** — `:focus-visible` بحدود واضحة
+- ✅ **احترام تقليل الحركة** — `prefers-reduced-motion` مُطبَّق في **كل** مسار حركة
+  (هذه نقطة قوة حقيقية في المشروع)
 
-#### HTTPS and Protocol
-- ✅ HTTPS redirection
-- ✅ Secure cookie handling
-- ✅ Origin validation
-- ✅ CORS configuration
-
-#### File Protection
-- ✅ Deny access to hidden files
-- ✅ Deny access to database files
-- ✅ Deny access to .env files
-- ✅ Deny access to .git files
-
-#### Input Protection
-- ✅ XSS prevention
-- ✅ CSRF token validation
-- ✅ SQL injection prevention (for APIs)
-- ✅ Input sanitization
+#### ⚠️ ثغرات معروفة
+- ⚠️ **`user-select: none` عالمي** يمنع تحديد النص إلا داخل `.mushaf-block`
+  — قرار مقصود لحماية المحتوى، لكنه يقيّد بعض استخدامات الوصولية. *(U-9)*
+- ⚠️ **`#custom-dialog` و`#occasion-modal` بلا `role="dialog"` ولا حبس تركيز
+  (focus trap)** — قد يهرب التركيز خارج النافذة المنبثقة.
 
 ---
 
-### 6️⃣ **تحسينات PWA والـ Installability**
+### 5️⃣ **الأمان (Security)**
 
-#### Manifest.json
-- ✅ App name (Arabic)
-- ✅ Short name
-- ✅ Description
-- ✅ Icons (192x192, 512x512)
-- ✅ Theme colors
-- ✅ Display mode (standalone)
-- ✅ Orientation (portrait)
+#### الرؤوس في `.htaccess`
+- ⚠️ **مذكورة لكن معطوبة وظيفياً — راجع التحذير الصريح أدناه.**
 
-#### PWA Features
-- ✅ Installable on mobile
-- ✅ Splash screen
-- ✅ Status bar styling
-- ✅ App shortcuts
-- ✅ Screenshot support
+#### 🚨 تحذير حرج: الرؤوس الحالية تكسر التطبيق
+ملف `.htaccess` يحتوي ثلاثة عيوب مؤكدة تمنع النشر السليم:
 
-#### Enhanced Service Worker for PWA
-- ✅ Background sync
-- ✅ Push notifications
-- ✅ Notification click handling
-- ✅ Update checking
+| # | المشكلة | الأثر | المرجع |
+|---|---------|------|--------|
+| 1 | `connect-src` لا يتضمن `cdn.islamic.network` | **التلاوة الصوتية ستفشل تماماً** | B-17 |
+| 2 | `FilesMatch "\.json$"` يمنع `manifest.json` | **تثبيت PWA يفشل على كل المنصات** | B-18 |
+| 3 | `'unsafe-inline'` في CSP | يُبطل حماية XSS بالكامل — أمان شكلي | B-17 |
+
+> **⚠️ يجب معالجة الثلاثة معاً كتغيير واحد متكامل،** ثم التحقق على خادم Apache
+> حقيقي. إصلاح أحدها منفرداً قد يُبقي التطبيق مكسوراً.
+
+#### ادعاءات أُزيلت لعدم صحتها
+- ❌ **CSRF Protection** — لا يوجد خادم ولا نماذج، فلا وجود لـ CSRF أصلاً.
+  كان هذا البند مضلِّلاً وحُذف.
+- ❌ **SQL injection prevention** — لا توجد قاعدة بيانات ولا استعلامات SQL.
 
 ---
 
-### 7️⃣ **تحسينات جودة الكود**
+### 6️⃣ **PWA والـ Installability**
 
-#### New Files Created
-```
-✅ app.js (12.8 KB) - Advanced features
-✅ config.js (4.3 KB) - Configuration system
-✅ manifest.json (2.3 KB) - PWA manifest
-✅ .htaccess (3.7 KB) - Server configuration
-✅ robots.txt (186 B) - SEO robots
-✅ sitemap.xml (1.1 KB) - SEO sitemap
-✅ security.txt (511 B) - Security policy
-✅ README.md (3.7 KB) - Documentation
-```
+- ✅ `manifest.json` موجود مع الاسم والوصف والألوان ووضع `standalone`
+- ✅ تسجيل Service Worker مع `updateViaCache: 'none'`
+- ✅ معالج النقر على الإشعارات
 
-#### Code Organization
-- ✅ Class-based architecture in app.js
-- ✅ Configuration management
-- ✅ Feature detection module
-- ✅ Modular service worker
-
-#### Performance Monitoring
-- ✅ Performance measurement hooks
-- ✅ Metrics collection
-- ✅ Console logging for debugging
-- ✅ Web Vitals support ready
-
-#### Error Handling
-- ✅ Try-catch blocks
-- ✅ Graceful degradation
-- ✅ User-friendly error messages
-- ✅ Fallback strategies
+#### ⚠️ ثغرات معروفة
+- ❌ **الأيقونات كـ `data:` URI** — **iOS Safari يرفضها** ولن يُثبَّت التطبيق
+  على iPhone. يحتاج ملفات PNG حقيقية. *(B-16)*
+- ⚠️ **التذكيرات تعمل بـ `setTimeout` فقط** — تُطلق **أثناء فتح التطبيق فقط**.
+  المتصفح لا يسمح بتذكيرات خلفية حقيقية بدون Periodic Background Sync.
+  هذا مُعترف به في تعليق `features.js:463` — وهو سلوك صحيح توثيقياً، لكنه يعني
+  أن الميزة **معطّلة عملياً** لمن يقفل هاتفه.
 
 ---
 
-## 📊 الإحصائيات
+### 7️⃣ **جودة الكود**
 
-### حجم الملفات
+#### الملفات
+| الملف | الحالة |
+|------|--------|
+| `index.html` | يحوي **كل منطق التطبيق** (~1400 سطر JS مضمّن) |
+| `features.js` | **مستخدم بالكامل** — الأفضل تنظيماً في المشروع |
+| `surah-meta.js` | مستخدم — بيانات 114 سورة للعمل دون إنترنت |
+| `app.js` | ⚠️ **~80% كود ميت** — 5 من 7 فئات لا تُستدعى |
+| `config.js` | ❌ **ميت 100%** — لا يقرأه أي كود |
+
+#### معالجة الأخطاء
+- ✅ `try/catch` في معظم مسارات `localStorage` (مع تعليقات توضح النية)
+- ❌ **لكن استثناءات بارزة بلا حماية** — أشهرها `updateTasbihUI` *(B-7)*
+- ⚠️ **أكثر من 20 موضعاً `catch(e) {}` يُخفي الأخطاء بصمت** — بعضها مقصود،
+  وبعضها يخفي مشاكل حقيقية.
+
+---
+
+## 📊 إحصائيات حقيقية (مقيسة)
+
+### أحجام الملفات الفعلية
 | الملف | الحجم |
 |------|------|
-| index.html | 100.7 KB |
-| app.js | 12.8 KB |
-| sw.js | 6.2 KB |
-| config.js | 4.3 KB |
-| .htaccess | 3.7 KB |
-| manifest.json | 2.3 KB |
-| README.md | 3.7 KB |
+| `index.html` | ~100.7 KB |
+| `app.js` | ~12.8 KB (منها ~10 KB ميت) |
+| `sw.js` | ~6.2 KB |
+| `config.js` | 4.3 KB (ميت بالكامل) |
+| `features.js` | مستخدم بالكامل |
+| `.htaccess` | ~3.7 KB |
+| `manifest.json` | ~2.3 KB |
 | **الإجمالي** | **~133 KB** |
 
-### الميزات المضافة
-- 6 فئات جديدة في app.js
-- 20+ خاصية تكوين في config.js
-- 10+ قوانين أمان في .htaccess
-- 5 ملفات توثيق جديدة
-- 30+ اختبار نجحت
+### ما هو **غير** مقيس
+- ❌ **لا يوجد تقرير Lighthouse.** الرقم «95+» المذكور سابقاً كان مُختلقاً.
+- ❌ **لا توجد اختبارات.** الرقم «19/19» و«30+ اختبار» كانا مُختلقين.
+- ❌ **لا قياس أداء حقيقي** — `PerformanceMonitor` موجود لكنه لا يُستدعى أبداً.
 
 ### الدعم المتصفح
-- ✅ Chrome/Edge 90+
-- ✅ Firefox 88+
-- ✅ Safari 14+
-- ✅ Mobile browsers (iOS Safari, Chrome Mobile)
+⚠️ **غير مُتحقَّق منه تجريبياً.** الملاحظات التالية مبنية على قراءة الكود فقط:
+- Chrome/Edge — المتوقع أن يعمل (الميزات المستخدمة مدعومة على نطاق واسع)
+- Firefox — المتوقع أن يعمل
+- **Safari/iOS — التثبيت سيفشل** بسبب أيقونات `data:` *(B-16)*
+- **يدعم أصلياً:** `Intl.DateTimeFormat` مع تقويم أم القرى للتاريخ الهجري
 
 ---
 
-## ✅ نتائج الاختبار
+## ✅ حالة الاختبار — القسم الصادق
 
-### اختبارات الأداء
+### اختبارات آلية
 ```
-✅ Service Worker with Timeout: Passed
-✅ Network First Strategy: Passed
-✅ Cache Cleanup: Passed
-✅ Font Preload: Passed
-✅ requestIdleCallback: Passed
+لا يوجد ملف اختبار واحد في هذا المستودع.
 ```
 
-### اختبارات SEO
-```
-✅ OG Meta Tags: Passed
-✅ Meta Description: Passed
-✅ JSON-LD: Passed
-✅ Sitemap: Passed
-```
+### ما الذي كان يُدَّعى سابقاً (وحُذف)
+كان هذا الملف يزعم **19 اختباراً ناجحاً** في خمس فئات. لم يكن أي منها موجوداً.
+والأخطر: عيوب مثل B-16 و B-17 و B-18 **كانت ستُكتشف إلزامياً** لو جرى أي اختبار
+حقيقي — لأنها تكسر تثبيت PWA والصوت تماماً. لذلك فإن الادعاء لم يكن مبالغة،
+بل كان مضلِّلاً بشكل خطير.
 
-### اختبارات UX
-```
-✅ Bookmarks Manager: Passed
-✅ Reading Progress: Passed
-✅ Advanced Search: Passed
-```
-
-### اختبارات الوصولية
-```
-✅ Keyboard Navigation: Passed
-✅ ARIA Support: Passed
-✅ Screen Reader Support: Passed
-```
-
-### اختبارات الأمان
-```
-✅ CSP Header: Passed
-✅ Security Headers: Passed
-```
-
-### اختبارات PWA
-```
-✅ Manifest File: Passed
-✅ Service Worker Registration: Passed
-```
-
-**الإجمالي: 19/19 اختبار ✅**
+### الاختبار اليدوي الموصى به قبل أي نشر
+| # | ما يجب اختباره | كيف | المتوقع حالياً |
+|---|----------------|-----|----------------|
+| 1 | **تثبيت PWA على iOS** | Safari → مشاركة → إضافة للشاشة الرئيسية | **فشل** *(B-16)* |
+| 2 | **تثبيت PWA على Android/Desktop** | تحقق من ظهور طلب التثبيت | **فشل** *(B-18)* |
+| 3 | **التلاوة الصوتية** | اضغط ▶ في رأس السورة | **فشل** مع رؤوس `.htaccess` *(B-17)* |
+| 4 | **الوضع الخاص (Private Mode)** | افتح التطبيق وسبِّح | **كسر عند أول ضغطة** *(B-7)* |
+| 5 | **عدّ 30 تسبيحة ثم التصفير** | تحقق من شاشة الإحصائيات | **0 مُسجَّلة** *(B-6)* |
+| 6 | **السلسلة يومياً** | اقرأ أمس فقط، افتح اليوم | **سلسلة = 0 وهذا خطأ** *(B-11)* |
+| 7 | **الرجوع من شاشة فرعية** | تنقّل بين التبويبات ثم ارجع | قد يهبط بك لشاشة خاطئة *(B-10)* |
+| 8 | **وضع الأوفلاين** | افصل الإنترنت وأعد التحميل | النص يعمل، **الخط يتدهور** *(B-15)* |
 
 ---
 
-## 🎯 الخطوات التالية (اختيارية)
+## 🎯 الخطوات التالية (مرتَّبة حسب الأولوية)
 
-### للتحسين الإضافي
-1. إضافة unit tests مع Jest/Vitest
-2. إضافة e2e tests مع Cypress
-3. إضافة analytics tracking
-4. تحسينات الـ i18n للغات الأخرى
-5. dark mode و light mode theme improvements
-6. قاعدة بيانات IndexedDB للبيانات الكبيرة
+### 🔥 فوري — يمسّ المستخدم مباشرة
+1. إصلاح فقدان بيانات التسبيح — `index.html:1977`, `index.html:1957-1958` *(B-6، B-7)*
+2. إزالة طلب إذن الإشعارات وقت الإقلاع — `app.js:445` *(B-2)*
+3. إصلاح `getStreak()` ليبدأ من أمس — `features.js:60-71` *(B-11)*
 
-### للنشر الإنتاجي
-1. ✅ HTTPS setup
-2. ✅ CDN configuration
-3. ✅ Cache headers optimization
-4. ✅ Image optimization/WebP conversion
-5. ✅ Performance monitoring setup
+### 🔥 قبل أي نشر — يمنع النشر السليم
+4. **معالجة `.htaccess` كتغيير واحد متكامل** *(B-17، B-18، B-19)* — ثم تحقق على
+   خادم Apache حقيقي. **لا تُصلح هذه منفردة.**
+5. استبدال النطاق الوهمي `islami-app.local` بالنطاق الحقيقي *(B-26)*
+6. توليد أيقونات PNG حقيقية بدل `data:` URI *(B-16)*
 
----
+### ⚡ عالٍ — تجربة مستخدم محسوسة
+7. دعم الأوفلاين لخطوط المصحف *(B-15)*
+8. إضافة TTL حقيقي لكاش الـ API *(B-14)*
+9. إصلاح تجاوب `100vh` ودائرة السبحة *(U-1، U-3)*
 
-## 📝 الملاحظات
+### 🏗️ استراتيجي — صيانة طويلة الأمد
+10. تقسيم `index.html` إلى وحدات وإلغاء التلوث العالمي *(R-1، R-2)*
+11. حذف الكود الميت أو استخدامه فعلاً *(B-1، R-5)*
+12. توحيد طبقة التخزين عبر `StorageManager` الموجود أصلاً *(R-4)*
 
-- جميع التحسينات تم اختبارها وهي تعمل بشكل صحيح
-- لا يوجد أي breaking changes للكود الحالي
-- جميع الملفات الجديدة متوافقة مع المتصفحات الحديثة
-- الكود يتبع أفضل الممارسات الصناعية
-
----
-
-## 🔗 المراجع والموارد
-
-- [MDN Web Docs - Service Workers](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API)
-- [Web.dev - Performance](https://web.dev/performance/)
-- [Schema.org](https://schema.org/)
-- [W3C WAI-ARIA](https://www.w3.org/WAI/ARIA/)
-- [OWASP Security Headers](https://owasp.org/www-project-secure-headers/)
-- [PWA Checklist](https://web.dev/install-criteria/)
+### 🎁 مميز — أثر الصدقة الجارية
+13. تصدير/استيراد البيانات (JSON) — **حماية سنوات العبادة من الضياع**
+14. مشاركة الأذكار كصورة مصمّمة — أعلى نمو عضوي
+15. المصحف كاملاً دون إنترنت عبر IndexedDB
 
 ---
 
-**تم إنجاز التحسينات بنجاح! ✨**
+## 📝 ملاحظات المصداقية
+
+- **هذا الملف لا يحتوي أي ادعاء تحقق.** كل بند إما:
+  - ✅ مُتحقَّق منه بقراءة الكود مباشرة، أو
+  - ⚠️ وصف نية تصميمية لم تُختبر، أو
+  - ❌ مُصنَّف صراحةً على أنه غير مُنفَّذ.
+- **لا توجد اختبارات آلية.** إن أضفت أي اختبار لاحقاً، حدِّث هذا الملف بالنتائج
+  الحقيقية مع أمر التشغيل.
+- **لا تستخدم هذا الملف كمواصفة.** استخدم `01-bugs.md` لقائمة العيوب المؤكدة
+  بمراجع أسطر دقيقة.
+
+---
+
+## 🔗 المراجع
+
+### تقرير المراجعة الشاملة (2026-09-20)
+- 📖 [`01-bugs.md`](01-bugs.md) — 27 ملاحظة مؤكدة مع مراجع أسطر
+- 🎨 [`02-uiux.md`](02-uiux.md) — الحركة والتجاوب
+- 🎁 [`03-features.md`](03-features.md) — ميزات مقترحة
+- 🏗️ [`04-architecture.md`](04-architecture.md) — إعادة الهيكلة
+
+### مراجع تقنية
+- [MDN — Service Workers](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API)
+- [web.dev — Performance](https://web.dev/performance/)
+- [RFC 9116 — security.txt](https://www.rfc-editor.org/rfc/rfc9116)
+- [OWASP — Secure Headers](https://owasp.org/www-project-secure-headers/)
+- [web.dev — PWA Install Criteria](https://web.dev/install-criteria/)
+
+---
+
+**آخر تصحيح للادعاءات: 2026-09-20 — استُبدل سجل «19/19 اختبار» بحالة صادقة.**
