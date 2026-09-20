@@ -391,7 +391,7 @@ body.theme-light .header-btn { background: var(--surface-2); color: var(--text);
 .header-btn.active { background: rgba(255,255,255,0.22); color: #eafff5; }
 body.theme-light .header-btn.active { background: var(--accent); color: #fff; }
 
-#content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: calc(var(--nav-clearance-safe) + 24px); scroll-behavior: smooth; touch-action: pan-y; }
+#content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: calc(var(--nav-clearance-safe) + 36px); scroll-behavior: smooth; touch-action: pan-y; }
 
 /* ==================== الشريط السفلي الزجاجي (Liquid Glass) ==================== */
 #nav {
@@ -400,10 +400,13 @@ body.theme-light .header-btn.active { background: var(--accent); color: #fff; }
      شريط iOS السفلي (~34px)، فيجلس الشريط فوقه مباشرة بدل أن يطفو في الفراغ. */
   position: fixed; bottom: var(--nav-bottom); left: 50%; transform: translateX(-50%);
   width: calc(100% - 32px); max-width: 420px; height: var(--nav-h);
-  /* طبقات زجاجية: تدرج علوي لامع + قاعدة فيروزية عميقة شفافة */
+  /* طبقات زجاجية: تدرج علوي لامع + قاعدة معتمة.
+     القاعدة كانت شبه شفافة (55%) فكان نص السور يظهر من خلف الشريط
+     ويبدو مقصوصاً. الآن 92% — يحافظ على إحساس الزجاج لكن يمنع قراءة
+     المحتوى من خلفه. */
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.03) 55%, rgba(255,255,255,0.06)),
-    rgba(12, 42, 52, 0.55);
+    linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02) 55%, rgba(255,255,255,0.05)),
+    rgba(12, 42, 52, 0.96);
   backdrop-filter: blur(26px) saturate(185%); -webkit-backdrop-filter: blur(26px) saturate(185%);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 35px;
@@ -420,8 +423,8 @@ body.theme-light .header-btn.active { background: var(--accent); color: #fff; }
 
 body.theme-light #nav {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.72) 55%, rgba(255,255,255,0.85)),
-    rgba(255, 253, 247, 0.7);
+    linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.78) 55%, rgba(255,255,255,0.88)),
+    rgba(255, 253, 247, 0.97);
   border: 1px solid rgba(31, 122, 90, 0.18);
   box-shadow:
     0 18px 40px rgba(20, 51, 58, 0.14),
@@ -433,6 +436,23 @@ body.theme-light #nav {
 #nav.nav-hidden { bottom: calc(-1 * (var(--nav-h) + var(--nav-gap) + 20px) + env(safe-area-inset-bottom, 0px)); opacity: 0; pointer-events: none; }
 
 /* ===== المؤشر الزجاجي السائل (Liquid Glass indicator) ===== */
+/* طبقة تعتيم خلف الشريط: تمنع ظهور نص المحتوى المقصوص من حول حواف
+   الشريط الدائرية، وهي المنطقة التي كان النص يظهر فيها بوضوح.
+   ملاحظة: الشريط ينشئ سياق تكديس خاصاً (z-index: 100)، لذا لا يمكن
+   استخدام z-index سالب هنا — الطبقة تُرسم فوق خلفية الشريط لكن تحت
+   العناصر التفاعلية، وهذا كافٍ لأن دورها تغطية المنطقة المحيطة. */
+.nav-scrim {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  height: calc(var(--nav-bottom) + var(--nav-h) - 26px);
+  pointer-events: none; z-index: 90;
+  background: linear-gradient(180deg, transparent, var(--bg) 34%);
+  opacity: 0; transition: opacity 300ms var(--ease-out-quart);
+}
+/* نظهر الطبقة فقط عندما يكون الشريط في مكانه الطبيعي (غير مخفي) */
+body:has(#nav:not(.nav-hidden)) .nav-scrim { opacity: 1; }
+/* بديل للمتصفحات التي لا تدعم :has() */
+#nav:not(.nav-hidden) ~ .nav-scrim { opacity: 1; }
+
 .nav-indicator {
   position: absolute; left: 0; top: 6px; bottom: 6px; width: 0;
   /* طبقات: ضوء علوي داخلي + صبغة زمردي/فيروزية شفافة */
@@ -898,6 +918,8 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
     <button class="nav-tab" role="tab" aria-selected="false" data-tab="khatmah"><span class="nav-icon">🕋</span><span class="nav-text">الختمة</span></button>
     <button class="nav-tab" role="tab" aria-selected="false" data-tab="athkar"><span class="nav-icon">📿</span><span class="nav-text">الأذكار</span></button>
   </nav>
+  <!-- طبقة تعتيم أسفل الشريط: تمنع ظهور نص السور المقصوص حول حواف الشريط -->
+  <div class="nav-scrim" aria-hidden="true"></div>
 
   <!-- شريط تحكم الختمة: خارج .screen ليكون ثابتاً على حافة الشاشة الحقيقية دائماً.
        يأتي بعد #nav في DOM ليعمل منتقي الأخوين (~) مع حالة nav-hidden -->
