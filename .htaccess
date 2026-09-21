@@ -18,7 +18,8 @@
 # ==================== Security Headers ====================
 <IfModule mod_headers.c>
   # Content Security Policy
-  Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://api.alquran.cloud; frame-ancestors 'none';"
+  # media-src/connect-src يشملان cdn.islamic.network لملفات التلاوات الصوتية
+  Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; media-src 'self' https://cdn.islamic.network; connect-src 'self' https://api.alquran.cloud https://cdn.islamic.network; frame-ancestors 'none';"
   
   # X-Frame-Options
   Header set X-Frame-Options "DENY"
@@ -99,7 +100,9 @@ ErrorDocument 404 /index.html
 ErrorDocument 500 /index.html
 
 # ==================== Access Control ====================
-<FilesMatch "^\.|\.json$|\.sqlite$|\.db$|\.env">
+# ملاحظة: manifest.json يجب أن يبقى قابلاً للوصول (يحتاجه المتصفح للتثبيت)
+# فلا نضمّ النمط \.json$ إلى قاعدة المنع.
+<FilesMatch "^\.|\.sqlite$|\.db$|\.env">
   <IfModule mod_authz_core.c>
     Require all denied
   </IfModule>

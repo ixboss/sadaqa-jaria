@@ -8,7 +8,7 @@ The bar occupies [nav-bottom, nav-bottom + nav-h] from the screen bottom.
 Content must clear it, i.e. clearance-safe must exceed nav-bottom + nav-h.
 """
 
-DROPS = {"default": 10, "short": 8, "landscape": 6}
+DROPS = {"default": 2, "short": 2, "landscape": 2}
 # (label, inset, nav-h key, viewport h, viewport w)
 DEVICES = [
     ("iPhone SE / no inset",        0,  "default",   667, 375),

@@ -441,8 +441,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Request notification permission
-  ServiceWorkerManager.requestNotificationPermission().catch(() => {});
+  // إذن الإشعارات لا يُطلب الآن عند الإقلاع — يُطلب فقط عندما يفعّل المستخدم
+  // التذكيرات (Reminders.enable) ليكون مرتبطاً بإجراء واضح من المستخدم.
 });
 
 // ==================== Global Exports ====================
