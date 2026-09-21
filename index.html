@@ -111,7 +111,9 @@
   /* ارتفاع الشريط */
   --nav-h: 70px;
   /* الفراغ البصري بين الشريط وأسفل الشاشة — صغير ومقصود ليلتصق الشريط
-     بالحافة السفلية. منطقة الأمان (safe area) تُضاف فوقه دائماً عبر env(). */
+     بالحافة السفلية. منطقة الأمان (safe area) تُضاف فوقه دائماً عبر env().
+     تُكتب بالـ JS عبر syncNavSafeArea() كنمط مضمَّن على <html> — لا تضع
+     قيمة لها في أي media query لأن النمط المضمَّن يتغلب عليها. */
   --nav-gap: 10px;
   /* إزاحة إضافية لأسفل الشريط (تصميمية لا وظيفية).
      كان الشريط يجلس على مسافة 6–10px فقط من الحافة (و6px على الأجهزة ذات
@@ -120,7 +122,9 @@
      0 = بلا إزاحة. لزيادة النزول: كبّر هذه القيمة فقط.
      تحذير: لا تستخدم قيمة سالبة، ولا تعبث بـ --nav-gap — قيمة سالبة هناك
      تُخرج الشريط خارج الشاشة. */
-  --nav-drop: 10px;
+  /* الإجمالي فوق منطقة الأمان = --nav-gap + --nav-drop ≈ 12px: تنفّس واحد
+     مريح فوق الحافة/منطقة الأمان، بلا فراغ زائد تحته. */
+  --nav-drop: 2px;
   /* إجمالي المسافة من أسفل الشاشة = فراغ بصري + منطقة الأمان + إزاحة اختيارية */
   --nav-bottom: calc(var(--nav-gap) + env(safe-area-inset-bottom, 0px) + var(--nav-drop));
   /* المسافة التي يحتاجها أي عنصر ليجلس فوق الشريط بارتياح.
@@ -776,20 +780,21 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
    نضبط هنا --nav-h و --nav-drop فقط، وكلاهما لا يلمسه JS. */
 
 /* شاشات قصيرة (هواتف صغيرة أو عرض أفقي): نصغّر الشريط والفراغ معاً
-   حتى يبقى المحتوى مرئياً ولا يأكل الشريط ثلث الشاشة. */
+   حتى يبقى المحتوى مرئياً ولا يأكل الشريط ثلث الشاشة.
+   الإجمالي فوق منطقة الأمان هنا = 8 + 2 = 10px. */
 @media (max-height: 620px) {
   :root {
     --nav-h: 58px;
-    --nav-drop: 8px;
+    --nav-drop: 2px;
     --header-h: 58px;
   }
 }
 
-/* الوضع الأفقي: الارتفاع أقل بكثير. */
+/* الوضع الأفقي: الارتفاع أقل بكثير. الإجمالي = 6 + 2 = 8px. */
 @media (orientation: landscape) and (max-height: 500px) {
   :root {
     --nav-h: 54px;
-    --nav-drop: 6px;
+    --nav-drop: 2px;
     --header-h: 52px;
   }
   /* في الوضع الأفقي يكون الشريط أعرض والشاشة أطول أفقياً */
@@ -1190,6 +1195,10 @@ function stripBismillah(text) {
 }
 const tabsArray = ['quran', 'khatmah', 'athkar'];
 let state = { currentTab: 'quran', currentScreen: 'surah-list', previousScreen: null, previousTab: null, currentSurah: null, fontSize: 'large', currentCatIndex: null, khatmah: null, theme: 'dark', bookmark: null, scrollPositions: {} };
+// let/const في السكربتات الكلاسيكية لا تنشئ خصائص على window؛
+// features.js يقرأ window.state و window.Motion فلا بد من كشفهما صراحةً
+// (الكائن يُعدَّل بالمرجع نفسه ولا يُعاد إسناده، فالمرجع المشترك يبقى صالحاً).
+window.state = state;
 let allSurahs = [];
 let contentArea, searchBar, clearBtn;
 
@@ -1379,6 +1388,7 @@ const Motion = {
     return () => scrollEl.removeEventListener('scroll', onScroll);
   }
 };
+window.Motion = Motion;
 
 function loadState() { try { const s = localStorage.getItem('app_state'); if (s) Object.assign(state, JSON.parse(s)); if(!state.scrollPositions) state.scrollPositions = {}; } catch(e) {} }
 function saveState() { try { localStorage.setItem('app_state', JSON.stringify(state)); checkBookmarkFAB(); } catch(e) {} }
@@ -1720,10 +1730,23 @@ async function loadSurahList() {
   renderSurahList(allSurahs);
 }
 
+// تهريب النصوص القادمة من الشبكة أو localStorage قبل إدراجها في innerHTML (B-5)
+const escHtml = (s) => (window.escapeHtml || String)(s ?? '');
+
 function renderSurahList(list, query = '') {
   document.getElementById('surah-list-container').innerHTML = list.map(s => {
-    let nameHtml = s.name;
-    if(query) { const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); const regex = new RegExp(`(${safeQuery})`, 'gi'); nameHtml = s.name.replace(regex, '<span class="highlight">$1</span>'); }
+    const safeName = escHtml(s.name);
+    let nameHtml = safeName;
+    if(query) {
+      // اسم السورة المعروض يحوي تشكيلاً كاملاً بينما الاستعلام مُجرَّد منه،
+      // فاسمح بوجود علامات المصحف بين حروف الاستعلام، وسوِّ أشكال الألف
+      // والتاء المربوطة/المفتوحة، حتى يقع التظليل على النص الصحيح دون تغيير
+      // شكل الاسم المعروض.
+      const cls = c => c === 'ا' ? '[أإآٱا]' : c === 'ه' ? '[ةه]' : c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const loose = [...query].map(cls).join('[\\u064B-\\u0652\\u0670\\u0640\\u06D6-\\u06ED]*');
+      const regex = new RegExp(`(${loose})`, 'gi');
+      nameHtml = safeName.replace(regex, '<span class="highlight">$1</span>');
+    }
     return `<div class="surah-row" data-magnetic onclick="openSurah(${s.number})"><div class="surah-num">${toArabicNum(s.number)}</div><div class="surah-info"><div class="surah-name">${nameHtml}</div><div class="surah-meta">${toArabicNum(s.numberOfAyahs)} آية</div></div></div>`;
   }).join('');
   Motion.staggerIn(document.getElementById('surah-list-container'));
@@ -1780,7 +1803,7 @@ window.openSurah = async function(number) {
     if (ayah.numberInSurah === 1 && number !== 1 && number !== 9) {
         text = stripBismillah(text);
     }
-    html += `${text} <span class="ayah-separator">﴿${toArabicNum(ayah.numberInSurah)}﴾</span> `;
+    html += `${escHtml(text)} <span class="ayah-separator">﴿${toArabicNum(ayah.numberInSurah)}﴾</span> `;
   });
   html += `</div>`; container.innerHTML = html;
 }
@@ -1995,8 +2018,8 @@ window.tapThikr = function(ci, i, btn) {
   btn.classList.remove('tap-pulse'); void btn.offsetWidth; btn.classList.add('tap-pulse');
 }
 
-let tasbihCount = parseInt(localStorage.getItem('tasbihCount') || '0', 10);
-let tasbihLap = parseInt(localStorage.getItem('tasbihLap') || '0', 10);
+let tasbihCount = (() => { try { return parseInt(localStorage.getItem('tasbihCount') || '0', 10) || 0; } catch (e) { return 0; } })();
+let tasbihLap = (() => { try { return parseInt(localStorage.getItem('tasbihLap') || '0', 10) || 0; } catch (e) { return 0; } })();
 
 function tasbihTarget() { return (window.Settings ? Settings.getTasbihTarget() : 33) || 33; }
 // الجولات: ٣ جولات لكل هدف (دائماً ٣ للتجربة التقليدية)
@@ -2060,14 +2083,16 @@ function updateTasbihUI() {
   const beadsList = document.querySelectorAll('.tasbih-bead');
   const filledBeads = goal > beadsList.length ? Math.floor((tasbihCount / goal) * beadsList.length) : tasbihCount;
   beadsList.forEach((b, i) => b.classList.toggle('filled', i < filledBeads));
-  localStorage.setItem('tasbihCount', tasbihCount);
-  localStorage.setItem('tasbihLap', tasbihLap);
+  try { localStorage.setItem('tasbihCount', tasbihCount); localStorage.setItem('tasbihLap', tasbihLap); } catch (e) {}
 }
 
 document.getElementById('tasbih-tap-btn').addEventListener('click', (e) => {
   const btn = e.currentTarget;
   document.getElementById('tasbih-msg').classList.remove('active');
   tasbihCount++;
+  // سُجِّلت كل تسبيحة فوراً في الإحصائيات؛ سابقاً لم يكن يُسجَّل إلا الجولات الكاملة
+  // فتضيع التسبيحات الناقصة عند التصفير (B-6).
+  if (window.StatsManager) StatsManager.recordTasbih(1);
   // اهتزاز لمسي خفيف عند كل تسبيحة
   if (window.Haptics) Haptics.tap(10);
   // Animate the bead that just got filled (نفس النسبة في updateTasbihUI)
@@ -2079,8 +2104,7 @@ document.getElementById('tasbih-tap-btn').addEventListener('click', (e) => {
   // Floater
   Motion.floater(btn, '+1', 'var(--accent)');
   if (tasbihCount >= goal) {
-    // تسجيل الجولة في الإحصائيات
-    if (window.StatsManager) StatsManager.recordTasbih(goal);
+    // (التسبيحات سُجِّلت بالفعل عند كل ضغطة — لا حاجة لتسجيل الجولة كاملة هنا)
     tasbihCount = 0;
     tasbihLap++;
     if (tasbihLap >= tasbihTotalLaps()) {
@@ -2260,7 +2284,10 @@ document.addEventListener('DOMContentLoaded', () => {
     else { clearBtn.style.transform = 'translateY(-50%) scale(0.7)'; setTimeout(() => clearBtn.style.display = 'none', 200); }
     clearTimeout(_searchDebounce);
     _searchDebounce = setTimeout(() => {
-      const norm = text => text.replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/[\u064B-\u065F]/g, '');
+      // يشمل علامات المصحف كلها (مدّ U+0670، تطويل U+0640، النقطة العليا U+06E1
+      // التي يستخدمها خط المصحف) — سابقاً كان النطاق يتوقف عند U+065F فلا
+      // تطابق أسماء مثل «الكوثر».
+      const norm = text => text.replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/[\u064B-\u0652\u0670\u0640\u06D6-\u06ED]/g, '');
       const nVal = norm(val);
       const filtered = allSurahs.filter(s => norm(s.name).includes(nVal) || s.number.toString() === val);
       renderSurahList(filtered, nVal);
@@ -2286,8 +2313,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const inset = probe.getBoundingClientRect().height || 0;
     document.body.removeChild(probe);
 
-    // 10px هو الأساس المقصود: الشريط لأسفل قليلاً عن الحافة ليتنفّس،
-    // لا ملتصقاً بها. و--nav-drop في CSS تضيف النزول الإضافي فوق المنطقة الآمنة.
+    // الأساس المقصود للفراغ فوق منطقة الأمان ≈ 12px إجمالاً: هذا الجزء (10px)
+    // + --nav-drop في CSS (2px). الشريط لأسفل قليلاً عن الحافة ليتنفّس،
+    // لا ملتصقاً بها. شاشات قصيرة/أفقية: 10px و8px إجمالاً على التوالي.
     //
     // الاستثناءان — كلاهما يقلّل الفراغ بدل أن يزيده:
     //  1. شاشات قصيرة/أفقية: نمرّر ارتفاع الشريط المصغّر هنا لأن الدالة

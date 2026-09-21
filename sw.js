@@ -1,10 +1,9 @@
 // ==================== Service Worker — إسلامي ====================
-// v36: أُضيفت أيقونات PNG حقيقية (icons/) وتحديث manifest.json.
-// رفعنا رقم الإصدار حتى يتخلّص التطبيق المثبّت من نسخة index.html القديمة
-// التي كانت تشير إلى apple-touch-icon بصيغة SVG (لا يدعمها سفاري).
-const CACHE_NAME = 'quran-app-v36'; 
-const API_CACHE = 'quran-api-v36';
-const STATIC_CACHE = 'static-v36';
+// v37: كشف state/Motion كخصائص window، إصلاح أيقونة التذكيرات ومصدر الصوت
+// في CSP، خفض مسافة شريط التنقل إلى 12px، وإصلاح focus عند النقر على الإشعار.
+const CACHE_NAME = 'quran-app-v37';
+const API_CACHE = 'quran-api-v37';
+const STATIC_CACHE = 'static-v37';
 
 const PRECACHE_URLS = [
   './',
@@ -200,9 +199,12 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(clientList => {
+    // includeUncontrolled: true حتى نصل إلى كل نسخ التطبيق المفتوحة،
+    // والمقارنة تبدأ من نطاق التسجيل لأن روابط العميل تكون مطلقة.
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      const scope = self.registration.scope;
       for (let client of clientList) {
-        if (client.url === './' && 'focus' in client) {
+        if (client.url.startsWith(scope) && 'focus' in client) {
           return client.focus();
         }
       }

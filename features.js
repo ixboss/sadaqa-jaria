@@ -60,10 +60,13 @@ const StatsManager = {
   getStreak() {
     const days = Object.keys(this.getAll().days || {}).sort();
     if (!days.length) return 0;
+    const keyOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     let streak = 0;
     let cursor = new Date(); cursor.setHours(0, 0, 0, 0);
+    // إن لم يُقرأ اليوم بعد، نبدأ العد من الأمس فلا تنكسر سلسلةٌ ما زالت مستمرة
+    if (!days.includes(keyOf(cursor))) cursor.setDate(cursor.getDate() - 1);
     for (;;) {
-      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
+      const key = keyOf(cursor);
       if (days.includes(key)) { streak++; cursor.setDate(cursor.getDate() - 1); }
       else break;
     }
@@ -119,6 +122,7 @@ window.StatsManager = StatsManager;
 const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[c]));
+window.escapeHtml = escapeHtml;
 
 const BookmarksView = {
   render() {
@@ -401,7 +405,7 @@ const Reminders = {
     const t = setTimeout(() => {
       try {
         if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('إسلامي', { body, tag: 'reminder-' + hour, icon: './manifest-icon.png' });
+          new Notification('إسلامي', { body, tag: 'reminder-' + hour, icon: './icons/icon-192.png' });
         }
       } catch (e) {}
       // أعد الجدولة لليوم التالي
