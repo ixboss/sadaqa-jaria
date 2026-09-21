@@ -1,9 +1,9 @@
 // ==================== Service Worker — إسلامي ====================
-// v37: كشف state/Motion كخصائص window، إصلاح أيقونة التذكيرات ومصدر الصوت
-// في CSP، خفض مسافة شريط التنقل إلى 12px، وإصلاح focus عند النقر على الإشعار.
-const CACHE_NAME = 'quran-app-v37';
-const API_CACHE = 'quran-api-v37';
-const STATIC_CACHE = 'static-v37';
+// v38: مسار تنقّل حقيقي + مزامنة التبويب، بحث نص الآيات، إكمال أذكار الصباح/المساء،
+// شارة حفظ الآية، تنقّل بين السور، متابعة موضع القراءة، وإصلاح قصّ المناسبات.
+const CACHE_NAME = 'quran-app-v38';
+const API_CACHE = 'quran-api-v38';
+const STATIC_CACHE = 'static-v38';
 
 const PRECACHE_URLS = [
   './',
