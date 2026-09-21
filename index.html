@@ -92,7 +92,6 @@
   --color-success: var(--success);
   --color-on-accent: #f4f1e8;   /* نص فوق الأزرار الملوّنة */
   --color-on-accent-soft: rgba(244, 241, 232, 0.85);
-  --color-shadow: rgba(0, 0, 0, 0.4);
   --radius: 12px;
   /* ===== نظام الخطوط: حجم أساسي واحد × نسبة تكبير واحدة ===== */
   --font-base: 26px;                        /* الحجم المرجعي (متوسط) */
@@ -136,14 +135,8 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-spring-soft: cubic-bezier(0.5, 1.5, 0.4, 1);
   --ease-spring-snap: cubic-bezier(0.5, 1.7, 0.6, 1);
-  --motion-ease-fast: cubic-bezier(.2,.9,.3,1);
-  --motion-ease: cubic-bezier(.22,.9,.3,1);
-  --motion-ease-slow: cubic-bezier(.2,.7,.3,1);
   --motion-duration-fast: 180ms;
   --motion-duration: 260ms;
-  --motion-duration-slow: 420ms;
-  --motion-duration-slower: 700ms;
-  --stagger-step: 50ms;
   --bounce-step: 12ms;
 }
 
@@ -168,7 +161,6 @@
 
 /* New: depth-in adds a subtle scale for layered feel */
 @keyframes depthIn { from { opacity: 0; transform: scale(0.97) translateY(14px); filter: blur(4px); } to { opacity: 1; } }
-@keyframes depthOut { from { opacity: 1; transform: scale(1); filter: blur(0); } to { opacity: 0; transform: scale(1.02); filter: blur(2px); } }
 
 /* New: count pop for number feedback */
 @keyframes countPop { 0% { transform: scale(1); } 35% { transform: scale(1.22); } 70% { transform: scale(0.95); } 100% { transform: scale(1); } }
@@ -204,7 +196,6 @@
 .reveal-hidden { opacity: 0; transform: translateY(8px); will-change: opacity, transform; transition: opacity var(--motion-duration) var(--ease-out-quart), transform var(--motion-duration) var(--ease-out-quart); }
 .reveal-hidden.in { opacity: 1; transform: none; }
 .reveal-hidden[style*="--reveal-delay"] { transition-delay: var(--reveal-delay); }
-@keyframes depthInStagger { from { opacity: 0; transform: translateY(12px) scale(0.985); filter: blur(2px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
 
 /* Bookmark microinteraction */
 .bookmark-btn { transition: transform var(--motion-duration-fast) var(--ease-spring-snap), color var(--motion-duration) var(--ease-out-quart), background var(--motion-duration) var(--ease-out-quart); will-change: transform; }
@@ -355,7 +346,6 @@ body.theme-light {
   --color-success: var(--success);
   --color-on-accent: #ffffff;
   --color-on-accent-soft: rgba(255, 255, 255, 0.9);
-  --color-shadow: rgba(20, 51, 58, 0.15);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -538,7 +528,7 @@ body.theme-light .nav-tab.active .nav-icon { filter: drop-shadow(0 4px 6px rgba(
 .screen.active { display: block; animation: depthIn 360ms var(--ease-out-quart) backwards; }
 .screen.slide-left { display: block; animation: slideInLeft 380ms var(--ease-out-quart) backwards; }
 .screen.slide-right { display: block; animation: slideInRight 380ms var(--ease-out-quart) backwards; }
-#screen-tasbih.active, #screen-tasbih.slide-left, #screen-tasbih.slide-right { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - var(--header-h) - 100px); }
+#screen-tasbih.active, #screen-tasbih.slide-left, #screen-tasbih.slide-right { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100dvh - var(--header-h) - 100px); }
 
 .skeleton { background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 30%, var(--surface) 60%, var(--surface-2) 100%); background-size: 200% 100%; animation: shimmerWave 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite; border-radius: 8px; position: relative; overflow: hidden; }
 .skeleton::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%); animation: shimmerWave 2s linear infinite; pointer-events: none; }
@@ -573,9 +563,45 @@ body.theme-light .surah-h-name { color: var(--color-on-accent); }
 body.theme-light .bookmark-btn { background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); color: var(--color-on-accent); }
 .bookmark-btn:active { transform: scale(0.8); }
 
-.mushaf-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 24px; margin-bottom: 16px; font-family: 'Amiri Quran', 'Amiri', serif; font-size: var(--mushaf-size); line-height: var(--mushaf-lh); text-align: right; color: var(--text); direction: rtl; word-spacing: 0.04em; transition: background 0.4s, color 0.4s, font-size 0.3s, line-height 0.3s; }
+.mushaf-block { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px 26px; margin-bottom: 16px; font-family: 'Amiri Quran', 'Amiri', serif; font-size: var(--mushaf-size); line-height: var(--mushaf-lh); text-align: justify; text-justify: inter-word; color: var(--text); direction: rtl; word-spacing: 0.04em; transition: background 0.4s, color 0.4s, font-size 0.3s, line-height 0.3s; }
+/* إطار زخرفي داخل الصفحة على غرار هوامش المصحف المطبوع */
+.mushaf-block::before { content: ''; position: absolute; inset: 9px; border: 1px solid var(--border); border-radius: 8px; pointer-events: none; opacity: 0.55; }
 
-.ayah-separator { color: var(--accent); font-family: Tahoma, sans-serif; font-size: 0.62em; margin: 0 6px; font-weight: bold; vertical-align: middle; }
+/* ===== الآية: غلاف غير مرئي قابل للنقر + حالات التحديد والتلاوة ===== */
+.ayah { cursor: pointer; border-radius: 6px; padding: 0 2px; transition: background 240ms var(--ease-out-quart), box-shadow 240ms var(--ease-out-quart); -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) { .ayah:hover { background: var(--accent-dim); } }
+.ayah.selected { background: var(--accent-dim); box-shadow: inset 0 0 0 1px var(--accent); }
+/* الآية الجارية تلاوتها: غسلة لونية ناعمة */
+.ayah.reciting { background: var(--accent-dim); }
+body.theme-light .ayah.reciting { background: rgba(31, 122, 90, 0.10); }
+.ayah.reciting.selected { box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* الكلمات: التظليل يتبع التلاوة داخل الآية */
+.w { transition: color 200ms var(--ease-out-quart), background 200ms var(--ease-out-quart); border-radius: 4px; padding: 0 1px; }
+.w.reciting { color: var(--accent); }
+.w.reciting-now { color: var(--accent); background: var(--accent-dim); }
+
+/* شارة رقم الآية الدائرية كما في المصحف المدني */
+.ayah-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5em; height: 1.5em; margin: 0 4px 0 2px; padding: 0 4px; border-radius: 50%; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent); font-size: 0.48em; font-family: Tahoma, sans-serif; font-weight: 700; vertical-align: middle; }
+
+/* ===== تنقّل صفحات المصحف داخل السورة ===== */
+.mushaf-page-label { text-align: center; font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); margin-bottom: 10px; }
+.mushaf-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 4px 0 18px; }
+.mushaf-nav-btn { flex: 1; max-width: 150px; }
+.mushaf-nav-btn:disabled { opacity: 0.35; pointer-events: none; }
+.mushaf-nav-pos { font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); font-family: Tahoma, sans-serif; white-space: nowrap; }
+
+/* ===== شريط إجراءات الآية المحدّدة ===== */
+#ayah-bar { position: fixed; bottom: calc(var(--nav-clearance-safe) + 12px); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface); border: 1px solid var(--accent); border-radius: 30px; padding: 8px 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 96; display: flex; align-items: center; gap: 6px; visibility: hidden; opacity: 0; max-width: calc(100vw - 32px); transition: visibility 0s linear 300ms, transform 320ms var(--ease-spring-snap), opacity 260ms var(--ease-out-quart); }
+#ayah-bar.visible { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); transition: visibility 0s linear 0s, transform 320ms var(--ease-spring-snap), opacity 260ms var(--ease-out-quart); }
+#ayah-bar.with-audio { bottom: calc(var(--nav-clearance-safe) + 72px); }
+#ayah-bar button { background: var(--accent-dim); color: var(--accent); border: none; border-radius: 20px; height: 38px; padding: 0 14px; display: flex; align-items: center; gap: 6px; font-size: calc(var(--font-size) * 0.52); font-weight: 700; cursor: pointer; white-space: nowrap; transition: transform 180ms var(--ease-spring-snap), background 200ms; }
+#ayah-bar button:active { transform: scale(0.92); }
+#ayah-bar button.ayah-close { background: var(--surface-2); color: var(--text-dim); width: 38px; padding: 0; border-radius: 50%; justify-content: center; }
+
+/* ===== Toast: تنبيه عابر خفيف ===== */
+#app-toast { position: fixed; bottom: calc(var(--nav-clearance-safe) + 76px); left: 50%; transform: translateX(-50%) translateY(16px); background: var(--accent-deep); color: var(--color-on-accent); border-radius: 22px; padding: 10px 20px; font-size: calc(var(--font-size) * 0.52); font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,0.45); z-index: 200; visibility: hidden; opacity: 0; max-width: calc(100vw - 48px); text-align: center; transition: visibility 0s linear 260ms, transform 280ms var(--ease-spring-snap), opacity 220ms var(--ease-out-quart); }
+#app-toast.visible { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); transition: visibility 0s linear 0s, transform 280ms var(--ease-spring-snap), opacity 220ms var(--ease-out-quart); }
 .bismillah { text-align: center; font-family: 'Amiri Quran', 'Amiri', serif; font-size: calc(var(--mushaf-size) * 1.08); color: var(--accent); padding: 14px 10px 22px 10px; line-height: var(--mushaf-lh); transition: font-size 0.3s; }
 
 /* display غير قابل للتحريك؛ نستخدم visibility + opacity للحصول على تلاشٍ ناعم */
@@ -674,7 +700,7 @@ body.theme-light .occasion-card { box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
 .tasbih-laps { display: flex; gap: 10px; margin-bottom: 24px; justify-content: center; }
 .tasbih-lap-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); background: transparent; transition: background 0.3s; }
 .tasbih-lap-dot.filled { background: var(--accent); }
-#tasbih-circle-wrap { position: relative; width: 280px; height: 280px; margin: 0 auto; }
+#tasbih-circle-wrap { position: relative; width: min(280px, 70vw); height: min(280px, 70vw); margin: 0 auto; }
 .tasbih-bead { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); transform: translate(-50%, -50%); transition: 0.2s; }
 .tasbih-bead.filled { background: var(--accent); border-color: var(--accent); transform: translate(-50%, -50%) scale(1.3); }
 #tasbih-tap-btn { position: absolute; inset: 34px; border-radius: 50%; background: var(--accent-grad); border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: transform 0.1s; }
@@ -706,6 +732,8 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
   transform: scale(0.97) !important;
   transition: transform 120ms var(--ease-out-quart) !important;
 }
+/* عناصر التفاعل الجديدة (شريط الآيات) تتّبع نفس سلوك الضغط */
+#ayah-bar button:active, .mushaf-nav-btn:active { transform: scale(0.97); }
 
 /* ==================== Custom Dialog Styles ==================== */
 #custom-dialog-overlay { position: fixed; inset: 0; background: rgba(5,6,10,0.72); z-index: 99999; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(5px); }
@@ -742,8 +770,8 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 .stats-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; }
 .stats-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; position: relative; }
 .stats-bar { width: 70%; max-width: 34px; background: linear-gradient(180deg, var(--accent), var(--accent-deep)); border-radius: 8px 8px 4px 4px; transition: height 600ms var(--ease-spring); min-height: 4px; position: relative; }
-.stats-bar-tip { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--accent); font-weight: bold; font-family: Tahoma, sans-serif; }
-.stats-bar-label { font-size: 11px; color: var(--text-dim); font-family: Tahoma, sans-serif; }
+.stats-bar-tip { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: calc(var(--font-size) * 0.42); color: var(--accent); font-weight: bold; font-family: Tahoma, sans-serif; }
+.stats-bar-label { font-size: calc(var(--font-size) * 0.42); color: var(--text-dim); font-family: Tahoma, sans-serif; }
 
 /* ==================== شاشة الإعدادات ==================== */
 .settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; }
@@ -764,9 +792,6 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 
 /* ==================== حلقة التقدم بحركة زنبركية ==================== */
 .circle-path { transition: stroke-dasharray 900ms var(--ease-spring), stroke 0.4s; }
-
-/* ==================== زر إضافي في الشريط العلوي للمرجعيات ==================== */
-#header { }
 
 /* ==================== تكييف شريط التنقل مع المقاسات والاتجاهات ==================== */
 
@@ -1399,6 +1424,9 @@ function applyTheme(th) {
   const metaTheme = document.getElementById('meta-theme-color');
   if (metaTheme) metaTheme.setAttribute('content', th === 'light' ? '#f5f1e8' : '#0a1f28');
   saveState();
+  // انتقال ناعم بين الوضعين بدل القفزة اللحظية
+  Motion.themeCrossfade();
+  Motion.headerFlash();
 }
 
 function applyFontSize(size) {
@@ -1433,6 +1461,8 @@ function showScreen(screenId, animClass = 'active') {
 
   if (state.currentScreen !== screenId) state.previousScreen = state.currentScreen;
   state.currentScreen = screenId;
+  // أخفِ شريط إجراءات الآية عند مغادرة قارئ السورة
+  if (screenId !== 'surah-view' && screenId !== 'khatmah-read') hideAyahBar();
   const isSubScreen = ['surah-view', 'thikr-view', 'dua-list', 'tasbih', 'khatmah-read', 'occasion-list', 'bookmarks', 'settings', 'stats'].includes(screenId);
   const backBtn = document.getElementById('back-btn');
   if (backBtn) {
@@ -1729,6 +1759,26 @@ async function loadSurahList() {
 // تهريب النصوص القادمة من الشبكة أو localStorage قبل إدراجها في innerHTML (B-5)
 const escHtml = (s) => (window.escapeHtml || String)(s ?? '');
 
+/* ==================== مولّد صفحة المصحف المشترك ==================== */
+// يبني ترميز الآيات لكل من قارئ السورة وقارئ الختمة من مصدر واحد موثوق
+// (quran-uthmani). النص لا يُعدَّل إطلاقاً — تُضاف الأغلفة فقط حول الكلمات
+// والآيات. تُجزَّأ الكلمات على الفراغات قبل التهريب حتى لا ينقسم كيان HTML
+// (entity) على حدود كلمة. كل آية تُغلَّف بعنصر قابل للتحديد وللتظليل، وكل
+// كلمة بـ span مستقل ليتبعها التظليل أثناء التلاوة.
+function buildMushafHTML(ayahs, opts = {}) {
+  const fallbackSurah = opts.surahNumber || null;
+  const sNum = a => (a.surah && typeof a.surah === 'object' && a.surah.number) || fallbackSurah;
+  return (ayahs || []).map(a => {
+    const sn = sNum(a);
+    let text = a.text;
+    // البسملة تُحذف من بداية الآية الأولى لكل سورة عدا الفاتحة (آية مستقلة) والتوبة (لا بسملة)
+    if (a.numberInSurah === 1 && sn !== 1 && sn !== 9) text = stripBismillah(text);
+    const words = (text || '').trim().split(/\s+/).filter(Boolean);
+    const wordsHtml = words.map(w => `<span class="w">${escHtml(w)}</span>`).join(' ');
+    return `<span class="ayah" data-surah="${sn}" data-ayah="${a.numberInSurah}" data-global="${a.number}">${wordsHtml}<span class="ayah-badge" title="آية ${toArabicNum(a.numberInSurah)}">${toArabicNum(a.numberInSurah)}</span></span> `;
+  }).join('');
+}
+
 function renderSurahList(list, query = '') {
   document.getElementById('surah-list-container').innerHTML = list.map(s => {
     const safeName = escHtml(s.name);
@@ -1753,9 +1803,11 @@ function renderSurahList(list, query = '') {
 // رمز طلب لتفادي سباق التبديل السريع بين السور (يُلغي الرسم إن تغيّرت السورة أثناء التحميل)
 let openSurahToken = 0;
 
-window.openSurah = async function(number) {
+window.openSurah = async function(number, focusAyah = null) {
   const token = ++openSurahToken;
   state.currentSurah = allSurahs.find(s => s.number === number) || { name: `سورة ${number}`, number: number, numberOfAyahs: 0 };
+  // عيّن الآية المستهدفة قبل showScreen حتى يعكس الرابط العميق قيمتها من البداية
+  window.selectedAyahNo = focusAyah ? +focusAyah : null;
   showScreen('surah-view', 'slide-left');
   const container = document.getElementById('verses-container'); container.innerHTML = getSkeletonHTML();
   document.getElementById('surah-view-name').textContent = state.currentSurah.name; updateBookmarkIcon();
@@ -1792,17 +1844,216 @@ window.openSurah = async function(number) {
   // ألغِ الرسم إذا بدّل المستخدم السورة أثناء التحميل
   if (token !== openSurahToken) return;
 
-  let html = (number !== 1 && number !== 9) ? `<div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>` : '';
-  html += `<div class="mushaf-block">`;
-  surahData.ayahs.forEach(ayah => {
-    let text = ayah.text;
-    if (ayah.numberInSurah === 1 && number !== 1 && number !== 9) {
-        text = stripBismillah(text);
-    }
-    html += `${escHtml(text)} <span class="ayah-separator">﴿${toArabicNum(ayah.numberInSurah)}﴾</span> `;
-  });
-  html += `</div>`; container.innerHTML = html;
+  // خزّن بيانات السورة ليتمكن مشغّل التلاوة من بناء القائمة منها
+  state.currentSurahData = surahData;
+  // قسّم الآيات على صفحات المصحف كما تأتي من المصدر الموثوق — دون أي طلب إضافي
+  state.surahPages = groupAyahsByPage(surahData.ayahs);
+  state.surahPageIndex = 0;
+  if (focusAyah) {
+    const pi = state.surahPages.findIndex(p => p.ayahs.some(a => a.numberInSurah === focusAyah));
+    if (pi >= 0) state.surahPageIndex = pi;
+  }
+  renderSurahPage(focusAyah);
 }
+
+// تجميع الآيات في صفحات المصحف حسب الحقل page القادم من المصدر نفسه
+function groupAyahsByPage(ayahs) {
+  const pages = []; let cur = null;
+  (ayahs || []).forEach(a => {
+    const pg = a.page || 0;
+    if (!cur || cur.page !== pg) { cur = { page: pg, juz: a.juz || null, ayahs: [] }; pages.push(cur); }
+    cur.ayahs.push(a);
+  });
+  return pages;
+}
+
+// يرسم صفحة مصحف واحدة من state.surahPages[state.surahPageIndex]
+function renderSurahPage(focusAyah = null) {
+  const container = document.getElementById('verses-container');
+  const pages = state.surahPages || [];
+  if (!pages.length) { container.innerHTML = ''; return; }
+  const idx = Math.max(0, Math.min(state.surahPageIndex || 0, pages.length - 1));
+  state.surahPageIndex = idx;
+  const page = pages[idx];
+  const number = state.currentSurah ? state.currentSurah.number : 0;
+
+  let html = '';
+  // البسملة تُعرض مرّة واحدة فوق أول صفحة من السورة
+  if (idx === 0 && number !== 1 && number !== 9) {
+    html += `<div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>`;
+  }
+  html += `<div class="mushaf-page-label">صفحة ${toArabicNum(page.page)}${page.juz ? ` — الجزء ${toArabicNum(page.juz)}` : ''}</div>`;
+  html += `<div class="mushaf-block">${buildMushafHTML(page.ayahs, { surahNumber: number })}</div>`;
+  if (pages.length > 1) {
+    html += `<div class="mushaf-nav">
+      <button class="btn-scale mushaf-nav-btn" id="mp-prev" ${idx === 0 ? 'disabled' : ''}>→ السابقة</button>
+      <span class="mushaf-nav-pos">${toArabicNum(idx + 1)} / ${toArabicNum(pages.length)}</span>
+      <button class="btn-scale mushaf-nav-btn" id="mp-next" ${idx >= pages.length - 1 ? 'disabled' : ''}>التالية ←</button>
+    </div>`;
+  }
+  container.innerHTML = html;
+
+  const prev = document.getElementById('mp-prev');
+  const next = document.getElementById('mp-next');
+  if (prev) prev.addEventListener('click', () => goSurahPage(-1));
+  if (next) next.addEventListener('click', () => goSurahPage(1));
+  // أعد ربط تظليل التلاوة بالعنصر المعروض إن وُجد على هذه الصفحة
+  if (window.AudioPlayer && AudioPlayer.refreshHighlight) AudioPlayer.refreshHighlight();
+  if (focusAyah) {
+    const el = container.querySelector(`.ayah[data-ayah="${focusAyah}"]`);
+    if (el) selectAyah(el, true);
+    else window.selectedAyahNo = null; // آية غير موجودة: لا تترك قيمة عالقة في الرابط
+  }
+  // حدّث الرابط العميق بعد اكتمال الرسم (يعكس تنقّل الصفحات وتغيّر التحديد)
+  if (window.DeepLinks) try { DeepLinks.update('surah-view'); } catch (e) {}
+  if (window.AnimationManager?.observeReveal) AnimationManager.observeReveal();
+}
+
+window.goSurahPage = function(dir) {
+  const pages = state.surahPages || [];
+  const nx = (state.surahPageIndex || 0) + dir;
+  if (nx < 0 || nx >= pages.length) return;
+  state.surahPageIndex = nx;
+  hideAyahBar();
+  renderSurahPage();
+  document.getElementById('content').scrollTop = 0;
+};
+
+/* ==================== تفاعل الآية: تحديد + نسخ + تشغيل + حفظ ==================== */
+let selectedAyahEl = null;
+
+// يعيد نص الآية كما يراه المستخدم (كلماتها مفصولة بفراغات)
+function ayahPlainText(el) {
+  if (!el) return '';
+  return Array.from(el.querySelectorAll('.w')).map(w => w.textContent).join(' ');
+}
+
+function getAyahDataFromEl(el) {
+  if (!el) return null;
+  return { surah: +el.dataset.surah, ayah: +el.dataset.ayah, global: +el.dataset.global, text: ayahPlainText(el) };
+}
+
+// تحديد آية وعرض شريط الإجراءات
+window.selectAyah = function(el, scroll = false) {
+  if (!el) return;
+  document.querySelectorAll('.ayah.selected').forEach(a => a.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedAyahEl = el;
+  window.selectedAyahNo = +el.dataset.ayah;
+  showAyahBar();
+  if (scroll) {
+    const r = el.getBoundingClientRect();
+    const vh = window.innerHeight;
+    if (r.top < 130 || r.bottom > vh - 170) {
+      const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center' });
+    }
+  }
+};
+
+function showAyahBar() {
+  let bar = document.getElementById('ayah-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'ayah-bar';
+    bar.innerHTML = `<button data-act="play">▶ تشغيل</button>
+      <button data-act="copy">⧉ نسخ</button>
+      <button data-act="bookmark">🔖 حفظ</button>
+      <button class="ayah-close" data-act="close" aria-label="إغلاق">✕</button>`;
+    document.body.appendChild(bar);
+    bar.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      onAyahBarAction(b.dataset.act);
+    });
+  }
+  const audioBar = document.getElementById('audio-bar');
+  bar.classList.toggle('with-audio', !!(audioBar && audioBar.classList.contains('visible')));
+  bar.classList.add('visible');
+}
+
+function hideAyahBar() {
+  const bar = document.getElementById('ayah-bar');
+  if (bar) bar.classList.remove('visible');
+  if (selectedAyahEl) { selectedAyahEl.classList.remove('selected'); selectedAyahEl = null; }
+  window.selectedAyahNo = null;
+}
+
+function onAyahBarAction(act) {
+  const el = selectedAyahEl;
+  if (!el) { hideAyahBar(); return; }
+  const d = getAyahDataFromEl(el);
+  if (act === 'close') { hideAyahBar(); return; }
+  if (act === 'play') {
+    hideAyahBar();
+    if (window.AudioPlayer && d) AudioPlayer.playFromAyah(d.surah, d.ayah);
+    return;
+  }
+  if (act === 'copy') {
+    copyAyah(d).then(ok => Toast.show(ok ? 'تم نسخ الآية ✓' : 'تعذّر النسخ'));
+    return;
+  }
+  if (act === 'bookmark') {
+    try {
+      if (window.BookmarkManager && d) {
+        const exists = BookmarkManager.getAll().verses.some(v => v.surah === d.surah && v.ayah === d.ayah);
+        if (exists) Toast.show('الآية محفوظة مسبقاً');
+        else { BookmarkManager.addVerseBookmark(d.surah, d.ayah, d.text); Toast.show('تم حفظ الآية 🔖'); }
+      }
+    } catch (e) { Toast.show('تعذّر الحفظ'); }
+  }
+}
+
+// نسخ نص عربي بحت (بدون HTML أو علامات اتجاه) عبر الحافظة أو execCommand
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) {}
+  const ta = document.createElement('textarea');
+  ta.setAttribute('readonly', '');
+  ta.dir = 'rtl';
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) {}
+  ta.remove();
+  return ok;
+}
+
+// نص الآية + سطر المرجع بالعربية فقط حتى لا يختلط اتجاه النص عند اللصق
+async function copyAyah(d) {
+  if (!d) return false;
+  const surahName = (state.currentSurah && state.currentSurah.name) || `سورة ${d.surah}`;
+  return copyTextToClipboard(`${d.text}\nسورة ${surahName} — آية ${toArabicNum(d.ayah)}`);
+}
+
+// معالج نقر الآيات (مفوَّض على الحاويات الدائمة)
+function onAyahClick(e) {
+  // تجاهل النقر أثناء تحديد المستخدم للنص يدوياً حتى يبقى النسخ الأصلي متاحاً
+  const sel = window.getSelection ? window.getSelection().toString() : '';
+  if (sel) return;
+  const ayah = e.target.closest('.ayah');
+  if (!ayah) return;
+  selectAyah(ayah, false);
+}
+
+// تنبيه عابر خفيف (بديل للحوار الثقيل لرسائل مثل "تم النسخ")
+const Toast = {
+  timer: null,
+  show(msg) {
+    let t = document.getElementById('app-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'app-toast'; document.body.appendChild(t); }
+    t.textContent = msg;
+    t.classList.add('visible');
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => t.classList.remove('visible'), 2400);
+  }
+};
+window.Toast = Toast;
 
 function updateKhatmahUI() {
   if (!state.khatmah || !state.khatmah.active) {
@@ -1901,28 +2152,30 @@ async function loadKhatmahPage(pageNum) {
     const data = await res.json();
 
     let html = `<div style="text-align:center; font-size:calc(var(--font-size) * 0.54); color:var(--text-dim); margin-bottom:10px;">صفحة ${toArabicNum(pageNum)}</div>`;
-    let currentSurah = data.data.ayahs[0].surah.number;
+    const ayahs = data.data.ayahs;
+    let currentSurah = ayahs[0].surah.number;
 
-    if (data.data.ayahs[0].numberInSurah === 1) {
-        html += `<div class="surah-header-card" style="margin-top:20px;"><div class="surah-h-name">${data.data.ayahs[0].surah.name}</div></div>`;
+    // رأس السورة إذا بدأت الصفحة بأول آية منها
+    if (ayahs[0].numberInSurah === 1) {
+        html += `<div class="surah-header-card" style="margin-top:20px;"><div class="surah-h-name">${escHtml(ayahs[0].surah.name)}</div></div>`;
         if (currentSurah !== 1 && currentSurah !== 9) html += `<div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>`;
     }
+
     html += `<div class="mushaf-block">`;
-
-    data.data.ayahs.forEach((ayah, index) => {
+    // اجمع آيات كل سورة على حدة، وابنِ ترميزها دفعة واحدة بالمولّد المشترك
+    let blockAyahs = [];
+    const flushBlock = () => { html += buildMushafHTML(blockAyahs); blockAyahs = []; };
+    ayahs.forEach((ayah, index) => {
       if (ayah.surah.number !== currentSurah) {
+        flushBlock();
         html += `</div>`;
-        html += `<div class="surah-header-card" style="margin-top:20px;"><div class="surah-h-name">${ayah.surah.name}</div></div>`;
+        html += `<div class="surah-header-card" style="margin-top:20px;"><div class="surah-h-name">${escHtml(ayah.surah.name)}</div></div>`;
         if (ayah.surah.number !== 1 && ayah.surah.number !== 9) html += `<div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>`;
-        html += `<div class="mushaf-block">`; currentSurah = ayah.surah.number;
+        html += `<div class="mushaf-block">`;
+        currentSurah = ayah.surah.number;
       }
-
-      let text = ayah.text;
-      if (ayah.numberInSurah === 1 && ayah.surah.number !== 1 && ayah.surah.number !== 9) {
-          text = stripBismillah(text);
-      }
-      html += `${text} <span class="ayah-separator">﴿${toArabicNum(ayah.numberInSurah)}﴾</span> `;
-      if (index === data.data.ayahs.length - 1) html += `</div>`;
+      blockAyahs.push(ayah);
+      if (index === ayahs.length - 1) { flushBlock(); html += `</div>`; }
     });
 
     container.innerHTML = html; document.getElementById('content').scrollTop = 0;
@@ -2163,6 +2416,12 @@ document.addEventListener('DOMContentLoaded', () => {
   searchBar = document.getElementById('search-bar');
   clearBtn = document.getElementById('clear-search');
 
+  // تفويض النقر على الآيات في القارئين (الحاويات دائمة، المحتوى يُعاد رسمه بداخلها)
+  ['verses-container', 'khatmah-page-container'].forEach(id => {
+    const c = document.getElementById(id);
+    if (c) c.addEventListener('click', onAyahClick);
+  });
+
   initHijri(); loadState();
   // تسجيل Service Worker يتم مرة واحدة فقط في نهاية <body> (تجنّب التسجيل المزدوج)
 
@@ -2174,7 +2433,10 @@ document.addEventListener('DOMContentLoaded', () => {
     updateBookmarkIcon();
   });
 
-  applyTheme(state.theme || 'dark');
+  // الوضع المحفوظ له الأولوية، وإلا فاتبع وضع النظام (مع التخلف للداكن)
+  const initialTheme = state.theme
+    || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  applyTheme(initialTheme);
   applyFontSize(state.fontSize || 'large');
 
   document.querySelectorAll('.font-btn').forEach(btn => btn.addEventListener('click', function() { applyFontSize(this.dataset.size); }));
