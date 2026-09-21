@@ -583,6 +583,9 @@ body.theme-light .ayah.reciting { background: rgba(31, 122, 90, 0.10); }
 
 /* شارة رقم الآية الدائرية كما في المصحف المدني */
 .ayah-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5em; height: 1.5em; margin: 0 4px 0 2px; padding: 0 4px; border-radius: 50%; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent); font-size: 0.48em; font-family: Tahoma, sans-serif; font-weight: 700; vertical-align: middle; }
+/* الآية المحفوظة: تُملأ شارتها باللون المميِّز فتظهر العلامة على الآية نفسها */
+.ayah.bookmarked .ayah-badge { background: var(--accent); color: var(--color-on-accent); border-color: transparent; box-shadow: 0 0 0 2px var(--surface); }
+body.theme-light .ayah.bookmarked .ayah-badge { box-shadow: 0 0 0 2px var(--surface); }
 
 /* ===== تنقّل صفحات المصحف داخل السورة ===== */
 .mushaf-page-label { text-align: center; font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); margin-bottom: 10px; }
@@ -590,6 +593,10 @@ body.theme-light .ayah.reciting { background: rgba(31, 122, 90, 0.10); }
 .mushaf-nav-btn { flex: 1; max-width: 150px; }
 .mushaf-nav-btn:disabled { opacity: 0.35; pointer-events: none; }
 .mushaf-nav-pos { font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); font-family: Tahoma, sans-serif; white-space: nowrap; }
+/* تنقّل السور أرفق من تنقّل الصفحات حتى لا يتساوى بصرياً معه */
+.surah-nav { margin-top: -6px; }
+.surah-nav .mushaf-nav-btn { max-width: 130px; font-size: calc(var(--font-size) * 0.44); }
+.ayah-search-status { text-align: center; color: var(--text-dim); font-size: calc(var(--font-size) * 0.6); padding: 14px 8px; }
 
 /* ===== شريط إجراءات الآية المحدّدة ===== */
 #ayah-bar { position: fixed; bottom: calc(var(--nav-clearance-safe) + 12px); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface); border: 1px solid var(--accent); border-radius: 30px; padding: 8px 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 96; display: flex; align-items: center; gap: 6px; visibility: hidden; opacity: 0; max-width: calc(100vw - 32px); transition: visibility 0s linear 300ms, transform 320ms var(--ease-spring-snap), opacity 260ms var(--ease-out-quart); }
@@ -713,7 +720,7 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 
 #occasion-overlay { position: fixed; inset: 0; background: rgba(5,6,10,0.72); z-index: 999; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(5px); }
 #occasion-overlay.active { display: flex; }
-#occasion-modal { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 400px; padding: 22px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: fadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+#occasion-modal { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 400px; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 22px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: fadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .occasion-modal-icon { font-size: calc(var(--font-size) * 1.3); text-align: center; margin-bottom: 8px; }
 .occasion-modal-title { font-size: calc(var(--font-size) * 0.73); font-weight: 700; color: var(--accent); text-align: center; margin-bottom: 14px; }
 .occasion-modal-item { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; font-size: calc(var(--font-size) * 0.7); line-height: 1.9; color: var(--text); transition: font-size 0.3s, background 0.4s; font-family: inherit; }
@@ -871,8 +878,9 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
         <input type="search" id="search-bar" placeholder="ابحث عن سورة باسمها أو رقمها...">
         <button id="clear-search">&times;</button>
       </div>
-      <div id="surah-list-container"></div>
-    </div>
+    <div id="surah-list-container"></div>
+    <div id="ayah-search-container" style="display:none"></div>
+  </div>
 
     <div id="screen-surah-view" class="screen">
       <div class="surah-header-card">
@@ -1004,6 +1012,9 @@ const MUAWIDHAT = "المعوذات (٣ مرات):\nبِسْمِ اللَّهِ 
 const SAYYID_ALISTIGHFAR = "سيد الاستغفار:\nاللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ لَكَ بِذَنْبِي فَاغْفِرْ لِي، فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ.";
 
 const ATHKAR=[
+// الترتيب والمحتوى موافقان لكتاب حصن المسلم (أذكار الصباح والمساء).
+// النصوص مُنسوخة حرفياً (مع التشكيل) من نسختين مستقلتين من الكتاب
+// (rn0x/hisn_almuslim_json و Islamic-Pro-azkar-API) دون أي تصرّف في ألفاظها.
 {name:"أذكار الصباح",icon:"🌅",items:[
   {text:AYAT_AL_KURSI,count:1},
   {text:MUAWIDHAT,count:3},
@@ -1012,7 +1023,18 @@ const ATHKAR=[
   {text:SAYYID_ALISTIGHFAR,count:1},
   {text:"اللَّهُمَّ إِنِّي أَصْبَحْتُ أُشْهِدُكَ، وَأُشْهِدُ حَمَلَةَ عَرْشِكَ، وَمَلَائِكَتَكَ، وَجَمِيعَ خَلْقِكَ، أَنَّكَ أَنْتَ اللَّهُ لَا إِلَهَ إِلَّا أَنْتَ وَحْدَكَ لَا شَرِيكَ لَكَ، وَأَنَّ مُحَمَّدًا عَبْدُكَ وَرَسُولُكَ.",count:4},
   {text:"اللَّهُمَّ مَا أَصْبَحَ بِي مِنْ نِعْمَةٍ أَوْ بِأَحَدٍ مِنْ خَلْقِكَ، فَمِنْكَ وَحْدَكَ لَا شَرِيكَ لَكَ، فَلَكَ الْحَمْدُ وَلَكَ الشُّكْرُ.",count:1},
+  {text:"اللَّهُمَّ عَافِنِي فِي بَدَنِي، اللَّهُمَّ عَافِنِي فِي سَمْعِي، اللَّهُمَّ عَافِنِي فِي بَصَرِي، لَا إِلَهَ إِلَّا أَنْتَ. اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْكُفْرِ وَالْفَقْرِ، وَأَعُوذُ بِكَ مِنْ عَذَابِ الْقَبْرِ، لَا إِلَهَ إِلَّا أَنْتَ.",count:3},
   {text:"حَسْبِيَ اللَّهُ لَا إِلَهَ إِلَّا هُوَ عَلَيْهِ تَوَكَّلْتُ وَهُوَ رَبُّ الْعَرْشِ الْعَظِيمِ.",count:7},
+  {text:"اللَّهُمَّ إِنِّي أَسْأَلُكَ الْعَفْوَ وَالْعَافِيَةَ فِي الدُّنْيَا وَالْآخِرَةِ، اللَّهُمَّ إِنِّي أَسْأَلُكَ الْعَفْوَ وَالْعَافِيَةَ فِي دِينِي وَدُنْيَايَ وَأَهْلِي وَمَالِي، اللَّهُمَّ اسْتُرْ عَوْرَاتِي وَآمِنْ رَوْعَاتِي، اللَّهُمَّ احْفَظْنِي مِنْ بَيْنِ يَدَيَّ وَمِنْ خَلْفِي وَعَنْ يَمِينِي وَعَنْ شِمَالِي وَمِنْ فَوْقِي، وَأَعُوذُ بِعَظَمَتِكَ أَنْ أُغْتَالَ مِنْ تَحْتِي.",count:1},
+  {text:"اللَّهُمَّ عَالِمَ الْغَيْبِ وَالشَّهَادَةِ فَاطِرَ السَّمَوَاتِ وَالْأَرْضِ، رَبَّ كُلِّ شَيْءٍ وَمَلِيكَهُ، أَشْهَدُ أَنْ لَا إِلَهَ إِلَّا أَنْتَ، أَعُوذُ بِكَ مِنْ شَرِّ نَفْسِي وَمِنْ شَرِّ الشَّيْطَانِ وَشَرَكِهِ، وَأَنْ أَقْتَرِفَ عَلَى نَفْسِي سُوءًا أَوْ أَجُرَّهُ إِلَى مُسْلِمٍ.",count:3},
+  {text:"بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ.",count:3},
+  {text:"رَضِيتُ بِاللَّهِ رَبًّا، وَبِالْإِسْلَامِ دِينًا، وَبِمُحَمَّدٍ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ نَبِيًّا.",count:3},
+  {text:"يَا حَيُّ يَا قَيُّومُ بِرَحْمَتِكَ أَسْتَغِيثُ، أَصْلِحْ لِي شَأْنِيَ كُلَّهُ وَلَا تَكِلْنِي إِلَى نَفْسِي طَرْفَةَ عَيْنٍ.",count:1},
+  {text:"أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ رَبِّ الْعَالَمِينَ، اللَّهُمَّ إِنِّي أَسْأَلُكَ خَيْرَ هَذَا الْيَوْمِ: فَتْحَهُ وَنَصْرَهُ وَنُورَهُ وَبَرَكَتَهُ وَهُدَاهُ، وَأَعُوذُ بِكَ مِنْ شَرِّ مَا فِيهِ وَشَرِّ مَا بَعْدَهُ.",count:1},
+  {text:"أَصْبَحْنَا عَلَى فِطْرَةِ الْإِسْلَامِ، وَعَلَى كَلِمَةِ الْإِخْلَاصِ، وَعَلَى دِينِ نَبِيِّنَا مُحَمَّدٍ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ، وَعَلَى مِلَّةِ أَبِينَا إِبْرَاهِيمَ حَنِيفًا مُسْلِمًا وَمَا كَانَ مِنَ الْمُشْرِكِينَ.",count:1},
+  {text:"سُبْحَانَ اللَّهِ وَبِحَمْدِهِ.",count:100},
+  {text:"لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ.",count:10},
+  {text:"اللَّهُمَّ إِنِّي أَسْأَلُكَ عِلْمًا نَافِعًا، وَرِزْقًا طَيِّبًا، وَعَمَلًا مُتَقَبَّلًا.",count:1},
   {text:"أَسْتَغْفِرُ اللَّهَ وَأَتُوبُ إِلَيْهِ.",count:100},
   {text:"اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّدٍ.",count:10}
 ]},
@@ -1024,7 +1046,18 @@ const ATHKAR=[
   {text:SAYYID_ALISTIGHFAR,count:1},
   {text:"اللَّهُمَّ إِنِّي أَمْسَيْتُ أُشْهِدُكَ، وَأُشْهِدُ حَمَلَةَ عَرْشِكَ، وَمَلَائِكَتَكَ، وَجَمِيعَ خَلْقِكَ، أَنَّكَ أَنْتَ اللَّهُ لَا إِلَهَ إِلَّا أَنْتَ وَحْدَكَ لَا شَرِيكَ لَكَ، وَأَنَّ مُحَمَّدًا عَبْدُكَ وَرَسُولُكَ.",count:4},
   {text:"اللَّهُمَّ مَا أَمْسَى بِي مِنْ نِعْمَةٍ أَوْ بِأَحَدٍ مِنْ خَلْقِكَ، فَمِنْكَ وَحْدَكَ لَا شَرِيكَ لَكَ، فَلَكَ الْحَمْدُ وَلَكَ الشُّكْرُ.",count:1},
+  {text:"اللَّهُمَّ عَافِنِي فِي بَدَنِي، اللَّهُمَّ عَافِنِي فِي سَمْعِي، اللَّهُمَّ عَافِنِي فِي بَصَرِي، لَا إِلَهَ إِلَّا أَنْتَ. اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْكُفْرِ وَالْفَقْرِ، وَأَعُوذُ بِكَ مِنْ عَذَابِ الْقَبْرِ، لَا إِلَهَ إِلَّا أَنْتَ.",count:3},
   {text:"حَسْبِيَ اللَّهُ لَا إِلَهَ إِلَّا هُوَ عَلَيْهِ تَوَكَّلْتُ وَهُوَ رَبُّ الْعَرْشِ الْعَظِيمِ.",count:7},
+  {text:"اللَّهُمَّ إِنِّي أَسْأَلُكَ الْعَفْوَ وَالْعَافِيَةَ فِي الدُّنْيَا وَالْآخِرَةِ، اللَّهُمَّ إِنِّي أَسْأَلُكَ الْعَفْوَ وَالْعَافِيَةَ فِي دِينِي وَدُنْيَايَ وَأَهْلِي وَمَالِي، اللَّهُمَّ اسْتُرْ عَوْرَاتِي وَآمِنْ رَوْعَاتِي، اللَّهُمَّ احْفَظْنِي مِنْ بَيْنِ يَدَيَّ وَمِنْ خَلْفِي وَعَنْ يَمِينِي وَعَنْ شِمَالِي وَمِنْ فَوْقِي، وَأَعُوذُ بِعَظَمَتِكَ أَنْ أُغْتَالَ مِنْ تَحْتِي.",count:1},
+  {text:"اللَّهُمَّ عَالِمَ الْغَيْبِ وَالشَّهَادَةِ فَاطِرَ السَّمَوَاتِ وَالْأَرْضِ، رَبَّ كُلِّ شَيْءٍ وَمَلِيكَهُ، أَشْهَدُ أَنْ لَا إِلَهَ إِلَّا أَنْتَ، أَعُوذُ بِكَ مِنْ شَرِّ نَفْسِي وَمِنْ شَرِّ الشَّيْطَانِ وَشَرَكِهِ، وَأَنْ أَقْتَرِفَ عَلَى نَفْسِي سُوءًا أَوْ أَجُرَّهُ إِلَى مُسْلِمٍ.",count:3},
+  {text:"بِسْمِ اللَّهِ الَّذِي لَا يَضُرُّ مَعَ اسْمِهِ شَيْءٌ فِي الْأَرْضِ وَلَا فِي السَّمَاءِ وَهُوَ السَّمِيعُ الْعَلِيمُ.",count:3},
+  {text:"رَضِيتُ بِاللَّهِ رَبًّا، وَبِالْإِسْلَامِ دِينًا، وَبِمُحَمَّدٍ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ نَبِيًّا.",count:3},
+  {text:"يَا حَيُّ يَا قَيُّومُ بِرَحْمَتِكَ أَسْتَغِيثُ، أَصْلِحْ لِي شَأْنِيَ كُلَّهُ وَلَا تَكِلْنِي إِلَى نَفْسِي طَرْفَةَ عَيْنٍ.",count:1},
+  {text:"أَمْسَيْنَا وَأَمْسَى الْمُلْكُ لِلَّهِ رَبِّ الْعَالَمِينَ، اللَّهُمَّ إِنِّي أَسْأَلُكَ خَيْرَ هَذِهِ اللَّيْلَةِ: فَتْحَهَا وَنَصْرَهَا وَنُورَهَا وَبَرَكَتَهَا وَهِدَايَهَا، وَأَعُوذُ بِكَ مِنْ شَرِّ مَا فِيهَا وَشَرِّ مَا بَعْدَهَا.",count:1},
+  {text:"أَمْسَيْنَا عَلَى فِطْرَةِ الْإِسْلَامِ، وَعَلَى كَلِمَةِ الْإِخْلَاصِ، وَعَلَى دِينِ نَبِيِّنَا مُحَمَّدٍ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ، وَعَلَى مِلَّةِ أَبِينَا إِبْرَاهِيمَ حَنِيفًا مُسْلِمًا وَمَا كَانَ مِنَ الْمُشْرِكِينَ.",count:1},
+  {text:"سُبْحَانَ اللَّهُ وَبِحَمْدِهِ.",count:100},
+  {text:"لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ.",count:10},
+  {text:"أَعُوذُ بِكَلِمَاتِ اللَّهِ التَّامَّاتِ مِنْ شَرِّ مَا خَلَقَ.",count:3},
   {text:"أَسْتَغْفِرُ اللَّهَ وَأَتُوبُ إِلَيْهِ.",count:100},
   {text:"اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّدٍ.",count:10}
 ]},
@@ -1447,8 +1480,43 @@ function applyFontSize(size) {
   state.fontSize = size; saveState();
 }
 
+// كل شاشة تنتمي لتبويب رئيسي؛ الشاشات المشتركة (الإعدادات/الإحصائيات)
+// ترث التبويب الذي فُتحت منه فلا تنكسر مطابقة التبويب المضيء.
+// المرجعيات تحتوي سوراً وآيات فتُنسب للقرآن.
+const SCREEN_TAB = {
+  'surah-list': 'quran', 'surah-view': 'quran', 'bookmarks': 'quran',
+  'khatmah-main': 'khatmah', 'khatmah-read': 'khatmah',
+  'athkar-list': 'athkar', 'thikr-view': 'athkar', 'dua-list': 'athkar', 'tasbih': 'athkar', 'occasion-list': 'athkar'
+};
+// مسار التنقّل الحقيقي (LIFO) — بديل عن خانة previousScreen الواحدة القابلة للتعفّن.
+// يضمّ الشاشات التي *خلف* الشاشة الحالية فقط (الشاشة الحالية نفسها لا تدخله أبداً)،
+// يُعاد ضبطه عند تبديل التبويب، ويبقى داخل الجلسة (لا يُحفظ في localStorage).
+let screenStack = [];
+// علم لتمييز تنقّلاتنا الداخلية في السجل حتى لا تعالجها معالجة التجزئة (hashchange)،
+// ولا تعيد تسجيل الشاشة التي يغادرها المستخدم أثناء الرجوع.
+// معلوم هنا (قبل showScreen/navigateBack) لأنه يُقرأ من داخلهما.
+let _internalNav = false;
+
+// يضيء التبويب المالك للشاشة الحالية ويحرّك المؤشر الزجاجي معه
+function syncNavTab(tabId) {
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    const on = t.dataset.tab === tabId;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  state.currentTab = tabId;
+  if (typeof setNavIndicator === 'function') setNavIndicator();
+}
+
 function showScreen(screenId, animClass = 'active') {
   if(state.currentScreen && ['surah-list', 'athkar-list'].includes(state.currentScreen)) state.scrollPositions[state.currentScreen] = contentArea.scrollTop;
+  // احفظ موضع التمرير في القارئين أيضاً حتى يُستعاد عند الرجوع إليهما
+  if(state.currentScreen && ['surah-view', 'khatmah-read'].includes(state.currentScreen)) state.scrollPositions[state.currentScreen] = contentArea.scrollTop;
+
+  // سجّل الشاشة الحالية في مسار الرجوع قبل الانتقال (مرة واحدة لكل انتقال فعلي)
+  // — لكن لا تسجّلها أثناء الرجوع نفسه وإلا عاد المستخدم خطوة إلى الأمام بدلاً من الخلف.
+  if (state.currentScreen && state.currentScreen !== screenId && !_internalNav) screenStack.push(state.currentScreen);
+
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'slide-left', 'slide-right'));
   const target = document.getElementById(`screen-${screenId}`);
   if (target) {
@@ -1461,6 +1529,8 @@ function showScreen(screenId, animClass = 'active') {
 
   if (state.currentScreen !== screenId) state.previousScreen = state.currentScreen;
   state.currentScreen = screenId;
+  // التبويب المضيء يجب أن يمثّل الشاشة المعروضة دائماً (الشاشات المشتركة ترث أصلها)
+  syncNavTab(SCREEN_TAB[screenId] || state.currentTab);
   // أخفِ شريط إجراءات الآية عند مغادرة قارئ السورة
   if (screenId !== 'surah-view' && screenId !== 'khatmah-read') hideAyahBar();
   const isSubScreen = ['surah-view', 'thikr-view', 'dua-list', 'tasbih', 'khatmah-read', 'occasion-list', 'bookmarks', 'settings', 'stats'].includes(screenId);
@@ -1485,7 +1555,7 @@ function showScreen(screenId, animClass = 'active') {
   updateHeaderSubtitle(); updateBookmarkIcon();
 
   setTimeout(() => {
-    if(['surah-list', 'athkar-list'].includes(screenId) && state.scrollPositions[screenId]) { contentArea.scrollTop = state.scrollPositions[screenId]; }
+    if(['surah-list', 'athkar-list', 'surah-view', 'khatmah-read'].includes(screenId) && state.scrollPositions[screenId]) { contentArea.scrollTop = state.scrollPositions[screenId]; }
     else { contentArea.scrollTop = 0; }
   }, 30);
 
@@ -1497,19 +1567,21 @@ function showScreen(screenId, animClass = 'active') {
   if (kctrl) kctrl.classList.toggle('controls-hidden', screenId !== 'khatmah-read');
 }
 
-// الشاشات الجذرية لكل تبويب: للرجوع إلى التبويب الأصلي بدل athkar-list دائماً
+// الشاشات الجذرية لكل تبويب
 const TAB_ROOT_SCREEN = { quran: 'surah-list', khatmah: 'khatmah-main', athkar: 'athkar-list' };
 function rootScreenOf(tab) { return TAB_ROOT_SCREEN[tab] || 'surah-list'; }
 
 function navigateBack() {
-  const prev = state.previousScreen;
-  const backTo = ['surah-list', 'athkar-list', 'khatmah-main'].includes(prev) ? prev : null;
-  // افتراضي: نرجع لجذر التبويب السابق (previousTab) إن عُرف، وإلا جذر التبويب الحالي
-  const fallback = backTo || rootScreenOf(state.previousTab || state.currentTab);
-  if (state.currentScreen === 'surah-view') { showScreen(fallback, 'slide-right'); }
-  else if (state.currentScreen === 'khatmah-read') { showScreen(fallback, 'slide-right'); updateKhatmahUI(); }
-  else { showScreen(fallback, 'slide-right'); if (fallback === 'athkar-list') renderAthkarList(); }
+  // ارجع إلى الشاشة الفعلية السابقة من مسار التنقّل — لا تخمين من خانات قابلة للتعفّن
+  const target = screenStack.length > 0 ? screenStack.pop() : rootScreenOf(state.currentTab);
+  _internalNav = true;
+  window._internalNav = true;
+  showScreen(target, 'slide-right');
+  // أعد بناء الحالات الخاصة للشاشة التي عدنا إليها
+  if (target === 'athkar-list' && typeof renderAthkarList === 'function') renderAthkarList();
+  if (target === 'khatmah-main' && typeof updateKhatmahUI === 'function') updateKhatmahUI();
   saveState();
+  setTimeout(() => { _internalNav = false; window._internalNav = false; }, 0);
 }
 
 /* ==================== محرك الزنبرك للمؤشر الزجاجي (Spring Physics) ==================== */
@@ -1626,6 +1698,9 @@ function switchTab(tabId) {
   if (tabId === 'quran') { showScreen('surah-list', anim); }
   else if (tabId === 'khatmah') { checkMissedDays(); showScreen('khatmah-main', anim); updateKhatmahUI(); }
   else { showScreen('athkar-list', anim); renderAthkarList(); Motion.staggerIn(document.querySelector('#screen-athkar-list .quick-nav-row')); }
+  // تبديل التبويب يبدأ مساراً جديداً من جذر التبويب — تخلّص من أي مسار قديم معفّن.
+  // الجذر نفسه لا يُخزّن (المسار يضمّ ما خلف الشاشة الحالية فقط).
+  screenStack = [];
   saveState(); setNavIndicator(); checkBookmarkFAB();
 }
 
@@ -1634,7 +1709,7 @@ function handleSwipeStart(x, y) { swipeStartX = x; swipeStartY = y; }
 function handleSwipeEnd(x, y) {
   const dx = x - swipeStartX; const dy = y - swipeStartY;
   if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) {
-    if (['surah-view', 'thikr-view', 'dua-list', 'tasbih', 'khatmah-read', 'occasion-list'].includes(state.currentScreen)) return;
+    if (['surah-view', 'thikr-view', 'dua-list', 'tasbih', 'khatmah-read', 'occasion-list', 'bookmarks', 'settings', 'stats'].includes(state.currentScreen)) return;
     const currentIndex = tabsArray.indexOf(state.currentTab);
     if (dx > 0 && currentIndex < tabsArray.length - 1) switchTab(tabsArray[currentIndex + 1]);
     else if (dx < 0 && currentIndex > 0) switchTab(tabsArray[currentIndex - 1]);
@@ -1707,12 +1782,24 @@ function checkBookmarkFAB() {
     // الفصل يتم عبر visibility/opacity الآن (قابل للتتحريك) بدل display
     fab.classList.add('visible');
   } else {
-    fab.classList.remove('visible');
+    // لا توجد إشارة يدوية: اعرض آخر موضع قراءة إن وُجد (شاشة القرآن فقط)
+    const last = window.ReadingProgressManager ? ReadingProgressManager.getLastPosition() : null;
+    if (last && last.surah && state.currentScreen === 'surah-list') {
+      fab.querySelector('span').textContent = `متابعة: ${last.surahName || ('سورة ' + last.surah)}${last.ayah ? ' — آية ' + toArabicNum(last.ayah) : ''}`;
+      fab.classList.add('visible');
+    } else {
+      fab.classList.remove('visible');
+    }
   }
 }
 
 window.resumeBookmark = function() {
-  if(!state.bookmark) return;
+  if(!state.bookmark) {
+    // لا توجد إشارة يدوية: عُود إلى آخر موضع قراءة سُجِّل
+    const last = window.ReadingProgressManager ? ReadingProgressManager.getLastPosition() : null;
+    if (last && last.surah) { window.openSurah(last.surah, last.ayah || null); }
+    return;
+  }
   if(state.bookmark.type === 'surah') { window.openSurah(state.bookmark.id); }
   else if(state.bookmark.type === 'khatmah' && state.khatmah) { state.khatmah.currentPage = state.bookmark.id; saveState(); window.openKhatmahReader(); }
 };
@@ -1765,9 +1852,17 @@ const escHtml = (s) => (window.escapeHtml || String)(s ?? '');
 // والآيات. تُجزَّأ الكلمات على الفراغات قبل التهريب حتى لا ينقسم كيان HTML
 // (entity) على حدود كلمة. كل آية تُغلَّف بعنصر قابل للتحديد وللتظليل، وكل
 // كلمة بـ span مستقل ليتبعها التظليل أثناء التلاوة.
+// مجموعة الآيات المحفوظة (سورة:آية) لعرض علامة الحفظ على الآية نفسها
+function bookmarkedVerseSet() {
+  const set = new Set();
+  try { if (window.BookmarkManager) (BookmarkManager.getAll().verses || []).forEach(v => set.add(v.surah + ':' + v.ayah)); } catch (e) {}
+  return set;
+}
+
 function buildMushafHTML(ayahs, opts = {}) {
   const fallbackSurah = opts.surahNumber || null;
   const sNum = a => (a.surah && typeof a.surah === 'object' && a.surah.number) || fallbackSurah;
+  const bms = bookmarkedVerseSet();
   return (ayahs || []).map(a => {
     const sn = sNum(a);
     let text = a.text;
@@ -1775,28 +1870,111 @@ function buildMushafHTML(ayahs, opts = {}) {
     if (a.numberInSurah === 1 && sn !== 1 && sn !== 9) text = stripBismillah(text);
     const words = (text || '').trim().split(/\s+/).filter(Boolean);
     const wordsHtml = words.map(w => `<span class="w">${escHtml(w)}</span>`).join(' ');
-    return `<span class="ayah" data-surah="${sn}" data-ayah="${a.numberInSurah}" data-global="${a.number}">${wordsHtml}<span class="ayah-badge" title="آية ${toArabicNum(a.numberInSurah)}">${toArabicNum(a.numberInSurah)}</span></span> `;
+    const cls = 'ayah' + (bms.has(sn + ':' + a.numberInSurah) ? ' bookmarked' : '');
+    return `<span class="${cls}" data-surah="${sn}" data-ayah="${a.numberInSurah}" data-global="${a.number}">${wordsHtml}<span class="ayah-badge" title="آية ${toArabicNum(a.numberInSurah)}">${toArabicNum(a.numberInSurah)}</span></span> `;
   }).join('');
+}
+
+// يجرد النص من التشكيل ووحّد أشكال الألف والتاء حتى يطابق البحث غير المنقّط
+function normArabic(text) {
+  // تُوحَّد أشكال الحروف التي يكتبها المستخدم بشكل مختلف عن رسم المصحف:
+  // الألف، التاء المربوطة/المفتوحة، والألف المقصورة (ى) التي يكتبها الكثيرون
+  // ياءً (ي) — مثل «زدنى»/«زدني». هذا التوحيد يطال *نسخة البحث* فقط ولا يمسّ
+  // نص القرآن المعروض إطلاقاً.
+  return (text || '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/[\u064B-\u0652\u0670\u0640\u06D6-\u06ED]/g, '');
+}
+
+// يضيء مواضع التطابق داخل نص مُهرّب مسبقاً (لا يغيّر النص نفسه)
+function highlightQuery(escapedText, query) {
+  if (!query) return escapedText;
+  // الاستعلام مُجرَّد من التشكيل بينما النص المعروض مشكول، فاسمح بوجود علامات
+  // المصحف بين حروف الاستعلام، وسوِّ أشكال الألف والتاء المربوطة/المفتوحة
+  // والألف المقصورة (ى) مع الياء (ي).
+  const cls = c => c === 'ا' ? '[أإآٱا]' : c === 'ه' ? '[ةه]' : c === 'ي' ? '[يى]' : c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const loose = [...query].map(cls).join('[\\u064B-\\u0652\\u0670\\u0640\\u06D6-\\u06ED]*');
+  return escapedText.replace(new RegExp(`(${loose})`, 'gi'), '<span class="highlight">$1</span>');
 }
 
 function renderSurahList(list, query = '') {
   document.getElementById('surah-list-container').innerHTML = list.map(s => {
-    const safeName = escHtml(s.name);
-    let nameHtml = safeName;
-    if(query) {
-      // اسم السورة المعروض يحوي تشكيلاً كاملاً بينما الاستعلام مُجرَّد منه،
-      // فاسمح بوجود علامات المصحف بين حروف الاستعلام، وسوِّ أشكال الألف
-      // والتاء المربوطة/المفتوحة، حتى يقع التظليل على النص الصحيح دون تغيير
-      // شكل الاسم المعروض.
-      const cls = c => c === 'ا' ? '[أإآٱا]' : c === 'ه' ? '[ةه]' : c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const loose = [...query].map(cls).join('[\\u064B-\\u0652\\u0670\\u0640\\u06D6-\\u06ED]*');
-      const regex = new RegExp(`(${loose})`, 'gi');
-      nameHtml = safeName.replace(regex, '<span class="highlight">$1</span>');
-    }
+    const nameHtml = highlightQuery(escHtml(s.name), query);
     return `<div class="surah-row" data-magnetic onclick="openSurah(${s.number})"><div class="surah-num">${toArabicNum(s.number)}</div><div class="surah-info"><div class="surah-name">${nameHtml}</div><div class="surah-meta">${toArabicNum(s.numberOfAyahs)} آية</div></div></div>`;
   }).join('');
   Motion.staggerIn(document.getElementById('surah-list-container'));
   // أعد استخدام المراقب الدائم للعناصر الجديدة (بدل إنشاء مراقب لكل ضغطة)
+  if (window.AnimationManager?.observeReveal) AnimationManager.observeReveal();
+}
+
+/* ==================== بحث نص الآيات ==================== */
+// يُبنى مرّة واحدة من المصدر الموثوق نفسه (quran-uthmani) الذي يُستخدم منه
+// عرض المصحف — لا يُضاف أي نص ولا تُعدَّل ألفاظه. يُخزَّن في الذاكرة فقط
+// (الخدمات تكفيه للتخزين المؤقت) كي لا نضغط على حصة localStorage.
+let ayahSearchIndex = null;
+let ayahIndexLoading = false;
+
+async function ensureAyahIndex() {
+  if (ayahSearchIndex) return ayahSearchIndex;
+  if (ayahIndexLoading) return null;
+  ayahIndexLoading = true;
+  try {
+    const res = await fetch('https://api.alquran.cloud/v1/quran/quran-uthmani');
+    const data = (await res.json()).data;
+    // نقطة النهاية هذه تُعيد data.surahs (مصفوفة سور، كل منها فيها ayahs)،
+    // وليس data.ayahs — لذا نفلتس السور ونُسطّح آياتها مع الحفاظ على ترتيب المصحف.
+    const surahs = data && Array.isArray(data.surahs) ? data.surahs : [];
+    const all = [];
+    for (const s of surahs) {
+      const sn = s.name, snum = s.number;
+      (s.ayahs || []).forEach(a => all.push({ ...a, surah: { number: snum, name: sn } }));
+    }
+    ayahSearchIndex = all.map(a => ({
+      s: a.surah && a.surah.number, sn: a.surah && a.surah.name,
+      a: a.numberInSurah, t: a.text, n: normArabic(a.text)
+    }));
+  } catch (e) { ayahSearchIndex = null; }
+  ayahIndexLoading = false;
+  return ayahSearchIndex;
+}
+
+// اقتطع مقطعاً حول أول موضع تطابق (بالكلمات) حتى تبقى النتيجة قابلة للقراءة
+function snippetAroundMatch(origText, query, side = 10) {
+  const words = (origText || '').split(/\s+/).filter(Boolean);
+  if (!words.length) return '';
+  for (let i = 0; i < words.length; i++) {
+    let acc = '';
+    for (let j = i; j < Math.min(words.length, i + 40); j++) {
+      acc = acc ? acc + ' ' + normArabic(words[j]) : normArabic(words[j]);
+      if (acc.includes(query)) {
+        const s = Math.max(0, i - side), e = Math.min(words.length, j + 1 + side);
+        return (s > 0 ? '… ' : '') + words.slice(s, e).join(' ') + (e < words.length ? ' …' : '');
+      }
+    }
+  }
+  return words.slice(0, 22).join(' ');
+}
+
+function renderAyahSearchResults(hits, query) {
+  const box = document.getElementById('ayah-search-container');
+  if (!box) return;
+  if (!hits) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = 'block';
+  if (!hits.length) {
+    box.innerHTML = `<div class="ayah-search-status">لا توجد نتائج في نص الآيات.</div>`;
+    return;
+  }
+  box.innerHTML = `<div class="section-heading">نتائج الآيات (${toArabicNum(hits.length)})</div>` +
+    hits.map(h => `<div class="surah-row" data-magnetic onclick="openSurah(${h.s}, ${h.a})">
+      <div class="surah-num">${toArabicNum(h.s)}</div>
+      <div class="surah-info">
+        <div class="surah-name" style="font-size:calc(var(--font-size) * 0.62)">${highlightQuery(escHtml(snippetAroundMatch(h.t, query)), query)}</div>
+        <div class="surah-meta">${escHtml(h.sn || '')} — آية ${toArabicNum(h.a)}</div>
+      </div>
+    </div>`).join('');
+  if (window.Motion) Motion.staggerIn(box);
   if (window.AnimationManager?.observeReveal) AnimationManager.observeReveal();
 }
 
@@ -1805,6 +1983,11 @@ let openSurahToken = 0;
 
 window.openSurah = async function(number, focusAyah = null) {
   const token = ++openSurahToken;
+  // الانتقال لسورة أخرى أثناء التشغيل يوقف قائمة التلاوة القديمة
+  // حتى لا تُربط شاشة التظليل بسورة مختلفة عن المسار الصوتي
+  if (window.AudioPlayer && state.currentSurah && state.currentSurah.number !== number) { try { AudioPlayer.stop(); } catch (e) {} }
+  // موضع التمرير القديم يعود لسورة أخرى — امحُه حتى تبدأ الجديدة من الأعلى
+  if (state.currentSurah && state.currentSurah.number !== number) { delete state.scrollPositions['surah-view']; }
   state.currentSurah = allSurahs.find(s => s.number === number) || { name: `سورة ${number}`, number: number, numberOfAyahs: 0 };
   // عيّن الآية المستهدفة قبل showScreen حتى يعكس الرابط العميق قيمتها من البداية
   window.selectedAyahNo = focusAyah ? +focusAyah : null;
@@ -1891,12 +2074,24 @@ function renderSurahPage(focusAyah = null) {
       <button class="btn-scale mushaf-nav-btn" id="mp-next" ${idx >= pages.length - 1 ? 'disabled' : ''}>التالية ←</button>
     </div>`;
   }
+  // تنقّل بين السور من داخل القارئ — لا حاجة للعودة للقائمة الرئيسية
+  if (number) {
+    html += `<div class="mushaf-nav surah-nav">
+      <button class="btn-scale mushaf-nav-btn" id="sp-prev" ${number <= 1 ? 'disabled' : ''}>→ السورة السابقة</button>
+      <span class="mushaf-nav-pos">${toArabicNum(number)} / ١١٤</span>
+      <button class="btn-scale mushaf-nav-btn" id="sp-next" ${number >= 114 ? 'disabled' : ''}>السورة التالية ←</button>
+    </div>`;
+  }
   container.innerHTML = html;
 
   const prev = document.getElementById('mp-prev');
   const next = document.getElementById('mp-next');
   if (prev) prev.addEventListener('click', () => goSurahPage(-1));
   if (next) next.addEventListener('click', () => goSurahPage(1));
+  const spPrev = document.getElementById('sp-prev');
+  const spNext = document.getElementById('sp-next');
+  if (spPrev) spPrev.addEventListener('click', () => { if (number > 1) window.openSurah(number - 1); });
+  if (spNext) spNext.addEventListener('click', () => { if (number < 114) window.openSurah(number + 1); });
   // أعد ربط تظليل التلاوة بالعنصر المعروض إن وُجد على هذه الصفحة
   if (window.AudioPlayer && AudioPlayer.refreshHighlight) AudioPlayer.refreshHighlight();
   if (focusAyah) {
@@ -1904,9 +2099,23 @@ function renderSurahPage(focusAyah = null) {
     if (el) selectAyah(el, true);
     else window.selectedAyahNo = null; // آية غير موجودة: لا تترك قيمة عالقة في الرابط
   }
+  // سجّل موضع القراءة الحالي (الصفحة + أول آية فيها كأساس) لمتابعة القراءة لاحقاً
+  recordReadingPosition(focusAyah || (page.ayahs[0] && page.ayahs[0].numberInSurah) || null);
   // حدّث الرابط العميق بعد اكتمال الرسم (يعكس تنقّل الصفحات وتغيّر التحديد)
   if (window.DeepLinks) try { DeepLinks.update('surah-view'); } catch (e) {}
   if (window.AnimationManager?.observeReveal) AnimationManager.observeReveal();
+}
+
+// حفظ موضع القراءة الحالي لإمكانية العودة إليه (سورة + آية + صفحة)
+function recordReadingPosition(ayahNo = null) {
+  try {
+    if (!window.ReadingProgressManager || !state.currentSurah) return;
+    const pages = state.surahPages || [];
+    const idx = state.surahPageIndex || 0;
+    const pg = pages[idx];
+    const lastAyah = ayahNo || window.selectedAyahNo || (pg && pg.ayahs.length ? pg.ayahs[pg.ayahs.length - 1].numberInSurah : null);
+    ReadingProgressManager.savePosition(state.currentSurah.number, state.currentSurah.name, lastAyah, pg ? pg.page : null);
+  } catch (e) {}
 }
 
 window.goSurahPage = function(dir) {
@@ -1940,6 +2149,8 @@ window.selectAyah = function(el, scroll = false) {
   el.classList.add('selected');
   selectedAyahEl = el;
   window.selectedAyahNo = +el.dataset.ayah;
+  // الآية المحددة هي موضع القراءة الحالي — سجّله بدقة
+  recordReadingPosition(+el.dataset.ayah);
   showAyahBar();
   if (scroll) {
     const r = el.getBoundingClientRect();
@@ -1996,8 +2207,16 @@ function onAyahBarAction(act) {
     try {
       if (window.BookmarkManager && d) {
         const exists = BookmarkManager.getAll().verses.some(v => v.surah === d.surah && v.ayah === d.ayah);
-        if (exists) Toast.show('الآية محفوظة مسبقاً');
-        else { BookmarkManager.addVerseBookmark(d.surah, d.ayah, d.text); Toast.show('تم حفظ الآية 🔖'); }
+        if (exists) {
+          // إزالة الحفظ من الآية نفسها (تبديل حقيقي، لا مجرد رسالة)
+          BookmarkManager.removeVerseBookmark(d.surah, d.ayah);
+          el.classList.remove('bookmarked');
+          Toast.show('أُلغيت الإشارة من الآية');
+        } else {
+          BookmarkManager.addVerseBookmark(d.surah, d.ayah, d.text);
+          el.classList.add('bookmarked');
+          Toast.show('تم حفظ الآية 🔖');
+        }
       }
     } catch (e) { Toast.show('تعذّر الحفظ'); }
   }
@@ -2541,17 +2760,31 @@ document.addEventListener('DOMContentLoaded', () => {
     if (val) { if (!clearBtn.style.display || clearBtn.style.display === 'none') { clearBtn.style.display = 'block'; clearBtn.style.transform = 'translateY(-50%) scale(0.7)'; requestAnimationFrame(() => clearBtn.style.transform = 'translateY(-50%) scale(1)'); } }
     else { clearBtn.style.transform = 'translateY(-50%) scale(0.7)'; setTimeout(() => clearBtn.style.display = 'none', 200); }
     clearTimeout(_searchDebounce);
-    _searchDebounce = setTimeout(() => {
+    _searchDebounce = setTimeout(async () => {
       // يشمل علامات المصحف كلها (مدّ U+0670، تطويل U+0640، النقطة العليا U+06E1
       // التي يستخدمها خط المصحف) — سابقاً كان النطاق يتوقف عند U+065F فلا
       // تطابق أسماء مثل «الكوثر».
-      const norm = text => text.replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/[\u064B-\u0652\u0670\u0640\u06D6-\u06ED]/g, '');
-      const nVal = norm(val);
-      const filtered = allSurahs.filter(s => norm(s.name).includes(nVal) || s.number.toString() === val);
+      const nVal = normArabic(val);
+      const filtered = allSurahs.filter(s => normArabic(s.name).includes(nVal) || s.number.toString() === val);
       renderSurahList(filtered, nVal);
+      // ابحث في نص الآيات أيضاً (بعد تحميل الفهرس من المصدر الموثوق)
+      const box = document.getElementById('ayah-search-container');
+      if (val.length < 3) { if (box) { box.style.display = 'none'; box.innerHTML = ''; } return; }
+      if (box && !ayahSearchIndex) {
+        box.style.display = 'block';
+        box.innerHTML = `<div class="ayah-search-status">جارٍ تجهيز بحث الآيات…</div>`;
+      }
+      const idx = await ensureAyahIndex();
+      if (searchBar.value.trim() !== val) return; // تغيّر الاستعلام أثناء التحميل
+      if (!idx || !box) { if (box) box.innerHTML = `<div class="ayah-search-status">تعذّر تحميل فهرس الآيات — تحقّق من اتصال الإنترنت.</div>`; return; }
+      const hits = [];
+      for (let i = 0; i < idx.length && hits.length < 30; i++) {
+        if (idx[i].n.includes(nVal)) hits.push(idx[i]);
+      }
+      renderAyahSearchResults(hits, nVal);
     }, 150);
   });
-  clearBtn.addEventListener('click', () => { searchBar.value = ''; clearBtn.style.transform = 'translateY(-50%) scale(0.7)'; setTimeout(() => clearBtn.style.display = 'none', 200); renderSurahList(allSurahs); searchBar.focus(); });
+  clearBtn.addEventListener('click', () => { searchBar.value = ''; clearBtn.style.transform = 'translateY(-50%) scale(0.7)'; setTimeout(() => clearBtn.style.display = 'none', 200); renderSurahList(allSurahs); const box = document.getElementById('ayah-search-container'); if (box) { box.style.display = 'none'; box.innerHTML = ''; } searchBar.focus(); });
 
   window.addEventListener('resize', () => { syncNavSafeArea(); snapNavIndicator(); });
   bindGesturesAndScroll();
@@ -2575,7 +2808,22 @@ document.addEventListener('DOMContentLoaded', () => {
   syncNavSafeArea();
 
   snapNavIndicator();
-  initOccasionSystem(); switchTab(state.currentTab || 'quran');
+  // زر الرجوع المادي (أندرويد/المتصفح): ما دام هناك مسار داخلي نرجع داخله،
+  // وإلا يُترك للمتصفح خروجه الطبيعي. ندفع مدخلاً حارساً واحداً في السجل
+  // ونلتقط popstate — URL يبقى كما هو فلا تتولّد hashchange مزعجة.
+  try {
+    history.pushState({ guard: true }, '');
+    window.addEventListener('popstate', () => {
+      if (screenStack.length > 0) {
+        navigateBack();
+        try { history.pushState({ guard: true }, ''); } catch (e) {}
+      }
+    });
+  } catch (e) {}
+  // شاشة البداية تحدّد التبويب المضيء، والمسار يبدأ فارغاً (جذر التبويب يُسنَد أدناه)
+  const bootTab = state.currentTab || 'quran';
+  state.currentScreen = rootScreenOf(bootTab);
+  initOccasionSystem(); switchTab(bootTab);
   checkBookmarkFAB();
 
   // هيكل تحميل (Skeleton) للقائمة الرئيسية حتى جلب البيانات
@@ -2649,7 +2897,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const tabCenter = tab.offsetLeft + (tab.offsetWidth / 2); const dist = Math.abs(indicatorCenter - tabCenter);
       if(dist < minDistance) { minDistance = dist; closestTab = tab; }
     });
-    if(closestTab && closestTab.dataset.tab !== state.currentTab) switchTab(closestTab.dataset.tab); else setNavIndicator();
+    // تبديل التبويب بالسحب مسموح فقط من الشاشات الجذرية — لا من القارئ أو الشاشات المتداخلة
+    const isTabRoot = ['surah-list', 'khatmah-main', 'athkar-list'].includes(state.currentScreen);
+    if (closestTab && closestTab.dataset.tab !== state.currentTab && isTabRoot) switchTab(closestTab.dataset.tab); else setNavIndicator();
   }
 
   navBar.addEventListener('touchstart', handleDragStart, {passive: true});
