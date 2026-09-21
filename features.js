@@ -150,10 +150,10 @@ const BookmarksView = {
         </div>`).join('')}
       ${verses.length ? `<div class="section-heading" style="margin-top:18px">الآيات المحفوظة (${this.toArabic(verses.length)})</div>` : ''}
       ${verses.map((v, i) => `
-        <div class="thikr-card" style="padding:16px 20px">
+        <div class="thikr-card" style="padding:16px 20px; cursor:pointer" onclick="window.BookmarksView.openVerse(${v.surah}, ${v.ayah})">
           <div class="surah-meta" style="margin-bottom:6px">سورة ${this.surahName(v.surah)} — آية ${this.toArabic(v.ayah)}</div>
           <div class="dua-text" style="font-size:calc(var(--font-size) * 0.8)">${escapeHtml((v.text || '').slice(0, 160))}…</div>
-          <button class="bm-remove" aria-label="حذف" onclick="window.BookmarksView.removeVerse(${v.surah}, ${v.ayah})">×</button>
+          <button class="bm-remove" aria-label="حذف" onclick="event.stopPropagation(); window.BookmarksView.removeVerse(${v.surah}, ${v.ayah})">×</button>
         </div>`).join('')}`;
   },
   surahName(n) {
@@ -170,13 +170,21 @@ const BookmarksView = {
   },
   toArabic(n) { return (n || 0).toString().replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]); },
   openSurah(num) { if (window.openSurah) window.openSurah(num); },
+  // افتح السورة على صفحة الآية المحفوظة وحدّدها
+  openVerse(s, a) { if (window.openSurah) window.openSurah(s, a); },
   removeSurah(num) {
+    const el = document.getElementById('bookmarks-container');
+    const play = window.Motion ? window.Motion.flipAnimate(el, '.surah-row') : null;
     try { window.BookmarkManager.removeSurahBookmark(num); } catch (e) {}
     this.render();
+    if (play) play();
   },
   removeVerse(s, a) {
+    const el = document.getElementById('bookmarks-container');
+    const play = window.Motion ? window.Motion.flipAnimate(el, '.thikr-card') : null;
     try { window.BookmarkManager.removeVerseBookmark(s, a); } catch (e) {}
     this.render();
+    if (play) play();
   }
 };
 window.BookmarksView = BookmarksView;
@@ -291,28 +299,221 @@ const Settings = {
 window.Settings = Settings;
 
 /* ==================== 7) Audio player — التلاوة الصوتية ==================== */
+// مشغّل آية بآية: كل ملف هو آية واحدة من cdn.islamic.network (نفس المزوّد
+// الموثّق للنص)، فيكون موضع بداية ونهاية كل آية دقيقاً بالبناء. داخل الآية
+// يُوزَّع التظليل على الكلمات حسب وزن أحرفها ويُعاد ربطه عند كل آية جديدة
+// فلا تتراكم أي انحرافات. لا تتوفر بيانات توقيت موثّقة على مستوى الكلمة
+// لأي قارئ من القُرّاء، لذا التظليل داخل الآية تقدير بصري متحرّك فقط.
 const AudioPlayer = {
-  audio: null, current: null, btn: null,
+  audio: null, queue: [], qi: -1, current: null, surahName: '',
+  rafId: null, curEl: null, curWords: null, curItem: null, _lastNow: -2, _errCount: 0,
 
   ensure() {
     if (this.audio) return;
     this.audio = new Audio();
-    this.audio.addEventListener('ended', () => this.setPlaying(false));
-    this.audio.addEventListener('error', () => { this.setPlaying(false); this.hide(); });
+    this.audio.addEventListener('ended', () => this.advance(false));
+    this.audio.addEventListener('error', () => this.advance(true));
+    this.audio.addEventListener('pause', () => this.stopClock());
+    // استئناف ساعة التظليل عند العودة للصفحة (تتوقف أثناء الإخفاء لتوفير الموارد)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && this.audio && !this.audio.paused) this.startClock();
+    });
   },
-  urlFor(surah) {
-    const reciter = window.Settings ? Settings.getReciter() : 'ar.alafasy';
-    return `https://cdn.islamic.network/quran/audio-surah/128/${reciter}/${surah}.mp3`;
+  reciter() { return window.Settings ? Settings.getReciter() : 'ar.alafasy'; },
+  // ملف آية واحدة: {reciter}/{الرقف العالمي للآية}.mp3
+  urlForAyah(globalNo) { return `https://cdn.islamic.network/quran/audio/128/${this.reciter()}/${globalNo}.mp3`; },
+  urlFor(surah) { return `https://cdn.islamic.network/quran/audio-surah/128/${this.reciter()}/${surah}.mp3`; },
+
+  // يبني قائمة التلاوة من بيانات السورة المخزّنة في state (بدون طلبات إضافية)
+  buildQueue(surah, fromAyah = 1) {
+    const data = window.state && window.state.currentSurahData ? window.state.currentSurahData : null;
+    const ayahs = data && Array.isArray(data.ayahs) ? data.ayahs : [];
+    this.queue = ayahs.filter(a => a.numberInSurah >= fromAyah).map(a => {
+      const sn = (a.surah && a.surah.number) || surah;
+      let text = a.text;
+      if (a.numberInSurah === 1 && sn !== 1 && sn !== 9) text = window.stripBismillah ? stripBismillah(text) : text;
+      return { surah: sn, ayah: a.numberInSurah, global: a.number, text };
+    });
+    this.qi = this.queue.length ? 0 : -1;
   },
-  play(surah, name) {
+
+  // زر الرأس: يبدّل بين التشغيل/الإيقاف المؤقت للسورة الحالية، أو يبدأ من الصفحة المعروضة
+  play(surah, name, fromAyah = 1) {
     this.ensure();
-    if (this.current === surah && this.audio && !this.audio.paused) { this.pause(); return; }
+    if (this.current === surah && this.audio) {
+      if (!this.audio.paused) { this.pause(); return; }
+      if (this.audio.currentTime > 0) { this.resume(); return; }
+    }
     this.current = surah;
-    this.audio.src = this.urlFor(surah);
-    this.audio.play().then(() => { this.show(name); this.setPlaying(true); }).catch(() => { this.hide(); });
+    this.surahName = name || (window.state && window.state.currentSurah ? window.state.currentSurah.name : '');
+    this.buildQueue(surah, fromAyah);
+    if (this.qi < 0) { this.hide(); return; }
+    this.loadCurrent();
   },
+
+  // تشغيل مستقل بدءاً من آية محددة (من شريط إجراءات الآية)
+  playFromAyah(surah, ayahNo) {
+    this.ensure();
+    this.current = surah;
+    this.surahName = (window.state && window.state.currentSurah ? window.state.currentSurah.name : '');
+    this.buildQueue(surah, ayahNo);
+    if (this.qi < 0) { this.hide(); return; }
+    this.loadCurrent();
+  },
+
+  loadCurrent() {
+    const item = this.queue[this.qi];
+    if (!item) { this.stop(); return; }
+    this.curItem = item;
+    this.audio.src = this.urlForAyah(item.global);
+    this.audio.play().then(() => {
+      this._errCount = 0;
+      this.show(this.titleFor(item));
+      this.setPlaying(true);
+      this.bindHighlight(true);
+      this.startClock();
+    }).catch(() => { this.hide(); this.clearHighlight(); });
+  },
+
+  // تقدير احتياطي لمدة الآية حين يعجز المتصفح عن حسابها (ملفات بدون رأس Xing).
+  // يُشتق من معدّل التلاوة الفعلي المُقاس لكل قارئ — انظر measureRate() —
+  // فهو تقدير مبني على بيانات حقيقية، لا قيمة عشوائية.
+  estimateDuration(wordCount) {
+    const wps = this.learnedRate() || 0.95; // متوسط التلاوة المرتّلة المُقاس ~0.95 كلمة/ثانية
+    return Math.max(2, wordCount / wps);
+  },
+
+  // سرعة القارئ الحالية (كلمات/ثانية) مُكتسبة من الآيات التي أفصحت عن مدتها
+  learnedRate() {
+    try { return parseFloat(localStorage.getItem('reciter_wps_' + this.reciter()) || '0') || 0; }
+    catch (e) { return 0; }
+  },
+
+  // سُجّل السرعة الفعلية بعد انتهاء آية معروفة المدة لاستخدامها لاحقاً.
+  // متوسط متحرّك (٠.٥/٠.٥) يخفّف تشوّه الآيات القصيرة المُثقلة بالسكتات.
+  measureRate(wordCount, duration) {
+    if (!wordCount || !duration || duration <= 0 || !isFinite(duration)) return;
+    const rate = wordCount / duration;
+    if (!rate || rate <= 0 || rate > 10) return;
+    try {
+      const key = 'reciter_wps_' + this.reciter();
+      const prev = parseFloat(localStorage.getItem(key) || '0') || 0;
+      const blended = prev ? prev * 0.5 + rate * 0.5 : rate;
+      localStorage.setItem(key, blended.toFixed(3));
+    } catch (e) {}
+  },
+
+  titleFor(item) {
+    const name = this.surahName || (window.state && window.state.currentSurah ? window.state.currentSurah.name : '');
+    return `${name} — آية ${window.toArabicNum ? toArabicNum(item.ayah) : item.ayah}`;
+  },
+
+  // الآية التالية (أو تخطّي عند فشل التحميل — لا تتوقف التلاوة أبداً)
+  advance(fromError) {
+    // سُجّل سرعة هذا القارئ من الآية المنتهية إن كانت مدتها موثوقة
+    if (!fromError && this.curWords && this.curWords.length) {
+      this.measureRate(this.curWords.length, this.audio.duration);
+    }
+    this.clearHighlight();
+    if (fromError) {
+      this._errCount = (this._errCount || 0) + 1;
+      if (this._errCount >= 3) {
+        this._errCount = 0; this.stop();
+        if (window.Toast) Toast.show('تعذّر تحميل التلاوة');
+        return;
+      }
+    } else this._errCount = 0;
+    if (this.qi + 1 < this.queue.length) { this.qi++; this.loadCurrent(); }
+    else { this.stop(); if (window.Toast) Toast.show('تمت التلاوة ✓'); }
+  },
+
+  // يربط تظليل الآية الجارية بعنصرها إن وُجد في الصفحة المعروضة
+  bindHighlight(scroll) {
+    this.curEl = null; this.curWords = null; this._lastNow = -2;
+    const item = this.curItem;
+    if (!item) return;
+    const el = document.querySelector(`.ayah[data-global="${item.global}"]`);
+    if (!el) return;
+    this.curEl = el;
+    this.curWords = Array.from(el.querySelectorAll('.w'));
+    el.classList.add('reciting');
+    if (scroll) {
+      const r = el.getBoundingClientRect();
+      const vh = window.innerHeight;
+      if (r.top < 130 || r.bottom > vh - 170) {
+        const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center' });
+      }
+    }
+  },
+
+  // يُستدعى بعد تبديل صفحة المصحف لإعادة الربط إن أصبحت الآية مرئية
+  refreshHighlight() {
+    if (!this.curItem) return;
+    if (this.curEl && !this.curEl.isConnected) { this.curEl = null; this.curWords = null; }
+    if (!this.curEl) this.bindHighlight(false);
+  },
+
+  // ساعة التظليل: تتبع موضع التشغيل داخل الآية وتحرّك تظليل الكلمات
+  startClock() {
+    this.stopClock();
+    if (document.hidden) return;
+    const tick = () => {
+      if (document.hidden) { this.rafId = null; return; }
+      this.syncWords();
+      this.rafId = requestAnimationFrame(tick);
+    };
+    this.rafId = requestAnimationFrame(tick);
+  },
+  stopClock() { if (this.rafId) { cancelAnimationFrame(this.rafId); this.rafId = null; } },
+
+  syncWords() {
+    if (!this.curItem) return;
+    if (!this.curEl || !this.curEl.isConnected) {
+      this.bindHighlight(false);
+      if (!this.curEl) return;
+    }
+    const words = this.curWords;
+    if (!words || !words.length) return;
+    const a = this.audio;
+    // بعض ملفات الـ MP3 تُرجع مدة غير منتهية (رأس Xing مفقود) فيعجز المتصفح عن
+    // حسابها. في هذه الحالة نقدّر المدة من عدد الكلمات ومعدّل التلاوة المعتاد،
+    // ثم نُحاكي التقدّم عبر الزمن الفعلي المنقضي (تقدير صريح، وليس توقيتاً موثوقاً).
+    const nativeDur = a && a.duration && isFinite(a.duration) ? a.duration : 0;
+    const t = a && a.currentTime >= 0 ? a.currentTime : 0;
+    const isEstimate = !nativeDur;
+    const dur = nativeDur || this.estimateDuration(words.length);
+    const frac = dur > 0 ? Math.min(1, Math.max(0, t / dur)) : 0;
+    // وزّع الزمن على الكلمات تناسباً مع عدد أحرفها
+    let total = 0; const ends = [];
+    for (let i = 0; i < words.length; i++) {
+      const len = Math.max(1, (words[i].textContent || '').trim().length);
+      total += len; ends.push(total);
+    }
+    const target = frac * total;
+    let nowIdx = -1;
+    for (let i = 0; i < ends.length; i++) { if (target <= ends[i]) { nowIdx = i; break; } }
+    if (frac >= 1) nowIdx = words.length - 1;
+    if (this._lastNow === nowIdx) return; // لا أعد الرسم دون تغيّر
+    this._lastNow = nowIdx;
+    for (let i = 0; i < words.length; i++) {
+      words[i].classList.toggle('reciting', i < nowIdx);
+      words[i].classList.toggle('reciting-now', i === nowIdx);
+    }
+  },
+
+  clearHighlight() {
+    this.curEl = null; this.curWords = null; this._lastNow = -2;
+    document.querySelectorAll('.ayah.reciting').forEach(a => a.classList.remove('reciting'));
+    document.querySelectorAll('.w.reciting, .w.reciting-now').forEach(w => w.classList.remove('reciting', 'reciting-now'));
+  },
+
   pause() { if (this.audio) { this.audio.pause(); this.setPlaying(false); } },
-  resume() { if (this.audio && this.current) { this.audio.play().then(() => this.setPlaying(true)).catch(() => {}); } },
+  resume() {
+    if (this.audio && this.current) {
+      this.audio.play().then(() => { this.setPlaying(true); this.startClock(); }).catch(() => {});
+    }
+  },
   setPlaying(on) {
     const bar = document.getElementById('audio-bar');
     if (!bar) return;
@@ -336,6 +537,9 @@ const AudioPlayer = {
         if (this.audio && this.audio.paused) this.resume(); else this.pause();
       });
       bar.querySelector('#audio-close').addEventListener('click', () => this.stop());
+      // وسِّع مساحة شريط إجراءات الآية إن ظهر كلاهما
+      const ab = document.getElementById('ayah-bar');
+      if (ab) ab.classList.add('with-audio');
     }
     bar.querySelector('#audio-title').textContent = name || '';
     bar.classList.add('visible', 'playing');
@@ -344,10 +548,22 @@ const AudioPlayer = {
   hide() {
     const bar = document.getElementById('audio-bar');
     if (bar) bar.classList.remove('visible', 'playing');
+    const ab = document.getElementById('ayah-bar');
+    if (ab) ab.classList.remove('with-audio');
   },
-  stop() { if (this.audio) { this.audio.pause(); this.audio.currentTime = 0; } this.current = null; this.hide(); },
+  stop() {
+    this.stopClock();
+    if (this.audio) { this.audio.pause(); this.audio.currentTime = 0; }
+    this.current = null; this.queue = []; this.qi = -1; this.curItem = null;
+    this.clearHighlight();
+    this.hide();
+  },
+  // تغيير القارئ أثناء التشغيل: أعد تحميل الآية الحالية بالقارئ الجديد
   refreshReciter() {
-    if (this.current) { const wasPlaying = this.audio && !this.audio.paused; this.audio.src = this.urlFor(this.current); if (wasPlaying) this.audio.play().catch(() => {}); }
+    if (!this.audio || this.qi < 0 || !this.queue[this.qi]) return;
+    const wasPlaying = !this.audio.paused;
+    this.audio.src = this.urlForAyah(this.queue[this.qi].global);
+    if (wasPlaying) this.audio.play().catch(() => {});
   },
   // أضف زر التشغيل لبطاقة رأس السورة
   bindSurahHeader() {
@@ -361,9 +577,15 @@ const AudioPlayer = {
     btn.innerHTML = '▶';
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      const n = window.state && window.state.currentSurah ? window.state.currentSurah.number : null;
-      const nm = window.state && window.state.currentSurah ? window.state.currentSurah.name : '';
-      if (n) this.play(n, nm);
+      const st = window.state || {};
+      const n = st.currentSurah ? st.currentSurah.number : null;
+      const nm = st.currentSurah ? st.currentSurah.name : '';
+      if (!n) return;
+      // ابدأ من أول آية في الصفحة المعروضة حالياً
+      const pages = st.surahPages || [];
+      const idx = st.surahPageIndex || 0;
+      const fromAyah = (pages[idx] && pages[idx].ayahs[0] && pages[idx].ayahs[0].numberInSurah) || 1;
+      this.play(n, nm, fromAyah);
     });
     card.appendChild(btn);
   }
@@ -439,9 +661,13 @@ const DeepLinks = {
   },
   apply(hash) {
     if (!hash || hash.length < 2) return;
-    const parts = hash.slice(1).split('/'); // ["surah", "18"]
+    // تتغيّر التجزئة فتبدأ بـ "#/" — أزِل الـ "#" وأي شرطة مائلة شاغرة قبل التقسيم
+    const parts = hash.slice(1).replace(/^\/+/, '').split('/'); // ["surah", "18"]
     const route = parts[0];
-    if (route === 'surah' && parts[1] && window.openSurah) { window.openSurah(parseInt(parts[1], 10)); }
+    if (route === 'surah' && parts[1] && window.openSurah) {
+      const ayahNo = parts[2] ? parseInt(parts[2], 10) : null;
+      window.openSurah(parseInt(parts[1], 10), ayahNo);
+    }
     else if (route === 'khatmah' && window.switchTab) { window.switchTab('khatmah'); }
     else if (route === 'athkar' && window.switchTab) { window.switchTab('athkar'); }
     else if (route === 'tasbih' && window.openTasbih) { window.openTasbih(); }
@@ -451,7 +677,10 @@ const DeepLinks = {
   },
   update(screenId) {
     const map = {
-      'surah-view': window.state && window.state.currentSurah ? '#/surah/' + window.state.currentSurah.number : '#/quran',
+      // تشمل الآية المحددة إن وُجدت حتى يُعاد فتح الرابط على نفسها
+      'surah-view': (window.state && window.state.currentSurah)
+        ? '#/surah/' + window.state.currentSurah.number + (window.selectedAyahNo ? '/' + window.selectedAyahNo : '')
+        : '#/quran',
       'khatmah-main': '#/khatmah', 'khatmah-read': '#/khatmah',
       'athkar-list': '#/athkar', 'thikr-view': '#/athkar',
       'tasbih': '#/tasbih', 'surah-list': '#/quran',
