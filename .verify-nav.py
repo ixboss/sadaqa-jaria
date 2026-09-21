@@ -1,4 +1,4 @@
-"""Recompute nav geometry after adding --nav-drop, and assert no overlap.
+"""Assert nav geometry with the bar seated flush against the safe area.
 
 Mirrors the CSS token math exactly:
   --nav-bottom         = nav-gap + inset + nav-drop
@@ -6,9 +6,15 @@ Mirrors the CSS token math exactly:
 
 The bar occupies [nav-bottom, nav-bottom + nav-h] from the screen bottom.
 Content must clear it, i.e. clearance-safe must exceed nav-bottom + nav-h.
+
+The bar hugs the safe-area inset on every device bucket, so gap = drop = 0
+and --nav-bottom is exactly the inset.
 """
 
-DROPS = {"default": 2, "short": 2, "landscape": 2}
+GAP = 0
+DROP = 0
+# Total margin above the safe-area inset before this change (old gap + old drop)
+PREVIOUS = {"default": 12, "short": 10, "landscape": 8}
 # (label, inset, nav-h key, viewport h, viewport w)
 DEVICES = [
     ("iPhone SE / no inset",        0,  "default",   667, 375),
@@ -23,15 +29,13 @@ DEVICES = [
 ]
 
 NAV_H = {"default": 70, "short": 58, "landscape": 54}
-BASE_GAP = {"default": 10, "short": 8, "landscape": 6}
 
 
 def gap_for(key, inset):
-    base = BASE_GAP[key]
-    return max(6, min(base, base - max(0, inset - 28) * 0.2))
+    return GAP
 
 
-print(f"{'device':<26}{'inset':>6}{'gap':>7}{'drop':>6}{'bottom':>8}"
+print(f"{'device':<26}{'inset':>6}{'gap':>5}{'drop':>6}{'bottom':>8}"
       f"{'bar top':>9}{'clears by':>11}  verdict")
 print("-" * 84)
 
@@ -46,7 +50,7 @@ for label, inset, key, vh, vw in DEVICES:
         js_key = "default"
 
     gap   = gap_for(js_key, inset)
-    drop  = DROPS[js_key]
+    drop  = DROP
     navh  = NAV_H[js_key]
     bottom = gap + inset + drop
     bartop = bottom + navh
@@ -56,12 +60,12 @@ for label, inset, key, vh, vw in DEVICES:
     ok = margin >= 20 - 0.01
     if not ok:
         fails.append(label)
-    print(f"{label:<26}{inset:>6}{gap:>7.1f}{drop:>6}{bottom:>8.1f}"
+    print(f"{label:<26}{inset:>6}{gap:>5.0f}{drop:>6.0f}{bottom:>8.1f}"
           f"{bartop:>9.1f}{margin:>11.1f}  {'OK' if ok else 'OVERLAP'}")
 
 print()
-# Before/after: what --nav-drop actually changed
-print("Effect of --nav-drop (distance from screen bottom, before -> after):")
+# Before/after: how far the bar moved down toward the safe-area inset
+print("Bar bottom vs the safe-area inset (margin above the inset, before -> after):")
 print(f"{'device':<26}{'before':>9}{'after':>9}{'moved':>9}")
 print("-" * 53)
 for label, inset, key, vh, vw in DEVICES:
@@ -71,10 +75,9 @@ for label, inset, key, vh, vw in DEVICES:
         js_key = "short"
     else:
         js_key = "default"
-    gap = gap_for(js_key, inset)
-    before = gap + inset
-    after  = gap + inset + DROPS[js_key]
-    print(f"{label:<26}{before:>9.1f}{after:>9.1f}{after-before:>9.0f}")
+    before = PREVIOUS[js_key]
+    after  = GAP + DROP
+    print(f"{label:<26}{before:>9.0f}{after:>9.0f}{after-before:>9.0f}")
 
 print()
 print(f"FAILS: {len(fails)}" + (f" -> {fails}" if fails else ""))
