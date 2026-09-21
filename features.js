@@ -580,12 +580,15 @@ const AudioPlayer = {
       const st = window.state || {};
       const n = st.currentSurah ? st.currentSurah.number : null;
       const nm = st.currentSurah ? st.currentSurah.name : '';
-      if (!n) return;
-      // ابدأ من أول آية في الصفحة المعروضة حالياً
-      const pages = st.surahPages || [];
-      const idx = st.surahPageIndex || 0;
-      const fromAyah = (pages[idx] && pages[idx].ayahs[0] && pages[idx].ayahs[0].numberInSurah) || 1;
-      this.play(n, nm, fromAyah);
+    if (!n) return;
+    // ابدأ من الآية المحددة إن كانت على الصفحة المعروضة، وإلا فمن أول آية فيها
+    const pages = st.surahPages || [];
+    const idx = st.surahPageIndex || 0;
+    let fromAyah = (pages[idx] && pages[idx].ayahs[0] && pages[idx].ayahs[0].numberInSurah) || 1;
+    if (window.selectedAyahNo && pages[idx] && pages[idx].ayahs.some(a => a.numberInSurah === window.selectedAyahNo)) {
+      fromAyah = window.selectedAyahNo;
+    }
+    this.play(n, nm, fromAyah);
     });
     card.appendChild(btn);
   }
@@ -661,6 +664,8 @@ const DeepLinks = {
   },
   apply(hash) {
     if (!hash || hash.length < 2) return;
+    // تجاهل أحداث التجزئة الناشئة عن رجوعنا الداخلي (زر الرجوع المادي)
+    if (window._internalNav) return;
     // تتغيّر التجزئة فتبدأ بـ "#/" — أزِل الـ "#" وأي شرطة مائلة شاغرة قبل التقسيم
     const parts = hash.slice(1).replace(/^\/+/, '').split('/'); // ["surah", "18"]
     const route = parts[0];
