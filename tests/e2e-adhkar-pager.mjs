@@ -12,9 +12,10 @@
  * Scenarios (all assertions measured in the live page):
  *   (a) Horizontal swipe next/previous, RTL
  *   (b) Tap-anywhere increments the counter; reaching target completes
- *   (c) Font scaling 100%→200%: no overflow / clipping / overlap
+ *   (c) Font scaling 100%→200%: no overflow / clipping / overlap, counter clears the nav
  *   (d) No vertical scrolling in the adhkar category screen
  *   (e) Regression: every category opens, favorites persist, Back nav, console clean
+ *   (f) Counter clears the bottom nav across small/medium/large/landscape viewports
  */
 import { spawn } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
@@ -185,28 +186,35 @@ async function main() {
     })()`);
     await waitForScroll();
     card = await pg.visibleCard();
-    const max = await evaljs(`ATHKAR[${card.ci}].items[${card.i}].count`);
-    ok('(b) found multi-count dhikr', max >= 3, 'count=' + max);
+    // a cold start can leave the pager un-rendered for a beat; retry once so a
+    // slow browser reports a real failure instead of crashing on a null card
+    if (!card) { await sleep(1000); card = await pg.visibleCard(); }
+    if (card) {
+      const max = await evaljs(`ATHKAR[${card.ci}].items[${card.i}].count`);
+      ok('(b) found multi-count dhikr', max >= 3, 'count=' + max);
 
-    // tap on the text body (not the button) — tap-anywhere must increment
-    const before = await pg.progressKey(card.ci, card.i);
-    for (let k = 0; k < max; k++) {
-      const t = await pg.visibleCard();
-      await tap(t.textRect.x + t.textRect.w / 2, t.textRect.y + 24);
-      await sleep(250);
+      // tap on the text body (not the button) — tap-anywhere must increment
+      const before = await pg.progressKey(card.ci, card.i);
+      for (let k = 0; k < max; k++) {
+        const t = await pg.visibleCard();
+        await tap(t.textRect.x + t.textRect.w / 2, t.textRect.y + 24);
+        await sleep(250);
+      }
+      card = await pg.visibleCard();
+      const lsVal = await pg.progressKey(card.ci, card.i);
+      ok('(b) count line reached target', card.countLine.includes(toArabicCheck(max)) || card.countLine.includes(String(max)), card.countLine);
+      ok('(b) tap button shows completion', card.tapBtn.includes('✓'), card.tapBtn);
+      ok('(b) progress bar at 100%', card.fillW === '100%', card.fillW);
+      ok('(b) progress persisted to localStorage', String(lsVal) === String(max) && before !== String(max), `ath key=${lsVal}`);
+      ok('(b) tapping did not navigate (same slide)', card.i === target && await evaljs(`state.currentScreen === 'thikr-view'`), `slide=${target} i=${card.i}`);
+      // extra tap beyond target must not over-count
+      await tap(card.textRect.x + card.textRect.w / 2, card.textRect.y + 24);
+      await sleep(200);
+      const lsAfter = await pg.progressKey(card.ci, card.i);
+      ok('(b) capped at target (no over-count)', String(lsAfter) === String(max), `ath key=${lsAfter}`);
+    } else {
+      ok('(b) found multi-count dhikr', false, 'no visible card — the category did not render');
     }
-    card = await pg.visibleCard();
-    const lsVal = await pg.progressKey(card.ci, card.i);
-    ok('(b) count line reached target', card.countLine.includes(toArabicCheck(max)) || card.countLine.includes(String(max)), card.countLine);
-    ok('(b) tap button shows completion', card.tapBtn.includes('✓'), card.tapBtn);
-    ok('(b) progress bar at 100%', card.fillW === '100%', card.fillW);
-    ok('(b) progress persisted to localStorage', String(lsVal) === String(max) && before !== String(max), `ath key=${lsVal}`);
-    ok('(b) tapping did not navigate (same slide)', card.i === target && await evaljs(`state.currentScreen === 'thikr-view'`), `slide=${target} i=${card.i}`);
-    // extra tap beyond target must not over-count
-    await tap(card.textRect.x + card.textRect.w / 2, card.textRect.y + 24);
-    await sleep(200);
-    const lsAfter = await pg.progressKey(card.ci, card.i);
-    ok('(b) capped at target (no over-count)', String(lsAfter) === String(max), `ath key=${lsAfter}`);
 
     // Regression guard for the "shrink-to-fit" overview bug: the aria-live
     // announcement fired on completion used to sit at left:-9999px, which made
@@ -223,7 +231,8 @@ async function main() {
       const stats = await evaljs(`(() => {
         const pager = document.getElementById('thikr-list-container');
         const step = pager.getBoundingClientRect().width;
-        const out = { slides: 0, overflow: 0, clipped: 0, slideVScroll: 0, textScroll: 0, unreachable: 0, perSlide: [] };
+        const navTop = document.getElementById('nav').getBoundingClientRect().top;
+        const out = { slides: 0, overflow: 0, clipped: 0, slideVScroll: 0, textScroll: 0, unreachable: 0, behindNav: 0, perSlide: [], navHits: [] };
         const orig = pager.scrollLeft;
         const slides = [...pager.querySelectorAll('.dhikr-slide')];
         for (let i = 0; i < slides.length; i++) {
@@ -239,6 +248,14 @@ async function main() {
           // the category screen must never scroll vertically: the card is capped
           // at the slide height, so a long dhikr scrolls *inside its text region*
           if (s.scrollHeight > s.clientHeight + 1) { out.slideVScroll++; out.perSlide.push({ i: i + 1, sh: s.scrollHeight, ch: s.clientHeight }); }
+          // the count button must clear the fixed bottom nav bar: the card is
+          // bounded by the *slide*, so a slide reaching the screen bottom would
+          // hide the counter behind the bar on exactly the long/large-font cards
+          const btn = card.querySelector('.thikr-tap-btn');
+          if (btn) {
+            const bb = btn.getBoundingClientRect();
+            if (bb.bottom > navTop) { out.behindNav++; out.navHits.push({ i: i + 1, btnBottom: Math.round(bb.bottom), navTop: Math.round(navTop) }); }
+          }
           if (tr.scrollHeight > tr.clientHeight + 1) {
             out.textScroll++;
             // the whole text must be reachable inside the region
@@ -253,8 +270,9 @@ async function main() {
       ok(`(c) ${scale * 100}% — no horizontal overflow`, stats.overflow === 0, JSON.stringify(stats));
       ok(`(c) ${scale * 100}% — text not clipped by card`, stats.clipped === 0, 'clipped=' + stats.clipped);
       ok(`(c) ${scale * 100}% — card never exceeds the viewport`, stats.slideVScroll === 0, 'slideVScroll=' + stats.slideVScroll + ' ' + JSON.stringify(stats.perSlide));
+      ok(`(c) ${scale * 100}% — count button clears the bottom nav`, stats.behindNav === 0, 'behindNav=' + stats.behindNav + ' ' + JSON.stringify(stats.navHits));
       ok(`(c) ${scale * 100}% — long text fully reachable inside the card`, stats.unreachable === 0, 'unreachable=' + stats.unreachable);
-      console.log(`         [scale ${scale}] slides=${stats.slides} overflow=${stats.overflow} clipped=${stats.clipped} textScroll=${stats.textScroll} unreachable=${stats.unreachable} slideVScroll=${stats.slideVScroll}`);
+      console.log(`         [scale ${scale}] slides=${stats.slides} overflow=${stats.overflow} clipped=${stats.clipped} textScroll=${stats.textScroll} unreachable=${stats.unreachable} slideVScroll=${stats.slideVScroll} behindNav=${stats.behindNav}`);
     }
     await evaljs(`window.applyFontSize(1.0)`);
     await sleep(400);
@@ -339,6 +357,57 @@ async function main() {
         e.params.entry.source !== 'network' &&
         !/fonts\.gstatic\.com|fonts\.googleapis\.com/.test(e.params.entry.url || '')));
     ok('(e) zero console errors', errs.length === 0, errs.map(e => JSON.stringify(e.params)).join(' | '));
+
+    // ═══ (f) Counter clears the bottom nav across viewports ═══
+    // The pager bounds each card against its slide; if the slide reaches the
+    // bottom of the screen, the count button ends up behind the fixed nav bar.
+    // Re-check at small / medium / large phone widths and in landscape, because
+    // the slide height — and therefore which cards get capped — changes with it.
+    const VIEWPORTS = [
+      { width: 320, height: 693, label: '320×693 (small phone)' },
+      { width: 390, height: 844, label: '390×844 (medium phone)' },
+      { width: 393, height: 852, label: '393×852 (large phone)' },
+      { width: 844, height: 390, label: '844×390 (landscape)' },
+    ];
+    for (const vp of VIEWPORTS) {
+      await send('Emulation.setDeviceMetricsOverride', { ...vp, deviceScaleFactor: 2, mobile: true });
+      await send('Page.navigate', { url: BASE });
+      await sleep(2200);
+      await evaljs(`document.querySelector('[data-tab="athkar"]').click()`);
+      for (let i = 0; i < 40 && !await evaljs(`document.querySelectorAll('.athkar-cat-card').length > 0`); i++) await sleep(100);
+      await evaljs(`document.querySelector('.athkar-cat-card').click()`);
+      for (let i = 0; i < 40 && !await evaljs(`document.querySelectorAll('.dhikr-slide').length > 0`); i++) await sleep(100);
+      await sleep(600);
+      for (const scale of [1.0, 1.3, 2.0]) {   // smallest, the ~1.4 default, largest
+        await evaljs(`window.applyFontSize(${scale})`);
+        await sleep(450);
+        const st = await evaljs(`(() => {
+          const pager = document.getElementById('thikr-list-container');
+          const step = pager.getBoundingClientRect().width;
+          const nav = document.getElementById('nav').getBoundingClientRect();
+          const out = { slides: 0, behindNav: 0, offScreen: 0, hits: [], navTop: Math.round(nav.top),
+                        applied: getComputedStyle(document.documentElement).getPropertyValue('--font-scale').trim(),
+                        navVisible: nav.top > 0 && nav.top < window.innerHeight };
+          const orig = pager.scrollLeft;
+          const slides = [...pager.querySelectorAll('.dhikr-slide')];
+          for (let i = 0; i < slides.length; i++) {
+            pager.style.scrollBehavior = 'auto'; pager.scrollLeft = -(i * step); pager.style.scrollBehavior = '';
+            const card = slides[i].querySelector('.dhikr-card');
+            const cr = card.getBoundingClientRect();
+            const bb = card.querySelector('.thikr-tap-btn').getBoundingClientRect();
+            out.slides++;
+            if (bb.bottom > nav.top) { out.behindNav++; out.hits.push({ i: i + 1, btnBottom: Math.round(bb.bottom), navTop: Math.round(nav.top) }); }
+            if (cr.bottom > window.innerHeight + 1 || cr.top < -1 || cr.right > window.innerWidth + 1 || cr.left < -1) out.offScreen++;
+          }
+          pager.style.scrollBehavior = 'auto'; pager.scrollLeft = orig; pager.style.scrollBehavior = '';
+          return out;
+        })()`);
+        ok(`(f) ${vp.label} @${st.applied}× — nav bar visible (assertion meaningful)`, st.navVisible, 'navTop=' + st.navTop);
+        ok(`(f) ${vp.label} @${st.applied}× — count button clears the nav`, st.behindNav === 0, 'behindNav=' + st.behindNav + ' navTop=' + st.navTop + ' ' + JSON.stringify(st.hits));
+        ok(`(f) ${vp.label} @${st.applied}× — card stays inside the viewport`, st.offScreen === 0, 'offScreen=' + st.offScreen);
+        console.log(`         [${vp.label} @${st.applied}] slides=${st.slides} behindNav=${st.behindNav} offScreen=${st.offScreen} navTop=${st.navTop}`);
+      }
+    }
 
   } finally {
     browser.kill();
