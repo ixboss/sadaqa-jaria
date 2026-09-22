@@ -1,9 +1,9 @@
 // ==================== Service Worker — إسلامي ====================
-// v38: مسار تنقّل حقيقي + مزامنة التبويب، بحث نص الآيات، إكمال أذكار الصباح/المساء،
-// شارة حفظ الآية، تنقّل بين السور، متابعة موضع القراءة، وإصلاح قصّ المناسبات.
-const CACHE_NAME = 'quran-app-v38';
-const API_CACHE = 'quran-api-v38';
-const STATIC_CACHE = 'static-v38';
+// v40: الأذكار كتقاليب أفقية (Pager) — ذكرٌ واحد في كل شريحة مع الالتقاط الأفقي
+// وإسقاط شريط التحكم الثابت والأزرار الجانبية؛ التحكم بالخط عبر رأس الشاشة فقط.
+const CACHE_NAME = 'quran-app-v40';
+const API_CACHE = 'quran-api-v40';
+const STATIC_CACHE = 'static-v40';
 
 const PRECACHE_URLS = [
   './',

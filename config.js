@@ -60,7 +60,7 @@ const APP_CONFIG = {
   // UI
   ui: {
     theme: 'dark', // 'dark' or 'light'
-    fontSize: 'large', // 'small', 'medium', 'large'
+    fontScale: 1.4, // 0.8 / 1.0 / 1.3 / 1.5 / 2.0
     fontFamily: 'Amiri Quran',
     animationDuration: 300,
     transitionDuration: 400

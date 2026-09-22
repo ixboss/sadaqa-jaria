@@ -95,7 +95,7 @@
   --radius: 12px;
   /* ===== نظام الخطوط: حجم أساسي واحد × نسبة تكبير واحدة ===== */
   --font-base: 26px;                        /* الحجم المرجعي (متوسط) */
-  --font-scale: 1;                          /* نسبة التكبير: 0.8 / 1 / 1.4 */
+  --font-scale: 1;                          /* نسبة التكبير: ٠.٨ / ١ / ١.٣ / ١.٥ / ٢ */
   --font-size: calc(var(--font-base) * var(--font-scale));  /* الحجم الفعلي المشتق */
   --line-height: 2.3;
   /* ===== نظام المصحف: حجم مستقل عن حجم الواجهة ===== */
@@ -126,7 +126,7 @@
      = ارتفاع الشريط + الفراغ أسفله + هامش مريح فوقه. */
   --nav-clearance: calc(var(--nav-h) + var(--nav-gap) + var(--nav-drop) + 20px);
   /* نفس المسافة + منطقة الأمان: للعناصر الثابتة فوق الشريط */
-  --nav-clearance-safe: calc(var(--nav-h) + var(--nav-gap) + var(--nav-drop) + 20px + env(safe-area-inset-bottom, 0px));
+  --nav-clearance-safe: calc(max(var(--nav-h), var(--nav-h-actual, 0px)) + var(--nav-gap) + var(--nav-drop) + 20px + env(safe-area-inset-bottom, 0px));
 
 /* Motion & animation tokens */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
@@ -371,10 +371,10 @@ body.theme-light ::-webkit-scrollbar-thumb { background: rgba(31, 122, 90, 0.25)
 #app { position: fixed; inset: 0; display: flex; flex-direction: column; z-index: 1; }
 
 /* ==================== الشريط العلوي ==================== */
-#header { height: var(--header-h); background: var(--header-grad); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; flex-shrink: 0; z-index: 100; box-shadow: 0 2px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10); transition: background 0.4s, box-shadow 0.4s; }
+#header { position: relative; min-height: var(--header-h); height: auto; background: var(--header-grad); display: flex; align-items: center; justify-content: space-between; padding: calc(env(safe-area-inset-top, 0px) + 6px) 16px 6px; flex-shrink: 0; z-index: 100; box-shadow: 0 2px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10); transition: background 0.4s, box-shadow 0.4s; }
 body.theme-light #header { box-shadow: 0 2px 15px rgba(20, 51, 58, 0.08), inset 0 1px 0 rgba(255,255,255,0.9); border-bottom: 1px solid var(--border); }
 
-#reading-progress-container { position: fixed; top: var(--header-h); left: 0; right: 0; height: 3px; background: transparent; z-index: 99; display: none; pointer-events: none; }
+#reading-progress-container { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: transparent; z-index: 99; display: none; pointer-events: none; }
 #reading-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #3ecf9e 0%, #46c8d6 50%, #3ecf9e 100%); transition: width 0.1s ease-out; }
 
 .header-center { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: center; }
@@ -395,6 +395,18 @@ body.theme-light .header-btn { background: var(--surface-2); color: var(--text);
 .header-btn.active { background: rgba(255,255,255,0.22); color: #eafff5; }
 body.theme-light .header-btn.active { background: var(--accent); color: #fff; }
 
+/* ===== نافذة حجم الخط المنبثقة ===== */
+/* تفتح من زر الرأس، قائمة أفقية من ٥ درجات، تُغلق بالنقر خارجها */
+#font-popover { position: fixed; top: calc(env(safe-area-inset-top, 0px) + max(var(--header-h, 70px), var(--header-h-actual, 0px)) + 8px); left: 50%; transform: translateX(-50%) translateY(-8px); background: var(--surface); border: 1px solid var(--accent); border-radius: 18px; padding: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.45); z-index: 300; width: calc(100vw - 48px); max-width: 340px; opacity: 0; transition: opacity 200ms var(--ease-out-quart), transform 220ms var(--ease-spring-snap); }
+#font-popover[hidden] { display: none; }
+#font-popover:not([hidden]) { opacity: 1; transform: translateX(-50%) translateY(0); }
+.font-popover-title { font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); text-align: center; margin-bottom: 10px; font-weight: bold; }
+#font-popover-grid { display: flex; gap: 8px; justify-content: space-between; }
+.font-step-btn { flex: 1; min-width: 0; background: var(--surface-2); color: var(--text); border: 1px solid transparent; border-radius: 12px; padding: 10px 4px; font-size: calc(var(--font-size) * 0.5); font-weight: bold; cursor: pointer; transition: transform 180ms var(--ease-spring-snap), background 200ms, color 200ms; }
+.font-step-btn:active { transform: scale(0.92); }
+.font-step-btn.active { background: var(--accent); color: var(--color-on-accent); border-color: var(--accent); }
+body.theme-light .font-step-btn { background: var(--surface-2); }
+
 #content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: calc(var(--nav-clearance-safe) + 36px); scroll-behavior: smooth; touch-action: pan-y; }
 
 /* ==================== الشريط السفلي الزجاجي (Liquid Glass) ==================== */
@@ -403,7 +415,7 @@ body.theme-light .header-btn.active { background: var(--accent); color: #fff; }
      في الوضع المثبّت على الشاشة الرئيسية تكون env(safe-area-inset-bottom) هي
      شريط iOS السفلي (~34px)، فيجلس الشريط فوقه مباشرة بدل أن يطفو في الفراغ. */
   position: fixed; bottom: var(--nav-bottom); left: 50%; transform: translateX(-50%);
-  width: calc(100% - 32px); max-width: 420px; height: var(--nav-h);
+  width: calc(100% - 32px); max-width: 420px; height: auto; min-height: var(--nav-h);
   /* طبقات زجاجية: تدرج علوي لامع + قاعدة معتمة.
      القاعدة كانت شبه شفافة (55%) فكان نص السور يظهر من خلف الشريط
      ويبدو مقصوصاً. الآن 96% — يحافظ على إحساس الزجاج (بفضل التدرج
@@ -528,7 +540,7 @@ body.theme-light .nav-tab.active .nav-icon { filter: drop-shadow(0 4px 6px rgba(
 .screen.active { display: block; animation: depthIn 360ms var(--ease-out-quart) backwards; }
 .screen.slide-left { display: block; animation: slideInLeft 380ms var(--ease-out-quart) backwards; }
 .screen.slide-right { display: block; animation: slideInRight 380ms var(--ease-out-quart) backwards; }
-#screen-tasbih.active, #screen-tasbih.slide-left, #screen-tasbih.slide-right { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100dvh - var(--header-h) - 100px); }
+#screen-tasbih.active, #screen-tasbih.slide-left, #screen-tasbih.slide-right { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100dvh - max(var(--header-h), var(--header-h-actual, 0px)) - 100px); }
 
 .skeleton { background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 30%, var(--surface) 60%, var(--surface-2) 100%); background-size: 200% 100%; animation: shimmerWave 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite; border-radius: 8px; position: relative; overflow: hidden; }
 .skeleton::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%); animation: shimmerWave 2s linear infinite; pointer-events: none; }
@@ -592,19 +604,19 @@ body.theme-light .ayah.bookmarked .ayah-badge { box-shadow: 0 0 0 2px var(--surf
 .mushaf-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 4px 0 18px; }
 .mushaf-nav-btn { flex: 1; max-width: 150px; }
 .mushaf-nav-btn:disabled { opacity: 0.35; pointer-events: none; }
-.mushaf-nav-pos { font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); font-family: Tahoma, sans-serif; white-space: nowrap; }
+.mushaf-nav-pos { font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); font-family: Tahoma, sans-serif; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; text-align: center; }
 /* تنقّل السور أرفق من تنقّل الصفحات حتى لا يتساوى بصرياً معه */
 .surah-nav { margin-top: -6px; }
 .surah-nav .mushaf-nav-btn { max-width: 130px; font-size: calc(var(--font-size) * 0.44); }
 .ayah-search-status { text-align: center; color: var(--text-dim); font-size: calc(var(--font-size) * 0.6); padding: 14px 8px; }
 
 /* ===== شريط إجراءات الآية المحدّدة ===== */
-#ayah-bar { position: fixed; bottom: calc(var(--nav-clearance-safe) + 12px); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface); border: 1px solid var(--accent); border-radius: 30px; padding: 8px 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 96; display: flex; align-items: center; gap: 6px; visibility: hidden; opacity: 0; max-width: calc(100vw - 32px); transition: visibility 0s linear 300ms, transform 320ms var(--ease-spring-snap), opacity 260ms var(--ease-out-quart); }
+#ayah-bar { position: fixed; bottom: calc(var(--nav-clearance-safe) + 12px); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface); border: 1px solid var(--accent); border-radius: 30px; padding: 8px 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 96; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; visibility: hidden; opacity: 0; max-width: calc(100vw - 32px); transition: visibility 0s linear 300ms, transform 320ms var(--ease-spring-snap), opacity 260ms var(--ease-out-quart); }
 #ayah-bar.visible { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); transition: visibility 0s linear 0s, transform 320ms var(--ease-spring-snap), opacity 260ms var(--ease-out-quart); }
 #ayah-bar.with-audio { bottom: calc(var(--nav-clearance-safe) + 72px); }
-#ayah-bar button { background: var(--accent-dim); color: var(--accent); border: none; border-radius: 20px; height: 38px; padding: 0 14px; display: flex; align-items: center; gap: 6px; font-size: calc(var(--font-size) * 0.52); font-weight: 700; cursor: pointer; white-space: nowrap; transition: transform 180ms var(--ease-spring-snap), background 200ms; }
+#ayah-bar button { background: var(--accent-dim); color: var(--accent); border: none; border-radius: 20px; min-height: 38px; padding: 6px 12px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: calc(var(--font-size) * 0.52); font-weight: 700; cursor: pointer; flex: 1 1 auto; min-width: 0; transition: transform 180ms var(--ease-spring-snap), background 200ms; }
 #ayah-bar button:active { transform: scale(0.92); }
-#ayah-bar button.ayah-close { background: var(--surface-2); color: var(--text-dim); width: 38px; padding: 0; border-radius: 50%; justify-content: center; }
+#ayah-bar button.ayah-close { background: var(--surface-2); color: var(--text-dim); width: 38px; flex: 0 0 38px; padding: 0; border-radius: 50%; justify-content: center; }
 
 /* ===== Toast: تنبيه عابر خفيف ===== */
 #app-toast { position: fixed; bottom: calc(var(--nav-clearance-safe) + 76px); left: 50%; transform: translateX(-50%) translateY(16px); background: var(--accent-deep); color: var(--color-on-accent); border-radius: 22px; padding: 10px 20px; font-size: calc(var(--font-size) * 0.52); font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,0.45); z-index: 200; visibility: hidden; opacity: 0; max-width: calc(100vw - 48px); text-align: center; transition: visibility 0s linear 260ms, transform 280ms var(--ease-spring-snap), opacity 220ms var(--ease-out-quart); }
@@ -639,8 +651,8 @@ body.theme-light .btn-scale { color: var(--color-on-accent); }
 .k-dash-info { flex: 1; display: flex; flex-direction: column; gap: 12px; }
 .k-dash-title { font-size: calc(var(--font-size) * 0.6); color: var(--text-dim); margin-bottom: 6px; transition: font-size 0.3s; }
 
-.k-wird-container { display: flex; align-items: center; justify-content: space-between; background: var(--surface-2); border-radius: 8px; padding: 12px; width: 90%; transition: background 0.4s; }
-.k-wird-badge { display: flex; flex-direction: column; align-items: center; min-width: fit-content; white-space: nowrap; }
+.k-wird-container { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface-2); border-radius: 8px; padding: 12px; width: 90%; min-width: 0; transition: background 0.4s; }
+.k-wird-badge { display: flex; flex-direction: column; align-items: center; min-width: 0; flex-shrink: 1; white-space: nowrap; overflow: hidden; }
 .k-wird-badge span { font-size: calc(var(--font-size) * 0.85); font-weight: bold; color: var(--accent); transition: font-size 0.3s; }
 .k-wird-badge small { font-size: calc(var(--font-size) * 0.45); color: var(--text-dim); margin-bottom: 4px; transition: font-size 0.3s; }
 .k-wird-arrow { color: var(--accent); font-size: calc(var(--font-size) * 0.8); font-weight: bold; transition: font-size 0.3s; }
@@ -686,6 +698,116 @@ body.theme-light .quick-nav-label { color: var(--color-on-accent); }
 .thikr-tap-btn:active { transform: scale(0.96); }
 .thikr-tap-btn.done { background: #0f3a26; border-color: var(--success); color: var(--success); transform: scale(1); }
 body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success); border-color: var(--success); }
+
+/* ================= بطاقة الذكر (تقاليب أفقي — Pager) ================= */
+/* شاشة الذكر تصبح صفحاتٍ أفقية: ذكرٌ واحد في كل مرة، مع التفات يميناً/يساراً.
+   #content نفسه لا يتحرك أبداً على هذه الشاشة (overflow: hidden). */
+#content.pager-dhikr { overflow: hidden; touch-action: pan-x; padding-bottom: 0; }
+#screen-thikr-view.active, #screen-thikr-view.slide-left, #screen-thikr-view.slide-right { display: flex; flex-direction: column; height: 100%; }
+#screen-thikr-view .dhikr-filter-row { flex: 0 0 auto; }
+#thikr-list-container {
+  flex: 1 1 auto; min-height: 0;
+  display: flex;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch; touch-action: pan-x;
+  scrollbar-width: none;
+}
+#thikr-list-container::-webkit-scrollbar { display: none; }
+/* كل شريحة تأخذ عرض الحاوية بالضبط = بطاقة واحدة مرئية.
+   اتجاه RTL يُدار تلقائياً عبر dir="rtl" على <html>: السحب لليسار = التالي.
+   الشريحة نفسها لا تمرّر أبداً (overflow: hidden) — أيّ ذكرٍ أطول من الشاشة
+   يتموّر داخل منطقة نصّه الخاصة (انظر .thikr-text) فلا يحدث تمرير عمودي
+   للشاشة أبداً مهما كبر الخط. */
+.dhikr-slide {
+  flex: none; width: 100%;
+  display: flex; flex-direction: column;
+  scroll-snap-align: center;
+  overflow: hidden;
+  /* كلا المحورين: السحب الأفقي يقلّب الصفحات، والعمودي يموّر النص داخل البطاقة */
+  touch-action: pan-x pan-y;
+  /* هوامش جانبية مريحة: البطاقة ليست ملصقةً بحواف الشاشة */
+  padding: 6px 14px;
+}
+.dhikr-card {
+  margin: auto 0;
+  width: 100%;
+  /* لا تتجاوز ارتفاع الشريحة أبداً: تتمركز في الوسط حين تتّسع،
+     وتتقلّص منطقة النصّ دوناً عن باقي البطاقة حين يطول الذكر. */
+  max-height: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px 16px;
+  display: flex; flex-direction: column;
+  position: relative;
+  cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
+  transition: background 0.4s, border-color 0.4s, transform 140ms var(--ease-spring-snap);
+}
+.dhikr-card:active { transform: scale(0.99); }
+.dhikr-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex: 0 0 auto; }
+.dhikr-badge {
+  font-size: calc(var(--font-size) * 0.5); font-weight: 700; color: var(--accent);
+  background: var(--accent-dim); border-radius: 999px; padding: 4px 14px;
+  font-family: Tahoma, sans-serif; white-space: nowrap;
+}
+.dhikr-fav {
+  background: transparent; border: none; font-size: calc(var(--font-size) * 0.7);
+  color: var(--text-dim); cursor: pointer; padding: 6px; border-radius: 50%;
+  transition: transform 180ms var(--ease-spring-snap), color 200ms; flex-shrink: 0;
+}
+.dhikr-fav:active { transform: scale(1.25); }
+.dhikr-fav.active { color: var(--accent); }
+.dhikr-count-line {
+  font-size: calc(var(--font-size) * 0.55); color: var(--text-dim); font-weight: 700;
+  padding-top: 8px; font-family: Tahoma, sans-serif; flex: 0 0 auto;
+}
+/* منطقة النص: هي الجزء المرن الوحيد في البطاقة. flex: 0 1 auto يجعلها
+   تأخذ ارتفاعها الطبيعي حين تتّسع البطاقة (فتبقى البطاقة متمركزة ومضغوطة)،
+   وتتقلّص مع التمرير الداخلي فقط حين يطول الذكر عن ارتفاع الشاشة. */
+.dhikr-card .thikr-text {
+  display: block; font-size: calc(var(--font-size) * 0.8); text-align: center; line-height: 1.75;
+  margin: 4px 0 12px; padding: 2px 6px 8px;   /* ٨px أسفل تستوعب حروف التشكيل المتدلّية فلا يظهر شريط تمرير وهمي */
+  flex: 0 1 auto; min-height: 0;
+  overflow: hidden auto; -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+}
+.dhikr-progress { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin: 8px 0 10px; flex: 0 0 auto; }
+.dhikr-progress-fill {
+  height: 100%; width: 0%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 320ms var(--ease-spring-snap);
+}
+/* صفّ سفلي واحد: زرّ العدّ يأخذ ما تبقّى، وزرّ المصدر بجانبه (لا التفاف) */
+.dhikr-bottom { display: flex; align-items: stretch; gap: 10px; flex: 0 0 auto; }
+.dhikr-bottom .thikr-tap-btn { flex: 1 1 auto; width: auto; }
+.dhikr-bottom .dhikr-src-btn { flex: 0 0 auto; align-self: center; }
+.dhikr-bottom .dhikr-src-none { flex: 0 0 auto; align-self: center; }
+.dhikr-card .copy-btn { flex: 0 0 auto; }
+.dhikr-src-btn {
+  background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border);
+  border-radius: 999px; padding: 8px 18px; font-size: calc(var(--font-size) * 0.5);
+  font-weight: 700; cursor: pointer; transition: transform 180ms var(--ease-spring-snap), background 200ms;
+}
+.dhikr-src-btn:active { transform: scale(0.94); }
+.dhikr-src-none { font-size: calc(var(--font-size) * 0.48); color: var(--text-dim); padding: 8px 6px; }
+.dhikr-empty {
+  flex: 0 0 100%;
+  text-align: center; padding: 60px 24px; color: var(--text-dim);
+  font-size: calc(var(--font-size) * 0.6); line-height: 2.2;
+}
+/* صفحة فلتر المفضلة — صفّ رفيع لا يلتهم ارتفاع البطاقة */
+.dhikr-filter-row { display: flex; justify-content: center; padding: 2px 0 6px; }
+.dhikr-chip {
+  background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border);
+  border-radius: 999px; padding: 5px 18px; font-size: calc(var(--font-size) * 0.5);
+  font-weight: 700; cursor: pointer; transition: all 200ms var(--ease-spring-snap);
+}
+.dhikr-chip[aria-pressed="true"] { background: var(--accent); color: var(--color-on-accent); border-color: var(--accent); }
+
+/* في البطاقة زر النسخ يجري ضمن السياق بدل absolute كي لا
+   يغطي شارة التقدم — البطاقة flex-column فيكفي محاذاته للنهاية */
+.dhikr-card .copy-btn { position: static; align-self: flex-end; margin: 0 0 4px; }
 
 .dua-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 46px 18px 18px; margin-bottom: 14px; transition: background 0.4s, border-color 0.4s; position: relative; }
 .dua-occasion { font-size: calc(var(--font-size) * 0.6); font-weight: 700; color: var(--accent); margin-bottom: 10px; transition: font-size 0.3s; }
@@ -838,6 +960,19 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 @media (min-width: 1100px) {
   #nav { max-width: 520px; }
 }
+
+/* ===== شبكة الأمان: التفاف النص ومنع تجاوزه ===== */
+/* عناصر flex تحوي نصاً قابلاً للالتفاف يجب أن تسمح بالانكماش،
+   وإلا يدفع النص المحتوى خارج حدود الصندوق (overflow أفقي). */
+.header-center, .surah-info, .cat-info, .dua-occasion, .k-wird-badge { min-width: 0; }
+.surah-name, .cat-name, .dua-text, .thikr-text, .mushaf-block, #header-title, #header-subtitle { overflow-wrap: break-word; word-break: normal; }
+
+/* الشاشات الضيقة جداً أو التكبير الكبير: الشبكة ثنائية العمود
+   تنهار إلى عمود واحد حتى لا تُرصف البطاقات بعرض أضيق من النص.
+   وقائية فقط — لا يتغير المظهر على المقاسات الاعتيادية. */
+@media (max-width: 340px) {
+  .athkar-grid, .quick-nav-row { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
@@ -860,15 +995,16 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
       <button class="header-btn" id="bookmarks-btn" title="المرجعيات" aria-label="المرجعيات">🔖</button>
       <button class="header-btn" id="theme-btn" title="الوضع الفاتح">☀️</button>
       <button class="header-btn" id="share-btn" title="مشاركة التطبيق">📤</button>
-      <button class="header-btn font-btn" data-size="small">ص</button>
-      <button class="header-btn font-btn" data-size="medium">م</button>
-      <button class="header-btn font-btn active" data-size="large">ك</button>
+      <button class="header-btn" id="font-size-btn" title="حجم الخط" aria-label="حجم الخط" aria-haspopup="true" aria-expanded="false">أ</button>
+    </div>
+    <div id="font-popover" role="dialog" aria-label="حجم الخط" hidden>
+      <div class="font-popover-title">حجم الخط</div>
+      <div id="font-popover-grid"></div>
+    </div>
+    <div id="reading-progress-container">
+        <div id="reading-progress-bar"></div>
     </div>
   </header>
-
-  <div id="reading-progress-container">
-      <div id="reading-progress-bar"></div>
-  </div>
 
   <main id="content">
     <button id="resume-fab" onclick="resumeBookmark()"><span>🔖 متابعة القراءة</span></button>
@@ -944,7 +1080,12 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
       <div class="athkar-grid" id="athkar-grid"></div>
     </div>
 
-    <div id="screen-thikr-view" class="screen"><div id="thikr-list-container"></div></div>
+    <div id="screen-thikr-view" class="screen">
+      <div class="dhikr-filter-row" id="dhikr-filter-row" style="display:none;">
+        <button class="dhikr-chip" id="dhikr-fav-chip" aria-pressed="false">★ المفضلة</button>
+      </div>
+      <div id="thikr-list-container"></div>
+    </div>
     <div id="screen-dua-list" class="screen"><div id="dua-list-container"></div></div>
     <div id="screen-occasion-list" class="screen"><div id="occasion-list-container"></div></div>
 
@@ -1248,7 +1389,7 @@ function stripBismillah(text) {
   return words.slice(4).join(' ').trim();
 }
 const tabsArray = ['quran', 'khatmah', 'athkar'];
-let state = { currentTab: 'quran', currentScreen: 'surah-list', previousScreen: null, previousTab: null, currentSurah: null, fontSize: 'large', currentCatIndex: null, khatmah: null, theme: 'dark', bookmark: null, scrollPositions: {} };
+let state = { currentTab: 'quran', currentScreen: 'surah-list', previousScreen: null, previousTab: null, currentSurah: null, fontScale: 1.4, currentCatIndex: null, khatmah: null, theme: 'dark', bookmark: null, scrollPositions: {} };
 // let/const في السكربتات الكلاسيكية لا تنشئ خصائص على window؛
 // features.js يقرأ window.state و window.Motion فلا بد من كشفهما صراحةً
 // (الكائن يُعدَّل بالمرجع نفسه ولا يُعاد إسناده، فالمرجع المشترك يبقى صالحاً).
@@ -1462,22 +1603,65 @@ function applyTheme(th) {
   Motion.headerFlash();
 }
 
-function applyFontSize(size) {
-  // حجم واحد أساسي × نسبة ثابتة → تكبير متناسب لكل النصوص في كل الصفحات
-  const fontSizes = { small: { scale: '0.8', lh: '2.0' }, medium: { scale: '1', lh: '2.3' }, large: { scale: '1.4', lh: '2.6' } };
-  const f = fontSizes[size] || fontSizes.medium;
-  document.documentElement.style.setProperty('--font-scale', f.scale);
-  document.documentElement.style.setProperty('--line-height', f.lh);
-  // نص المصحف يتكبّر بنسبة مستقلة أهدأ، وله ارتفاع سطر خاص
-  const mushafScales = { small: '0.9', medium: '1', large: '1.25' };
-  document.documentElement.style.setProperty('--mushaf-scale', mushafScales[size] || '1');
-  document.documentElement.style.setProperty('--mushaf-lh', size === 'large' ? '1.95' : '2.15');
-  document.querySelectorAll('.font-btn').forEach(btn => {
-    const isActive = btn.dataset.size === size;
+// نظام تكبير الخط: خمس درجات من ٨٠٪ إلى ٢٠٠٪.
+// القيم نسبةً إلى --font-base. ارتفاع السطر يُشتق من الدرجة كي يبقى
+// النص العربي مريحاً عند التكبير الكبير دون أن يحدث تزاحم الأسطر.
+const FONT_STEPS = [
+  { scale: 0.8,  label: '٨٠٪'  },
+  { scale: 1.0,  label: '١٠٠٪' },
+  { scale: 1.3,  label: '١٣٠٪' },
+  { scale: 1.5,  label: '١٥٠٪' },
+  { scale: 2.0,  label: '٢٠٠٪' },
+];
+// خرائط التوافق مع الإصدار السابق: الأسماء القديمة ص/م/ك → النسبة العددية
+const LEGACY_FONT_SIZE = { small: 0.8, medium: 1.0, large: 1.4 };
+
+function applyFontSize(scale) {
+  const s = typeof scale === 'string' ? (LEGACY_FONT_SIZE[scale] ?? 1.0) : (+scale || 1.0);
+  // قصّ النسبة إلى أقرب درجة معروفة لتفادي قيم عشوائية مُسترجَعة من تخزين قديم
+  let step = FONT_STEPS.reduce((a, b) => Math.abs(b.scale - s) < Math.abs(a.scale - s) ? b : a);
+  document.documentElement.style.setProperty('--font-scale', String(step.scale));
+  // ارتفاع السطر ينمو مع التكبير: ٢.٠ عند الصغير حتى ٢.٩ عند ٢٠٠٪
+  document.documentElement.style.setProperty('--line-height', String(2.0 + (step.scale - 0.8) * 0.75));
+  // نص المصحف يتكبّر بنسبة مستقلة أهدأ (لا يتجاوز ١.٢٥) وله ارتفاع سطر خاص
+  document.documentElement.style.setProperty('--mushaf-scale', String(Math.min(1.25, 0.9 + (step.scale - 0.8) * 0.35)));
+  document.documentElement.style.setProperty('--mushaf-lh', step.scale >= 1.5 ? '1.95' : '2.15');
+  state.fontScale = step.scale;
+  // سجلّات تحديد الحجم القديم لا تُستخدم بعد الآن
+  delete state.fontSize;
+  saveState();
+  // واجهة الاختيار (نافذة الخط المنبثقة)
+  document.querySelectorAll('.font-step-btn').forEach(btn => {
+    const isActive = +btn.dataset.scale === step.scale;
     btn.classList.toggle('active', isActive);
     if (isActive) { btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop'); }
+    btn.setAttribute('aria-pressed', String(isActive));
   });
-  state.fontSize = size; saveState();
+  const fn = document.getElementById('font-size-btn');
+  if (fn) fn.textContent = 'أ';
+  // تكبير الخط يغيّر ارتفاع شريط التنقل — أعد قياس مساحة التغطية
+  requestAnimationFrame(() => { if (typeof syncNavSafeArea === 'function') syncNavSafeArea(); });
+  return step.scale;
+}
+
+// نافذة حجم الخط المنبثقة: تُبنى من FONT_STEPS وتُفتح/تُغلق من زر الرأس
+function buildFontPopover() {
+  const grid = document.getElementById('font-popover-grid');
+  if (!grid || grid.childElementCount) return;
+  grid.innerHTML = FONT_STEPS.map(st =>
+    `<button class="font-step-btn" data-scale="${st.scale}" aria-pressed="false">${st.label}</button>`
+  ).join('');
+  grid.querySelectorAll('.font-step-btn').forEach(btn =>
+    btn.addEventListener('click', () => applyFontSize(+btn.dataset.scale))
+  );
+}
+function toggleFontPopover(force) {
+  const pop = document.getElementById('font-popover');
+  const btn = document.getElementById('font-size-btn');
+  if (!pop || !btn) return;
+  const show = force !== undefined ? force : pop.hidden;
+  pop.hidden = !show;
+  btn.setAttribute('aria-expanded', String(show));
 }
 
 // كل شاشة تنتمي لتبويب رئيسي؛ الشاشات المشتركة (الإعدادات/الإحصائيات)
@@ -1565,6 +1749,12 @@ function showScreen(screenId, animClass = 'active') {
   // شريط تحكم الختمة يظهر فقط داخل قارئ الختمة
   const kctrl = document.getElementById('khatmah-controls');
   if (kctrl) kctrl.classList.toggle('controls-hidden', screenId !== 'khatmah-read');
+
+  // شاشة الذكر وحدها تستخدم التقاليب الأفقية —
+  // إزالتها عند أي مغادرة حتى لا تتأثر بقية الشاشات.
+  const isThikr = screenId === 'thikr-view';
+  contentArea.classList.toggle('pager-dhikr', isThikr);
+  if (!isThikr) { state.dhikrFavOnly = false; }
 }
 
 // الشاشات الجذرية لكل تبويب
@@ -2457,17 +2647,196 @@ function renderAthkarList() {
   Motion.staggerIn(document.getElementById('athkar-grid'));
 }
 
-window.openCategory = function(ci) {
+// ─── مصادر الأذكار (تخريج حصن المسلم) ───
+// نُسخت حرفياً من rn0x/hisn_almuslim_json (حصن المسلم). العناصر التي لا
+// يوجد لها تخريج في المصدر تعرض اسماً عاماً، ولا يُخترَع تخريج أبداً.
+const ATHKAR_SOURCES = {
+  // أذكار الصباح (فصل: أذكار الصباح والمساء)
+  '0:2':  'مسلم 4/ 2088',
+  '0:3':  'الترمذي 5/ 466 وانظر صحيح الترمذي 3/ 142',
+  '0:5':  'من قالها موقناً بها حين يمسي فمات من ليلته دخل الجنة ، وكذلك إذا أصبح أخرجه البخاري 7/150',
+  '0:6':  'من قالها حين يصبح فقد أدي شكر يومه ، ومن قالها حين يمسى فقد أدى شكر ليلته . أخرجه أبو داود 4/318 ، والنسائي في عمل اليوم والليلة برقم 7وابن السني برقم 41 وابن حبان (( موارد)) رقم 2361وحسن ابن باز إسناده في تحفة الأخيار ص24',
+  '0:7':  'أبو داود 4/ 324، وأحمد 5/ 42 والنسائي في عمل اليوم والليلة برقم 22وابن السني برقم 69والبخاري في الأدب المفرد وحسن العلامة ابن باز في تحفة الأخيار ص26',
+  '0:8':  'من قالها حين يصبح ويمسي سبع مرات كفاه الله ما أهمه من أمر الدنيا والآخرة .أخرجه ابن السني برقم 71مرفوعاً وأبو موقوف 4/321،وصحح إسناده شعيب وعبد القادر الأرناؤوط . انظر زاد المعاد 2/ 376',
+  '0:9':  'أبو داود وابن ماجه وانظر صحيح ابن ماجه 2/332',
+  '0:10': 'أبو داود وابن ماجه وانظر صحيح ابن ماجه 2/332',
+  '0:11': 'الترمذي وأبو داود .انظر :صحيح الترمذي3/ 142',
+  '0:12': 'من قالها ثلاثاً إذا أصبح وثلاثاً إذا أمسى لم يضره شيء أخرجه أبو داود 4/ 323 والترمذي 5/ 465 وابن ماجه وأحمد . انظر : صحيح ابن ماجه 2/332 وحسن إسناده العلامة ابن باز في تحفة الأخيار ص39',
+  '0:13': 'من قالها ثلاثاً حين يصبح وحين يمسي كان حقاً على الله أن يرضيه يوم القيامة . أحمد 4/ 337 والنسائي في عمل اليوم والليلة برقم 4 وابن السني برقم 68 وأبو داود 4/418 والترمذي 5/465 وحسنه ابن باز في تحفة الأخيار ص 39',
+  '0:14': 'أبو داود 4/ 322 وحسن إسناده شعيب وعبد القادر الأرناؤوط في تحقيق زاد المعاد 2/ 273',
+  '0:15': 'أحمد 3/ 406و 407 وابن السني في عمل اليوم والليلة برقم 34 وانظر : صحيح الجامع 4/ 209',
+  '0:16': 'من قالها مائة مرة حين يصبح وحين يمسي لم يأت أحد يوم القيامة بأفضل مما جاء به إلا أحد قال مثل ما قال أو زاد رواه مسلم4 / 2071',
+  '0:17': 'النسائي في عمل اليوم والليلة برقم 24 وانظر :صحيح الترغيب والترهيب 1/272 ،وتحفة الأخيار لابن باز ص44وانظر فضلها في ص146 ،حديث رقم 255',
+  '0:18': 'أبو داود 4/319 وابن ماجه وأحمد 4/60 وانظر :صحيح الترغيب والترهيب 1/270 ،صحيح أبو داود 3/957 ، وصحيح ابن ماجه 2/331 وزاد المعاد 2/ 377',
+  '0:19': 'مسلم 4/2090',
+  '0:20': 'من صلى علي حين يُصبح عشراً ، وحين يُمسي عشراً أدركتهُ شفاعتي يوم القيامة... ,رواه الطبراني بإسنادين أحدهما جيد ، انظر الزائد 10/ 120 وصحيح الترغيب والترهيب 1/273',
+  // أذكار المساء (نفس الفصل؛ صيغة المساء تتشارك التخريج)
+  '1:3':  'الترمذي 5/ 466 وانظر صحيح الترمذي 3/ 142',
+  '1:5':  'من قالها موقناً بها حين يمسي فمات من ليلته دخل الجنة ، وكذلك إذا أصبح أخرجه البخاري 7/150',
+  '1:6':  'من قالها حين يصبح فقد أدي شكر يومه ، ومن قالها حين يمسى فقد أدى شكر ليلته . أخرجه أبو داود 4/318 ، والنسائي في عمل اليوم والليلة برقم 7وابن السني برقم 41 وابن حبان (( موارد)) رقم 2361وحسن ابن باز إسناده في تحفة الأخيار ص24',
+  '1:7':  'أبو داود 4/ 324، وأحمد 5/ 42 والنسائي في عمل اليوم والليلة برقم 22وابن السني برقم 69والبخاري في الأدب المفرد وحسن العلامة ابن باز في تحفة الأخيار ص26',
+  '1:8':  'من قالها حين يصبح ويمسي سبع مرات كفاه الله ما أهمه من أمر الدنيا والآخرة .أخرجه ابن السني برقم 71مرفوعاً وأبو موقوف 4/321،وصحح إسناده شعيب وعبد القادر الأرناؤوط . انظر زاد المعاد 2/ 376',
+  '1:9':  'أبو داود وابن ماجه وانظر صحيح ابن ماجه 2/332',
+  '1:10': 'أبو داود وابن ماجه وانظر صحيح ابن ماجه 2/332',
+  '1:11': 'الترمذي وأبو داود .انظر :صحيح الترمذي3/ 142',
+  '1:12': 'من قالها ثلاثاً إذا أصبح وثلاثاً إذا أمسى لم يضره شيء أخرجه أبو داود 4/ 323 والترمذي 5/ 465 وابن ماجه وأحمد . انظر : صحيح ابن ماجه 2/332 وحسن إسناده العلامة ابن باز في تحفة الأخيار ص39',
+  '1:13': 'من قالها ثلاثاً حين يصبح وحين يمسي كان حقاً على الله أن يرضيه يوم القيامة . أحمد 4/ 337 والنسائي في عمل اليوم والليلة برقم 4 وابن السني برقم 68 وأبو داود 4/418 والترمذي 5/465 وحسنه ابن باز في تحفة الأخيار ص 39',
+  '1:15': 'أحمد 3/ 406و 407 وابن السني في عمل اليوم والليلة برقم 34 وانظر : صحيح الجامع 4/ 209',
+  '1:16': 'من قالها مائة مرة حين يصبح وحين يمسي لم يأت أحد يوم القيامة بأفضل مما جاء به إلا أحد قال مثل ما قال أو زاد رواه مسلم4 / 2071',
+  '1:17': 'النسائي في عمل اليوم والليلة برقم 24 وانظر :صحيح الترغيب والترهيب 1/272 ،وتحفة الأخيار لابن باز ص44وانظر فضلها في ص146 ،حديث رقم 255',
+  '1:18': 'أبو داود 4/319 وابن ماجه وأحمد 4/60 وانظر :صحيح الترغيب والترهيب 1/270 ،صحيح أبو داود 3/957 ، وصحيح ابن ماجه 2/331 وزاد المعاد 2/ 377',
+  '1:19': 'مسلم 4/2090',
+  '1:20': 'من صلى علي حين يُصبح عشراً ، وحين يُمسي عشراً أدركتهُ شفاعتي يوم القيامة... ,رواه الطبراني بإسنادين أحدهما جيد ، انظر الزائد 10/ 120 وصحيح الترغيب والترهيب 1/273',
+  // أعظم الأذكار أجراً (مجمّعة من فصول متفرقة)
+  '2:0':  'من قالها مائة مرة في يوم كانت له عدل عشر رقاب، وكتب له مائة حسنة ،ومحيت عنه مائة سيئة ، وكانت حرزاً من الشيطان يومه ذلك حتى يمسي ،ولم يأت أحد بأفضل مما جاء به إلا أحد عمل أكثر من ذلك . البخاري 4/95،ومسلم 4/2071',
+  '2:1':  'النسائي في عمل اليوم والليلة برقم 24 وانظر :صحيح الترغيب والترهيب 1/272 ،وتحفة الأخيار لابن باز ص44وانظر فضلها في ص146 ،حديث رقم 255',
+  '2:2':  'أخرجه الترمذي 5/511 والحاكم 1/501 وصححه ووافقه الذهبي ، وانظر صحيح الجامع 5/531 وصحيح الترمذي 3/160',
+  '2:3':  'البخاري مع الفتح 11/ 213 ومسلم 4/2076',
+  '2:4':  'من قالها موقناً بها حين يمسي فمات من ليلته دخل الجنة ، وكذلك إذا أصبح أخرجه البخاري 7/150',
+  // جوامع الدعاء (مجمّعة)
+  '3:0':  'أبو داود 2/ 179 وأحمد 3/411 والبغوي في شرح السنة 7/128 ،وحسنه الألباني في صحيح أبي داود 1/ 354 ، والآية من سورة البقرة ، 201',
+  '3:3':  'أبو داود 2/ 86والنسائي 3/ 53 وصححه الألباني في صحيح أبو داود 1/ 284',
+  '3:4':  'الترمذي وغيره وانظر صحيح الترمذي 3/153 وصحيح ابن ماجه 2/321 ولفظه للترمذي',
+  // أذكار النوم
+  '4:1':  'أبو داود بلفظه 4/311 وانظر صحيح الترمذي3/ 143',
+  '4:2':  'أبو داود بلفظه 4/311 وانظر صحيح الترمذي3/ 143',
+  '4:3':  'أبو داود بلفظه 4/311 وانظر صحيح الترمذي3/ 143',
+  '4:4':  'من قرأها إذا أوى إلى فراشه فإنه لن يزال عليه من الله حافظ ولا يقربه شيطان حتى يصبح البخاري مع الفتح 4/487',
+  '4:5':  'البخاري مع الفتح 9/62ومسلم 4/1723',
+  '4:6':  'رواه مسلم4/ 2083وأحمد بلفظه 2/79',
+  // أذكار الاستيقاظ
+  '5:0':  'رواه البخاري مع الفتح 3/ 144 وغيرها واللفظ لابن ماجه انظر صحيح ابن ماجه 2/ 335',
+  '5:1':  'البخاري مع الفتح 11/ 113 ومسلم 4/ 2083',
+  '5:2':  'من قالها مائة مرة حين يصبح وحين يمسي لم يأت أحد يوم القيامة بأفضل مما جاء به إلا أحد قال مثل ما قال أو زاد رواه مسلم4 / 2071',
+  '5:3':  'الترمذي 5/ 473 وانظر صحيح الترمذي3/144',
+  '5:4':  'أحمد 3/ 406و 407 وابن السني في عمل اليوم والليلة برقم 34 وانظر : صحيح الجامع 4/ 209',
+  // أذكار بعد الصلاة
+  '6:0':  'مسلم1/ 414',
+  '6:1':  'مسلم1/ 414',
+  '6:2':  'مسلم 1/ 418من قال ذلك دبر كل صلاة غفرت خطاياه وإن كانت مثل زبد البحر مسلم 1/ 418',
+  '6:3':  'مسلم 1/ 418من قال ذلك دبر كل صلاة غفرت خطاياه وإن كانت مثل زبد البحر مسلم 1/ 418',
+  '6:4':  'مسلم 1/ 418من قال ذلك دبر كل صلاة غفرت خطاياه وإن كانت مثل زبد البحر مسلم 1/ 418',
+  '6:5':  'البخاري 1 /255 ومسلم 1 / 414',
+  '6:6':  'من قرأها دبر كل صلاة لم يمنعه من دخول الجنة إلا أن يموت . والنسائي في عمل اليوم والليلة برقم 100 ، وابن السني برقم 121 وصححه الجامع 5/339 وسلسلة الأحاديث الصحيحة 2/697 برقم 972',
+  // أذكار السفر
+  '7:0':  'البخاري الفتح6/ 135',
+  '7:1':  'مسلم 4/ 2084',
+  '7:2':  'مسلم 4/ 2084',
+  '7:3':  'مسلم 4/ 2084',
+  '7:4':  'كان النبي صلى الله عليه وسلم يقوله إذا قفل من غزو أو حج ، البخاري 7/163 ومسلم 2/ 980',
+};
+// اسم المصدر العام للعناصر بلا تخريج مفصّل في حصن المسلم
+const ATHKAR_SOURCE_GENERIC = 'حصن المسلم';
+function getThikrSource(ci, ii) { return ATHKAR_SOURCES[ci + ':' + ii] || ATHKAR_SOURCE_GENERIC; }
+
+// ─── المفضلة من الأذكار ───
+// تُخزَّن كمجموعة مفاتيح "catIndex:itemIndex" مثل مفاتيح التقدم تماماً.
+function getAthkarFavs() { try { return new Set(JSON.parse(localStorage.getItem('athkar_favs') || '[]')); } catch (e) { return new Set(); } }
+function isFavThikr(ci, ii) { return getAthkarFavs().has(ci + ':' + ii); }
+function toggleFavThikr(ci, ii) {
+  const favs = getAthkarFavs(); const k = ci + ':' + ii;
+  const nowFav = !favs.has(k);
+  if (nowFav) favs.add(k); else favs.delete(k);
+  try { localStorage.setItem('athkar_favs', JSON.stringify([...favs])); } catch (e) {}
+  return nowFav;
+}
+
+// ─── تقاليب أذكار أفقية (Pager): ذكرٌ واحد لكل شريحة ───
+window.openCategory = function(ci, favOnly) {
   state.currentCatIndex = ci; showScreen('thikr-view', 'slide-left');
-  document.getElementById('thikr-list-container').innerHTML = ATHKAR[ci].items.map((item, i) => {
-    const done = getProg(ci, i) >= item.count;
-    return `<div class="thikr-card" data-magnetic><button class="copy-btn" data-copy-from=".thikr-text" aria-label="نسخ الذكر" title="نسخ"><span aria-hidden="true">⧉</span> نسخ</button><div class="thikr-text">${item.text}</div><button class="thikr-tap-btn ${done ? 'done' : ''}" onclick="tapThikr(${ci}, ${i}, this)">${done ? '✓ اكتمل' : `<span class="count-anim">${toArabicNum(getProg(ci,i))}</span> / ${toArabicNum(item.count)}`}</button></div>`;
+  state.dhikrFavOnly = !!favOnly;
+  // شريحة فلتر المفضلة تظهر دائماً في الشاشة، وتُضيء حين يكون الفلتر مفعّلاً
+  const filterRow = document.getElementById('dhikr-filter-row');
+  if (filterRow) {
+    filterRow.style.display = 'flex';
+    const chip = document.getElementById('dhikr-fav-chip');
+    if (chip) {
+      chip.setAttribute('aria-pressed', String(state.dhikrFavOnly));
+      chip.textContent = state.dhikrFavOnly ? '★ المفضلة' : '☆ المفضلة';
+    }
+  }
+  const cat = ATHKAR[ci];
+  const favs = getAthkarFavs();
+  // فلتر المفضلة: يعرض فقط ما حُفِظ مفضّلاً في هذه الفئة
+  const entries = cat.items.map((item, i) => ({ item, i }))
+    .filter(e => !favOnly || favs.has(ci + ':' + e.i));
+  const container = document.getElementById('thikr-list-container');
+  if (!entries.length) {
+    container.innerHTML = `<div class="dhikr-empty">${favOnly ? 'لا توجد أذكار مفضّلة في هذا القسم بعد.<br>اضغط ☆ في أي ذكر لإضافته هنا.' : 'لا توجد أذكار.'}</div>`;
+    return;
+  }
+  container.innerHTML = entries.map(({ item, i }) => {
+    const prog = getProg(ci, i);
+    const done = prog >= item.count;
+    const fav = favs.has(ci + ':' + i);
+    const pct = item.count > 0 ? Math.min(100, Math.round((prog / item.count) * 100)) : 100;
+    const hasSrc = !!ATHKAR_SOURCES[ci + ':' + i];
+    // كل ذكرٍ داخل شريحةٍ بعرض الحاوية: بطاقةٌ واحدة مرئية في كل مرة
+    return `<div class="dhikr-slide"><div class="dhikr-card" data-ci="${ci}" data-i="${i}">
+      <div class="dhikr-top">
+        <div class="dhikr-badge">${toArabicNum(i + 1)} / ${toArabicNum(cat.items.length)}</div>
+        <button class="dhikr-fav ${fav ? 'active' : ''}" onclick="toggleFavFromCard(${ci}, ${i}, this)" aria-label="${fav ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}" aria-pressed="${fav}">☆</button>
+      </div>
+      <div class="thikr-text" dir="rtl">${item.text}</div>
+      <button class="copy-btn" data-copy-from=".thikr-text" aria-label="نسخ الذكر" title="نسخ"><span aria-hidden="true">⧉</span> نسخ</button>
+      <div class="dhikr-count-line">${toArabicNum(Math.min(prog, item.count))} من ${toArabicNum(item.count)} ${item.count === 1 ? 'مرة' : 'مرات'}</div>
+      <div class="dhikr-progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="dhikr-progress-fill" style="width:${pct}%"></div></div>
+      <div class="dhikr-bottom">
+        ${hasSrc ? `<button class="dhikr-src-btn" onclick="showThikrSource('${ci}','${i}')" aria-label="المصدر">المصدر</button>` : `<span class="dhikr-src-none">${ATHKAR_SOURCE_GENERIC}</span>`}
+        <button class="thikr-tap-btn ${done ? 'done' : ''}" onclick="tapThikr(${ci}, ${i}, this)">${done ? '✓ اكتمل' : `<span class="count-anim">${toArabicNum(prog)}</span> / ${toArabicNum(item.count)}`}</button>
+      </div>
+    </div></div>`;
   }).join('');
-  Motion.staggerIn(document.getElementById('thikr-list-container'));
+  // ابدأ من الذكر الأول دائماً (الاتجاه RTL يجعل الشريحة الأولى في أقصى اليمين)
+  container.scrollLeft = 0;
+  Motion.staggerIn(container);
+}
+
+// الضغط في أي مكان على البطاقة يزيد العدّاد — بدون أي تنقّل أو تمرير.
+// مفوَّضٌ مرة واحدة على الحاوية فيبقى يعمل بعد كل إعادة بناء،
+// ويتجاهل أي ضغطٍ على الأزرار (المفضلة/المصدر/النسخ/العدّاد) لتبقى تعمل وحدها.
+document.getElementById('thikr-list-container').addEventListener('click', (e) => {
+  if (e.target.closest('button, .copy-btn')) return;
+  const card = e.target.closest('.dhikr-card');
+  if (!card) return;
+  const tapBtn = card.querySelector('.thikr-tap-btn');
+  if (tapBtn) window.tapThikr(+card.dataset.ci, +card.dataset.i, tapBtn);
+});
+
+window.toggleFavFromCard = function(ci, ii, btn) {
+  const nowFav = toggleFavThikr(ci, ii);
+  btn.classList.toggle('active', nowFav);
+  btn.textContent = nowFav ? '★' : '☆';
+  btn.setAttribute('aria-pressed', String(nowFav));
+  btn.setAttribute('aria-label', nowFav ? 'إزالة من المفضلة' : 'إضافة للمفضلة');
+  Motion.floater(btn, nowFav ? '★' : '☆', nowFav ? 'var(--accent)' : 'var(--text-dim)');
+  if (window.AccessibilityHelper) AccessibilityHelper.announceMessage(nowFav ? 'أُضيف للمفضلة' : 'أُزيل من المفضلة');
+  // في وضع فلتر المفضلة: أعد بناء القائمة بعد إزالة عنصر (بعد ظهور الحركة)
+  if (state.dhikrFavOnly && !nowFav) {
+    setTimeout(() => {
+      if (state.currentScreen === 'thikr-view') openCategory(state.currentCatIndex, true);
+    }, 450);
+  }
+}
+
+// شريحة فلتر المفضلة: تعيد فتح القسم مع/بدون الفلتر
+window.toggleDhikrFavFilter = function() {
+  const ci = state.currentCatIndex;
+  if (ci === null || ci === undefined || !ATHKAR[ci]) return;
+  openCategory(ci, !state.dhikrFavOnly);
+};
+
+window.showThikrSource = function(ci, ii) {
+  const src = getThikrSource(ci, ii);
+  const cat = ATHKAR[ci] ? ATHKAR[ci].name : '';
+  const item = ATHKAR[ci] && ATHKAR[ci].items[ii];
+  const text = `<div style="font-size:calc(var(--font-size) * 0.58); color:var(--text-dim); margin-bottom:10px">${escHtml(cat)} — ${escHtml(toArabicNum(+ii + 1))}/${escHtml(toArabicNum(ATHKAR[ci].items.length))}</div><div style="font-size:calc(var(--font-size) * 0.68); line-height:1.9">${escHtml(src)}</div>`;
+  if (window.showAppDialog) showAppDialog(text, false, 'المصدر');
 }
 
 window.tapThikr = function(ci, i, btn) {
   const max = ATHKAR[ci].items[i].count; let curr = getProg(ci, i); if (curr >= max) return; curr++; setProg(ci, i, curr);
+  const card = btn.closest('.dhikr-card');
   if (curr >= max) {
     btn.classList.add('done');
     btn.textContent = '✓ اكتمل';
@@ -2475,12 +2844,30 @@ window.tapThikr = function(ci, i, btn) {
     if (window.StatsManager) StatsManager.recordAthkarDay();
     Motion.floater(btn, '✓', 'var(--success)');
     if (window.AccessibilityHelper) AccessibilityHelper.announceMessage('اكتمل هذا الذكر');
+    // حدّث شريط التقدم والنسبة وخطّ العدّ
+    if (card) {
+      const fill = card.querySelector('.dhikr-progress-fill');
+      if (fill) fill.style.width = '100%';
+      const bar = card.querySelector('.dhikr-progress');
+      if (bar) bar.setAttribute('aria-valuenow', '100');
+      const line = card.querySelector('.dhikr-count-line');
+      if (line) line.textContent = `${toArabicNum(max)} من ${toArabicNum(max)} ${max === 1 ? 'مرة' : 'مرات'}`;
+    }
   } else {
         btn.innerHTML = `<span class="count-anim">${toArabicNum(curr)}</span> / ${toArabicNum(max)}`;
     // Re-trigger pop on the count
     const counter = btn.querySelector('.count-anim');
     if (counter) { counter.classList.remove('pop'); void counter.offsetWidth; counter.classList.add('pop'); }
     Motion.floater(btn, '+1', 'var(--accent)');
+    if (card) {
+      const pct = Math.min(100, Math.round((curr / max) * 100));
+      const fill = card.querySelector('.dhikr-progress-fill');
+      if (fill) fill.style.width = pct + '%';
+      const bar = card.querySelector('.dhikr-progress');
+      if (bar) bar.setAttribute('aria-valuenow', String(pct));
+      const line = card.querySelector('.dhikr-count-line');
+      if (line) line.textContent = `${toArabicNum(curr)} من ${toArabicNum(max)} ${max === 1 ? 'مرة' : 'مرات'}`;
+    }
   }
   // Tap pulse on the button
   btn.classList.remove('tap-pulse'); void btn.offsetWidth; btn.classList.add('tap-pulse');
@@ -2656,10 +3043,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const initialTheme = state.theme
     || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
   applyTheme(initialTheme);
-  applyFontSize(state.fontSize || 'large');
+  applyFontSize(state.fontScale ?? LEGACY_FONT_SIZE[state.fontSize] ?? 1.4);
 
-  document.querySelectorAll('.font-btn').forEach(btn => btn.addEventListener('click', function() { applyFontSize(this.dataset.size); }));
+  // نافذة حجم الخط المنبثقة: بناء + ربط + إغلاق بالنقر خارجها
+  buildFontPopover();
+  document.getElementById('font-size-btn').addEventListener('click', (e) => { e.stopPropagation(); toggleFontPopover(); });
+  document.addEventListener('click', (e) => {
+    const pop = document.getElementById('font-popover');
+    if (pop && !pop.hidden && !pop.contains(e.target) && e.target.id !== 'font-size-btn') toggleFontPopover(false);
+  });
   document.getElementById('theme-btn').addEventListener('click', () => applyTheme(state.theme === 'dark' ? 'light' : 'dark'));
+
+  // ─── شريحة فلتر المفضلة في شاشة الذكر ───
+  document.getElementById('dhikr-fav-chip').addEventListener('click', () => window.toggleDhikrFavFilter());
 
   // Reduced-motion: استجب للتغيير أثناء التشغيل وليس مرة واحدة فقط
   const rmMedia = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -2697,7 +3093,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyBtn = e.target.closest('.copy-btn');
     if (!copyBtn) return;
     const selector = copyBtn.dataset.copyFrom;
-    const card = copyBtn.closest('.thikr-card, .dua-card');
+    const card = copyBtn.closest('.thikr-card, .dhikr-card, .dua-card');
     const textEl = card && selector ? card.querySelector(selector) : null;
     if (!textEl) return;
     const text = textEl.textContent.trim();
@@ -2804,6 +3200,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // لكل جهاز ومقاس واتجاه، فلا حاجة لقياسها أو لمنطق تكيّفي هنا.
     // تبقى الدالة لتبقى مصدر القيمة واحداً ولتربطها بحدث resize.
     document.documentElement.style.setProperty('--nav-gap', '0px');
+    // ارتفاع الشريط الفعلي مقياساً: عند تكبير الخط قد يزيد محتوى التبويب
+    // عن --nav-h الثابت، فيكبر الشريط (height: auto) — وهنا نسجّل القياس
+    // حتى تحسب مساحة التغطية (--nav-clearance-safe) الارتفاع الحقيقي لا الثابت.
+    const nav = document.getElementById('nav');
+    if (nav) {
+      const h = nav.getBoundingClientRect().height;
+      if (h > 0) document.documentElement.style.setProperty('--nav-h-actual', h + 'px');
+    }
+    // الرأس كذلك: عند تكبير الخط يزيد ارتفاعه عن --header-h الثابت (min-height
+    // + height: auto). نسجّل القياس لتفتح نافذة حجم الخط أسفل حافته الفعلية
+    // بدل ارتكازها على قيمة ثابتة قد تكون أصغر من الواقع.
+    const header = document.getElementById('header');
+    if (header) {
+      const h = header.getBoundingClientRect().height;
+      if (h > 0) document.documentElement.style.setProperty('--header-h-actual', h + 'px');
+    }
   }
   syncNavSafeArea();
 
