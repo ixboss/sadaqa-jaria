@@ -255,7 +255,10 @@ class AccessibilityHelper {
     announcement.setAttribute('aria-live', 'polite');
     announcement.setAttribute('aria-atomic', 'true');
     announcement.textContent = message;
-    announcement.style.cssText = 'position:absolute;left:-9999px;height:1px;overflow:hidden;';
+    // سرّ المنطقة عن البصر دون أن تخلق تجاوزاً أفقياً للصفحة: وضع «sr-only»
+    // القياسي (مربع ١px مع clip) بدل الإزاحة إلى -9999px التي كانت تفعّل
+    // خاصية «shrink-to-fit» على الجوال فتكبّر الصفحة كلها بعد إكمال أي ذكر.
+    announcement.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;margin:0;border:0;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;';
     document.body.appendChild(announcement);
     setTimeout(() => announcement.remove(), 3000);
   }
