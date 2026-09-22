@@ -600,7 +600,7 @@ body.theme-light .ayah.reciting { background: rgba(31, 122, 90, 0.10); }
 body.theme-light .ayah.bookmarked .ayah-badge { box-shadow: 0 0 0 2px var(--surface); }
 
 /* ===== تنقّل صفحات المصحف داخل السورة ===== */
-.mushaf-page-label { text-align: center; font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); margin-bottom: 10px; }
+.mushaf-page-label { text-align: center; font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); margin-bottom: 6px; }
 .mushaf-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 4px 0 18px; }
 .mushaf-nav-btn { flex: 1; max-width: 150px; }
 .mushaf-nav-btn:disabled { opacity: 0.35; pointer-events: none; }
@@ -621,7 +621,8 @@ body.theme-light .ayah.bookmarked .ayah-badge { box-shadow: 0 0 0 2px var(--surf
 /* ===== Toast: تنبيه عابر خفيف ===== */
 #app-toast { position: fixed; bottom: calc(var(--nav-clearance-safe) + 76px); left: 50%; transform: translateX(-50%) translateY(16px); background: var(--accent-deep); color: var(--color-on-accent); border-radius: 22px; padding: 10px 20px; font-size: calc(var(--font-size) * 0.52); font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,0.45); z-index: 200; visibility: hidden; opacity: 0; max-width: calc(100vw - 48px); text-align: center; transition: visibility 0s linear 260ms, transform 280ms var(--ease-spring-snap), opacity 220ms var(--ease-out-quart); }
 #app-toast.visible { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); transition: visibility 0s linear 0s, transform 280ms var(--ease-spring-snap), opacity 220ms var(--ease-out-quart); }
-.bismillah { text-align: center; font-family: 'Amiri Quran', 'Amiri', serif; font-size: calc(var(--mushaf-size) * 1.08); color: var(--accent); padding: 14px 10px 22px 10px; line-height: var(--mushaf-lh); transition: font-size 0.3s; }
+/* تباعد مُحكَم: 8px أعلى + 12px أسفل = 20px بدلاً من 36px للتخفيف من الفراغ الكبير قبل نص الآيات */
+.bismillah { text-align: center; font-family: 'Amiri Quran', 'Amiri', serif; font-size: calc(var(--mushaf-size) * 1.08); color: var(--accent); padding: 8px 10px 12px 10px; line-height: var(--mushaf-lh); transition: font-size 0.3s; }
 
 /* display غير قابل للتحريك؛ نستخدم visibility + opacity للحصول على تلاشٍ ناعم */
 #resume-fab { position: fixed; bottom: calc(var(--nav-clearance-safe) + 12px); right: 20px; background: var(--accent-grad); color: var(--color-on-accent); border: none; border-radius: 30px; padding: 12px 20px; font-weight: bold; font-size: calc(var(--font-size) * 0.54); box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; z-index: 90; display: flex; align-items: center; gap: 8px; visibility: hidden; opacity: 0; transform: translateY(20px) scale(0.9); pointer-events: none; transition: visibility 0s linear 320ms, transform 380ms var(--ease-spring-snap), opacity 320ms var(--ease-out-quart), background 320ms var(--ease-out-quart), box-shadow 320ms var(--ease-out-quart); }
@@ -1099,6 +1100,7 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
     <div id="screen-thikr-view" class="screen">
       <div class="dhikr-filter-row" id="dhikr-filter-row" style="display:none;">
         <button class="dhikr-chip" id="dhikr-fav-chip" aria-pressed="false">★ المفضلة</button>
+        <button class="dhikr-chip" id="dhikr-auto-chip" aria-pressed="false">⏭ تقدم تلقائي</button>
       </div>
       <div id="thikr-list-container"></div>
     </div>
@@ -2582,7 +2584,7 @@ async function loadKhatmahPage(pageNum) {
 
     // رأس السورة إذا بدأت الصفحة بأول آية منها
     if (ayahs[0].numberInSurah === 1) {
-        html += `<div class="surah-header-card" style="margin-top:20px;"><div class="surah-h-name">${escHtml(ayahs[0].surah.name)}</div></div>`;
+        html += `<div class="surah-header-card" style="margin-top:14px;"><div class="surah-h-name">${escHtml(ayahs[0].surah.name)}</div></div>`;
         if (currentSurah !== 1 && currentSurah !== 9) html += `<div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>`;
     }
 
@@ -2594,7 +2596,8 @@ async function loadKhatmahPage(pageNum) {
       if (ayah.surah.number !== currentSurah) {
         flushBlock();
         html += `</div>`;
-        html += `<div class="surah-header-card" style="margin-top:20px;"><div class="surah-h-name">${escHtml(ayah.surah.name)}</div></div>`;
+        // هامش أخف (14px بدلاً من 20px) لفصل السور في صفحة الختمة دون فراغات مبالغ فيها
+        html += `<div class="surah-header-card" style="margin-top:14px;"><div class="surah-h-name">${escHtml(ayah.surah.name)}</div></div>`;
         if (ayah.surah.number !== 1 && ayah.surah.number !== 9) html += `<div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>`;
         html += `<div class="mushaf-block">`;
         currentSurah = ayah.surah.number;
@@ -2770,6 +2773,13 @@ window.openCategory = function(ci, favOnly) {
       chip.setAttribute('aria-pressed', String(state.dhikrFavOnly));
       chip.textContent = state.dhikrFavOnly ? '★ المفضلة' : '☆ المفضلة';
     }
+    // مزامنة حالة شريحة التقدم التلقائي مع الإعداد المحفوظ
+    const autoChip = document.getElementById('dhikr-auto-chip');
+    if (autoChip && window.Settings) {
+      const isOn = Settings.getAutoAdvance();
+      autoChip.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+      if (isOn) autoChip.classList.add('active'); else autoChip.classList.remove('active');
+    }
   }
   const cat = ATHKAR[ci];
   const favs = getAthkarFavs();
@@ -2860,6 +2870,21 @@ window.tapThikr = function(ci, i, btn) {
     if (window.StatsManager) StatsManager.recordAthkarDay();
     Motion.floater(btn, '✓', 'var(--success)');
     if (window.AccessibilityHelper) AccessibilityHelper.announceMessage('اكتمل هذا الذكر');
+    // التقدم التلقائي: انتقل للذكر التالي بعد إتمام الحالي إذا كانت الميزة مُفعَّلة
+    if (window.Settings && Settings.getAutoAdvance()) {
+      const container = document.getElementById('thikr-list-container');
+      const slides = container ? Array.from(container.querySelectorAll('.dhikr-slide')) : [];
+      const currentSlide = btn.closest('.dhikr-slide');
+      const currentIndex = slides.indexOf(currentSlide);
+      // لا تتقدم إذا كان هذا آخر ذكر في القائمة
+      if (currentIndex >= 0 && currentIndex < slides.length - 1) {
+        setTimeout(() => {
+          const slideWidth = currentSlide.offsetWidth;
+          // RTL: القيمة السالبة تعني التقدم نحو اليسار الفعلي (التالي)
+          container.scrollBy({ left: -slideWidth, behavior: 'smooth' });
+        }, 1500);
+      }
+    }
     // حدّث شريط التقدم والنسبة وخطّ العدّ
     if (card) {
       const fill = card.querySelector('.dhikr-progress-fill');
@@ -3072,6 +3097,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ─── شريحة فلتر المفضلة في شاشة الذكر ───
   document.getElementById('dhikr-fav-chip').addEventListener('click', () => window.toggleDhikrFavFilter());
+  
+  // شريحة التقدم التلقائي: تبديل الإعداد المحفوظ وعكس الحالة على الشريحة
+  document.getElementById('dhikr-auto-chip')?.addEventListener('click', function() {
+    const current = window.Settings.getAutoAdvance();
+    window.Settings.setAutoAdvance(!current);
+    this.setAttribute('aria-pressed', !current ? 'true' : 'false');
+    if (!current) this.classList.add('active'); else this.classList.remove('active');
+    if (window.showAppToast) showAppToast(!current ? 'تم تفعيل التقدم التلقائي ⏭' : 'تم إلغاء التقدم التلقائي');
+  });
 
   // Reduced-motion: استجب للتغيير أثناء التشغيل وليس مرة واحدة فقط
   const rmMedia = window.matchMedia('(prefers-reduced-motion: reduce)');
