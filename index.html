@@ -1877,6 +1877,11 @@ function navigateBack() {
   // أعد بناء الحالات الخاصة للشاشة التي عدنا إليها
   if (target === 'athkar-list' && typeof renderAthkarList === 'function') renderAthkarList();
   if (target === 'khatmah-main' && typeof updateKhatmahUI === 'function') updateKhatmahUI();
+  // إخفاء FAB التقدم التلقائي عند العودة لقائمة الأذكار
+  if (target === 'athkar-list') {
+    const autoFab = document.getElementById('dhikr-auto-fab');
+    if (autoFab) autoFab.style.display = 'none';
+  }
   saveState();
   setTimeout(() => { _internalNav = false; window._internalNav = false; }, 0);
 }
@@ -1998,6 +2003,9 @@ function switchTab(tabId) {
   // تبديل التبويب يبدأ مساراً جديداً من جذر التبويب — تخلّص من أي مسار قديم معفّن.
   // الجذر نفسه لا يُخزّن (المسار يضمّ ما خلف الشاشة الحالية فقط).
   screenStack = [];
+  // إخفاء FAB التقدم التلقائي عند التبديل لتبويب الأذكار (جذره athkar-list)
+  const autoFab = document.getElementById('dhikr-auto-fab');
+  if (autoFab) autoFab.style.display = 'none';
   saveState(); setNavIndicator(); checkBookmarkFAB();
 }
 
@@ -3174,11 +3182,7 @@ document.addEventListener('DOMContentLoaded', () => {
     || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
   applyTheme(initialTheme);
   
-  // تطبيق مقياس الخط من الإعدادات (افتراضي 100%)
-  if (window.Settings) {
-    const fontScale = Settings.getFontScale();
-    Settings.applyFontScale(fontScale);
-  }
+  // تطبيق مقياس الخط من الإعدادات (افتراضي 100%) — عبر applyFontSize الموحّد
   applyFontSize(state.fontScale ?? LEGACY_FONT_SIZE[state.fontSize] ?? 1.4);
 
   // نافذة حجم الخط المنبثقة: بناء + ربط + إغلاق بالنقر خارجها

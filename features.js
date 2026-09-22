@@ -216,7 +216,7 @@ const Settings = {
 
   getFontScale() { try { return parseInt(localStorage.getItem('font_scale') || '100', 10); } catch (e) { return 100; } },
   setFontScale(v) { try { localStorage.setItem('font_scale', String(Math.max(80, Math.min(140, v)))); } catch (e) {} },
-  applyFontScale(scale) { const base = 18; document.documentElement.style.setProperty('--font-size', (base * scale / 100) + 'px'); },
+  applyFontScale(scale) { if (window.applyFontSize) window.applyFontSize(scale / 100); },
 
   render() {
     const el = document.getElementById('settings-container');
