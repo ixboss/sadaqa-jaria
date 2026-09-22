@@ -701,8 +701,11 @@ body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success
 
 /* ================= بطاقة الذكر (تقاليب أفقي — Pager) ================= */
 /* شاشة الذكر تصبح صفحاتٍ أفقية: ذكرٌ واحد في كل مرة، مع التفات يميناً/يساراً.
-   #content نفسه لا يتحرك أبداً على هذه الشاشة (overflow: hidden). */
-#content.pager-dhikr { overflow: hidden; touch-action: pan-x; padding-bottom: 0; }
+   #content نفسه لا يتحرك أبداً على هذه الشاشة (overflow: hidden).
+   padding-bottom هنا ليس فائضاً: البطاقة محصورةٌ بارتفاع الشريحة، فلو امتدت
+   الشريحة إلى أسفل الشاشة لاختبأ زرّ العدّ خلف شريط التنقّل الثابت المعيم.
+   لذلك نحجز له نفس مساحة الشريط التي تحجزها بقية الشاشات + هامش بصري. */
+#content.pager-dhikr { overflow: hidden; touch-action: pan-x; padding-bottom: calc(var(--nav-clearance-safe) + 12px); }
 #screen-thikr-view.active, #screen-thikr-view.slide-left, #screen-thikr-view.slide-right { display: flex; flex-direction: column; height: 100%; }
 #screen-thikr-view .dhikr-filter-row { flex: 0 0 auto; }
 #thikr-list-container {
@@ -730,11 +733,18 @@ body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success
   padding: 6px 14px;
 }
 .dhikr-card {
-  margin: auto 0;
+  margin: auto;
   width: 100%;
   /* لا تتجاوز ارتفاع الشريحة أبداً: تتمركز في الوسط حين تتّسع،
      وتتقلّص منطقة النصّ دوناً عن باقي البطاقة حين يطول الذكر. */
   max-height: 100%;
+  /* صمّام الأمان: إن تجاوزت ثوابت البطاقة (الشارة + النسخ + العدّ + الزرّ)
+     ارتفاع الشريحة — يحدث ذلك على الشاشات القصيرة جداً (أفقي) — يتموّر
+     محتوى البطاقة داخلها بدل أن يُقصّ أو يختفي خلف شريط التنقّل. */
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  /* على الشاشات العريضة (أفقي/تابلت/سطح المكتب) تبقى البطاقة مدمجةً
+     في الوسط بدل أن تتمدّد سطور النصّ عبر الشاشة كلها */
+  max-width: 460px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -778,8 +788,14 @@ body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   transition: width 320ms var(--ease-spring-snap);
 }
-/* صفّ سفلي واحد: زرّ العدّ يأخذ ما تبقّى، وزرّ المصدر بجانبه (لا التفاف) */
-.dhikr-bottom { display: flex; align-items: stretch; gap: 10px; flex: 0 0 auto; }
+/* صفّ سفلي واحد: زرّ العدّ يأخذ ما تبقّى، وزرّ المصدر بجانبه (لا التفاف).
+   position: sticky أسفل البطاقة: حين تتموّر البطاقة (شاشة قصيرة) يبقى زرّ
+   العدّ مرئياً قابلاً للضغط في أسفلها بدل أن يختفي مع التمرير. */
+.dhikr-bottom {
+  display: flex; align-items: stretch; gap: 10px; flex: 0 0 auto;
+  position: sticky; bottom: 0;
+  background: var(--surface);
+}
 .dhikr-bottom .thikr-tap-btn { flex: 1 1 auto; width: auto; }
 .dhikr-bottom .dhikr-src-btn { flex: 0 0 auto; align-self: center; }
 .dhikr-bottom .dhikr-src-none { flex: 0 0 auto; align-self: center; }
