@@ -1,10 +1,9 @@
 // ==================== Service Worker — إسلامي ====================
-// v41: إصلاح تغطية شريط التنقّل لزرّ العدّ — تعود مساحة الشريط السفلي
-// إلى الشاشة (padding-bottom) فلا يختفي الزرّ خلفه على البطاقات الطويلة،
-// وتُقفل البطاقة بعرض أقصى على الشاشات العريضة.
-const CACHE_NAME = 'quran-app-v41';
-const API_CACHE = 'quran-api-v41';
-const STATIC_CACHE = 'static-v41';
+// v42: تقليص فراغات القرآن (bismillah 36px→20px، label 10px→6px، khatmah 20px→14px)
+//      + التقدم التلقائي للأذكار (تبديل ⏭ في شاشة الذكر، انتقال بعد 1.5 ثانية)
+const CACHE_NAME = 'quran-app-v42';
+const API_CACHE = 'quran-api-v42';
+const STATIC_CACHE = 'static-v42';
 
 const PRECACHE_URLS = [
   './',
