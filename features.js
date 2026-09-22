@@ -211,8 +211,12 @@ const Settings = {
   setTasbihTarget(v) { try { localStorage.setItem('tasbih_target', String(v)); } catch (e) {} },
   remindersEnabled() { try { return localStorage.getItem('reminders_enabled') === '1'; } catch (e) { return false; } },
   setRemindersEnabled(v) { try { localStorage.setItem('reminders_enabled', v ? '1' : '0'); } catch (e) {} },
-  getAutoAdvance() { try { return localStorage.getItem('adhkar_auto_advance') === '1'; } catch (e) { return false; } },
+  getAutoAdvance() { try { return localStorage.getItem('adhkar_auto_advance') !== '0'; } catch (e) { return true; } },
   setAutoAdvance(v) { try { localStorage.setItem('adhkar_auto_advance', v ? '1' : '0'); } catch (e) {} },
+
+  getFontScale() { try { return parseInt(localStorage.getItem('font_scale') || '100', 10); } catch (e) { return 100; } },
+  setFontScale(v) { try { localStorage.setItem('font_scale', String(Math.max(80, Math.min(140, v)))); } catch (e) {} },
+  applyFontScale(scale) { const base = 18; document.documentElement.style.setProperty('--font-size', (base * scale / 100) + 'px'); },
 
   render() {
     const el = document.getElementById('settings-container');
@@ -220,6 +224,7 @@ const Settings = {
     const curReciter = this.getReciter();
     const curTarget = this.getTasbihTarget();
     const remOn = this.remindersEnabled();
+    const fontScale = this.getFontScale();
 
     el.innerHTML = `
       <div class="settings-card">
@@ -235,6 +240,12 @@ const Settings = {
         <select id="settings-reciter" class="k-input" style="margin-bottom:0">
           ${this.RECITERS.map(r => `<option value="${r.id}" ${r.id === curReciter ? 'selected' : ''}>${r.name}</option>`).join('')}
         </select>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-label">حجم الخط <span id="font-scale-value">${fontScale}%</span></div>
+        <input type="range" id="settings-font-scale" class="settings-slider" min="80" max="140" step="5" value="${fontScale}" aria-label="مقياس حجم الخط">
+        <div class="surah-meta">مقياس الخط العالمي (٨٠٪–١٤٠٪، الافتراضي ١٠٠٪)</div>
       </div>
 
       <div class="settings-card settings-row">
@@ -276,6 +287,13 @@ const Settings = {
       if (e.target.id === 'settings-reciter') {
         this.setReciter(e.target.value);
         if (window.AudioPlayer) AudioPlayer.refreshReciter();
+      }
+      if (e.target.id === 'settings-font-scale') {
+        const val = parseInt(e.target.value, 10);
+        this.setFontScale(val);
+        this.applyFontScale(val);
+        const valEl = document.getElementById('font-scale-value');
+        if (valEl) valEl.textContent = val + '%';
       }
     });
 

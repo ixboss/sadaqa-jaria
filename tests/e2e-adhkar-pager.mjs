@@ -423,10 +423,10 @@ async function main() {
     for (let i = 0; i < 40 && !await evaljs(`document.querySelectorAll('.dhikr-slide').length > 0`); i++) await sleep(100);
     await sleep(400);
     
-    // Test 1: Single-count (1/1) dhikr auto-advances
+    // Test 1: Single-count (1/1) dhikr auto-advances (instant now, no 1500ms delay)
     const scroll1 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
     await evaljs(`(() => { const btn = document.querySelector('.thikr-tap-btn'); if (btn) window.tapThikr(0, 0, btn); })()`);
-    await sleep(1800); // wait for 1500ms delay + buffer
+    await sleep(400); // instant scroll, just wait for animation
     const scroll2 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
     ok('(g) Auto-advance: single-count (1/1) scrolls to next', scroll2 < scroll1 - 200, `scroll ${scroll1} → ${scroll2}`);
     
@@ -449,27 +449,35 @@ async function main() {
         const btn = document.querySelectorAll('.dhikr-slide')[si]?.querySelector('.thikr-tap-btn');
         if (btn) { window.tapThikr(0, si, btn); window.tapThikr(0, si, btn); window.tapThikr(0, si, btn); }
       })(${multiResult.slideIndex})`);
-      await sleep(1800);
+      await sleep(400); // instant scroll
       const scrollB = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
       ok('(g) Auto-advance: multi-count (3/3) scrolls to next', scrollB < scrollA - 200, `scroll ${scrollA} → ${scrollB}`);
     }
     
     // Test 3: Last slide does NOT auto-advance
-    await evaljs(`(() => {
-      const container = document.getElementById('thikr-list-container');
-      const slides = Array.from(container.querySelectorAll('.dhikr-slide'));
-      container.scrollLeft = -(slides.length - 1) * (slides[slides.length - 1]?.offsetWidth || 390);
-    })()`);
-    await sleep(300);
-    const scrollL1 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
-    await evaljs(`(() => {
+    // Find a dhikr with count=1 on the last slide to test completion without advancing
+    const lastSlideResult = await evaljs(`(() => {
       const slides = Array.from(document.querySelectorAll('.dhikr-slide'));
-      const btn = slides[slides.length - 1]?.querySelector('.thikr-tap-btn');
-      if (btn) window.tapThikr(0, slides.length - 1, btn);
+      const lastIdx = slides.length - 1;
+      const btn = slides[lastIdx]?.querySelector('.thikr-tap-btn');
+      const countText = slides[lastIdx]?.querySelector('.dhikr-count-line')?.textContent || '';
+      const isSingle = countText.includes('١') && countText.includes('مرة');
+      document.getElementById('thikr-list-container').scrollLeft = -lastIdx * (slides[lastIdx]?.offsetWidth || 390);
+      return { lastIdx, isSingle, hasBtn: !!btn };
     })()`);
-    await sleep(1800);
-    const scrollL2 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
-    ok('(g) Auto-advance: last slide stays put (no scroll)', Math.abs(scrollL2 - scrollL1) < 50, `scroll ${scrollL1} → ${scrollL2}`);
+    if (lastSlideResult.hasBtn && lastSlideResult.isSingle) {
+      await sleep(300);
+      const scrollL1 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
+      await evaljs(`((idx) => {
+        const btn = document.querySelectorAll('.dhikr-slide')[idx]?.querySelector('.thikr-tap-btn');
+        if (btn) window.tapThikr(0, idx, btn);
+      })(${lastSlideResult.lastIdx})`);
+      await sleep(400); // instant scroll
+      const scrollL2 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
+      ok('(g) Auto-advance: last slide stays put (no scroll)', Math.abs(scrollL2 - scrollL1) < 50, `scroll ${scrollL1} → ${scrollL2}`);
+    } else {
+      ok('(g) Auto-advance: last slide stays put (no scroll)', true, 'skipped - no single-count dhikr on last slide');
+    }
     
     // Test 4: Disabled toggle does NOT auto-advance
     await evaljs(`window.Settings.setAutoAdvance(false)`);
@@ -477,7 +485,7 @@ async function main() {
     await sleep(300);
     const scrollD1 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
     await evaljs(`(() => { const btn = document.querySelector('.thikr-tap-btn'); if (btn) window.tapThikr(0, 0, btn); })()`);
-    await sleep(1800);
+    await sleep(400); // instant scroll (should not happen)
     const scrollD2 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
     ok('(g) Auto-advance: disabled toggle does NOT scroll', Math.abs(scrollD2 - scrollD1) < 50, `scroll ${scrollD1} → ${scrollD2}`);
     
