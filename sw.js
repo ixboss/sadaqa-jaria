@@ -1,9 +1,10 @@
 // ==================== Service Worker — إسلامي ====================
-// v40: الأذكار كتقاليب أفقية (Pager) — ذكرٌ واحد في كل شريحة مع الالتقاط الأفقي
-// وإسقاط شريط التحكم الثابت والأزرار الجانبية؛ التحكم بالخط عبر رأس الشاشة فقط.
-const CACHE_NAME = 'quran-app-v40';
-const API_CACHE = 'quran-api-v40';
-const STATIC_CACHE = 'static-v40';
+// v41: إصلاح تغطية شريط التنقّل لزرّ العدّ — تعود مساحة الشريط السفلي
+// إلى الشاشة (padding-bottom) فلا يختفي الزرّ خلفه على البطاقات الطويلة،
+// وتُقفل البطاقة بعرض أقصى على الشاشات العريضة.
+const CACHE_NAME = 'quran-app-v41';
+const API_CACHE = 'quran-api-v41';
+const STATIC_CACHE = 'static-v41';
 
 const PRECACHE_URLS = [
   './',
