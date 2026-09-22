@@ -108,7 +108,7 @@
 
   /* ===== هندسة شريط التنقل السفلي ===== */
   /* ارتفاع الشريط */
-  --nav-h: 70px;
+  --nav-h: 76px;
   /* الفراغ البصري بين الشريط وأسفل الشاشة. الشريط يلامس منطقة الأمان
      (safe area) — منطقة الأمان نفسها هي كل الهامش المطلوب (شريط iOS
      السفلي، أزرار أندرويد) فلا نترك فوقها فراغاً إضافياً. القيمة 0.
@@ -423,7 +423,7 @@ body.theme-light .font-step-btn { background: var(--surface-2); }
   background:
     linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02) 55%, rgba(255,255,255,0.05)),
     rgba(12, 42, 52, 0.96);
-  backdrop-filter: blur(26px) saturate(185%); -webkit-backdrop-filter: blur(26px) saturate(185%);
+  backdrop-filter: blur(32px) saturate(200%); -webkit-backdrop-filter: blur(32px) saturate(200%);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 35px;
   display: flex; align-items: center; padding: 0 6px; z-index: 100;
@@ -431,7 +431,8 @@ body.theme-light .font-step-btn { background: var(--surface-2); }
   box-shadow:
     0 18px 40px rgba(0, 0, 0, 0.45),
     0 2px 8px rgba(0, 0, 0, 0.25),
-    inset 0 1px 1px rgba(255, 255, 255, 0.22),
+    inset 0 1px 1px rgba(255, 255, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
     inset 0 -1px 2px rgba(0, 0, 0, 0.25);
   transition: bottom 380ms var(--ease-spring), transform 380ms var(--ease-spring), opacity 0.4s, background 0.4s, border-color 0.4s, box-shadow 0.4s;
   touch-action: none;
@@ -460,9 +461,9 @@ body.theme-light #nav {
    العناصر التفاعلية، وهذا كافٍ لأن دورها تغطية المنطقة المحيطة. */
 .nav-scrim {
   position: fixed; left: 0; right: 0; bottom: 0;
-  height: calc(var(--nav-bottom) + var(--nav-h) - 26px);
+  height: calc(var(--nav-bottom) + var(--nav-h) - 20px);
   pointer-events: none; z-index: 90;
-  background: linear-gradient(180deg, transparent, var(--bg) 34%);
+  background: linear-gradient(180deg, transparent, var(--bg) 28%);
   opacity: 0; transition: opacity 300ms var(--ease-out-quart);
 }
 /* نظهر الطبقة فقط عندما يكون الشريط في مكانه الطبيعي (غير مخفي) */
@@ -474,17 +475,18 @@ body:has(#nav:not(.nav-hidden)) .nav-scrim { opacity: 1; }
   position: absolute; left: 0; top: 6px; bottom: 6px; width: 0;
   /* طبقات: ضوء علوي داخلي + صبغة زمردي/فيروزية شفافة */
   background:
-    linear-gradient(160deg, rgba(255,255,255,0.30), rgba(255,255,255,0.06) 46%, rgba(255,255,255,0.14)),
-    linear-gradient(135deg, rgba(62, 207, 158, 0.42), rgba(70, 200, 214, 0.20));
-  border: 1px solid rgba(255, 255, 255, 0.22);
+    linear-gradient(160deg, rgba(255,255,255,0.38), rgba(255,255,255,0.08) 46%, rgba(255,255,255,0.18)),
+    linear-gradient(135deg, rgba(62, 207, 158, 0.48), rgba(70, 200, 214, 0.24));
+  border: 1px solid rgba(255, 255, 255, 0.26);
   border-radius: 26px; z-index: 1;
   /* ضوء داخلي ناعم + حدود ناعمة + توهج زمردي خفيف */
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.38),
+    inset 0 1px 1px rgba(255, 255, 255, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.20),
     inset 0 -1px 2px rgba(0, 0, 0, 0.18),
     0 6px 16px rgba(0, 0, 0, 0.30),
-    0 0 20px rgba(62, 207, 158, 0.22);
-  backdrop-filter: blur(6px) saturate(140%); -webkit-backdrop-filter: blur(6px) saturate(140%);
+    0 0 24px rgba(62, 207, 158, 0.28);
+  backdrop-filter: blur(8px) saturate(150%); -webkit-backdrop-filter: blur(8px) saturate(150%);
   pointer-events: none;
   transform-origin: center;
   will-change: transform, width;
@@ -503,7 +505,7 @@ body:has(#nav:not(.nav-hidden)) .nav-scrim { opacity: 1; }
   background: linear-gradient(100deg, transparent, rgba(255,255,255,0.38), transparent);
   transform: skewX(-18deg); pointer-events: none;
 }
-.nav-indicator.sheen::after { animation: sheenSweep 720ms var(--ease-out-quart); }
+.nav-indicator.sheen::after { animation: sheenSweep 900ms var(--ease-out-quart); }
 @keyframes sheenSweep { from { left: -55%; } to { left: 115%; } }
 /* الوميض مخصص فقط للاستقرار — يُضاف صنف .sheen بعد انتهاء الحركة في JS،
    لذا لا يظهر أي وميض أثناء انزلاق المؤشر. هذا السطر يضمن ذلك حتى لو
@@ -512,14 +514,15 @@ body:has(#nav:not(.nav-hidden)) .nav-scrim { opacity: 1; }
 
 body.theme-light .nav-indicator {
   background:
-    linear-gradient(160deg, rgba(255,255,255,0.85), rgba(255,255,255,0.4) 46%, rgba(255,255,255,0.6)),
-    linear-gradient(135deg, rgba(31, 122, 90, 0.20), rgba(18, 131, 127, 0.10));
-  border-color: rgba(31, 122, 90, 0.25);
+    linear-gradient(160deg, rgba(255,255,255,0.9), rgba(255,255,255,0.5) 46%, rgba(255,255,255,0.7)),
+    linear-gradient(135deg, rgba(31, 122, 90, 0.24), rgba(18, 131, 127, 0.14));
+  border-color: rgba(31, 122, 90, 0.28);
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
     inset 0 -1px 2px rgba(20, 51, 58, 0.10),
     0 6px 16px rgba(20, 51, 58, 0.16),
-    0 0 18px rgba(31, 122, 90, 0.14);
+    0 0 22px rgba(31, 122, 90, 0.18);
 }
 
 .nav-tab {
@@ -819,8 +822,70 @@ body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success
   background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border);
   border-radius: 999px; padding: 5px 18px; font-size: calc(var(--font-size) * 0.5);
   font-weight: 700; cursor: pointer; transition: all 200ms var(--ease-spring-snap);
+  display: flex; align-items: center; gap: 6px;
 }
 .dhikr-chip[aria-pressed="true"] { background: var(--accent); color: var(--color-on-accent); border-color: var(--accent); }
+.dhikr-chip:active { transform: scale(0.95); }
+
+/* Floating Auto-Advance FAB */
+.dhikr-auto-fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--nav-clearance-safe) + 16px);
+  display: flex; align-items: center; gap: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)),
+              rgba(12, 42, 52, 0.94);
+  backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  padding: 10px 16px;
+  color: var(--text);
+  font-size: calc(var(--font-size) * 0.5);
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 95;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.20),
+    inset 0 1px 1px rgba(255, 255, 255, 0.18);
+  transition: all 200ms var(--ease-spring-snap);
+  will-change: transform, box-shadow, background;
+}
+.dhikr-auto-fab:active { transform: scale(0.96); }
+.dhikr-auto-fab[aria-pressed="true"] {
+  background: linear-gradient(180deg, rgba(62, 207, 158, 0.35), rgba(62, 207, 158, 0.15)),
+              rgba(12, 42, 52, 0.96);
+  border-color: var(--accent);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.20),
+    inset 0 1px 1px rgba(255, 255, 255, 0.18),
+    0 0 20px rgba(62, 207, 158, 0.35);
+}
+.dhikr-auto-fab .fab-icon {
+  font-size: calc(var(--font-size) * 0.65);
+  line-height: 1;
+}
+.dhikr-auto-fab .fab-label { white-space: nowrap; }
+body.theme-light .dhikr-auto-fab {
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.82)),
+              rgba(255, 253, 247, 0.97);
+  border: 1px solid rgba(31, 122, 90, 0.20);
+  box-shadow:
+    0 8px 24px rgba(20, 51, 58, 0.14),
+    0 2px 6px rgba(20, 51, 58, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 1);
+}
+body.theme-light .dhikr-auto-fab[aria-pressed="true"] {
+  background: linear-gradient(180deg, rgba(62, 207, 158, 0.25), rgba(62, 207, 158, 0.10)),
+              rgba(255, 253, 247, 0.97);
+  border-color: var(--accent);
+  box-shadow:
+    0 8px 24px rgba(20, 51, 58, 0.14),
+    0 2px 6px rgba(20, 51, 58, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 1),
+    0 0 20px rgba(62, 207, 158, 0.25);
+}
 
 /* في البطاقة زر النسخ يجري ضمن السياق بدل absolute كي لا
    يغطي شارة التقدم — البطاقة flex-column فيكفي محاذاته للنهاية */
@@ -932,6 +997,26 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 .settings-toggle.on { background: var(--accent-deep); border-color: var(--accent-deep); }
 .settings-toggle.on .settings-toggle-knob { transform: translateX(-22px); background: #ffffff; }
 
+.settings-slider {
+  width: 100%; height: 6px; appearance: none; -webkit-appearance: none;
+  background: var(--surface-2); border-radius: 3px; outline: none;
+  cursor: pointer; margin: 8px 0 4px;
+}
+.settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent); cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  transition: transform 140ms var(--ease-spring-snap), box-shadow 140ms;
+}
+.settings-slider::-webkit-slider-thumb:hover { transform: scale(1.15); box-shadow: 0 4px 12px rgba(62, 207, 158, 0.5); }
+.settings-slider::-moz-range-thumb {
+  width: 20px; height: 20px; border-radius: 50%; border: none;
+  background: var(--accent); cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+#font-scale-value { font-size: calc(var(--font-size) * 0.55); color: var(--accent); font-weight: 700; margin-left: 8px; }
+
 /* ==================== تنفّس دائرة السبحة ==================== */
 #tasbih-tap-btn.breathe { animation: tasbihBreathe 3.2s ease-in-out infinite; }
 @keyframes tasbihBreathe { 0%, 100% { transform: scale(1); box-shadow: 0 4px 20px rgba(0,0,0,0.4); } 50% { transform: scale(1.025); box-shadow: 0 8px 30px var(--accent-dim); } }
@@ -951,7 +1036,7 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
    الأمان في كل المقاسات (--nav-gap = --nav-drop = 0). */
 @media (max-height: 620px) {
   :root {
-    --nav-h: 58px;
+    --nav-h: 64px;
     --nav-drop: 0px;
     --header-h: 58px;
   }
@@ -1100,9 +1185,13 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
     <div id="screen-thikr-view" class="screen">
       <div class="dhikr-filter-row" id="dhikr-filter-row" style="display:none;">
         <button class="dhikr-chip" id="dhikr-fav-chip" aria-pressed="false">★ المفضلة</button>
-        <button class="dhikr-chip" id="dhikr-auto-chip" aria-pressed="false">⏭ تقدم تلقائي</button>
       </div>
       <div id="thikr-list-container"></div>
+      <!-- Floating Auto-Advance Button -->
+      <button class="dhikr-auto-fab" id="dhikr-auto-fab" aria-label="تقدم تلقائي" aria-pressed="false" style="display:none;">
+        <span class="fab-icon" aria-hidden="true">⏭</span>
+        <span class="fab-label">تقدم تلقائي</span>
+      </button>
     </div>
     <div id="screen-dua-list" class="screen"><div id="dua-list-container"></div></div>
     <div id="screen-occasion-list" class="screen"><div id="occasion-list-container"></div></div>
@@ -1798,7 +1887,7 @@ function navigateBack() {
 const navIndicatorEl = document.getElementById('nav-indicator');
 const navSpring = {
   x: 0, w: 0, vx: 0, vw: 0, targetX: 0, targetW: 0,
-  k: 190, c: 19,            /* ثابت الصلابة + التخميد ← حركة زنبركية ناعمة مع تردد بسيط */
+  k: 220, c: 22,            /* ثابت الصلابة + التخميد ← حركة زنبركية ناعمة مع تردد بسيط */
   raf: null, running: false, lastT: 0, traveled: 0
 };
 
@@ -2773,13 +2862,15 @@ window.openCategory = function(ci, favOnly) {
       chip.setAttribute('aria-pressed', String(state.dhikrFavOnly));
       chip.textContent = state.dhikrFavOnly ? '★ المفضلة' : '☆ المفضلة';
     }
-    // مزامنة حالة شريحة التقدم التلقائي مع الإعداد المحفوظ
-    const autoChip = document.getElementById('dhikr-auto-chip');
-    if (autoChip && window.Settings) {
-      const isOn = Settings.getAutoAdvance();
-      autoChip.setAttribute('aria-pressed', isOn ? 'true' : 'false');
-      if (isOn) autoChip.classList.add('active'); else autoChip.classList.remove('active');
-    }
+  }
+  // مزامنة زر التقدم التلقائي العائم (FAB)
+  const autoFab = document.getElementById('dhikr-auto-fab');
+  if (autoFab && window.Settings) {
+    const isOn = Settings.getAutoAdvance();
+    autoFab.style.display = 'flex';
+    autoFab.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+    autoFab.querySelector('.fab-icon').textContent = isOn ? '⏭' : '⏹';
+    autoFab.querySelector('.fab-label').textContent = isOn ? 'تقدم تلقائي' : 'إيقاف التقدم';
   }
   const cat = ATHKAR[ci];
   const favs = getAthkarFavs();
@@ -3082,6 +3173,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const initialTheme = state.theme
     || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
   applyTheme(initialTheme);
+  
+  // تطبيق مقياس الخط من الإعدادات (افتراضي 100%)
+  if (window.Settings) {
+    const fontScale = Settings.getFontScale();
+    Settings.applyFontScale(fontScale);
+  }
   applyFontSize(state.fontScale ?? LEGACY_FONT_SIZE[state.fontSize] ?? 1.4);
 
   // نافذة حجم الخط المنبثقة: بناء + ربط + إغلاق بالنقر خارجها
@@ -3096,12 +3193,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // ─── شريحة فلتر المفضلة في شاشة الذكر ───
   document.getElementById('dhikr-fav-chip').addEventListener('click', () => window.toggleDhikrFavFilter());
   
-  // شريحة التقدم التلقائي: تبديل الإعداد المحفوظ وعكس الحالة على الشريحة
-  document.getElementById('dhikr-auto-chip')?.addEventListener('click', function() {
+  // زر التقدم التلقائي العائم (FAB): تبديل الإعداد المحفوظ وعكس الحالة
+  document.getElementById('dhikr-auto-fab')?.addEventListener('click', function() {
     const current = window.Settings.getAutoAdvance();
     window.Settings.setAutoAdvance(!current);
     this.setAttribute('aria-pressed', !current ? 'true' : 'false');
-    if (!current) this.classList.add('active'); else this.classList.remove('active');
+    this.querySelector('.fab-icon').textContent = !current ? '⏭' : '⏹';
+    this.querySelector('.fab-label').textContent = !current ? 'تقدم تلقائي' : 'إيقاف التقدم';
     if (window.showAppToast) showAppToast(!current ? 'تم تفعيل التقدم التلقائي ⏭' : 'تم إلغاء التقدم التلقائي');
   });
 
@@ -3332,8 +3430,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if(!isDraggingNav) return;
     const dx = getClientX(e) - navStartX; let newX = indicatorStartX + dx;
     const minX = 0; const maxX = navBar.offsetWidth - navIndicator.offsetWidth;
-    if (newX < minX) newX = minX - Math.pow(minX - newX, 0.8);
-    if (newX > maxX) newX = maxX + Math.pow(newX - maxX, 0.8);
+    if (newX < minX) newX = minX - Math.pow(minX - newX, 0.7);
+    if (newX > maxX) newX = maxX + Math.pow(newX - maxX, 0.7);
     const stretch = 1 + Math.min(Math.abs(dx) / 400, 0.22);
     applyNavIndicator(newX, navSpring.w, stretch, 0.92);
     // تتبع السرعة اللحظية لتسليمها للزنبرك عند الإفلات
