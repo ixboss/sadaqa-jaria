@@ -211,6 +211,8 @@ const Settings = {
   setTasbihTarget(v) { try { localStorage.setItem('tasbih_target', String(v)); } catch (e) {} },
   remindersEnabled() { try { return localStorage.getItem('reminders_enabled') === '1'; } catch (e) { return false; } },
   setRemindersEnabled(v) { try { localStorage.setItem('reminders_enabled', v ? '1' : '0'); } catch (e) {} },
+  getAutoAdvance() { try { return localStorage.getItem('adhkar_auto_advance') === '1'; } catch (e) { return false; } },
+  setAutoAdvance(v) { try { localStorage.setItem('adhkar_auto_advance', v ? '1' : '0'); } catch (e) {} },
 
   render() {
     const el = document.getElementById('settings-container');
