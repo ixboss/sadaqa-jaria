@@ -1011,7 +1011,7 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
     <div id="font-ctrl">
       <button class="header-btn" id="bookmarks-btn" title="المرجعيات" aria-label="المرجعيات">🔖</button>
       <button class="header-btn" id="theme-btn" title="الوضع الفاتح">☀️</button>
-      <button class="header-btn" id="share-btn" title="مشاركة التطبيق">📤</button>
+      <button class="header-btn" id="share-btn" title="مشاركة التطبيق" aria-label="مشاركة التطبيق"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg></button>
       <button class="header-btn" id="font-size-btn" title="حجم الخط" aria-label="حجم الخط" aria-haspopup="true" aria-expanded="false">أ</button>
     </div>
     <div id="font-popover" role="dialog" aria-label="حجم الخط" hidden>
@@ -2870,7 +2870,7 @@ window.tapThikr = function(ci, i, btn) {
     if (window.StatsManager) StatsManager.recordAthkarDay();
     Motion.floater(btn, '✓', 'var(--success)');
     if (window.AccessibilityHelper) AccessibilityHelper.announceMessage('اكتمل هذا الذكر');
-    // التقدم التلقائي: انتقل للذكر التالي بعد إتمام الحالي إذا كانت الميزة مُفعَّلة
+    // التقدم التلقائي: انتقل للذكر التالي فوراً عند إتمام الحالي إذا كانت الميزة مُفعَّلة
     if (window.Settings && Settings.getAutoAdvance()) {
       const container = document.getElementById('thikr-list-container');
       const slides = container ? Array.from(container.querySelectorAll('.dhikr-slide')) : [];
@@ -2878,11 +2878,9 @@ window.tapThikr = function(ci, i, btn) {
       const currentIndex = slides.indexOf(currentSlide);
       // لا تتقدم إذا كان هذا آخر ذكر في القائمة
       if (currentIndex >= 0 && currentIndex < slides.length - 1) {
-        setTimeout(() => {
-          const slideWidth = currentSlide.offsetWidth;
-          // RTL: القيمة السالبة تعني التقدم نحو اليسار الفعلي (التالي)
-          container.scrollBy({ left: -slideWidth, behavior: 'smooth' });
-        }, 1500);
+        const slideWidth = currentSlide.offsetWidth;
+        // RTL: القيمة السالبة تعني التقدم نحو اليسار الفعلي (التالي)
+        container.scrollBy({ left: -slideWidth, behavior: 'smooth' });
       }
     }
     // حدّث شريط التقدم والنسبة وخطّ العدّ
