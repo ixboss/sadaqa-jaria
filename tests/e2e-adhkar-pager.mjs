@@ -409,6 +409,80 @@ async function main() {
       }
     }
 
+    // ─── (g) Auto-advance logic ──────────────────────────────
+    console.log('\n(g) Auto-advance...');
+    await send('Emulation.setDeviceMetricsOverride', { ...VIEWPORT, deviceScaleFactor: 2, mobile: true });
+    await send('Page.navigate', { url: BASE });
+    await sleep(1800);
+    
+    // Enable auto-advance
+    await evaljs(`window.Settings.setAutoAdvance(true)`);
+    await evaljs(`document.querySelector('[data-tab="athkar"]').click()`);
+    await sleep(600);
+    await evaljs(`document.querySelector('.athkar-cat-card').click()`); // open first category (morning adhkar)
+    for (let i = 0; i < 40 && !await evaljs(`document.querySelectorAll('.dhikr-slide').length > 0`); i++) await sleep(100);
+    await sleep(400);
+    
+    // Test 1: Single-count (1/1) dhikr auto-advances
+    const scroll1 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
+    await evaljs(`(() => { const btn = document.querySelector('.thikr-tap-btn'); if (btn) window.tapThikr(0, 0, btn); })()`);
+    await sleep(1800); // wait for 1500ms delay + buffer
+    const scroll2 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
+    ok('(g) Auto-advance: single-count (1/1) scrolls to next', scroll2 < scroll1 - 200, `scroll ${scroll1} → ${scroll2}`);
+    
+    // Test 2: Multi-count (3/3) dhikr
+    const multiResult = await evaljs(`(() => {
+      const slides = Array.from(document.querySelectorAll('.dhikr-slide'));
+      for (let s = 0; s < slides.length; s++) {
+        const countText = slides[s].querySelector('.dhikr-count-line')?.textContent || '';
+        if (countText.includes('٣') && countText.includes('مرات')) {
+          document.getElementById('thikr-list-container').scrollLeft = -s * slides[s].offsetWidth;
+          return { found: true, slideIndex: s };
+        }
+      }
+      return { found: false };
+    })()`);
+    if (multiResult.found) {
+      await sleep(300);
+      const scrollA = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
+      await evaljs(`((si) => {
+        const btn = document.querySelectorAll('.dhikr-slide')[si]?.querySelector('.thikr-tap-btn');
+        if (btn) { window.tapThikr(0, si, btn); window.tapThikr(0, si, btn); window.tapThikr(0, si, btn); }
+      })(${multiResult.slideIndex})`);
+      await sleep(1800);
+      const scrollB = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
+      ok('(g) Auto-advance: multi-count (3/3) scrolls to next', scrollB < scrollA - 200, `scroll ${scrollA} → ${scrollB}`);
+    }
+    
+    // Test 3: Last slide does NOT auto-advance
+    await evaljs(`(() => {
+      const container = document.getElementById('thikr-list-container');
+      const slides = Array.from(container.querySelectorAll('.dhikr-slide'));
+      container.scrollLeft = -(slides.length - 1) * (slides[slides.length - 1]?.offsetWidth || 390);
+    })()`);
+    await sleep(300);
+    const scrollL1 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
+    await evaljs(`(() => {
+      const slides = Array.from(document.querySelectorAll('.dhikr-slide'));
+      const btn = slides[slides.length - 1]?.querySelector('.thikr-tap-btn');
+      if (btn) window.tapThikr(0, slides.length - 1, btn);
+    })()`);
+    await sleep(1800);
+    const scrollL2 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
+    ok('(g) Auto-advance: last slide stays put (no scroll)', Math.abs(scrollL2 - scrollL1) < 50, `scroll ${scrollL1} → ${scrollL2}`);
+    
+    // Test 4: Disabled toggle does NOT auto-advance
+    await evaljs(`window.Settings.setAutoAdvance(false)`);
+    await evaljs(`document.getElementById('thikr-list-container').scrollLeft = 0`);
+    await sleep(300);
+    const scrollD1 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
+    await evaljs(`(() => { const btn = document.querySelector('.thikr-tap-btn'); if (btn) window.tapThikr(0, 0, btn); })()`);
+    await sleep(1800);
+    const scrollD2 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
+    ok('(g) Auto-advance: disabled toggle does NOT scroll', Math.abs(scrollD2 - scrollD1) < 50, `scroll ${scrollD1} → ${scrollD2}`);
+    
+    console.log('✓ Auto-advance: 4 tests completed');
+
   } finally {
     browser.kill();
   }
