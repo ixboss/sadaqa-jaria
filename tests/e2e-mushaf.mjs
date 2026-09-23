@@ -20,6 +20,12 @@
  *   (d) Reciter picker: tapping ▶ opens the bottom sheet before playback,
  *       the list holds the expanded reciter set, and choosing one saves it
  *       and starts AudioPlayer.play with that reciter.
+ *   (f) Font-size slider: default value is 130, --mushaf-scale equals
+ *       slider/100 exactly, the rendered Quran font rises with the slider
+ *       while the page canvas has room, and every page still fits zero-scroll
+ *       at 80/130/200. The slider also scales the Adhkar UI text.
+ *   (g) Edge viewports: the same zero-scroll guarantee on iPhone SE
+ *       (375×667) and iPhone Pro Max (430×932), at slider 130 and 200.
  *   (e) Regression: RTL direction, centered text, ayah structure, and no
  *       uncaught page errors across the whole run.
  */
@@ -110,10 +116,14 @@ async function fitReport(container) {
       dir: getComputedStyle(b).direction, align: getComputedStyle(b).textAlign,
       contentSh: document.getElementById('content').scrollHeight,
       contentCh: document.getElementById('content').clientHeight,
+      blockBottom: Math.round(b.getBoundingClientRect().bottom),
+      navTop: Math.round(document.getElementById('nav').getBoundingClientRect().top),
     }); })()`);
   return s === 'null' ? null : JSON.parse(s);
 }
 const fits = (m) => m && m.wrapSh <= m.wrapCh + 1 && m.bw <= m.bcw + 1 && m.contentSh <= m.contentCh + 1;
+// القارئ يحجز مساحة شريط التنقّل بنفسه، فلا يجوز أن يمتد صندوق الصفحة تحته.
+const clearOfNav = (m) => m && m.navTop - m.blockBottom >= 0;
 
 // Wait until the auto-fit has settled: Amiri Quran loads lazily, so the first
 // fit is computed against a fallback face and re-converges when the real font
@@ -310,6 +320,90 @@ async function main() {
         }
       }
     }
+
+    // ═══ (f) Font-size slider: default 130, wired to the Quran + Adhkar ═══
+    await evaljs(`window.applyFontSize(130)`);
+    await sleep(300);
+    const bootSlider = JSON.parse(await evaljs(`(() => {
+      const s = document.getElementById('font-slider'); const cs = getComputedStyle(document.documentElement);
+      return JSON.stringify({ val: s ? +s.value : null,
+        label: (document.getElementById('font-slider-value') || {}).textContent,
+        mushafScale: cs.getPropertyValue('--mushaf-scale').trim(),
+        uiScale: cs.getPropertyValue('--font-scale').trim() }); })()`));
+    ok('(f) slider default value is 130', bootSlider.val === 130, `val=${bootSlider.val} label="${bootSlider.label}"`);
+    ok('(f) Quran token = slider/100 exactly',
+      Math.abs(+bootSlider.mushafScale - 1.3) < 0.001 && Math.abs(+bootSlider.uiScale - 1.3) < 0.001,
+      `--mushaf-scale=${bootSlider.mushafScale} --font-scale=${bootSlider.uiScale}`);
+    // مسار المنزلق الكامل على سورة الفاتحة: ٨٠ ← ١٣٠ يكبّر النص فعلاً ما
+    // دامت المساحة تسمح، ثم يتشبّع عند أقصى ما يحتمله Canvas الصفحة. فوق
+    // نقطة التشبّع يُقيّد حجم الآيات بالـ Canvas لا بالمنزلق — وقد يرجع
+    // قليلاً لأن كروم القارئ (الرأس/الشارات) يتلقّى سقفاً ١٫٣٥× ينمو مع
+    // المنزلق فيأكل من Canvas. ما يُطلَب هنا: ألا ينكسر التخطيط (تأكيد
+    // «صفر تمرير» أدناه) وألا يتجاوز النص سقف الـ Canvas.
+    await openSurahPage(1, 1);
+    await evaljs(`window.applyFontSize(80)`); await sleep(1100);
+    const f80 = await waitForFit('#verses-container');
+    await evaljs(`window.applyFontSize(130)`); await sleep(1100);
+    const f130 = await waitForFit('#verses-container');
+    await evaljs(`window.applyFontSize(200)`); await sleep(1100);
+    const f200 = await waitForFit('#verses-container');
+    ok('(f) Quran text grows as the slider rises (80 → 130)',
+      f80 && f130 && parseFloat(f130.fs) > parseFloat(f80.fs) + 0.5,
+      `80: fs=${f80 && f80.fs} fit=${f80 && f80.fit} → 130: fs=${f130 && f130.fs} fit=${f130 && f130.fit}`);
+    ok('(f) rendered Quran font is capped by the page canvas once saturated (130 → 200)',
+      f130 && f200 && parseFloat(f200.fs) <= parseFloat(f130.fs) + 0.5,
+      `130: fs=${f130 && f130.fs} → 200: fs=${f200 && f200.fs} fit=${f200 && f200.fit} (canvas-bound, not slider-bound)`);
+    ok('(f) zero scroll at slider 80 / 130 / 200', fits(f80) && fits(f130) && fits(f200),
+      `80: ${f80 && f80.wrapSh}/${f80 && f80.wrapCh}  130: ${f130 && f130.wrapSh}/${f130 && f130.wrapCh}  200: ${f200 && f200.wrapSh}/${f200 && f200.wrapCh}`);
+    ok('(f) page frame stays clear of the bottom nav at every slider value',
+      clearOfNav(f80) && clearOfNav(f130) && clearOfNav(f200),
+      `80: navTop−blockBottom=${f80 && f80.navTop - f80.blockBottom}  130: ${f130 && f130.navTop - f130.blockBottom}  200: ${f200 && f200.navTop - f200.blockBottom}`);
+    // المنزلق يشدّ نص الواجهة كذلك (الأذكار نصٌّ عادي يستخدم --font-size)
+    await evaljs(`window.switchTab('athkar')`);
+    for (let i = 0; i < 40 && !await evaljs(`document.querySelectorAll('.athkar-cat-card').length`); i++) await sleep(120);
+    // .quick-nav-label على شاشة الأذكار: font-size = calc(--font-size × ٠٫٦)
+    const uiFont = async () => parseFloat(await evaljs(`(() => { const el = document.querySelector('.quick-nav-label');
+      return el ? getComputedStyle(el).fontSize : '0'; })()`));
+    await evaljs(`window.applyFontSize(80)`); await sleep(600);
+    const ui80 = await uiFont();
+    await evaljs(`window.applyFontSize(200)`); await sleep(600);
+    const ui200 = await uiFont();
+    ok('(f) slider also scales the Adhkar page text', ui200 > ui80 + 3,
+      `quick-nav-label 80%: ${ui80}px → 200%: ${ui200}px`);
+
+    // ═══ (g) Edge viewports: iPhone SE + iPhone Pro Max ═══
+    for (const [vpLabel, w, h] of [['iPhone SE', 375, 667], ['iPhone Pro Max', 430, 932]]) {
+      await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 2, mobile: true });
+      await sleep(800);
+      await evaljs(`window.applyFontSize(130)`);
+      await openSurahPage(1, 1);
+      const gFatiha = await waitForFit('#verses-container');
+      ok(`(g) ${vpLabel} @130%: Al-Fatiha fits zero-scroll`, fits(gFatiha),
+        gFatiha ? `fs=${gFatiha.fs} fit=${gFatiha.fit} wrap=${gFatiha.wrapSh}/${gFatiha.wrapCh}` : 'no block');
+      await openSurahPage(36, 1);
+      const gYaseen = await waitForFit('#verses-container');
+      ok(`(g) ${vpLabel} @130%: Yaseen fits zero-scroll`, fits(gYaseen),
+        gYaseen ? `fs=${gYaseen.fs} fit=${gYaseen.fit} wrap=${gYaseen.wrapSh}/${gYaseen.wrapCh}` : 'no block');
+      await openKhatmahPage(604);
+      const gK604 = await waitForFit('#khatmah-page-container');
+      ok(`(g) ${vpLabel} @130%: khatmah 604 fits zero-scroll`, fits(gK604),
+        gK604 ? `fs=${gK604.fs} fit=${gK604.fit} wrap=${gK604.wrapSh}/${gK604.wrapCh}` : 'no block');
+      // أقصى تكبير على أصغر شاشة: الاختبار الأشدّ
+      await evaljs(`window.applyFontSize(200)`);
+      await openSurahPage(36, 1);
+      const gY200 = await waitForFit('#verses-container');
+      ok(`(g) ${vpLabel} @200%: Yaseen still fits zero-scroll`, fits(gY200),
+        gY200 ? `fs=${gY200.fs} fit=${gY200.fit} wrap=${gY200.wrapSh}/${gY200.wrapCh}` : 'no block');
+      await openKhatmahPage(604);
+      const gK200 = await waitForFit('#khatmah-page-container');
+      ok(`(g) ${vpLabel} @200%: khatmah 604 still fits zero-scroll`, fits(gK200),
+        gK200 ? `fs=${gK200.fs} fit=${gK200.fit} wrap=${gK200.wrapSh}/${gK200.wrapCh}` : 'no block');
+    }
+    // عُد إلى مقاس العرض الأساسي وحجم الخط الافتراضي لما تبقّى من الجولة
+    await send('Emulation.setDeviceMetricsOverride', { ...VIEWPORT, deviceScaleFactor: 2, mobile: true });
+    await evaljs(`window.applyFontSize(130)`); await sleep(500);
+    await evaljs(`window.switchTab('quran')`);
+    await sleep(400);
 
     // ═══ (e) Regression ═══
     ok('(e) no uncaught page errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
