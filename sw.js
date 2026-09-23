@@ -1,9 +1,10 @@
 // ==================== Service Worker — إسلامي ====================
-// v42: تقليص فراغات القرآن (bismillah 36px→20px، label 10px→6px، khatmah 20px→14px)
-//      + التقدم التلقائي للأذكار (تبديل ⏭ في شاشة الذكر، انتقال بعد 1.5 ثانية)
-const CACHE_NAME = 'quran-app-v42';
-const API_CACHE = 'quran-api-v42';
-const STATIC_CACHE = 'static-v42';
+// v43: صفحة مصحف واحدة بلا تمرير (تصغير تلقائي --mushaf-fit) + إطار ذهبي
+//      على غرار المصحف المطبوع + اختيار القارئ قبل التشغيل (١٢ قارئاً)
+//      + فك تراكب أيقونتي الحفظ والتشغيل في رأس السورة
+const CACHE_NAME = 'quran-app-v43';
+const API_CACHE = 'quran-api-v43';
+const STATIC_CACHE = 'static-v43';
 
 const PRECACHE_URLS = [
   './',

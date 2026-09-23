@@ -94,7 +94,7 @@
   --color-on-accent-soft: rgba(244, 241, 232, 0.85);
   --radius: 12px;
   /* ===== نظام الخطوط: حجم أساسي واحد × نسبة تكبير واحدة ===== */
-  --font-base: 26px;                        /* الحجم المرجعي (متوسط) */
+  --font-base: 18px;                        /* الحجم المرجعي (متوسط) */
   --font-scale: 1;                          /* نسبة التكبير: ٠.٨ / ١ / ١.٣ / ١.٥ / ٢ */
   --font-size: calc(var(--font-base) * var(--font-scale));  /* الحجم الفعلي المشتق */
   --line-height: 2.3;
@@ -102,8 +102,16 @@
   /* حتى لو صغّر المستخدم الواجهة، يبقى نص المصحف مريحاً للقراءة */
   --mushaf-base: 34px;                      /* حجم نص المصحف المرجعي */
   --mushaf-scale: 1;                        /* نسبة تكبير مستقلة: 0.8 / 1 / 1.4 */
-  --mushaf-size: calc(var(--mushaf-base) * var(--mushaf-scale));
-  --mushaf-lh: 2.15;                        /* ارتفاع سطر مستقل للمصحف */
+  --mushaf-fit: 1;                          /* تصغير تلقائي لملء صفحة واحدة (يحسبها fitMushafPage) */
+  --mushaf-size: calc(var(--mushaf-base) * var(--mushaf-scale) * var(--mushaf-fit));
+  --mushaf-lh: 1.75;                        /* ارتفاع سطر نسبي يقيس نفسه مع التصغير */
+  /* ألوان المصحف التقليدي (ورق مطبوع + إطار ذهبي) في كلا الوضعين */
+  --mushaf-paper: #fbf4e4;
+  --mushaf-paper-edge: #f0e2c4;
+  --mushaf-ink: #1c2418;
+  --mushaf-gold: #b98a2f;
+  --mushaf-gold-soft: rgba(185, 138, 47, 0.45);
+  --mushaf-badge-ink: #7a5a17;
   --header-h: 70px;
 
   /* ===== هندسة شريط التنقل السفلي ===== */
@@ -342,6 +350,13 @@ body.theme-light {
   --text-dim: #5c7276;      /* رمادي ناعم */
   --success: #2e8b57;
   --border: #ddd4c1;
+  /* مصحف الوضع الفاتح: نفس الورق الذهبي التقليدي بإطار أوضح */
+  --mushaf-paper: #fdf8ec;
+  --mushaf-paper-edge: #f2e6cb;
+  --mushaf-ink: #17201a;
+  --mushaf-gold: #a97c22;
+  --mushaf-gold-soft: rgba(169, 124, 34, 0.5);
+  --mushaf-badge-ink: #7a5a17;
   /* أسماء دلالية (الوضع الفاتح) */
   --color-success: var(--success);
   --color-on-accent: #ffffff;
@@ -545,6 +560,20 @@ body.theme-light .nav-tab.active .nav-icon { filter: drop-shadow(0 4px 6px rgba(
 .screen.slide-right { display: block; animation: slideInRight 380ms var(--ease-out-quart) backwards; }
 #screen-tasbih.active, #screen-tasbih.slide-left, #screen-tasbih.slide-right { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100dvh - max(var(--header-h), var(--header-h-actual, 0px)) - 100px); }
 
+/* قارئ المصحف عمودٌ ممتد بكامل ارتفاع المحتوى: التسمية فوق، الصفحة في
+   الوسط (تملأ الفراغ وتمركَز عمودياً)، وأزرار التنقّل أسفل — بلا تمرير إطلاقاً.
+   النموذج نفسه المُتبع في شاشة السبحة أعلاه. */
+#screen-surah-view.active, #screen-surah-view.slide-left, #screen-surah-view.slide-right,
+#screen-khatmah-read.active, #screen-khatmah-read.slide-left, #screen-khatmah-read.slide-right {
+  display: flex; flex-direction: column; height: 100%;
+}
+#screen-surah-view.active, #screen-surah-view.slide-left, #screen-surah-view.slide-right { padding-bottom: 8px; }
+#verses-container, #khatmah-page-container { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+/* منطقة الصفحة: تأخذ ما تبقّى من الشاشة وتمركز النص عمودياً دون أن تمرّره */
+.mushaf-page-wrap { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+/* الهوامش الداخلية للشاشة تكفيها — لا حاجة لتمرير داخل القارئ */
+#content:has(#screen-surah-view.active), #content:has(#screen-khatmah-read.active) { overflow-y: hidden; }
+
 .skeleton { background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 30%, var(--surface) 60%, var(--surface-2) 100%); background-size: 200% 100%; animation: shimmerWave 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite; border-radius: 8px; position: relative; overflow: hidden; }
 .skeleton::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%); animation: shimmerWave 2s linear infinite; pointer-events: none; }
 .sk-card { height: 80px; width: 100%; margin-bottom: 12px; }
@@ -569,18 +598,42 @@ body.theme-light .surah-num { background: var(--surface-2); color: var(--text); 
 .surah-name { font-size: calc(var(--font-size) * 0.7); font-weight: 700; color: var(--text); transition: font-size 0.3s; }
 .surah-meta { font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); transition: font-size 0.3s; }
 
-.surah-header-card { background: var(--accent-grad); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; text-align: center; box-shadow: 0 4px 15px var(--accent-dim); position: relative; }
+.surah-header-card { background: var(--accent-grad); border-radius: var(--radius); padding: 14px 12px; margin-bottom: 12px; box-shadow: 0 4px 15px var(--accent-dim); position: relative; display: flex; align-items: center; gap: 10px; }
 body.theme-light .surah-header-card { box-shadow: 0 4px 15px rgba(31, 122, 90, 0.12); }
-.surah-h-name { font-size: calc(var(--font-size)); font-weight: 700; color: var(--color-on-accent); transition: font-size 0.3s, color 0.3s; }
+/* المساران الجانبيان يحتضنان الأزرار — لا يدخلهما النص أبداً فلا يحدث أي تراكب */
+.surah-h-slot { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+.surah-h-slot:empty { display: none; }
+.surah-h-text { flex: 1 1 auto; min-width: 0; text-align: center; }
+.surah-h-name { font-size: calc(var(--font-size) * 0.85); font-weight: 700; color: var(--color-on-accent); transition: font-size 0.3s, color 0.3s; overflow-wrap: break-word; }
 body.theme-light .surah-h-name { color: var(--color-on-accent); }
-.surah-h-meta { font-size: calc(var(--font-size) * 0.5); color: rgba(244, 241, 232, 0.85); margin-top: 4px; transition: font-size 0.3s, color 0.3s; }
-.bookmark-btn { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.2); border: none; color: var(--color-on-accent); font-size: calc(var(--font-size) * 0.77); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; transition: transform 0.2s; }
+.surah-h-meta { font-size: calc(var(--font-size) * 0.46); color: rgba(244, 241, 232, 0.85); margin-top: 2px; transition: font-size 0.3s, color 0.3s; }
+/* داخل منطقة الصفحة الواحدة تتحول بطاقة رأس السورة إلى شريط زخرفي مضغوط
+   (كما في المصحف المدني)، وتصغُر مع --mushaf-fit: صفحة المصحف قد تضم
+   عدّة سور قصيرة، فالتكلفة الثابتة لكل رأس يجب أن تنكمش وإلا لم تتّسع الصفحة */
+.mushaf-page-wrap .surah-header-card { padding: 3px 10px; margin-bottom: 4px; flex: 0 0 auto;
+  border-radius: 8px; border: 1px solid rgba(255,255,255,0.18); box-shadow: none; }
+.mushaf-page-wrap .surah-h-name { font-size: calc(var(--font-size) * 0.62 * var(--mushaf-fit, 1)); }
+.mushaf-page-wrap .surah-h-meta { display: none; }
+.mushaf-page-wrap .surah-h-slot:empty { display: none; }
+.mushaf-page-wrap .bismillah { padding: 2px 8px 3px; margin-bottom: 2px;
+  font-size: calc(var(--mushaf-size) * 0.95); }
+.bookmark-btn { background: rgba(255,255,255,0.2); border: none; color: var(--color-on-accent); font-size: calc(var(--font-size) * 0.6); width: 34px; height: 34px; border-radius: 50%; cursor: pointer; transition: transform 0.2s; flex: 0 0 auto; }
 body.theme-light .bookmark-btn { background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); color: var(--color-on-accent); }
 .bookmark-btn:active { transform: scale(0.8); }
 
-.mushaf-block { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px 26px; margin-bottom: 16px; font-family: 'Amiri Quran', 'Amiri', serif; font-size: var(--mushaf-size); line-height: var(--mushaf-lh); text-align: justify; text-justify: inter-word; color: var(--text); direction: rtl; word-spacing: 0.04em; transition: background 0.4s, color 0.4s, font-size 0.3s, line-height 0.3s; }
-/* إطار زخرفي داخل الصفحة على غرار هوامش المصحف المطبوع */
-.mushaf-block::before { content: ''; position: absolute; inset: 9px; border: 1px solid var(--border); border-radius: 8px; pointer-events: none; opacity: 0.55; }
+.mushaf-block { position: relative; flex: 0 0 auto; background: linear-gradient(180deg, var(--mushaf-paper), var(--mushaf-paper-edge)); border: 2px solid var(--mushaf-gold); border-radius: 14px; padding: calc(var(--mushaf-size) * 0.72) calc(var(--mushaf-size) * 0.6) calc(var(--mushaf-size) * 0.66); margin-bottom: calc(var(--mushaf-size) * 0.32); font-family: 'Amiri Quran', 'Amiri', serif; font-size: var(--mushaf-size); line-height: var(--mushaf-lh); text-align: center; color: var(--mushaf-ink); direction: rtl; word-spacing: 0.04em; transition: background 0.4s, color 0.4s, font-size 0.3s, line-height 0.3s; box-shadow: 0 6px 20px rgba(0,0,0,0.22); }
+/* إطار زخرفي مزدوج على غرار هوامش المصحف المطبوع */
+.mushaf-block::before { content: ''; position: absolute; inset: calc(var(--mushaf-size) * 0.2); border: 1px solid var(--mushaf-gold-soft); border-radius: 9px; pointer-events: none; }
+/* فصول زخرفية في زوايا الإطار الداخلي */
+.mushaf-block::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: 14px;
+  background:
+    radial-gradient(circle at calc(var(--mushaf-size) * 0.2 + var(--mushaf-size) * 0.28) calc(var(--mushaf-size) * 0.2 + var(--mushaf-size) * 0.28), var(--mushaf-gold) 0 2.5px, transparent 3px),
+    radial-gradient(circle at calc(100% - var(--mushaf-size) * 0.2 - var(--mushaf-size) * 0.28) calc(var(--mushaf-size) * 0.2 + var(--mushaf-size) * 0.28), var(--mushaf-gold) 0 2.5px, transparent 3px),
+    radial-gradient(circle at calc(var(--mushaf-size) * 0.2 + var(--mushaf-size) * 0.28) calc(100% - var(--mushaf-size) * 0.2 - var(--mushaf-size) * 0.28), var(--mushaf-gold) 0 2.5px, transparent 3px),
+    radial-gradient(circle at calc(100% - var(--mushaf-size) * 0.2 - var(--mushaf-size) * 0.28) calc(100% - var(--mushaf-size) * 0.2 - var(--mushaf-size) * 0.28), var(--mushaf-gold) 0 2.5px, transparent 3px);
+  background-repeat: no-repeat; }
+/* أثناء قياس الملاءمة نوقف انتقال حجم الخط كي تكون القياسات فورية ومضبوطة */
+.mushaf-block.fitting, .mushaf-block.fitting::before { transition: none; }
 
 /* ===== الآية: غلاف غير مرئي قابل للنقر + حالات التحديد والتلاوة ===== */
 .ayah { cursor: pointer; border-radius: 6px; padding: 0 2px; transition: background 240ms var(--ease-out-quart), box-shadow 240ms var(--ease-out-quart); -webkit-tap-highlight-color: transparent; }
@@ -596,15 +649,15 @@ body.theme-light .ayah.reciting { background: rgba(31, 122, 90, 0.10); }
 .w.reciting { color: var(--accent); }
 .w.reciting-now { color: var(--accent); background: var(--accent-dim); }
 
-/* شارة رقم الآية الدائرية كما في المصحف المدني */
-.ayah-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5em; height: 1.5em; margin: 0 4px 0 2px; padding: 0 4px; border-radius: 50%; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent); font-size: 0.48em; font-family: Tahoma, sans-serif; font-weight: 700; vertical-align: middle; }
+/* شارة رقم الآية الدائرية كما في المصحف المدني — ذهبية على الورق */
+.ayah-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5em; height: 1.5em; margin: 0 4px 0 2px; padding: 0 4px; border-radius: 50%; background: rgba(185, 138, 47, 0.14); color: var(--mushaf-badge-ink); border: 1px solid var(--mushaf-gold-soft); font-size: 0.48em; font-family: Tahoma, sans-serif; font-weight: 700; vertical-align: middle; }
 /* الآية المحفوظة: تُملأ شارتها باللون المميِّز فتظهر العلامة على الآية نفسها */
-.ayah.bookmarked .ayah-badge { background: var(--accent); color: var(--color-on-accent); border-color: transparent; box-shadow: 0 0 0 2px var(--surface); }
-body.theme-light .ayah.bookmarked .ayah-badge { box-shadow: 0 0 0 2px var(--surface); }
+.ayah.bookmarked .ayah-badge { background: var(--mushaf-gold); color: #fff; border-color: transparent; box-shadow: 0 0 0 2px var(--mushaf-paper); }
+body.theme-light .ayah.bookmarked .ayah-badge { box-shadow: 0 0 0 2px var(--mushaf-paper); }
 
 /* ===== تنقّل صفحات المصحف داخل السورة ===== */
-.mushaf-page-label { text-align: center; font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); margin-bottom: 6px; }
-.mushaf-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 4px 0 18px; }
+.mushaf-page-label { text-align: center; font-size: calc(var(--font-size) * 0.46); color: var(--mushaf-gold); margin-bottom: 4px; font-weight: 700; letter-spacing: 0.02em; }
+.mushaf-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 2px 0 8px; flex: 0 0 auto; }
 .mushaf-nav-btn { flex: 1; max-width: 150px; }
 .mushaf-nav-btn:disabled { opacity: 0.35; pointer-events: none; }
 .mushaf-nav-pos { font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); font-family: Tahoma, sans-serif; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; text-align: center; }
@@ -962,8 +1015,24 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 #audio-bar #audio-close { background: var(--surface-2); color: var(--text-dim); }
 #audio-bar.playing #audio-play-btn { animation: audioPulse 1.8s ease-in-out infinite; }
 @keyframes audioPulse { 0%, 100% { box-shadow: 0 0 0 0 var(--accent-dim); } 50% { box-shadow: 0 0 0 10px transparent; } }
-.audio-play { position: absolute; top: 10px; right: 10px; left: auto; background: rgba(255,255,255,0.2); border: none; color: var(--color-on-accent); font-size: calc(var(--font-size) * 0.6); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
+.audio-play { background: rgba(255,255,255,0.2); border: none; color: var(--color-on-accent); font-size: calc(var(--font-size) * 0.6); width: 34px; height: 34px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; flex: 0 0 auto; }
 .audio-play:active { transform: scale(0.85); }
+
+/* ==================== شاشة اختيار القارئ (Bottom sheet) ==================== */
+#reciter-sheet-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); z-index: 120; opacity: 0; pointer-events: none; transition: opacity 260ms var(--ease-out-quart); }
+#reciter-sheet-scrim.open { opacity: 1; pointer-events: auto; }
+#reciter-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 121; max-height: 72dvh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-bottom: none; border-radius: 22px 22px 0 0; padding: 8px 16px calc(16px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -12px 40px rgba(0,0,0,0.45); transform: translateY(calc(100% + 20px)); transition: transform 360ms var(--ease-spring); }
+#reciter-sheet.open { transform: translateY(0); }
+.reciter-sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 4px 12px; position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.reciter-sheet-title { font-size: calc(var(--font-size) * 0.62); font-weight: 700; color: var(--text); }
+.reciter-close { background: var(--surface-2); color: var(--text-dim); border: none; border-radius: 50%; width: 32px; height: 32px; font-size: calc(var(--font-size) * 0.5); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.reciter-close:active { transform: scale(0.88); }
+.reciter-item { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; background: none; border: 1px solid transparent; border-radius: 12px; padding: 12px 12px; text-align: right; cursor: pointer; transition: background 200ms, border-color 200ms; }
+.reciter-item .reciter-name { font-size: calc(var(--font-size) * 0.62); font-weight: 600; color: var(--text); }
+.reciter-item .reciter-check { font-size: calc(var(--font-size) * 0.6); color: var(--accent); font-weight: 700; min-width: 1.2em; text-align: center; }
+.reciter-item.current { background: var(--accent-dim); border-color: var(--accent); }
+.reciter-item.current .reciter-name { color: var(--accent); }
+.reciter-item:active { transform: scale(0.98); }
 
 /* ==================== شاشة المرجعيات ==================== */
 .bm-remove { position: absolute; top: 50%; left: 10px; transform: translateY(-50%); background: var(--surface-2); color: var(--text-dim); border: none; border-radius: 50%; width: 30px; height: 30px; font-size: calc(var(--font-size) * 0.55); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 180ms var(--ease-spring-snap), color 180ms; }
@@ -1122,9 +1191,12 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 
     <div id="screen-surah-view" class="screen">
       <div class="surah-header-card">
-        <button class="bookmark-btn" onclick="toggleBookmark('surah')" id="btn-bm-surah">🔖</button>
-        <div class="surah-h-name" id="surah-view-name"></div>
-        <div class="surah-h-meta" id="surah-view-meta"></div>
+        <div class="surah-h-slot"><button class="bookmark-btn" onclick="toggleBookmark('surah')" id="btn-bm-surah" aria-label="حفظ السورة في المرجعيات">🔖</button></div>
+        <div class="surah-h-text">
+          <div class="surah-h-name" id="surah-view-name"></div>
+          <div class="surah-h-meta" id="surah-view-meta"></div>
+        </div>
+        <div class="surah-h-slot" id="surah-view-actions"></div>
       </div>
       <div id="verses-container"></div>
     </div>
@@ -1239,6 +1311,16 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
         <button class="btn-scale" id="custom-dialog-ok" style="flex:1;">موافق</button>
       </div>
     </div>
+  </div>
+
+  <!-- شاشة اختيار القارئ قبل بدء التلاوة -->
+  <div id="reciter-sheet-scrim" onclick="closeReciterSheet()" aria-hidden="true"></div>
+  <div id="reciter-sheet" role="dialog" aria-modal="true" aria-label="اختر القارئ">
+    <div class="reciter-sheet-head">
+      <span class="reciter-sheet-title">اختر القارئ</span>
+      <button class="reciter-close" aria-label="إغلاق" onclick="closeReciterSheet()">✕</button>
+    </div>
+    <div id="reciter-list" role="radiogroup" aria-label="القرّاء"></div>
   </div>
 
   <div id="occasion-overlay">
@@ -1496,7 +1578,7 @@ function stripBismillah(text) {
   return words.slice(4).join(' ').trim();
 }
 const tabsArray = ['quran', 'khatmah', 'athkar'];
-let state = { currentTab: 'quran', currentScreen: 'surah-list', previousScreen: null, previousTab: null, currentSurah: null, fontScale: 1.4, currentCatIndex: null, khatmah: null, theme: 'dark', bookmark: null, scrollPositions: {} };
+let state = { currentTab: 'quran', currentScreen: 'surah-list', previousScreen: null, previousTab: null, currentSurah: null, fontScale: 1.0, currentCatIndex: null, khatmah: null, theme: 'dark', bookmark: null, scrollPositions: {} };
 // let/const في السكربتات الكلاسيكية لا تنشئ خصائص على window؛
 // features.js يقرأ window.state و window.Motion فلا بد من كشفهما صراحةً
 // (الكائن يُعدَّل بالمرجع نفسه ولا يُعاد إسناده، فالمرجع المشترك يبقى صالحاً).
@@ -1730,9 +1812,13 @@ function applyFontSize(scale) {
   document.documentElement.style.setProperty('--font-scale', String(step.scale));
   // ارتفاع السطر ينمو مع التكبير: ٢.٠ عند الصغير حتى ٢.٩ عند ٢٠٠٪
   document.documentElement.style.setProperty('--line-height', String(2.0 + (step.scale - 0.8) * 0.75));
-  // نص المصحف يتكبّر بنسبة مستقلة أهدأ (لا يتجاوز ١.٢٥) وله ارتفاع سطر خاص
+  // نص المصحف يتكبّر بنسبة مستقلة أهدأ (لا يتجاوز ١.٢٥)
   document.documentElement.style.setProperty('--mushaf-scale', String(Math.min(1.25, 0.9 + (step.scale - 0.8) * 0.35)));
-  document.documentElement.style.setProperty('--mushaf-lh', step.scale >= 1.5 ? '1.95' : '2.15');
+  // ارتفاع سطر المصحف يبقى ثابتاً عند كثافة المصحف المطبوع (١٫٧٥): على صفحة
+  // تملأ الشاشة يكون حجم الخط النهائي = المساحة ÷ (الأسطر × ارتفاع السطر)،
+  // فأي زيادة في ارتفاع السطر مع التكبير لا تزيد النص، بل تصغّره عبر
+  // معامل التصغير التلقائي. لذلك نُبقيه مستقلاً عن حجم الخط.
+  document.documentElement.style.setProperty('--mushaf-lh', '1.75');
   state.fontScale = step.scale;
   // سجلّات تحديد الحجم القديم لا تُستخدم بعد الآن
   delete state.fontSize;
@@ -1746,8 +1832,12 @@ function applyFontSize(scale) {
   });
   const fn = document.getElementById('font-size-btn');
   if (fn) fn.textContent = 'أ';
-  // تكبير الخط يغيّر ارتفاع شريط التنقل — أعد قياس مساحة التغطية
-  requestAnimationFrame(() => { if (typeof syncNavSafeArea === 'function') syncNavSafeArea(); });
+  // تكبير الخط يغيّر ارتفاع شريط التنقل — أعد قياس مساحة التغطية،
+  // وأعد ملاءمة صفحة المصحف فالنص الأكبر يحتاج مساحة أكبر
+  requestAnimationFrame(() => {
+    if (typeof syncNavSafeArea === 'function') syncNavSafeArea();
+    if (typeof fitMushafPage === 'function') fitMushafPage();
+  });
   return step.scale;
 }
 
@@ -2298,7 +2388,17 @@ window.openSurah = async function(number, focusAyah = null) {
   window.selectedAyahNo = focusAyah ? +focusAyah : null;
   showScreen('surah-view', 'slide-left');
   const container = document.getElementById('verses-container'); container.innerHTML = getSkeletonHTML();
-  document.getElementById('surah-view-name').textContent = state.currentSurah.name; updateBookmarkIcon();
+  document.getElementById('surah-view-name').textContent = state.currentSurah.name;
+  // سطر المعلومات أسفل الاسم: عدد الآيات + مكية/مدنية (إن توفّر من بيانات السورة)
+  const meta = state.currentSurah;
+  const metaEl = document.getElementById('surah-view-meta');
+  if (metaEl) {
+    const parts = [];
+    if (meta && meta.numberOfAyahs) parts.push(`${toArabicNum(meta.numberOfAyahs)} آية`);
+    if (meta && meta.revelationType) parts.push(meta.revelationType === 'Meccan' ? 'مكية' : 'مدنية');
+    metaEl.textContent = parts.join(' • ');
+  }
+  updateBookmarkIcon();
   if (window.AudioPlayer) AudioPlayer.bindSurahHeader();
 
   let surahData = null;
@@ -2356,6 +2456,59 @@ function groupAyahsByPage(ayahs) {
 }
 
 // يرسم صفحة مصحف واحدة من state.surahPages[state.surahPageIndex]
+// ─── ملاءمة صفحة المصحف للشاشة دون تمرير ───
+// كل صفحة مصحف كاملة (١٥ سطراً تقريباً) لا تتسع لشاشة الهاتف عند الحجم
+// المفضّل للمستخدم. هذه الدالة تصغّر --mushaf-fit تدريجياً (خطوة ٠٫٠٢٥)
+// حتى يسقط النص بأكمله داخل المنطقة المرئية أفقياً وعمودياً. الحد الأدنى
+// ٠٫٢٩ يحمي قابلية القراءة — بعده تُقبل الملاءمة القصوى ولا نفرض تصغيراً يائساً.
+// تُستدعى بعد كل رسم صفحة، وعند تغيير حجم الخط، وعند تغيير حجم النافذة.
+const MUSHAF_FIT_STEP = 0.02;
+const MUSHAF_FIT_MIN = 0.29;
+let fitMushafRaf = 0;
+let fitMushafRetrying = false;
+function fitMushafPage() {
+  if (fitMushafRaf) cancelAnimationFrame(fitMushafRaf);
+  fitMushafRaf = requestAnimationFrame(() => {
+    fitMushafRaf = 0;
+    // ابحث عن منطقة الصفحة الظاهرة فقط — الشاشات الأخرى مخفية
+    // (scrollHeight=0) فتُفسد القياس وتُنهي البحث مبكراً. لاحظ أن showScreen
+    // قد تستخدم slide-left/slide-right بدل active، فلا نعتمد على أصنافها.
+    const wrap = [...document.querySelectorAll('.mushaf-page-wrap')]
+      .find(w => w.offsetParent !== null);
+    if (!wrap) return;
+    const blocks = wrap.querySelectorAll('.mushaf-block');
+    if (!blocks.length) return;
+    // أوقف انتقال حجم الخط أثناء القياس كي تكون كل خطوة فورية وقابلة للقياس
+    blocks.forEach(b => b.classList.add('fitting'));
+    const overflows = () => {
+      // المقارنة ضد منطقة الصفحة نفسها (لا ضد #content) حتى يبقى القياس
+      // صحيحاً مهما كان ارتفاع الإطار حولها
+      const vOverflow = wrap.scrollHeight - wrap.clientHeight;
+      const hOverflow = Math.max(...[...blocks].map(b => b.scrollWidth - b.clientWidth));
+      return { v: vOverflow, h: hOverflow };
+    };
+    let guard = 0;
+    // ابدأ دائماً من تفضيل المستخدم (١٫٠) كي يُعاد التوسيع بعد التصغير السابق
+    fit = 1;
+    document.documentElement.style.setProperty('--mushaf-fit', '1');
+    while (overflows().v > 0.5 || overflows().h > 0.5) {
+      if (fit <= MUSHAF_FIT_MIN + 0.001 || ++guard > 40) break;
+      fit = Math.max(MUSHAF_FIT_MIN, +(fit - MUSHAF_FIT_STEP).toFixed(4));
+      document.documentElement.style.setProperty('--mushaf-fit', String(fit));
+    }
+    blocks.forEach(b => b.classList.remove('fitting'));
+    // المساحة المتاحة لا ت settle فوراً: شريط التنقل وشريط تحكم الختمة
+    // وحشو مساحتهما يُحسبان بعد لحظات، وخط Amiri Quran يُحمّل كسولاً فيغيّر
+    // مقاسات النص. أعد القياس مرة واحدة بعد استقرار التخطيط كي لا تبقى
+    // الصفحة الأولى المفتوحة بعد الإنتقال بمقدار ضئيل خارج المنطقة.
+    if (!fitMushafRetrying) {
+      fitMushafRetrying = true;
+      setTimeout(() => { fitMushafRetrying = false; fitMushafPage(); }, 650);
+    }
+  });
+}
+
+// يرسم صفحة مصحف واحدة من state.surahPages[state.surahPageIndex]
 function renderSurahPage(focusAyah = null) {
   const container = document.getElementById('verses-container');
   const pages = state.surahPages || [];
@@ -2366,12 +2519,15 @@ function renderSurahPage(focusAyah = null) {
   const number = state.currentSurah ? state.currentSurah.number : 0;
 
   let html = '';
+  html += `<div class="mushaf-page-label">صفحة ${toArabicNum(page.page)}${page.juz ? ` — الجزء ${toArabicNum(page.juz)}` : ''}</div>`;
+  // البسملة + الصفحة داخل منطقة تمركَزة عمودياً تملأ الشاشة دون تمرير
+  html += `<div class="mushaf-page-wrap">`;
   // البسملة تُعرض مرّة واحدة فوق أول صفحة من السورة
   if (idx === 0 && number !== 1 && number !== 9) {
     html += `<div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>`;
   }
-  html += `<div class="mushaf-page-label">صفحة ${toArabicNum(page.page)}${page.juz ? ` — الجزء ${toArabicNum(page.juz)}` : ''}</div>`;
   html += `<div class="mushaf-block">${buildMushafHTML(page.ayahs, { surahNumber: number })}</div>`;
+  html += `</div>`;
   if (pages.length > 1) {
     html += `<div class="mushaf-nav">
       <button class="btn-scale mushaf-nav-btn" id="mp-prev" ${idx === 0 ? 'disabled' : ''}>→ السابقة</button>
@@ -2409,6 +2565,8 @@ function renderSurahPage(focusAyah = null) {
   // حدّث الرابط العميق بعد اكتمال الرسم (يعكس تنقّل الصفحات وتغيّر التحديد)
   if (window.DeepLinks) try { DeepLinks.update('surah-view'); } catch (e) {}
   if (window.AnimationManager?.observeReveal) AnimationManager.observeReveal();
+  // صفحة واحدة تملأ الشاشة: صغّر النص تلقائياً حتى لا يظهر أي تمرير
+  fitMushafPage();
 }
 
 // حفظ موضع القراءة الحالي لإمكانية العودة إليه (سورة + آية + صفحة)
@@ -2675,13 +2833,15 @@ async function loadKhatmahPage(pageNum) {
     const res = await fetch(`https://api.alquran.cloud/v1/page/${pageNum}/quran-uthmani`);
     const data = await res.json();
 
-    let html = `<div style="text-align:center; font-size:calc(var(--font-size) * 0.54); color:var(--text-dim); margin-bottom:10px;">صفحة ${toArabicNum(pageNum)}</div>`;
+    let html = `<div class="mushaf-page-label">صفحة ${toArabicNum(pageNum)}</div>`;
+    // كل محتوى الصفحة داخل منطقة تمركَزة عمودياً تملأ الشاشة دون تمرير
+    html += `<div class="mushaf-page-wrap">`;
     const ayahs = data.data.ayahs;
     let currentSurah = ayahs[0].surah.number;
 
     // رأس السورة إذا بدأت الصفحة بأول آية منها
     if (ayahs[0].numberInSurah === 1) {
-        html += `<div class="surah-header-card" style="margin-top:14px;"><div class="surah-h-name">${escHtml(ayahs[0].surah.name)}</div></div>`;
+        html += `<div class="surah-header-card" style="margin-top:0;"><div class="surah-h-text"><div class="surah-h-name">${escHtml(ayahs[0].surah.name)}</div></div></div>`;
         if (currentSurah !== 1 && currentSurah !== 9) html += `<div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>`;
     }
 
@@ -2694,7 +2854,7 @@ async function loadKhatmahPage(pageNum) {
         flushBlock();
         html += `</div>`;
         // هامش أخف (14px بدلاً من 20px) لفصل السور في صفحة الختمة دون فراغات مبالغ فيها
-        html += `<div class="surah-header-card" style="margin-top:14px;"><div class="surah-h-name">${escHtml(ayah.surah.name)}</div></div>`;
+        html += `<div class="surah-header-card" style="margin-top:14px;"><div class="surah-h-text"><div class="surah-h-name">${escHtml(ayah.surah.name)}</div></div></div>`;
         if (ayah.surah.number !== 1 && ayah.surah.number !== 9) html += `<div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>`;
         html += `<div class="mushaf-block">`;
         currentSurah = ayah.surah.number;
@@ -2702,9 +2862,12 @@ async function loadKhatmahPage(pageNum) {
       blockAyahs.push(ayah);
       if (index === ayahs.length - 1) { flushBlock(); html += `</div>`; }
     });
+    html += `</div>`; // إغلاق mushaf-page-wrap
 
     container.innerHTML = html; document.getElementById('content').scrollTop = 0;
     state.khatmah.lastPageRead = pageNum; saveState(); updateKhatmahUI();
+    // صفحة واحدة تملأ الشاشة — صغّر النص تلقائياً لملاءمتها
+    fitMushafPage();
 
     if (pageNum < 604) setTimeout(() => fetch(`https://api.alquran.cloud/v1/page/${pageNum + 1}/quran-uthmani`).catch(() => {}), 800);
   } catch(e) {
@@ -3183,7 +3346,7 @@ document.addEventListener('DOMContentLoaded', () => {
   applyTheme(initialTheme);
   
   // تطبيق مقياس الخط من الإعدادات (افتراضي 100%) — عبر applyFontSize الموحّد
-  applyFontSize(state.fontScale ?? LEGACY_FONT_SIZE[state.fontSize] ?? 1.4);
+  applyFontSize(state.fontScale ?? LEGACY_FONT_SIZE[state.fontSize] ?? 1.0);
 
   // نافذة حجم الخط المنبثقة: بناء + ربط + إغلاق بالنقر خارجها
   buildFontPopover();
@@ -3332,7 +3495,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   clearBtn.addEventListener('click', () => { searchBar.value = ''; clearBtn.style.transform = 'translateY(-50%) scale(0.7)'; setTimeout(() => clearBtn.style.display = 'none', 200); renderSurahList(allSurahs); const box = document.getElementById('ayah-search-container'); if (box) { box.style.display = 'none'; box.innerHTML = ''; } searchBar.focus(); });
 
-  window.addEventListener('resize', () => { syncNavSafeArea(); snapNavIndicator(); });
+  // تدوير الجهاز أو تغيير حجم النافذة يغيّر المساحة المتاحة لصفحة المصحف — أعد الملاءمة
+  let _resizeFitTimer = null;
+  window.addEventListener('resize', () => {
+    syncNavSafeArea(); snapNavIndicator();
+    if (_resizeFitTimer) clearTimeout(_resizeFitTimer);
+    _resizeFitTimer = setTimeout(() => { if (typeof fitMushafPage === 'function') fitMushafPage(); }, 180);
+  });
+  // خط مصحف "Amiri Quran" لا يُحمّل إلا عند أول صفحة قراءة، وقد يصل بعد أن
+  // تكون الملاءمة قد تمّت بخط بديل — إذ تتغير مقاسات النص تماماً. أعد الملاءمة.
+  // ننتظر الوجه صراحةً لأن fonts.ready قد يُحلّ قبل جلبه إن لم يكن مستخدماً بعد.
+  if (document.fonts && document.fonts.load) {
+    document.fonts.load('1em "Amiri Quran"').then(() => { if (typeof fitMushafPage === 'function') fitMushafPage(); }).catch(() => {});
+  } else if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => { if (typeof fitMushafPage === 'function') fitMushafPage(); }).catch(() => {});
+  }
   bindGesturesAndScroll();
 
   // اضبط الفراغ البصري لشريط التنقل حسب منطقة الأمان الفعلية للجهاز.
