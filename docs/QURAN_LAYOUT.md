@@ -28,6 +28,9 @@ Header                 fixed, env(safe-area-inset-top)
 The screen is a flex column and `.mushaf-page-wrap` owns `overflow: hidden`, so
 anything that does not fit is re-scaled rather than scrolled. `#content` itself
 gets `overflow-y: hidden` while a reader screen is active (`:has()` selector).
+Each reader screen carries its own `--nav-clearance-safe` bottom padding (see
+"Two traps" below), so the wrap is the full `#content` height minus the nav —
+514 px for the surah reader and 502 px for the khatmah reader at 390×844.
 
 ---
 
@@ -41,10 +44,23 @@ font size, so the page is scaled down until it does:
 ```
 
 - `--mushaf-base: 34px` — the ideal font size.
-- `--mushaf-scale` — a gentle multiplier from the font-size slider (0.93–1.25).
+- `--mushaf-scale` — **the font-size slider directly**: `slider/100` (0.8–2.0).
 - `--mushaf-fit` — **computed by `fitMushafPage()`**: starts at 1 and steps down
-  in 0.02 increments (floor 0.29) until `.mushaf-page-wrap` has no vertical
-  overflow and no `.mushaf-block` has horizontal overflow.
+  in 0.02 increments until `.mushaf-page-wrap` has no vertical overflow and no
+  `.mushaf-block` has horizontal overflow.
+
+The floor is not a fixed ratio — it is a fixed **rendered pixel size**:
+
+```
+floor = max(0.15, MUSHAF_MIN_PX / (--mushaf-base × --mushaf-scale))
+      = max(0.15, 9.5px / (34px × slider/100))
+```
+
+so the smallest text ever drawn is ~9.5 px regardless of the slider: 0.35 at 80 %,
+0.215 at 130 %, 0.14 at 200 %. A fixed floor (the old 0.24) combined with a scale
+that tracks the slider made the minimum *grow* with the slider and overflow on
+small viewports — iPhone SE page 604 overflowed 2 px at the default. The
+`Amiri Quran` face is lazy-loaded, so the loop guard allows up to 80 steps.
 
 Everything inside the wrap tracks `--mushaf-fit`, not just the text: block
 padding, the inner frame inset, bismillah, and the in-wrap surah header bands.
@@ -61,26 +77,85 @@ after the first paint.
 
 On a page that fills the screen, the final font size is
 `available height ÷ (lines × line-height)` — the `--mushaf-scale` multiplier is
-cancelled by the fit factor. **So the font-size slider mostly resizes the app
-chrome, not the mushaf text:** it cannot make a dense page's text larger without
-scrolling, which the requirement forbids. Sparse pages (where `--mushaf-fit`
-reaches 1.0) do grow with the slider. `--mushaf-lh` is pinned at 1.75 (printed
-mushaf density) rather than growing with the slider, since a looser line would
-only shrink the fitted text further. The suite reports the fitted size per page
-instead of claiming readability it did not measure.
+cancelled by the fit factor. **So the slider resizes the text only while the page
+has headroom; once the page saturates the canvas, the rendered font holds at the
+largest size that still fits with zero scroll.** Measured on Al-Fatiha at
+390×844: 27.2 px at slider 80 → 34 px at 130 → 34 px at 200 (`--mushaf-fit`
+1 → 1 → 0.5). The slider wiring is exact (`--mushaf-scale` == `slider/100`), and
+on very dense pages the rendered font can even shrink a few percent as the slider
+rises, because a bigger target font wraps into more lines and the canvas is
+fixed — `--mushaf-lh` is pinned at 1.75 (printed mushaf density) rather than
+growing with the slider, since a looser line would only shrink the fitted text
+further. The suite reports the fitted size per page instead of claiming
+readability it did not measure.
 
-Fitted sizes at 390×844, font scale 1.0 (measured):
+### The canvas is bigger than it looks
+
+`#content` carries `padding-bottom: var(--nav-clearance-safe) + 36px` so list
+screens do not hide their last rows behind the fixed nav. But a percentage
+height resolves against the *content box*, so a reader screen's `height: 100%`
+was shrinking by the whole clearance — and `#screen-khatmah-read` then paid it a
+*second* time in its own bottom padding, cutting the khatmah canvas from ~570 px
+to 329 px at 390×844. While a reader screen is displayed, `#content` now drops
+its bottom padding entirely and each reader screen carries its own clearance
+instead. Khatmah page 604 went from overflowing at slider 200 to fitting at
+14.96 px on the same viewport.
+
+Fitted sizes at 390×844, slider 130 (measured):
 
 | Page | Fitted font | `--mushaf-fit` |
 |---|---|---|
-| Surah 1 (Al-Fatiha) | ~31.7 px | 0.96 |
-| Surah 2 p1 (Al-Baqarah) | ~31.7 px | 0.96 |
-| Surah 36 (Yaseen) | ~17.8 px | 0.54 |
-| Surah 67 (Al-Mulk) | ~15.2 px | 0.46 |
-| Khatmah page 604 (3 surahs) | ~11.5 px | 0.29–0.35 |
+| Surah 1 (Al-Fatiha) | ~31.8 px | 0.72 |
+| Surah 2 p1 (Al-Baqarah) | ~28 px | 0.64 |
+| Surah 36 (Yaseen) | ~20 px | 0.45 |
+| Surah 67 (Al-Mulk) | ~20 px | 0.44 |
+| Khatmah page 604 (3 surahs) | ~14 px | 0.42 |
 
-Dense pages render small but complete; the floor is 0.29 (~10 px), reached only
-by the three-surah final pages at the largest font scale.
+Dense pages render small but complete; the floor is a rendered ~9.5 px, reached
+only by the three-surah final pages on the smallest viewports at the largest
+slider values.
+
+**Two traps the canvas fix exposed** (both caught by the E2E suite):
+
+1. *Each reader screen must carry its own clearance.* `#screen-surah-view` had a
+   pre-existing `padding-bottom: 8px` rule on `.active/.slide-*` that outranked
+   the new clearance rule (id+class beats id), so the surah page silently
+   extended *under* the fixed nav by 16 px — the frame's bottom edge was hidden
+   behind the bar. The fix folded the clearance into that same high-specificity
+   rule (`calc(var(--nav-clearance-safe) + 8px)`), which is also why the surah
+   canvas is 514 px, not the khatmah reader's 502 px.
+2. *The nav measurement is taken mid-transition.* `applyFontSize()` calls
+   `syncNavSafeArea()` from a rAF — right as the 260 ms font transition starts,
+   while the tab labels may still be wrapped on two lines. The measured height
+   (up to ~118 px at slider 200) was stored in `--nav-h-actual` and never
+   corrected, so `--nav-clearance-safe` stayed 42 px too tall *after* the
+   transition finished, shrinking the khatmah canvas on iPhone SE until page 604
+   overflowed by 2 px. `syncNavSafeArea()` now re-measures 350 ms later (past
+   the transition) via `measureSafeAreas()`, and if the value actually changed
+   while a reader is on screen it re-runs `fitMushafPage()` — the page reclaims
+   the recovered canvas instead of staying under-fitted.
+
+---
+
+## The font-size slider
+
+The chrome popover is a real `<input type="range" min=80 max=200 step=5>` with a
+live Arabic-numeral percentage label (the old five-button step grid is gone).
+`applyFontSize()` is continuous — no step snapping — and writes both
+`--font-scale` (app chrome) and `--mushaf-scale` (Quran text) as
+`slider/100`, i.e. `fontSize = base × sliderValue / 100`.
+
+- **Default is 130.** To keep the product's default *appearance* unchanged,
+  `--font-base` is 14 px so that 14 × 1.30 = 18.2 px — the same calibrated size
+  the app shipped before. Every `calc(var(--font-size) * n)` multiplier stays
+  calibrated with no per-rule edits.
+- Reader screens cap the chrome at `min(var(--font-scale), 1.35)`: at slider 200
+  the enlarged header/nav/controls would otherwise eat the page and no fit could
+  save it.
+- `--nav-h` (the static nav-height estimate used before the safe-area is
+  measured) is now `calc(var(--font-size) * 4.2)` so it tracks the slider; the
+  late `syncNavSafeArea()` measurement became a rounding correction instead of a
+  visible jump for every fixed element above the nav.
 
 ---
 
@@ -131,7 +206,7 @@ The bismillah div is **not rendered** for:
 
 ## E2E Coverage
 
-`tests/e2e-mushaf.mjs` (40 assertions, all passing) covers:
+`tests/e2e-mushaf.mjs` (57 assertions, all passing) covers:
 
 - **(a)** Header card: bookmark/play/name/meta have zero pairwise overlap, both
   buttons inside the card, meta populated.
@@ -142,6 +217,14 @@ The bismillah div is **not rendered** for:
 - **(d)** Real-tap on ▶ opens the reciter sheet (≥10 reciters, current marked),
   no audio while choosing, selection saves `localStorage.reciter`, closes the
   sheet, and starts playback with the chosen reciter (audio bar + media playing).
+- **(f)** The slider: default value is 130, `--mushaf-scale` == `slider/100`
+  exactly, the Quran font grows 80→130 and is then capped by the page canvas
+  (130→200 does not grow past the canvas maximum), zero scroll at 80/130/200,
+  **the page frame stays clear of the bottom nav at every slider value**, and
+  the Adhkar page text scales with the same control.
+- **(g)** Edge viewports: zero scroll on iPhone SE (375×667) and iPhone Pro Max
+  (430×932), at slider 130 and 200 — including khatmah page 604, the hardest
+  combination of dense page + small canvas + large text.
 - **(e)** No uncaught page errors, RTL preserved, page label present.
 
 `tests/e2e-quran-layout.mjs` still guards the header→first-ayah gap; its

@@ -94,16 +94,22 @@
   --color-on-accent-soft: rgba(244, 241, 232, 0.85);
   --radius: 12px;
   /* ===== نظام الخطوط: حجم أساسي واحد × نسبة تكبير واحدة ===== */
-  --font-base: 18px;                        /* الحجم المرجعي (متوسط) */
-  --font-scale: 1;                          /* نسبة التكبير: ٠.٨ / ١ / ١.٣ / ١.٥ / ٢ */
+  /* المنزلق الافتراضي ١٣٠٪ — الحجم المرجعي ١٤px يعطي ١٤ × ١٫٣ = ١٨٫٢px،
+     أي نفس الحجم المُعايَر سابقاً عند ١٠٠٪، فلا تتغير الواجهة الافتراضية
+     بينما قيمة المنزلق الداخلية هي ١٣٠ كما هو مطلوب. */
+  --font-base: 14px;                        /* الحجم المرجعي (يُضرب في نسبة المنزلق) */
+  --font-scale: 1.3;                        /* نسبة المنزلق: ٨٠٪ … ٢٠٠٪ — افتراضي ١٣٠٪ */
   --font-size: calc(var(--font-base) * var(--font-scale));  /* الحجم الفعلي المشتق */
   --line-height: 2.3;
   /* ===== نظام المصحف: حجم مستقل عن حجم الواجهة ===== */
   /* حتى لو صغّر المستخدم الواجهة، يبقى نص المصحف مريحاً للقراءة */
   --mushaf-base: 34px;                      /* حجم نص المصحف المرجعي */
-  --mushaf-scale: 1;                        /* نسبة تكبير مستقلة: 0.8 / 1 / 1.4 */
+  --mushaf-scale: 1.3;                      /* تتبع منزلق حجم الخط مباشرة (slider/100) */
   --mushaf-fit: 1;                          /* تصغير تلقائي لملء صفحة واحدة (يحسبها fitMushafPage) */
-  --mushaf-size: calc(var(--mushaf-base) * var(--mushaf-scale) * var(--mushaf-fit));
+  /* clamp يحدّ النص: الحد الأدنى (٦px) أسفل أقصى تصغير ممكن (٠٫٢٤×٣٤×٠٫٨=٦٫٥px)
+     كي لا يصارع حلقة الملاءمة، والأقصى (٥٢px) يمنع صفحة قصيرة عند ٢٠٠٪
+     من رسم نص هائل. حلقة الملاءمة تقيس التخطيط فتتقارب على القيمة المحدودة. */
+  --mushaf-size: clamp(6px, calc(var(--mushaf-base) * var(--mushaf-scale) * var(--mushaf-fit)), 52px);
   --mushaf-lh: 1.75;                        /* ارتفاع سطر نسبي يقيس نفسه مع التصغير */
   /* ألوان المصحف التقليدي (ورق مطبوع + إطار ذهبي) في كلا الوضعين */
   --mushaf-paper: #fbf4e4;
@@ -115,8 +121,11 @@
   --header-h: 70px;
 
   /* ===== هندسة شريط التنقل السفلي ===== */
-  /* ارتفاع الشريط */
-  --nav-h: 76px;
+  /* ارتفاع الشريط — تقدير ثابت يتبع حجم الخط (٤٫٢ سطر) كي تكون مساحة
+     التغطية صحيحة قبل أن يقيسها syncNavSafeArea(). لو كانت قيمة ثابتة
+     (٧٦px) لقفز كل ما يعتمد عليها (الزر العائم، شريط الآية، شريط الختمة)
+     بمجرد وصول القياس الفعلي، ولكرر القفز عند كل تغيير لحجم الخط. */
+  --nav-h: calc(var(--font-size) * 4.2);
   /* الفراغ البصري بين الشريط وأسفل الشاشة. الشريط يلامس منطقة الأمان
      (safe area) — منطقة الأمان نفسها هي كل الهامش المطلوب (شريط iOS
      السفلي، أزرار أندرويد) فلا نترك فوقها فراغاً إضافياً. القيمة 0.
@@ -383,7 +392,10 @@ body.theme-light::before { opacity: 0.04; }
 ::-webkit-scrollbar-thumb { background: rgba(62, 207, 158, 0.3); border-radius: 10px; }
 body.theme-light ::-webkit-scrollbar-thumb { background: rgba(31, 122, 90, 0.25); }
 
-#app { position: fixed; inset: 0; display: flex; flex-direction: column; z-index: 1; }
+/* الحاوية الرئيسية تملأ الـ dynamic viewport: inset:0 يملأ viewport التخطيط
+   وheight:100dvh يضمن أن ارتفاعها يتبع شريط أدوات المتصفح على الجوال،
+   فلا تظهر أشرطة تمرير بسبب اختلاف الارتفاعين. */
+#app { position: fixed; inset: 0; height: 100dvh; display: flex; flex-direction: column; z-index: 1; }
 
 /* ==================== الشريط العلوي ==================== */
 #header { position: relative; min-height: var(--header-h); height: auto; background: var(--header-grad); display: flex; align-items: center; justify-content: space-between; padding: calc(env(safe-area-inset-top, 0px) + 6px) 16px 6px; flex-shrink: 0; z-index: 100; box-shadow: 0 2px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10); transition: background 0.4s, box-shadow 0.4s; }
@@ -416,11 +428,22 @@ body.theme-light .header-btn.active { background: var(--accent); color: #fff; }
 #font-popover[hidden] { display: none; }
 #font-popover:not([hidden]) { opacity: 1; transform: translateX(-50%) translateY(0); }
 .font-popover-title { font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); text-align: center; margin-bottom: 10px; font-weight: bold; }
-#font-popover-grid { display: flex; gap: 8px; justify-content: space-between; }
-.font-step-btn { flex: 1; min-width: 0; background: var(--surface-2); color: var(--text); border: 1px solid transparent; border-radius: 12px; padding: 10px 4px; font-size: calc(var(--font-size) * 0.5); font-weight: bold; cursor: pointer; transition: transform 180ms var(--ease-spring-snap), background 200ms, color 200ms; }
-.font-step-btn:active { transform: scale(0.92); }
-.font-step-btn.active { background: var(--accent); color: var(--color-on-accent); border-color: var(--accent); }
-body.theme-light .font-step-btn { background: var(--surface-2); }
+#font-popover-grid { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.font-slider-min, .font-slider-max { font-size: calc(var(--font-size) * 0.46); color: var(--text-dim); font-weight: 700; flex: 0 0 auto; }
+/* المنزلق: مسار + مقبض بنمط التطبيق. التغييرات تُطبَّق فوراً (no layout cost
+   سوى إعادة الحساب في applyFontSize). */
+#font-slider { flex: 1 1 auto; -webkit-appearance: none; appearance: none; height: 28px; background: transparent; cursor: pointer; }
+#font-slider::-webkit-slider-runnable-track { height: 6px; border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent) var(--slider-fill, 50%), var(--surface-2) var(--slider-fill, 50%), var(--surface-2) 100%); }
+#font-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; margin-top: -8px; border-radius: 50%;
+  background: var(--accent); color: var(--color-on-accent); border: 3px solid var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+  transition: transform 140ms var(--ease-spring-snap); }
+#font-slider:active::-webkit-slider-thumb { transform: scale(1.15); }
+#font-slider::-moz-range-track { height: 6px; border-radius: 999px; background: var(--surface-2); }
+#font-slider::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--accent); }
+#font-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 3px solid var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,0.35); }
+.font-slider-row { display: flex; justify-content: center; margin-top: 8px; }
+.font-slider-value { font-size: calc(var(--font-size) * 0.6); font-weight: 800; color: var(--accent); min-width: 3em; text-align: center; }
 
 #content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: calc(var(--nav-clearance-safe) + 36px); scroll-behavior: smooth; touch-action: pan-y; }
 
@@ -567,13 +590,30 @@ body.theme-light .nav-tab.active .nav-icon { filter: drop-shadow(0 4px 6px rgba(
 #screen-khatmah-read.active, #screen-khatmah-read.slide-left, #screen-khatmah-read.slide-right {
   display: flex; flex-direction: column; height: 100%;
 }
-#screen-surah-view.active, #screen-surah-view.slide-left, #screen-surah-view.slide-right { padding-bottom: 8px; }
+/* كروم القارئ (بطاقة رأس السورة، التسمية، أزرار التنقّل) لا يتجاوز ١٣٥٪ من
+   حجم الخط: عند ٢٠٠٪ تلتهم الكرومات المكبّرة مساحة الصفحة فلا تتسع حتى مع
+   التصغير التلقائي. النص نفسه (--mushaf-size) يتبع المنزلق بالكامل. */
+#screen-surah-view.active, #screen-surah-view.slide-left, #screen-surah-view.slide-right,
+#screen-khatmah-read.active, #screen-khatmah-read.slide-left, #screen-khatmah-read.slide-right {
+  --font-size: calc(var(--font-base) * min(var(--font-scale), 1.35));
+}
+/* مساحة شريط التنقّل يدفعها القارئ بنفسه الآن (انظر #content أعلاه)،
+   فلا تُقصّ صندوق الصفحة ولا يمتد النص تحت الشريط. */
+#screen-surah-view.active, #screen-surah-view.slide-left, #screen-surah-view.slide-right { padding-bottom: calc(var(--nav-clearance-safe) + 8px); }
 #verses-container, #khatmah-page-container { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 /* منطقة الصفحة: تأخذ ما تبقّى من الشاشة وتمركز النص عمودياً دون أن تمرّره */
 .mushaf-page-wrap { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
-/* الهوامش الداخلية للشاشة تكفيها — لا حاجة لتمرير داخل القارئ */
-#content:has(#screen-surah-view.active), #content:has(#screen-khatmah-read.active) { overflow-y: hidden; }
-
+/* الهوامش الداخلية للشاشة تكفيها — لا حاجة لتمرير داخل القارئ.
+   ملاحظة هندسية حرجة: padding-bottom في #content (مساحة شريط التنقل) تُقصّ
+   ارتفاع height:100% للشاشة لأن النسبة المئوية تحلّ بالنسبة لصندوق المحتوى
+   لا الحشو. القارئان يدفعان مساحتهما السفلية بأنفسهما أدناه، فنجعل #content
+   بلا حشو سفلي عليهما وإلا دُفِعت المساحة مرتين واختُصرت مساحة الصفحة
+   بمقدار --nav-clearance-safe كامل. كل انتقالات الدخول تُستخدم (slide-left/right)
+   ولا تُستبدل ب active، فكل الحالات مشمولة. */
+#content:has(#screen-surah-view.active), #content:has(#screen-surah-view.slide-left), #content:has(#screen-surah-view.slide-right),
+#content:has(#screen-khatmah-read.active), #content:has(#screen-khatmah-read.slide-left), #content:has(#screen-khatmah-read.slide-right) {
+  overflow-y: hidden; padding-bottom: 0;
+}
 .skeleton { background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 30%, var(--surface) 60%, var(--surface-2) 100%); background-size: 200% 100%; animation: shimmerWave 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite; border-radius: 8px; position: relative; overflow: hidden; }
 .skeleton::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%); animation: shimmerWave 2s linear infinite; pointer-events: none; }
 .sk-card { height: 80px; width: 100%; margin-bottom: 12px; }
@@ -901,9 +941,19 @@ body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success
     0 8px 24px rgba(0, 0, 0, 0.35),
     0 2px 6px rgba(0, 0, 0, 0.20),
     inset 0 1px 1px rgba(255, 255, 255, 0.18);
-  transition: all 200ms var(--ease-spring-snap);
-  will-change: transform, box-shadow, background;
+  transition: transform 200ms var(--ease-spring-snap), opacity 200ms var(--ease-out-quart), visibility 0s, background 200ms, box-shadow 200ms, border-color 200ms;
+  will-change: transform, opacity;
 }
+/* ظهور/اختفاء عبر opacity+transform فقط (تسارع رسومي، صفر إعادة تدفق).
+   الصندوق موجود دائماً فلا تقفز العناصر الأخرى ولا يقفز هو عند القياس المتأخر. */
+.dhikr-auto-fab.fab-hidden {
+  opacity: 0; visibility: hidden; transform: translateY(14px); pointer-events: none;
+  /* visibility يتأخر حتى ينتهي الخفوت عند الإخفاء؛ عند الظهور يصبح مرئياً فوراً */
+  transition: transform 200ms var(--ease-spring-snap), opacity 200ms var(--ease-out-quart), visibility 0s linear 200ms, background 200ms, box-shadow 200ms, border-color 200ms;
+}
+/* عرض ثابت للملصق كي لا يتغير عرض الزر (المثبّت يميناً) عند التبديل بين
+   «تقدم تلقائي» و«إيقاف التقدم» — التبديل لا يسبب أي إعادة تخطيط */
+.dhikr-auto-fab .fab-label { white-space: nowrap; text-align: center; min-width: calc(var(--font-size) * 3.4); }
 .dhikr-auto-fab:active { transform: scale(0.96); }
 .dhikr-auto-fab[aria-pressed="true"] {
   background: linear-gradient(180deg, rgba(62, 207, 158, 0.35), rgba(62, 207, 158, 0.15)),
@@ -919,7 +969,6 @@ body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success
   font-size: calc(var(--font-size) * 0.65);
   line-height: 1;
 }
-.dhikr-auto-fab .fab-label { white-space: nowrap; }
 body.theme-light .dhikr-auto-fab {
   background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.82)),
               rgba(255, 253, 247, 0.97);
@@ -1170,7 +1219,15 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
     </div>
     <div id="font-popover" role="dialog" aria-label="حجم الخط" hidden>
       <div class="font-popover-title">حجم الخط</div>
-      <div id="font-popover-grid"></div>
+      <!-- منزلق مستمر ٨٠٪–٢٠٠٪ (افتراضي ١٣٠٪). القيمة تُطبَّق مباشرة على
+           --font-scale و--mushaf-scale فتتغير الواجهة ونص المصحف معاً. -->
+      <div id="font-popover-grid">
+        <span class="font-slider-min" id="font-slider-min">٨٠٪</span>
+        <input type="range" id="font-slider" min="80" max="200" step="5" value="130"
+               aria-label="حجم الخط" aria-describedby="font-slider-value">
+        <span class="font-slider-max" id="font-slider-max">٢٠٠٪</span>
+      </div>
+      <div class="font-slider-row"><span class="font-slider-value" id="font-slider-value">١٣٠٪</span></div>
     </div>
     <div id="reading-progress-container">
         <div id="reading-progress-bar"></div>
@@ -1260,7 +1317,9 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
       </div>
       <div id="thikr-list-container"></div>
       <!-- Floating Auto-Advance Button -->
-      <button class="dhikr-auto-fab" id="dhikr-auto-fab" aria-label="تقدم تلقائي" aria-pressed="false" style="display:none;">
+      <!-- دائماً في DOM ومخفي بالصنف fab-hidden (ليس display:none) كي يكون
+           صندوقه النهائي محسوباً عند أول رسم فلا يحدث أي إزاحة عند ظهوره -->
+      <button class="dhikr-auto-fab fab-hidden" id="dhikr-auto-fab" aria-label="تقدم تلقائي" aria-pressed="false">
         <span class="fab-icon" aria-hidden="true">⏭</span>
         <span class="fab-label">تقدم تلقائي</span>
       </button>
@@ -1578,7 +1637,7 @@ function stripBismillah(text) {
   return words.slice(4).join(' ').trim();
 }
 const tabsArray = ['quran', 'khatmah', 'athkar'];
-let state = { currentTab: 'quran', currentScreen: 'surah-list', previousScreen: null, previousTab: null, currentSurah: null, fontScale: 1.0, currentCatIndex: null, khatmah: null, theme: 'dark', bookmark: null, scrollPositions: {} };
+let state = { currentTab: 'quran', currentScreen: 'surah-list', previousScreen: null, previousTab: null, currentSurah: null, fontScale: 1.3, currentCatIndex: null, khatmah: null, theme: 'dark', bookmark: null, scrollPositions: {} };
 // let/const في السكربتات الكلاسيكية لا تنشئ خصائص على window؛
 // features.js يقرأ window.state و window.Motion فلا بد من كشفهما صراحةً
 // (الكائن يُعدَّل بالمرجع نفسه ولا يُعاد إسناده، فالمرجع المشترك يبقى صالحاً).
@@ -1792,44 +1851,50 @@ function applyTheme(th) {
   Motion.headerFlash();
 }
 
-// نظام تكبير الخط: خمس درجات من ٨٠٪ إلى ٢٠٠٪.
-// القيم نسبةً إلى --font-base. ارتفاع السطر يُشتق من الدرجة كي يبقى
-// النص العربي مريحاً عند التكبير الكبير دون أن يحدث تزاحم الأسطر.
-const FONT_STEPS = [
-  { scale: 0.8,  label: '٨٠٪'  },
-  { scale: 1.0,  label: '١٠٠٪' },
-  { scale: 1.3,  label: '١٣٠٪' },
-  { scale: 1.5,  label: '١٥٠٪' },
-  { scale: 2.0,  label: '٢٠٠٪' },
-];
+// نظام تكبير الخط: منزلق مستمر من ٨٠٪ إلى ٢٠٠٪، افتراضه ١٣٠٪.
+// القيمة (slider/100) هي حجم الواجهة ونص المصحف معاً: fontSize = base × scale.
+// لا حاجة لتثبيت القيمة على درجات — المنزلق يعطي قيماً متواصلة بخطوة ٥٪.
+const FONT_MIN = 80, FONT_MAX = 200, FONT_STEP = 5, FONT_DEFAULT = 130;
 // خرائط التوافق مع الإصدار السابق: الأسماء القديمة ص/م/ك → النسبة العددية
 const LEGACY_FONT_SIZE = { small: 0.8, medium: 1.0, large: 1.4 };
 
+// تحويل نسبة إلى نص عربي-هندي مع علامة النسبة للواجهة
+function fontScaleLabel(pct) {
+  return String(pct).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[d]) + '٪';
+}
+
 function applyFontSize(scale) {
-  const s = typeof scale === 'string' ? (LEGACY_FONT_SIZE[scale] ?? 1.0) : (+scale || 1.0);
-  // قصّ النسبة إلى أقرب درجة معروفة لتفادي قيم عشوائية مُسترجَعة من تخزين قديم
-  let step = FONT_STEPS.reduce((a, b) => Math.abs(b.scale - s) < Math.abs(a.scale - s) ? b : a);
-  document.documentElement.style.setProperty('--font-scale', String(step.scale));
+  // المنزلق يعطي ٨٠…٢٠٠؛ نقبل أيضاً النسب العشرية (٠٫٨…٢) وأسماء قديمة
+  let s = typeof scale === 'string' ? (LEGACY_FONT_SIZE[scale] ?? NaN) : (+scale);
+  if (!Number.isFinite(s)) s = FONT_DEFAULT / 100;
+  // إذا كانت القيمة في نطاق المنزلق (٨٠–٢٠٠) فاستخدمها كنسبة مئوية
+  let pct = s > 10 ? s : s * 100;
+  // قصّ إلى نطاق المنزلق وقرّب إلى أقرب خطوة (٥٪)
+  pct = Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(pct / FONT_STEP) * FONT_STEP));
+  const scaleVal = pct / 100;
+  document.documentElement.style.setProperty('--font-scale', String(scaleVal));
   // ارتفاع السطر ينمو مع التكبير: ٢.٠ عند الصغير حتى ٢.٩ عند ٢٠٠٪
-  document.documentElement.style.setProperty('--line-height', String(2.0 + (step.scale - 0.8) * 0.75));
-  // نص المصحف يتكبّر بنسبة مستقلة أهدأ (لا يتجاوز ١.٢٥)
-  document.documentElement.style.setProperty('--mushaf-scale', String(Math.min(1.25, 0.9 + (step.scale - 0.8) * 0.35)));
+  document.documentElement.style.setProperty('--line-height', String(2.0 + (scaleVal - 0.8) * 0.75));
+  // نص المصحف يتبع المنزلق مباشرة (fontSize = base × slider/100)،
+  // وتتكفّل fitMushafPage بإبقاء الصفحة بلا تمرير
+  document.documentElement.style.setProperty('--mushaf-scale', String(scaleVal));
   // ارتفاع سطر المصحف يبقى ثابتاً عند كثافة المصحف المطبوع (١٫٧٥): على صفحة
   // تملأ الشاشة يكون حجم الخط النهائي = المساحة ÷ (الأسطر × ارتفاع السطر)،
   // فأي زيادة في ارتفاع السطر مع التكبير لا تزيد النص، بل تصغّره عبر
   // معامل التصغير التلقائي. لذلك نُبقيه مستقلاً عن حجم الخط.
   document.documentElement.style.setProperty('--mushaf-lh', '1.75');
-  state.fontScale = step.scale;
+  state.fontScale = scaleVal;
   // سجلّات تحديد الحجم القديم لا تُستخدم بعد الآن
   delete state.fontSize;
   saveState();
-  // واجهة الاختيار (نافذة الخط المنبثقة)
-  document.querySelectorAll('.font-step-btn').forEach(btn => {
-    const isActive = +btn.dataset.scale === step.scale;
-    btn.classList.toggle('active', isActive);
-    if (isActive) { btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop'); }
-    btn.setAttribute('aria-pressed', String(isActive));
-  });
+  // واجهة المنزلق (نافذة الخط المنبثقة)
+  const slider = document.getElementById('font-slider');
+  if (slider) {
+    slider.value = String(pct);
+    slider.style.setProperty('--slider-fill', ((pct - FONT_MIN) / (FONT_MAX - FONT_MIN) * 100) + '%');
+  }
+  const valEl = document.getElementById('font-slider-value');
+  if (valEl) valEl.textContent = fontScaleLabel(pct);
   const fn = document.getElementById('font-size-btn');
   if (fn) fn.textContent = 'أ';
   // تكبير الخط يغيّر ارتفاع شريط التنقل — أعد قياس مساحة التغطية،
@@ -1838,19 +1903,27 @@ function applyFontSize(scale) {
     if (typeof syncNavSafeArea === 'function') syncNavSafeArea();
     if (typeof fitMushafPage === 'function') fitMushafPage();
   });
-  return step.scale;
+  return scaleVal;
 }
 
-// نافذة حجم الخط المنبثقة: تُبنى من FONT_STEPS وتُفتح/تُغلق من زر الرأس
+// نافذة حجم الخط المنبثقة: منزلق مستمر يُفتح/يُغلق من زر الرأس
 function buildFontPopover() {
-  const grid = document.getElementById('font-popover-grid');
-  if (!grid || grid.childElementCount) return;
-  grid.innerHTML = FONT_STEPS.map(st =>
-    `<button class="font-step-btn" data-scale="${st.scale}" aria-pressed="false">${st.label}</button>`
-  ).join('');
-  grid.querySelectorAll('.font-step-btn').forEach(btn =>
-    btn.addEventListener('click', () => applyFontSize(+btn.dataset.scale))
-  );
+  const slider = document.getElementById('font-slider');
+  if (!slider || slider.dataset.bound) return;
+  slider.dataset.bound = '1';
+  // عيّن قيمة المنزلق من الحالة الحالية ثم لُم التغييرات الحيّة
+  const init = Math.round((state.fontScale ?? FONT_DEFAULT / 100) * 100);
+  slider.value = String(Math.min(FONT_MAX, Math.max(FONT_MIN, init)));
+  slider.style.setProperty('--slider-fill', ((+slider.value - FONT_MIN) / (FONT_MAX - FONT_MIN) * 100) + '%');
+  const valEl = document.getElementById('font-slider-value');
+  if (valEl) valEl.textContent = fontScaleLabel(+slider.value);
+  // input: تطبيق فوري أثناء السحب (متواصل) — الواجهة ونص المصحف يتغيران معاً
+  slider.addEventListener('input', () => {
+    const pct = +slider.value;
+    slider.style.setProperty('--slider-fill', ((pct - FONT_MIN) / (FONT_MAX - FONT_MIN) * 100) + '%');
+    if (valEl) valEl.textContent = fontScaleLabel(pct);
+    applyFontSize(pct);
+  });
 }
 function toggleFontPopover(force) {
   const pop = document.getElementById('font-popover');
@@ -1968,9 +2041,10 @@ function navigateBack() {
   if (target === 'athkar-list' && typeof renderAthkarList === 'function') renderAthkarList();
   if (target === 'khatmah-main' && typeof updateKhatmahUI === 'function') updateKhatmahUI();
   // إخفاء FAB التقدم التلقائي عند العودة لقائمة الأذكار
+  // (بالصنف لا بdisplay:none كي يبقى صندوقه محسوباً ولا تحدث إزاحة عند عودة الظهور)
   if (target === 'athkar-list') {
     const autoFab = document.getElementById('dhikr-auto-fab');
-    if (autoFab) autoFab.style.display = 'none';
+    if (autoFab) autoFab.classList.add('fab-hidden');
   }
   saveState();
   setTimeout(() => { _internalNav = false; window._internalNav = false; }, 0);
@@ -2095,7 +2169,7 @@ function switchTab(tabId) {
   screenStack = [];
   // إخفاء FAB التقدم التلقائي عند التبديل لتبويب الأذكار (جذره athkar-list)
   const autoFab = document.getElementById('dhikr-auto-fab');
-  if (autoFab) autoFab.style.display = 'none';
+  if (autoFab) autoFab.classList.add('fab-hidden');
   saveState(); setNavIndicator(); checkBookmarkFAB();
 }
 
@@ -2458,12 +2532,23 @@ function groupAyahsByPage(ayahs) {
 // يرسم صفحة مصحف واحدة من state.surahPages[state.surahPageIndex]
 // ─── ملاءمة صفحة المصحف للشاشة دون تمرير ───
 // كل صفحة مصحف كاملة (١٥ سطراً تقريباً) لا تتسع لشاشة الهاتف عند الحجم
-// المفضّل للمستخدم. هذه الدالة تصغّر --mushaf-fit تدريجياً (خطوة ٠٫٠٢٥)
-// حتى يسقط النص بأكمله داخل المنطقة المرئية أفقياً وعمودياً. الحد الأدنى
-// ٠٫٢٩ يحمي قابلية القراءة — بعده تُقبل الملاءمة القصوى ولا نفرض تصغيراً يائساً.
+// المفضّل للمستخدم. هذه الدالة تصغّر --mushaf-fit تدريجياً (خطوة ٠٫٠٢)
+// حتى يسقط النص بأكمله داخل المنطقة المرئية أفقياً وعمودياً.
+// الحد الأدنى *حجم مقروء ثابت بالبكسل* (MUSHAF_MIN_PX) يُحوَّل إلى نسبة
+// عكسية مع تكبير المنزلق: ٠٫٣٥ عند ٨٠٪، ٠٫٢١٥ عند ١٣٠٪، ٠٫١٤ عند ٢٠٠٪ —
+// أي نفس أصغر حجم مقروء دائماً مهما رفع المستخدم المنزلق، فلا تُكسر
+// الصفحات المكتظة على الشاشات الصغيرة. (الحد السابق الثابت ٠٫٢٤ مع
+// mushaf-scale ١٫٣ كان يُنتج ١٠٫٦px — أكبر من ٩٫٦px التاريخي فيؤدي إلى
+// فيضٍ بسيط على iPhone SE.)
 // تُستدعى بعد كل رسم صفحة، وعند تغيير حجم الخط، وعند تغيير حجم النافذة.
+const MUSHAF_BASE_PX = 34;    // = --mushaf-base
+const MUSHAF_MIN_PX = 9.5;    // أصغر حجم نص يُرسم — ثابت بالبكسل عند كل منزلق
+const MUSHAF_FIT_FLOOR = 0.15; // حدٌّ أدنى مطلق احتياطي فقط
 const MUSHAF_FIT_STEP = 0.02;
-const MUSHAF_FIT_MIN = 0.29;
+function mushafFitFloor() {
+  const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mushaf-scale')) || 1;
+  return Math.max(MUSHAF_FIT_FLOOR, MUSHAF_MIN_PX / (MUSHAF_BASE_PX * scale));
+}
 let fitMushafRaf = 0;
 let fitMushafRetrying = false;
 function fitMushafPage() {
@@ -2488,12 +2573,13 @@ function fitMushafPage() {
       return { v: vOverflow, h: hOverflow };
     };
     let guard = 0;
+    const floor = mushafFitFloor();
     // ابدأ دائماً من تفضيل المستخدم (١٫٠) كي يُعاد التوسيع بعد التصغير السابق
     fit = 1;
     document.documentElement.style.setProperty('--mushaf-fit', '1');
     while (overflows().v > 0.5 || overflows().h > 0.5) {
-      if (fit <= MUSHAF_FIT_MIN + 0.001 || ++guard > 40) break;
-      fit = Math.max(MUSHAF_FIT_MIN, +(fit - MUSHAF_FIT_STEP).toFixed(4));
+      if (fit <= floor + 0.001 || ++guard > 80) break;
+      fit = Math.max(floor, +(fit - MUSHAF_FIT_STEP).toFixed(4));
       document.documentElement.style.setProperty('--mushaf-fit', String(fit));
     }
     blocks.forEach(b => b.classList.remove('fitting'));
@@ -3035,10 +3121,12 @@ window.openCategory = function(ci, favOnly) {
     }
   }
   // مزامنة زر التقدم التلقائي العائم (FAB)
+  // الظهور بالصنف (fab-hidden) لا بdisplay:none: صندوق الزر محسوب منذ
+  // أول رسم، فظهوره انزلاقة opacity+transform فقط — لا إزاحة تخطيط إطلاقاً.
   const autoFab = document.getElementById('dhikr-auto-fab');
   if (autoFab && window.Settings) {
     const isOn = Settings.getAutoAdvance();
-    autoFab.style.display = 'flex';
+    autoFab.classList.remove('fab-hidden');
     autoFab.setAttribute('aria-pressed', isOn ? 'true' : 'false');
     autoFab.querySelector('.fab-icon').textContent = isOn ? '⏭' : '⏹';
     autoFab.querySelector('.fab-label').textContent = isOn ? 'تقدم تلقائي' : 'إيقاف التقدم';
@@ -3345,8 +3433,9 @@ document.addEventListener('DOMContentLoaded', () => {
     || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
   applyTheme(initialTheme);
   
-  // تطبيق مقياس الخط من الإعدادات (افتراضي 100%) — عبر applyFontSize الموحّد
-  applyFontSize(state.fontScale ?? LEGACY_FONT_SIZE[state.fontSize] ?? 1.0);
+  // تطبيق مقياس الخط من الإعدادات (افتراضي ١٣٠٪ = قيمة المنزلق الافتراضية)
+  // — عبر applyFontSize الموحّد. state.fontScale مخزنة كنسبة عشرية.
+  applyFontSize(state.fontScale ?? LEGACY_FONT_SIZE[state.fontSize] ?? (FONT_DEFAULT / 100));
 
   // نافذة حجم الخط المنبثقة: بناء + ربط + إغلاق بالنقر خارجها
   buildFontPopover();
@@ -3519,6 +3608,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // هذه الدالة هي المالك الوحيد لـ --nav-gap. لا تضبطه في @media داخل CSS:
   // الكتابة هنا تذهب كـ inline style على <html>، وهي تتغلّب على قواعد
   // :root داخل @media — فأي قيمة هناك ستكون ميتة.
+  let navResyncTimer = 0;
   function syncNavSafeArea() {
     // الشريط يلامس منطقة الأمان تماماً (gap = 0): منطقة الأمان نفسها هي
     // كل الهامش المطلوب فوق الحافة — شريط iOS السفلي على الأيفون، شريط
@@ -3527,13 +3617,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // لكل جهاز ومقاس واتجاه، فلا حاجة لقياسها أو لمنطق تكيّفي هنا.
     // تبقى الدالة لتبقى مصدر القيمة واحداً ولتربطها بحدث resize.
     document.documentElement.style.setProperty('--nav-gap', '0px');
+    measureSafeAreas();
+    // أعد القياس بعد استقرار انتقال حجم الخط (٢٦٠ms): أثناء الانتقال قد
+    // تكون تسميات التبويبات ملفوفةً على سطرين فيُقاس ارتفاع مؤقت أكبر
+    // ويُحفظ، فتبقى مساحة التغطية (--nav-clearance-safe) متضخمة بعده —
+    // مما يختصر مساحة القارئ ويُفسد الملاءمة على الشاشات الصغيرة.
+    // إعادة القياس وحدها (دون جدولة جديدة) كي لا تدور للأبد.
+    clearTimeout(navResyncTimer);
+    navResyncTimer = setTimeout(measureSafeAreas, 350);
+  }
+  // قياس الأركان فقط — تستدعيها syncNavSafeArea مباشرةً وبعد مهلة الانتقال.
+  function measureSafeAreas() {
     // ارتفاع الشريط الفعلي مقياساً: عند تكبير الخط قد يزيد محتوى التبويب
     // عن --nav-h الثابت، فيكبر الشريط (height: auto) — وهنا نسجّل القياس
     // حتى تحسب مساحة التغطية (--nav-clearance-safe) الارتفاع الحقيقي لا الثابت.
+    let changed = false;
     const nav = document.getElementById('nav');
     if (nav) {
       const h = nav.getBoundingClientRect().height;
-      if (h > 0) document.documentElement.style.setProperty('--nav-h-actual', h + 'px');
+      if (h > 0) {
+        const prev = parseFloat(document.documentElement.style.getPropertyValue('--nav-h-actual')) || 0;
+        if (Math.abs(prev - h) > 0.5) changed = true;
+        document.documentElement.style.setProperty('--nav-h-actual', h + 'px');
+      }
     }
     // الرأس كذلك: عند تكبير الخط يزيد ارتفاعه عن --header-h الثابت (min-height
     // + height: auto). نسجّل القياس لتفتح نافذة حجم الخط أسفل حافته الفعلية
@@ -3542,6 +3648,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (header) {
       const h = header.getBoundingClientRect().height;
       if (h > 0) document.documentElement.style.setProperty('--header-h-actual', h + 'px');
+    }
+    // إذا تغيّرت مساحة الشريط بعد استقرار الانتقال وكان قارئ المصحف ظاهراً،
+    // أعد ملاءمة الصفحة — لقد اتسعت/ضاقت مساحة الرسم فالنص المرسوم لم يعد
+    // أكبر حجم ممكن (أو صار يفيض).
+    if (changed && [...document.querySelectorAll('.mushaf-page-wrap')].some(w => w.offsetParent !== null)) {
+      fitMushafPage();
     }
   }
   syncNavSafeArea();
