@@ -92,10 +92,10 @@ async function main() {
       return firstAyah.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
     })()`);
     if (baqarahGap === null) throw new Error('No first ayah found');
-    // تخطيط الصفحة الواحدة يوسّط صفحة المصحف عمودياً (justify-content: center)
+    // منطقة الصفحة تُوسّط صفحة المصحف عمودياً (justify-content: center)
     // فيتوزّع الفراغ المتاح فوقها وتحتها، فالفجوة هنا = نصف الفراغ لا كلّه.
-    // كانت ٣٠٠٫٨px قبل التغيير وصارت ١٨٥٫٥px — الحدّ ٢٠٠px يتيح هذا التوسيط
-    // مع إبقاء الحارس لاكتشاف أي عودة للفراغ الكبير القديم.
+    // كانت ٣٠٠٫٨px مع التصغير التلقائي القديم؛ بحجم الصفحة المطبوع الثابت
+    // صارت ٦١٫٣px — الحدّ ٢٠٠px يبقى حارساً لاكتشاف أي عودة للفراغ الكبير.
     ok('(a) Al-Baqarah: gap header→first-ayah < 200px', baqarahGap < 200, `gap=${baqarahGap.toFixed(1)}px`);
     console.log(`  Al-Baqarah gap: ${baqarahGap.toFixed(1)}px ✓`);
     
