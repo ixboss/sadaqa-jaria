@@ -10,8 +10,7 @@
  *   2) node tests/e2e-quran-layout.mjs
  *
  * Scenarios:
- *   (a) Surah mode: gap from header to first ayah text < 200px (was 267px;
-*       the centered single-page layout now splits the headroom, see below)
+ *   (a) Surah mode: gap from header to first ayah text < 180px (was 267px)
  *   (b) Bismillah exceptions: surah 1 (Al-Fatiha) and 9 (At-Tawbah) have NO bismillah
  *   (c) Khatmah mode: inline margin-top on surah headers ≤ 14px (was 20px)
  */
@@ -66,9 +65,7 @@ async function main() {
   await sleep(1800);
   const listRes = await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`);
   const targets = await listRes.json();
-  // صفحات الخلفيات الخاصة بالإضافات تظهر أحياناً قبل الصفحة نفسها
-  const pageTarget = targets.find(t => t.type === 'page');
-  const wsUrl = (pageTarget || targets[0]).webSocketDebuggerUrl;
+  const wsUrl = targets[0].webSocketDebuggerUrl;
   await connect(wsUrl);
   await send('Page.enable');
   await send('Runtime.enable');
@@ -92,11 +89,7 @@ async function main() {
       return firstAyah.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
     })()`);
     if (baqarahGap === null) throw new Error('No first ayah found');
-    // منطقة الصفحة تُوسّط صفحة المصحف عمودياً (justify-content: center)
-    // فيتوزّع الفراغ المتاح فوقها وتحتها، فالفجوة هنا = نصف الفراغ لا كلّه.
-    // كانت ٣٠٠٫٨px مع التصغير التلقائي القديم؛ بحجم الصفحة المطبوع الثابت
-    // صارت ٦١٫٣px — الحدّ ٢٠٠px يبقى حارساً لاكتشاف أي عودة للفراغ الكبير.
-    ok('(a) Al-Baqarah: gap header→first-ayah < 200px', baqarahGap < 200, `gap=${baqarahGap.toFixed(1)}px`);
+    ok('(a) Al-Baqarah: gap header→first-ayah < 180px', baqarahGap < 180, `gap=${baqarahGap.toFixed(1)}px`);
     console.log(`  Al-Baqarah gap: ${baqarahGap.toFixed(1)}px ✓`);
     
     // ─── (b) Bismillah exceptions ─────────────────────────────

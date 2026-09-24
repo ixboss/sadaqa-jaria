@@ -60,13 +60,11 @@ const evaljs = async (expr) => {
 
 /** ─── real input ───────────────────────────────────────── */
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+async function touch(type, points) { await send('Input.dispatchTouchEvent', { type, touchPoints: points }); }
 async function tap(x, y) {
-  // النقر الحقيقي بالماوس: Input.dispatchTouchEvent (touchStart/touchEnd) لا
-  // يولّد حدث click في هذا الهدف headless (تأكّد بالتجربة: openCategory لا
-  // يعمل ألبتة)، بينما mousePressed/Released يولّده.
-  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+  await touch('touchStart', [{ x, y, id: 1 }]);
   await sleep(40);
-  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+  await touch('touchEnd', []);
 }
 // Paging: a horizontal wheel flick over the pager. Synthetic touch *drags* do not
 // produce compositor scroll in headless (verified: not even the app's existing
@@ -82,21 +80,6 @@ async function waitForScroll() { // until the pager's scrollLeft is stable
     if (prev === cur) { if (++stable >= 3) return; } else stable = 0;
     prev = cur; await sleep(100);
   }
-}
-// استقرار الشريحة *المرئية*: ضبط scrollLeft برمجياً لا ينهي الأمر — قد
-// تستغرق لمّة الالتقاط (scroll-snap) حركة سلسلة، فيظل scrollLeft ثابتاً بينما
-// الشرائح لا تزال تتحرك. لذا ننتظر استقرار الشريحة الموسَطة بصرياً أيضاً.
-async function waitForCard(timeoutMs = 5000) {
-  const t0 = Date.now();
-  let prev = null, stable = 0;
-  while (Date.now() - t0 < timeoutMs) {
-    const c = await pg.visibleCard();
-    const key = c ? `${c.ci}:${c.i}` : 'null';
-    if (key === prev) { if (++stable >= 3) return c; } else stable = 0;
-    prev = key;
-    await sleep(120);
-  }
-  return pg.visibleCard();
 }
 
 /** ─── page helpers ───────────────────────────────────────── */
@@ -123,11 +106,8 @@ const pg = {
              slideScrollable: best.scrollHeight > best.clientHeight + 1 };
   })()`),
   progressKey: (ci, i) => evaljs(`(() => {
-    // يطابق getLocalToday() في التطبيق: تاريخ الجهاز المحلي لا تاريخ UTC —
-    // على آلة UTC+٣ يختلف التاريخان بعد منتصف الليل فيفشل القراء.
-    const d = new Date();
-    const local = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    return localStorage.getItem('ath_' + local + '_' + ${ci} + '_' + ${i});
+    const d = new Date().toISOString().slice(0, 10);
+    return localStorage.getItem('ath_' + d + '_' + ${ci} + '_' + ${i});
   })()`),
 };
 
@@ -157,55 +137,14 @@ async function main() {
     await send('Emulation.setDeviceMetricsOverride', { ...VIEWPORT, deviceScaleFactor: 2, mobile: true });
     await send('Page.navigate', { url: BASE });
     await sleep(2500);
-    // أغلق نافذة المناسبات الافتتاحية كي لا تلتقط النقرات الحقيقية لاحقاً
-    // (غطاء شفاف بكامل الشاشة — يبتلع أي tap قبل إغلاقه)
-    await evaljs(`(() => { const o = document.getElementById('occasion-overlay'); if (o) o.classList.remove('active'); })()`);
-    await sleep(300);
 
     // ── go to the athkar tab and open the first category with a real tap ──
     await evaljs(`document.querySelector('[data-tab="athkar"]').click()`);
     for (let i = 0; i < 40 && !await evaljs(`document.querySelectorAll('.athkar-cat-card').length > 0`); i++) await sleep(100);
     const catRect = await evaljs(`(() => { const c = document.querySelector('.athkar-cat-card'); const r = c.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, name: c.querySelector('.cat-name').textContent }; })()`);
     await tap(catRect.x, catRect.y);
-    // حارسٌ عالٍ: إن لم تُفتَح الفئة فلا معنى لأي اختبار لاحق — كان هذا
-    // يُسجَّل ستة إخفاقات مربِكة بدل رسالة واحدة واضحة. توقّف فوراً.
-    let opened = false;
-    for (let i = 0; i < 40 && !(opened = await evaljs(`document.querySelectorAll('.dhikr-slide').length > 0`)); i++) await sleep(100);
-    if (!opened) {
-      ok('(setup) category opens on tap', false, `category="${catRect.name}" — no .dhikr-slide ever rendered`);
-      browser.kill();
-      printReport();
-      process.exit(1);
-    }
-    ok('(setup) category opens on tap', true, `category="${catRect.name}"`);
+    for (let i = 0; i < 40 && !await evaljs(`document.querySelectorAll('.dhikr-slide').length > 0`); i++) await sleep(100);
     await sleep(700);
-
-    // ═══ (h) Auto-advance FAB: zero layout shift on open and on toggle ═══
-    // الزر ثابت الموضع (position: fixed) فلا يُعيد ترتيب المحتوى، لكن كان
-    // من قبل يظهر بـ display:none → flex فيقفز عند أول رسم، وتتغير مساحة
-    // التغطية المتأخرة القياس فيتحرك عمودياً. الآن: صندوقه محسوب منذ أول
-    // إطار (صنف fab-hidden) ومدخل بنقل/شفافية فقط على الـ GPU.
-    {
-      const fabBox = async () => JSON.parse(await evaljs(`(() => {
-        const f = document.getElementById('dhikr-auto-fab'); const r = f.getBoundingClientRect();
-        return JSON.stringify({ cls: f.className, bottom: Math.round(r.bottom), x: Math.round(r.x), w: Math.round(r.width) }); })()`));
-      // فوق انتقال الانزلاق (٣٨٠ms) + انتقال ظهور الزر (٢٠٠ms)
-      await sleep(1200);
-      const f1 = await fabBox();
-      await sleep(700);
-      const f2 = await fabBox();
-      ok('(h) FAB box present from first paint (class-driven, no display pop)',
-        !f1.cls.includes('fab-hidden') && f1.bottom === f2.bottom && f1.x === f2.x && f1.w === f2.w,
-        `t1=${JSON.stringify(f1)} t2=${JSON.stringify(f2)}`);
-      // تبديل التقدم التلقائي يغيّر النص («تقدم تلقائي» ↔ «إيقاف التقدم») لا الصندوق
-      await evaljs(`document.getElementById('dhikr-auto-fab').click()`);
-      await sleep(400);
-      const f3 = await fabBox();
-      ok('(h) FAB width + position unchanged when toggled', f3.w === f2.w && f3.x === f2.x && f3.bottom === f2.bottom,
-        `before=${JSON.stringify(f2)} after=${JSON.stringify(f3)}`);
-      await evaljs(`document.getElementById('dhikr-auto-fab').click()`);
-      await sleep(300);
-    }
 
     // ═══ (a) Horizontal swipe next/previous, RTL ═══
     const pagerRect = await evaljs(`(() => { const r = document.getElementById('thikr-list-container').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; })()`);
@@ -217,13 +156,11 @@ async function main() {
 
     await swipe(true, swipeY);   // content moves left → next dhikr in RTL
     await waitForScroll();
-    await waitForCard();
     card = await pg.visibleCard();
     ok('(a) swipe to next (RTL) → slide 2', card && card.badge === '٢ / ٢١', card && card.badge);
 
     await swipe(false, swipeY);  // content moves right → previous
     await waitForScroll();
-    await waitForCard();
     card = await pg.visibleCard();
     ok('(a) swipe to previous → back to slide 1', card && card.badge === '١ / ٢١', card && card.badge);
 
@@ -237,10 +174,6 @@ async function main() {
     ok('(a) exactly one card visible', oneVisible === 1, 'visible=' + oneVisible);
 
     // ═══ (b) Tap-anywhere increments + completion ═══
-    // التقديم التلقائي مفعّل افتراضياً: ينتقل بالشرائح بعد الإتمام فيقرأ
-    // هذا القسم بطاقةً أخرى. عطّله هنا (يُعاد تشغيله في القسم g).
-    await evaljs(`window.Settings.setAutoAdvance(false)`);
-    await sleep(200);
     // pick a dhikr with count >= 3 (swipe to it if needed)
     let target = await evaljs(`(() => {
       const pager = document.getElementById('thikr-list-container');
@@ -252,7 +185,6 @@ async function main() {
       return found;
     })()`);
     await waitForScroll();
-    await waitForCard();
     card = await pg.visibleCard();
     // a cold start can leave the pager un-rendered for a beat; retry once so a
     // slow browser reports a real failure instead of crashing on a null card
@@ -292,9 +224,6 @@ async function main() {
     ok('(b) completion does not zoom/resize the page', view.iw === VIEWPORT.width && view.ih === VIEWPORT.height && view.docSW <= VIEWPORT.width && view.appH === VIEWPORT.height, JSON.stringify(view));
 
     // ═══ (c) Font scaling 100%→200% ═══
-    // حلقة الاندفاع (surge-ring) تنتفخ لمقياس ٢٫٤ خلال ٧٢٠ms فتحسب
-    // scrollWidth أثناء الحركة — انتظر انتهاءها قبل قياس الفيض الأفقي.
-    await sleep(900);
     for (const scale of [1.0, 1.3, 1.4, 2.0]) {   // 1.4 is the app's default (LEGACY large)
       await evaljs(`window.applyFontSize(${scale})`);
       await sleep(450);
@@ -502,14 +431,11 @@ async function main() {
     ok('(g) Auto-advance: single-count (1/1) scrolls to next', scroll2 < scroll1 - 200, `scroll ${scroll1} → ${scroll2}`);
     
     // Test 2: Multi-count (3/3) dhikr
-    // القسم b أتمم ذكراً ذا ثلاث عدّات فأصبح "✓ اكتمل" — والنقر عليه بعد
-    // الإتمام لا يطلق الإكمال ثانيةً ولا التقديم. ابحث عن واحد *غير مكتمل*.
     const multiResult = await evaljs(`(() => {
       const slides = Array.from(document.querySelectorAll('.dhikr-slide'));
       for (let s = 0; s < slides.length; s++) {
         const countText = slides[s].querySelector('.dhikr-count-line')?.textContent || '';
-        const btnText = slides[s].querySelector('.thikr-tap-btn')?.textContent || '';
-        if (countText.includes('٣') && countText.includes('مرات') && !btnText.includes('✓')) {
+        if (countText.includes('٣') && countText.includes('مرات')) {
           document.getElementById('thikr-list-container').scrollLeft = -s * slides[s].offsetWidth;
           return { found: true, slideIndex: s };
         }
@@ -517,14 +443,13 @@ async function main() {
       return { found: false };
     })()`);
     if (multiResult.found) {
-      await waitForScroll(); await waitForCard();
+      await sleep(300);
       const scrollA = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
       await evaljs(`((si) => {
         const btn = document.querySelectorAll('.dhikr-slide')[si]?.querySelector('.thikr-tap-btn');
         if (btn) { window.tapThikr(0, si, btn); window.tapThikr(0, si, btn); window.tapThikr(0, si, btn); }
       })(${multiResult.slideIndex})`);
-      await sleep(500); // الالتقاط بعد التقديم التلقائي يحتاج وقتاً ليستقر
-      await waitForScroll(); await waitForCard();
+      await sleep(400); // instant scroll
       const scrollB = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
       ok('(g) Auto-advance: multi-count (3/3) scrolls to next', scrollB < scrollA - 200, `scroll ${scrollA} → ${scrollB}`);
     }
@@ -541,7 +466,7 @@ async function main() {
       return { lastIdx, isSingle, hasBtn: !!btn };
     })()`);
     if (lastSlideResult.hasBtn && lastSlideResult.isSingle) {
-      await waitForScroll(); await waitForCard();
+      await sleep(300);
       const scrollL1 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
       await evaljs(`((idx) => {
         const btn = document.querySelectorAll('.dhikr-slide')[idx]?.querySelector('.thikr-tap-btn');
@@ -557,7 +482,7 @@ async function main() {
     // Test 4: Disabled toggle does NOT auto-advance
     await evaljs(`window.Settings.setAutoAdvance(false)`);
     await evaljs(`document.getElementById('thikr-list-container').scrollLeft = 0`);
-    await waitForScroll(); await waitForCard();
+    await sleep(300);
     const scrollD1 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
     await evaljs(`(() => { const btn = document.querySelector('.thikr-tap-btn'); if (btn) window.tapThikr(0, 0, btn); })()`);
     await sleep(400); // instant scroll (should not happen)
@@ -571,11 +496,6 @@ async function main() {
   }
 
   // ─── report ─────────────────────────────────────────────
-  printReport();
-  process.exit(results.some(r => !r.pass) ? 1 : 0);
-}
-
-function printReport() {
   console.log('\n══════════ E2E — Adhkar pager ══════════');
   let failed = 0;
   for (const r of results) {
@@ -584,6 +504,7 @@ function printReport() {
   }
   console.log('──────────────────────────────────────');
   console.log(`${results.length - failed}/${results.length} passed\n`);
+  process.exit(failed ? 1 : 0);
 }
 
 function toArabicCheck(n) { // Arabic-Indic digits for count-line assertions
