@@ -123,8 +123,11 @@ const pg = {
              slideScrollable: best.scrollHeight > best.clientHeight + 1 };
   })()`),
   progressKey: (ci, i) => evaljs(`(() => {
-    const d = new Date().toISOString().slice(0, 10);
-    return localStorage.getItem('ath_' + d + '_' + ${ci} + '_' + ${i});
+    // يطابق getLocalToday() في التطبيق: تاريخ الجهاز المحلي لا تاريخ UTC —
+    // على آلة UTC+٣ يختلف التاريخان بعد منتصف الليل فيفشل القراء.
+    const d = new Date();
+    const local = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    return localStorage.getItem('ath_' + local + '_' + ${ci} + '_' + ${i});
   })()`),
 };
 

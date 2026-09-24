@@ -94,23 +94,22 @@
   --color-on-accent-soft: rgba(244, 241, 232, 0.85);
   --radius: 12px;
   /* ===== نظام الخطوط: حجم أساسي واحد × نسبة تكبير واحدة ===== */
-  /* المنزلق الافتراضي ١٣٠٪ — الحجم المرجعي ١٤px يعطي ١٤ × ١٫٣ = ١٨٫٢px،
-     أي نفس الحجم المُعايَر سابقاً عند ١٠٠٪، فلا تتغير الواجهة الافتراضية
-     بينما قيمة المنزلق الداخلية هي ١٣٠ كما هو مطلوب. */
-  --font-base: 14px;                        /* الحجم المرجعي (يُضرب في نسبة المنزلق) */
-  --font-scale: 1.3;                        /* نسبة المنزلق: ٨٠٪ … ٢٠٠٪ — افتراضي ١٣٠٪ */
+  /* المنزلق الافتراضي ١٠٠٪ — الحجم المرجعي ١٦px يعطي ١٦ × ١٫٠ = ١٦px،
+     حجم قراءة افتراضي معتاد للواجهة، والمنزلق يكبّر/يصغّر منه مباشرة. */
+  --font-base: 16px;                        /* الحجم المرجعي (يُضرب في نسبة المنزلق) */
+  --font-scale: 1.0;                        /* نسبة المنزلق: ٨٠٪ … ٢٠٠٪ — افتراضي ١٠٠٪ */
   --font-size: calc(var(--font-base) * var(--font-scale));  /* الحجم الفعلي المشتق */
   --line-height: 2.3;
   /* ===== نظام المصحف: حجم مستقل عن حجم الواجهة ===== */
-  /* حتى لو صغّر المستخدم الواجهة، يبقى نص المصحف مريحاً للقراءة */
+  /* المصحف يُعرض بحجمه المطبوع (٣٤px × المنزلق) داخل منطقة تمرير عمودية،
+     فلا تصغير تلقائي — راجع fitMushafPage و .mushaf-page-wrap */
   --mushaf-base: 34px;                      /* حجم نص المصحف المرجعي */
-  --mushaf-scale: 1.3;                      /* تتبع منزلق حجم الخط مباشرة (slider/100) */
-  --mushaf-fit: 1;                          /* تصغير تلقائي لملء صفحة واحدة (يحسبها fitMushafPage) */
-  /* clamp يحدّ النص: الحد الأدنى (٦px) أسفل أقصى تصغير ممكن (٠٫٢٤×٣٤×٠٫٨=٦٫٥px)
-     كي لا يصارع حلقة الملاءمة، والأقصى (٥٢px) يمنع صفحة قصيرة عند ٢٠٠٪
-     من رسم نص هائل. حلقة الملاءمة تقيس التخطيط فتتقارب على القيمة المحدودة. */
-  --mushaf-size: clamp(6px, calc(var(--mushaf-base) * var(--mushaf-scale) * var(--mushaf-fit)), 52px);
-  --mushaf-lh: 1.75;                        /* ارتفاع سطر نسبي يقيس نفسه مع التصغير */
+  --mushaf-scale: 1.0;                      /* تتبع منزلق حجم الخط مباشرة (slider/100) */
+  --mushaf-fit: 1;                          /* ثابت ١ — لا تصغير تلقائي بعد الآن */
+  /* clamp يحمي من القيم المتطرفة فقط: ٢٠px حدٌّ أدنى مقروء، و٨٠px سقف
+     عند المنزلق ٢٠٠٪ (٣٤ × ٢ = ٦٨px داخله). */
+  --mushaf-size: clamp(20px, calc(var(--mushaf-base) * var(--mushaf-scale) * var(--mushaf-fit)), 80px);
+  --mushaf-lh: 1.75;                        /* ارتفاع سطر ثابت بكثافة المطبوع */
   /* ألوان المصحف التقليدي (ورق مطبوع + إطار ذهبي) في كلا الوضعين */
   --mushaf-paper: #fbf4e4;
   --mushaf-paper-edge: #f0e2c4;
@@ -565,7 +564,10 @@ body.theme-light .nav-indicator {
 
 .nav-tab {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: none; border: none;
-  color: var(--text-dim); font-size: calc(var(--font-size) * 0.5); cursor: pointer; transition: color 0.3s, background 0.3s; position: relative; z-index: 2; height: 100%; overflow: hidden; border-radius: 30px;
+  color: var(--text-dim); font-size: calc(var(--font-size) * 0.5); cursor: pointer; transition: color 0.3s, background 0.3s; position: relative; z-index: 2; height: 100%;
+  /* لا overflow: hidden ولا border-radius هنا: الأيقونة النشطة تُكبَّر ١٫١٥
+     وتنزاح ٣px لأعلى، والشريحة بلا خلفية فلا معنى لقصّها. حذفهما هو ما يحلّ
+     مشكلة قطع الأيقونة من الأعلى عند الضغط على التبويب. */
 }
 .nav-tab.active { color: var(--accent); font-weight: bold; }
 body.theme-light .nav-tab.active { color: var(--accent); }
@@ -590,19 +592,20 @@ body.theme-light .nav-tab.active .nav-icon { filter: drop-shadow(0 4px 6px rgba(
 #screen-khatmah-read.active, #screen-khatmah-read.slide-left, #screen-khatmah-read.slide-right {
   display: flex; flex-direction: column; height: 100%;
 }
-/* كروم القارئ (بطاقة رأس السورة، التسمية، أزرار التنقّل) لا يتجاوز ١٣٥٪ من
-   حجم الخط: عند ٢٠٠٪ تلتهم الكرومات المكبّرة مساحة الصفحة فلا تتسع حتى مع
-   التصغير التلقائي. النص نفسه (--mushaf-size) يتبع المنزلق بالكامل. */
-#screen-surah-view.active, #screen-surah-view.slide-left, #screen-surah-view.slide-right,
-#screen-khatmah-read.active, #screen-khatmah-read.slide-left, #screen-khatmah-read.slide-right {
-  --font-size: calc(var(--font-base) * min(var(--font-scale), 1.35));
-}
-/* مساحة شريط التنقّل يدفعها القارئ بنفسه الآن (انظر #content أعلاه)،
+/* كروم القارئ (بطاقة رأس السورة، التسمية، أزرار التنقّل) يتبع المنزلق
+   بالكامل: عند ٢٠٠٪ تكبر الكرومات لكن الصفحة تُمرّر عمودياً فتبقى مقروءة.
+   النص نفسه (--mushaf-size) يتبع المنزلق مباشرة دون تصغير تلقائي —
+   المصحف يُعرض بحجمه المطبوع. */
+/* مساحة شريط التنقّل يدفعها القارئ بنفسه الآن (انظر #content أدناه)،
    فلا تُقصّ صندوق الصفحة ولا يمتد النص تحت الشريط. */
 #screen-surah-view.active, #screen-surah-view.slide-left, #screen-surah-view.slide-right { padding-bottom: calc(var(--nav-clearance-safe) + 8px); }
 #verses-container, #khatmah-page-container { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-/* منطقة الصفحة: تأخذ ما تبقّى من الشاشة وتمركز النص عمودياً دون أن تمرّره */
-.mushaf-page-wrap { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+/* منطقة الصفحة: تأخذ ما تبقّى من الشاشة وتُمركِز النص عمودياً وتُمرّره
+   داخلياً حين يزيد ارتفاع النص عن ارتفاع الشاشة — المصحف يُعرض بحجمه
+   المطبوع. */
+.mushaf-page-wrap { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding-bottom: 16px; }
 /* الهوامش الداخلية للشاشة تكفيها — لا حاجة لتمرير داخل القارئ.
    ملاحظة هندسية حرجة: padding-bottom في #content (مساحة شريط التنقل) تُقصّ
    ارتفاع height:100% للشاشة لأن النسبة المئوية تحلّ بالنسبة لصندوق المحتوى
@@ -1223,7 +1226,7 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
            --font-scale و--mushaf-scale فتتغير الواجهة ونص المصحف معاً. -->
       <div id="font-popover-grid">
         <span class="font-slider-min" id="font-slider-min">٨٠٪</span>
-        <input type="range" id="font-slider" min="80" max="200" step="5" value="130"
+        <input type="range" id="font-slider" min="80" max="200" step="5" value="100"
                aria-label="حجم الخط" aria-describedby="font-slider-value">
         <span class="font-slider-max" id="font-slider-max">٢٠٠٪</span>
       </div>
@@ -1637,7 +1640,7 @@ function stripBismillah(text) {
   return words.slice(4).join(' ').trim();
 }
 const tabsArray = ['quran', 'khatmah', 'athkar'];
-let state = { currentTab: 'quran', currentScreen: 'surah-list', previousScreen: null, previousTab: null, currentSurah: null, fontScale: 1.3, currentCatIndex: null, khatmah: null, theme: 'dark', bookmark: null, scrollPositions: {} };
+let state = { currentTab: 'quran', currentScreen: 'surah-list', previousScreen: null, previousTab: null, currentSurah: null, fontScale: 1.0, currentCatIndex: null, khatmah: null, theme: 'dark', bookmark: null, scrollPositions: {} };
 // let/const في السكربتات الكلاسيكية لا تنشئ خصائص على window؛
 // features.js يقرأ window.state و window.Motion فلا بد من كشفهما صراحةً
 // (الكائن يُعدَّل بالمرجع نفسه ولا يُعاد إسناده، فالمرجع المشترك يبقى صالحاً).
@@ -2529,69 +2532,15 @@ function groupAyahsByPage(ayahs) {
   return pages;
 }
 
-// يرسم صفحة مصحف واحدة من state.surahPages[state.surahPageIndex]
-// ─── ملاءمة صفحة المصحف للشاشة دون تمرير ───
-// كل صفحة مصحف كاملة (١٥ سطراً تقريباً) لا تتسع لشاشة الهاتف عند الحجم
-// المفضّل للمستخدم. هذه الدالة تصغّر --mushaf-fit تدريجياً (خطوة ٠٫٠٢)
-// حتى يسقط النص بأكمله داخل المنطقة المرئية أفقياً وعمودياً.
-// الحد الأدنى *حجم مقروء ثابت بالبكسل* (MUSHAF_MIN_PX) يُحوَّل إلى نسبة
-// عكسية مع تكبير المنزلق: ٠٫٣٥ عند ٨٠٪، ٠٫٢١٥ عند ١٣٠٪، ٠٫١٤ عند ٢٠٠٪ —
-// أي نفس أصغر حجم مقروء دائماً مهما رفع المستخدم المنزلق، فلا تُكسر
-// الصفحات المكتظة على الشاشات الصغيرة. (الحد السابق الثابت ٠٫٢٤ مع
-// mushaf-scale ١٫٣ كان يُنتج ١٠٫٦px — أكبر من ٩٫٦px التاريخي فيؤدي إلى
-// فيضٍ بسيط على iPhone SE.)
-// تُستدعى بعد كل رسم صفحة، وعند تغيير حجم الخط، وعند تغيير حجم النافذة.
-const MUSHAF_BASE_PX = 34;    // = --mushaf-base
-const MUSHAF_MIN_PX = 9.5;    // أصغر حجم نص يُرسم — ثابت بالبكسل عند كل منزلق
-const MUSHAF_FIT_FLOOR = 0.15; // حدٌّ أدنى مطلق احتياطي فقط
-const MUSHAF_FIT_STEP = 0.02;
-function mushafFitFloor() {
-  const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mushaf-scale')) || 1;
-  return Math.max(MUSHAF_FIT_FLOOR, MUSHAF_MIN_PX / (MUSHAF_BASE_PX * scale));
-}
-let fitMushafRaf = 0;
-let fitMushafRetrying = false;
+// ─── ملاءمة صفحة المصحف للشاشة ───
+// المصحف يُعرض بحجمه المطبوع (٣٤px × المنزلق) داخل منطقة تمرير، فلا حاجة
+// لتصغير تلقائي: النص يُرسم بحجمه الطبيعي وتُمرّره المنطقة عمودياً حين
+// يزيد ارتفاعه عن ارتفاع الشاشة. --mushaf-fit تبقى ثابتة ١.
+// تُستدعى هذه الدالة من عدة مواقع (applyFontSize، renderSurahPage،
+// loadKhatmahPage، measureSafeAreas، resize) فنُبقي واجهتها كدالة فارغة آمنة.
 function fitMushafPage() {
-  if (fitMushafRaf) cancelAnimationFrame(fitMushafRaf);
-  fitMushafRaf = requestAnimationFrame(() => {
-    fitMushafRaf = 0;
-    // ابحث عن منطقة الصفحة الظاهرة فقط — الشاشات الأخرى مخفية
-    // (scrollHeight=0) فتُفسد القياس وتُنهي البحث مبكراً. لاحظ أن showScreen
-    // قد تستخدم slide-left/slide-right بدل active، فلا نعتمد على أصنافها.
-    const wrap = [...document.querySelectorAll('.mushaf-page-wrap')]
-      .find(w => w.offsetParent !== null);
-    if (!wrap) return;
-    const blocks = wrap.querySelectorAll('.mushaf-block');
-    if (!blocks.length) return;
-    // أوقف انتقال حجم الخط أثناء القياس كي تكون كل خطوة فورية وقابلة للقياس
-    blocks.forEach(b => b.classList.add('fitting'));
-    const overflows = () => {
-      // المقارنة ضد منطقة الصفحة نفسها (لا ضد #content) حتى يبقى القياس
-      // صحيحاً مهما كان ارتفاع الإطار حولها
-      const vOverflow = wrap.scrollHeight - wrap.clientHeight;
-      const hOverflow = Math.max(...[...blocks].map(b => b.scrollWidth - b.clientWidth));
-      return { v: vOverflow, h: hOverflow };
-    };
-    let guard = 0;
-    const floor = mushafFitFloor();
-    // ابدأ دائماً من تفضيل المستخدم (١٫٠) كي يُعاد التوسيع بعد التصغير السابق
-    fit = 1;
-    document.documentElement.style.setProperty('--mushaf-fit', '1');
-    while (overflows().v > 0.5 || overflows().h > 0.5) {
-      if (fit <= floor + 0.001 || ++guard > 80) break;
-      fit = Math.max(floor, +(fit - MUSHAF_FIT_STEP).toFixed(4));
-      document.documentElement.style.setProperty('--mushaf-fit', String(fit));
-    }
-    blocks.forEach(b => b.classList.remove('fitting'));
-    // المساحة المتاحة لا ت settle فوراً: شريط التنقل وشريط تحكم الختمة
-    // وحشو مساحتهما يُحسبان بعد لحظات، وخط Amiri Quran يُحمّل كسولاً فيغيّر
-    // مقاسات النص. أعد القياس مرة واحدة بعد استقرار التخطيط كي لا تبقى
-    // الصفحة الأولى المفتوحة بعد الإنتقال بمقدار ضئيل خارج المنطقة.
-    if (!fitMushafRetrying) {
-      fitMushafRetrying = true;
-      setTimeout(() => { fitMushafRetrying = false; fitMushafPage(); }, 650);
-    }
-  });
+  // لا شيء لفعله: المصحف يُعرض بحجمه المطبوع والمنطقة تُمرّره.
+  // --mushaf-fit تبقى ١ (لا تُكتب).
 }
 
 // يرسم صفحة مصحف واحدة من state.surahPages[state.surahPageIndex]
@@ -3433,9 +3382,9 @@ document.addEventListener('DOMContentLoaded', () => {
     || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
   applyTheme(initialTheme);
   
-  // تطبيق مقياس الخط من الإعدادات (افتراضي ١٣٠٪ = قيمة المنزلق الافتراضية)
+  // تطبيق مقياس الخط من الإعدادات (افتراضي ١٠٠٪ = قيمة المنزلق الافتراضية)
   // — عبر applyFontSize الموحّد. state.fontScale مخزنة كنسبة عشرية.
-  applyFontSize(state.fontScale ?? LEGACY_FONT_SIZE[state.fontSize] ?? (FONT_DEFAULT / 100));
+  applyFontSize(state.fontScale ?? LEGACY_FONT_SIZE[state.fontSize] ?? 1.0);
 
   // نافذة حجم الخط المنبثقة: بناء + ربط + إغلاق بالنقر خارجها
   buildFontPopover();
