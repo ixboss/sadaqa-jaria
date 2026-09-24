@@ -229,8 +229,6 @@ sw.min.js
 .workbuddy/
 .cursor/
 .claude/
-.zcode/
-.zcodeignore
 .aider*
 .github/copilot-instructions.local.md
 

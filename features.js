@@ -194,16 +194,9 @@ const Settings = {
   RECITERS: [
     { id: 'ar.alafasy', name: 'مشاري العفاسي' },
     { id: 'ar.abdulbasitmurattal', name: 'عبد الباسط عبد الصمد (مرتل)' },
-    { id: 'ar.abdurrahmaansudais', name: 'عبد الرحمن السديس' },
-    { id: 'ar.saoodshuraym', name: 'سعود الشريم' },
-    { id: 'ar.mahermuaiqly', name: 'ماهر المعيقلي' },
     { id: 'ar.husary', name: 'محمود الحصري' },
     { id: 'ar.minshawi', name: 'محمد المنشاوي' },
-    { id: 'ar.muhammadayyoub', name: 'محمد أيوب' },
-    { id: 'ar.muhammadjibreel', name: 'محمد جبريل' },
-    { id: 'ar.abdullahbasfar', name: 'عبد الله بصفر' },
-    { id: 'ar.haanirifae', name: 'هاني الرفاعي' },
-    { id: 'ar.parhizgar', name: 'فاروق العنبري' }
+    { id: 'ar.muhammadayyoub', name: 'محمد أيوب' }
   ],
   TASBIH_TARGETS: [
     { v: 33, label: '٣٣ (تسبيح)' },
@@ -592,12 +585,11 @@ const AudioPlayer = {
     this.audio.src = this.urlForAyah(this.queue[this.qi].global);
     if (wasPlaying) this.audio.play().catch(() => {});
   },
-  // أضف زر التشغيل لبطاقة رأس السورة — داخل المسار الجانبي للبطاقة
+  // أضف زر التشغيل لبطاقة رأس السورة
   bindSurahHeader() {
+    // استخدم class بدلاً من id مكرر، واقتصر على بطاقة رأس السورة في شاشة العرض
     const card = document.querySelector('#screen-surah-view .surah-header-card');
     if (!card || card.querySelector('.audio-play')) return;
-    // المسار الجانبي يضمن ألا يتراكب الزر مع اسم السورة أبداً
-    const slot = card.querySelector('#surah-view-actions') || card;
     const btn = document.createElement('button');
     // بدون bookmark-btn حتى لا يلتقطه مفوّض المرجعيات في app.js
     btn.className = 'audio-play';
@@ -605,47 +597,11 @@ const AudioPlayer = {
     btn.innerHTML = '▶';
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      // اختر القارئ أولاً ثم ابدأ التلاوة (مطلب: اختيار القارئ قبل التشغيل)
-      this.showReciterPicker(() => this.playCurrentPage());
-    });
-    slot.appendChild(btn);
-  },
-
-  // شاشة اختيار القارئ قبل بدء التلاوة
-  showReciterPicker(onPick) {
-    const sheet = document.getElementById('reciter-sheet');
-    if (!sheet || !window.Settings) { if (onPick) onPick(); return; }
-    const list = sheet.querySelector('#reciter-list');
-    const cur = Settings.getReciter();
-    list.innerHTML = Settings.RECITERS.map(r => `
-      <button class="reciter-item ${r.id === cur ? 'current' : ''}" data-id="${r.id}" role="radio" aria-checked="${r.id === cur}">
-        <span class="reciter-name">${r.name}</span>
-        <span class="reciter-check" aria-hidden="true">${r.id === cur ? '✓' : ''}</span>
-      </button>`).join('');
-    sheet.classList.add('open');
-    const scrim = document.getElementById('reciter-sheet-scrim');
-    if (scrim) scrim.classList.add('open');
-    sheet.dataset.pending = onPick ? '1' : '';
-    list.querySelectorAll('.reciter-item').forEach(b => {
-      b.addEventListener('click', () => {
-        Settings.setReciter(b.dataset.id);
-        list.querySelectorAll('.reciter-item').forEach(x => {
-          x.classList.toggle('current', x === b);
-          x.setAttribute('aria-checked', String(x === b));
-          x.querySelector('.reciter-check').textContent = x === b ? '✓' : '';
-        });
-        closeReciterSheet();
-        if (onPick) onPick();
-      });
-    });
-  },
-
-  // يبدأ التلاوة من الصفحة المعروضة (أو من الآية المحددة إن كانت عليها)
-  playCurrentPage() {
-    const st = window.state || {};
-    const n = st.currentSurah ? st.currentSurah.number : null;
-    const nm = st.currentSurah ? st.currentSurah.name : '';
+      const st = window.state || {};
+      const n = st.currentSurah ? st.currentSurah.number : null;
+      const nm = st.currentSurah ? st.currentSurah.name : '';
     if (!n) return;
+    // ابدأ من الآية المحددة إن كانت على الصفحة المعروضة، وإلا فمن أول آية فيها
     const pages = st.surahPages || [];
     const idx = st.surahPageIndex || 0;
     let fromAyah = (pages[idx] && pages[idx].ayahs[0] && pages[idx].ayahs[0].numberInSurah) || 1;
@@ -653,18 +609,11 @@ const AudioPlayer = {
       fromAyah = window.selectedAyahNo;
     }
     this.play(n, nm, fromAyah);
+    });
+    card.appendChild(btn);
   }
 };
 window.AudioPlayer = AudioPlayer;
-
-// إغلاق شاشة اختيار القارئ (مستخدمة من زر الإغلاق والخلفية المعتمة)
-function closeReciterSheet() {
-  const sheet = document.getElementById('reciter-sheet');
-  if (sheet) sheet.classList.remove('open');
-  const scrim = document.getElementById('reciter-sheet-scrim');
-  if (scrim) scrim.classList.remove('open');
-}
-window.closeReciterSheet = closeReciterSheet;
 
 /* ==================== 8) Reminders — التذكيرات المحلية ==================== */
 const Reminders = {
