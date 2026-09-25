@@ -2620,6 +2620,7 @@ function updateKhatmahUI() {
 window.startKhatmah = function() {
   let val = parseInt(document.getElementById('k-val').value, 10); if (isNaN(val) || val <= 0) val = 20;
   let startPage = parseInt(document.getElementById('k-start').value, 10) || 1;
+  startPage = Math.min(604, Math.max(1, startPage));
   const method = (document.getElementById('k-method') || {}).value || 'pages';
   let pagesPerDay = val;
   let totalDays = null;

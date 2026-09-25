@@ -102,7 +102,9 @@ async function cacheFirstWithTimeout(request, cacheName, timeout = 3000) {
       return cached;
     }
 
-    return await fetchWithTimeout(request, timeout);
+    const response = await fetchWithTimeout(request, timeout);
+    if (response && response.ok) cache.put(request, response.clone()).catch(() => {});
+    return response;
   } catch (err) {
     console.error('Cache first error:', err);
     const cached = await caches.match(request).catch(() => null);
