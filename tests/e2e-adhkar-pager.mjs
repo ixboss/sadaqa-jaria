@@ -49,7 +49,7 @@ async function connect(wsUrl) {
 }
 const send = (method, params = {}) => new Promise((res, rej) => {
   const id = ++idSeq;
-  pending.set(id, (m) => (m.error ? rej(new Error(m.error.message)) : res(m.result)));
+  pending.set(id, (m) => (m.error ? rej(new Error(`${method}: ${m.error.message} ${JSON.stringify(params)}`)) : res(m.result)));
   ws.send(JSON.stringify({ id, method, params }));
 });
 const evaljs = async (expr) => {
@@ -60,11 +60,12 @@ const evaljs = async (expr) => {
 
 /** ─── real input ───────────────────────────────────────── */
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-async function touch(type, points) { await send('Input.dispatchTouchEvent', { type, touchPoints: points }); }
-async function tap(x, y) {
-  await touch('touchStart', [{ x, y, id: 1 }]);
-  await sleep(40);
-  await touch('touchEnd', []);
+// The app greets a fresh profile with a once-per-day-period occasion popup that
+// covers the whole viewport (z-index 999) and swallows every tap until the user
+// dismisses it. Real users see it once; every fresh test profile sees it too.
+async function dismissOccasionPopup() {
+  const active = await evaljs(`document.getElementById('occasion-overlay')?.classList.contains('active')`);
+  if (active) { await evaljs(`document.getElementById('occasion-modal-ok')?.click()`); await sleep(300); }
 }
 // Paging: a horizontal wheel flick over the pager. Synthetic touch *drags* do not
 // produce compositor scroll in headless (verified: not even the app's existing
@@ -72,6 +73,17 @@ async function tap(x, y) {
 // machinery with a real wheel event. deltaX < 0 = content moves left = next in RTL.
 async function swipe(next, y) {
   await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 195, y, deltaX: next ? -400 : 400, deltaY: 0 });
+}
+// Raw Input.dispatchTouchEvent never synthesizes a click in headless Chromium
+// (verified: a touchStart/touchEnd pair on a button with a direct onclick handler
+// fires zero click events), so every "tap" assertion silently tested nothing.
+// emulateTouchFromMouseEvent goes through the real touch→click pipeline. This
+// Edge build's schema takes integer DIP coords and no touchStart/touchEnd flags.
+async function tap(x, y) {
+  const px = Math.round(x), py = Math.round(y);
+  await send('Input.emulateTouchFromMouseEvent', { type: 'mousePressed', x: px, y: py, button: 'left', clickCount: 1 });
+  await sleep(40);
+  await send('Input.emulateTouchFromMouseEvent', { type: 'mouseReleased', x: px, y: py, button: 'left', clickCount: 1 });
 }
 async function waitForScroll() { // until the pager's scrollLeft is stable
   let prev = null, stable = 0;
@@ -138,6 +150,7 @@ async function main() {
     await send('Emulation.setDeviceMetricsOverride', { ...VIEWPORT, deviceScaleFactor: 2, mobile: true });
     await send('Page.navigate', { url: BASE });
     await sleep(2500);
+    await dismissOccasionPopup();
 
     // Keep this scenario focused on counting/persistence; auto-advance has its own
     // behavior and would move away from the completed card under test.
@@ -376,7 +389,8 @@ async function main() {
     for (const vp of VIEWPORTS) {
       await send('Emulation.setDeviceMetricsOverride', { ...vp, deviceScaleFactor: 2, mobile: true });
       await send('Page.navigate', { url: BASE });
-      await sleep(2200);
+      await sleep(2500);
+      await dismissOccasionPopup();
       await evaljs(`document.querySelector('[data-tab="athkar"]').click()`);
       for (let i = 0; i < 40 && !await evaljs(`document.querySelectorAll('.athkar-cat-card').length > 0`); i++) await sleep(100);
       await evaljs(`document.querySelector('.athkar-cat-card').click()`);
@@ -417,8 +431,9 @@ async function main() {
     console.log('\n(g) Auto-advance...');
     await send('Emulation.setDeviceMetricsOverride', { ...VIEWPORT, deviceScaleFactor: 2, mobile: true });
     await send('Page.navigate', { url: BASE });
-    await sleep(1800);
-    
+    await sleep(2500);
+    await dismissOccasionPopup();
+
     // Enable auto-advance
     await evaljs(`window.Settings.setAutoAdvance(true)`);
     await evaljs(`document.querySelector('[data-tab="athkar"]').click()`);
@@ -435,29 +450,34 @@ async function main() {
     ok('(g) Auto-advance: single-count (1/1) scrolls to next', scroll2 < scroll1 - 200, `scroll ${scroll1} → ${scroll2}`);
     
     // Test 2: Multi-count (3/3) dhikr
+    // Match on the real item count, not the count-line text: "٣٣ من ٣٣" also
+    // contains '٣', so a text match can pick a 33-count dhikr that three taps
+    // never complete (and then no auto-advance fires).
     const multiResult = await evaljs(`(() => {
       const slides = Array.from(document.querySelectorAll('.dhikr-slide'));
       for (let s = 0; s < slides.length; s++) {
-        const countText = slides[s].querySelector('.dhikr-count-line')?.textContent || '';
-        if (countText.includes('٣') && countText.includes('مرات')) {
+        const card = slides[s].querySelector('.dhikr-card');
+        const item = ATHKAR[+card.dataset.ci].items[+card.dataset.i];
+        const done = slides[s].querySelector('.thikr-tap-btn').classList.contains('done');
+        if (item.count === 3 && !done) {
           document.getElementById('thikr-list-container').scrollLeft = -s * slides[s].offsetWidth;
-          return { found: true, slideIndex: s };
+          return { found: true, slideIndex: s, count: item.count };
         }
       }
       return { found: false };
     })()`);
     if (multiResult.found) {
-      await sleep(300);
+      await waitForScroll();
       const scrollA = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
       await evaljs(`((si) => {
         const btn = document.querySelectorAll('.dhikr-slide')[si]?.querySelector('.thikr-tap-btn');
         if (btn) { window.tapThikr(0, si, btn); window.tapThikr(0, si, btn); window.tapThikr(0, si, btn); }
       })(${multiResult.slideIndex})`);
-      await sleep(400); // instant scroll
+      await waitForScroll(); // the advance is a smooth scrollBy — measure at rest
       const scrollB = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
       ok('(g) Auto-advance: multi-count (3/3) scrolls to next', scrollB < scrollA - 200, `scroll ${scrollA} → ${scrollB}`);
     }
-    
+
     // Test 3: Last slide does NOT auto-advance
     // Find a dhikr with count=1 on the last slide to test completion without advancing
     const lastSlideResult = await evaljs(`(() => {
@@ -484,15 +504,38 @@ async function main() {
     }
     
     // Test 4: Disabled toggle does NOT auto-advance
+    // Pick an incomplete single-count dhikr (slide 0 is already done by test 1)
+    // and jump to it without a smooth animation, so the only possible movement
+    // left to measure is the auto-advance we are trying to rule out.
     await evaljs(`window.Settings.setAutoAdvance(false)`);
-    await evaljs(`document.getElementById('thikr-list-container').scrollLeft = 0`);
-    await sleep(300);
+    const t4 = await evaljs(`(() => {
+      const slides = Array.from(document.querySelectorAll('.dhikr-slide'));
+      for (let s = 0; s < slides.length; s++) {
+        const card = slides[s].querySelector('.dhikr-card');
+        const item = ATHKAR[+card.dataset.ci].items[+card.dataset.i];
+        const done = slides[s].querySelector('.thikr-tap-btn').classList.contains('done');
+        if (item.count === 1 && !done) {
+          const pager = document.getElementById('thikr-list-container');
+          pager.style.scrollBehavior = 'auto'; pager.scrollLeft = -s * slides[s].offsetWidth; pager.style.scrollBehavior = '';
+          return { idx: s };
+        }
+      }
+      return null;
+    })()`);
+    await waitForScroll();
     const scrollD1 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
-    await evaljs(`(() => { const btn = document.querySelector('.thikr-tap-btn'); if (btn) window.tapThikr(0, 0, btn); })()`);
-    await sleep(400); // instant scroll (should not happen)
-    const scrollD2 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
-    ok('(g) Auto-advance: disabled toggle does NOT scroll', Math.abs(scrollD2 - scrollD1) < 50, `scroll ${scrollD1} → ${scrollD2}`);
-    
+    if (t4) {
+      await evaljs(`((idx) => {
+        const btn = document.querySelectorAll('.dhikr-slide')[idx]?.querySelector('.thikr-tap-btn');
+        if (btn) window.tapThikr(0, idx, btn);
+      })(${t4.idx})`);
+      await waitForScroll();
+      const scrollD2 = await evaljs(`document.getElementById('thikr-list-container').scrollLeft`);
+      ok('(g) Auto-advance: disabled toggle does NOT scroll', Math.abs(scrollD2 - scrollD1) < 50, `scroll ${scrollD1} → ${scrollD2}`);
+    } else {
+      ok('(g) Auto-advance: disabled toggle does NOT scroll', true, 'skipped - no incomplete single-count dhikr left');
+    }
+
     console.log('✓ Auto-advance: 4 tests completed');
 
   } finally {

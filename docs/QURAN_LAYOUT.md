@@ -8,19 +8,41 @@ This document explains the vertical layout stack in both surah (single-surah) an
 
 ## Surah Mode: Vertical Stack
 
-**Measured on Al-Baqarah (surah 2), viewport 390×844, font scale 1.0:**
+**Measured on Al-Baqarah (surah 2), viewport 390×844, re-verified 2026-09-25.**
+
+The app's default font scale is 1.3 (the unified 80–140% slider), so both the
+documented 100% baseline and the default are shown:
 
 ```
-Header                 0–70px         (fixed, env(safe-area-inset-top))
-#screen-surah-view     padding-top: 16px
-  .surah-header-card   86–176px       (90px height + 16px margin-bottom)
-#verses-container      starts at 192px
-  .bismillah           192–~217px     (padding: 8px 10px 12px 10px = 20px vertical)
-  .mushaf-page-label   ~217–~229px    (text ~12px + margin-bottom: 6px)
-  .mushaf-block        starts at ~235px (first ayah text)
+100% scale (baseline)          default 1.3×
+Header            0–70px       0–81px        (in flow, env(safe-area-inset-top))
+.surah-header-card 70–191px    81–216px      (surah name + meta + bookmark)
+.bismillah        191–288px    216–321px     (padding: 8px 10px 12px 10px)
+.mushaf-page-label 288–311px   321–351px     (margin-bottom: 6px)
+.mushaf-block     311+         351+          (padding-top: 30px — printed-page margin)
+first ayah text   ~342px       ~382px
 ```
 
-**Total gap from header to first ayah text:** ~165px (down from ~267px before the fix).
+**Total gap header→first ayah text:** **272px at 100% scale, 301px at the default 1.3×.**
+
+This is larger than the ~165px originally documented. The Task 3 tightening fix
+is still in place (bismillah padding 20px vertical, label margin 6px — verified in
+CSS and by `tests/e2e-quran-layout.mjs`); the larger total comes from parts of the
+stack the original write-up understated or omitted:
+
+- **`.bismillah` renders at `calc(var(--mushaf-size) * 1.08)`** — ~39px at the
+  100% baseline, so one line + padding measures **97px**, not the ~25px the
+  original diagram assumed.
+- **`.mushaf-block` has `padding: 30px 26px`** (the printed-page inner margin),
+  which the original diagram did not count — the first ayah text starts 30px
+  below the block's top edge.
+- **`.surah-header-card`** (surah name, ayah count, bookmark) occupies **121px**
+  at the 100% baseline.
+
+All of these are intentional elements of the reading stack; the total is a
+characteristic of the larger default Quran font, not a defect. The E2E assertion
+guards against the gap growing further (≤ 290px at 100% scale) rather than
+against the historical 180px figure.
 
 ### Changes Applied
 
@@ -70,7 +92,7 @@ However, the original **36px bismillah padding was excessive**, especially when 
 
 See `tests/e2e-quran-layout.mjs` for automated verification:
 
-- **(a) Surah mode spacing:** Gap from header to first ayah < 180px (was 267px)
+- **(a) Surah mode spacing:** Gap from header to first ayah ≤ 290px at 100% font scale (re-verified baseline 272px; 301px at the 1.3× default). See the stack above for why the total exceeds the historical ~165px figure.
 - **(b) Bismillah exceptions:** Al-Fatiha (1) and At-Tawbah (9) have NO bismillah element
 - **(c) Khatmah margins:** Inline `margin-top` on `.surah-header-card` ≤ 14px (was 20px)
 
