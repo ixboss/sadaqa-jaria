@@ -106,8 +106,9 @@ const pg = {
              slideScrollable: best.scrollHeight > best.clientHeight + 1 };
   })()`),
   progressKey: (ci, i) => evaljs(`(() => {
-    const d = new Date().toISOString().slice(0, 10);
-    return localStorage.getItem('ath_' + d + '_' + ${ci} + '_' + ${i});
+    const d = new Date();
+    const day = [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+    return localStorage.getItem('ath_' + day + '_' + ${ci} + '_' + ${i});
   })()`),
 };
 
@@ -138,6 +139,9 @@ async function main() {
     await send('Page.navigate', { url: BASE });
     await sleep(2500);
 
+    // Keep this scenario focused on counting/persistence; auto-advance has its own
+    // behavior and would move away from the completed card under test.
+    await evaljs(`window.Settings && Settings.setAutoAdvance(false)`);
     // ── go to the athkar tab and open the first category with a real tap ──
     await evaljs(`document.querySelector('[data-tab="athkar"]').click()`);
     for (let i = 0; i < 40 && !await evaljs(`document.querySelectorAll('.athkar-cat-card').length > 0`); i++) await sleep(100);

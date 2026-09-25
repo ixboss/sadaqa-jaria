@@ -113,7 +113,12 @@ async function main() {
     
     // ─── (c) Khatmah mode: inline margins ─────────────────────
     console.log('\n(c) Khatmah mode gaps...');
-    await evaljs(`if (!window.state.khatmah) window.startKhatmah(7)`);
+    await evaljs(`if (!window.state.khatmah) {
+      document.getElementById('k-method').value = 'pages';
+      document.getElementById('k-val').value = '7';
+      document.getElementById('k-start').value = '1';
+      window.startKhatmah();
+    }`);
     await evaljs(`window.openKhatmahReader()`);
     for (let i = 0; i < 50 && !await evaljs(`document.getElementById('screen-khatmah-read')?.classList.contains('active')`); i++) await sleep(100);
     await sleep(800); // wait for page load
