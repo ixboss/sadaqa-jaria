@@ -2106,7 +2106,12 @@ window.resumeBookmark = function() {
     return;
   }
   if(state.bookmark.type === 'surah') { window.openSurah(state.bookmark.id); }
-  else if(state.bookmark.type === 'khatmah' && state.khatmah) { state.khatmah.currentPage = state.bookmark.id; saveState(); window.openKhatmahReader(); }
+  else if(state.bookmark.type === 'khatmah' && state.khatmah) {
+    // وجِّه الجدولة لليوم الجديد قبل فتح القارئ — وإلا فُتح القارئ على وردٍ قديم
+    // ويبقى lastActiveDate قديماً، فتُفقد إعادة الجدولة عند أول تبويب.
+    checkMissedDays();
+    state.khatmah.currentPage = state.bookmark.id; saveState(); window.openKhatmahReader();
+  }
 };
 
 window.openBookmarks = function() {
@@ -2705,7 +2710,9 @@ async function loadKhatmahPage(pageNum) {
     });
 
     container.innerHTML = html; document.getElementById('content').scrollTop = 0;
-    state.khatmah.lastPageRead = pageNum; saveState(); updateKhatmahUI();
+    // التقدّم المحفوظ لا يتراجع: سُجِّل أبعد صفحة وُصل إليها، لا آخر صفحة عُرضت.
+    // الرجوع لصفحة سابقة لإعادة القراءة يجب ألّا يمحو ما تحقق.
+    state.khatmah.lastPageRead = Math.max(state.khatmah.lastPageRead || 0, pageNum); saveState(); updateKhatmahUI();
 
     if (pageNum < 604) setTimeout(() => fetch(`https://api.alquran.cloud/v1/page/${pageNum + 1}/quran-uthmani`).catch(() => {}), 800);
   } catch(e) {
@@ -3019,10 +3026,8 @@ function tasbihTarget() { return (window.Settings ? Settings.getTasbihTarget() :
 // الجولات: ٣ جولات لكل هدف (دائماً ٣ للتجربة التقليدية)
 function tasbihTotalLaps() { return 3; }
 
-window.rebuildTasbih = function() {
-  tasbihCount = 0; tasbihLap = 0;
-  document.getElementById('tasbih-msg').classList.remove('active');
-  // أعد بناء الخرزات حسب الهدف
+// تبني خرزات السبحة ونقاط الجولات حسب الهدف الحالي — دون مسّ العدّات
+function buildTasbihBeads() {
   const wrap = document.getElementById('tasbih-circle-wrap');
   wrap.querySelectorAll('.tasbih-bead').forEach(b => b.remove());
   const t = tasbihTarget();
@@ -3036,13 +3041,22 @@ window.rebuildTasbih = function() {
   const lapsWrap = document.getElementById('tasbih-laps');
   lapsWrap.innerHTML = '';
   for (let i = 0; i < tasbihTotalLaps(); i++) lapsWrap.appendChild(Object.assign(document.createElement('div'), { className: 'tasbih-lap-dot' }));
+}
+
+// إعادة الضبط الكامل: تُصفَّر العدّات وتُعاد الخرزات (تُستخدم عند تغيير الهدف)
+window.rebuildTasbih = function() {
+  tasbihCount = 0; tasbihLap = 0;
+  document.getElementById('tasbih-msg').classList.remove('active');
+  buildTasbihBeads();
   updateTasbihUI();
 };
 
+// فتح شاشة السبحة: بناء الخرزات فقط. العدّات المحفوظة تُستعاد كما هي بعد
+// إعادة تحميل الصفحة — تصفيرها كان يمحو تقدّم الجلسة السابقة.
 function buildTasbih() {
   const wrap = document.getElementById('tasbih-circle-wrap');
   if(wrap.querySelectorAll('.tasbih-bead').length === 0) {
-    window.rebuildTasbih();
+    buildTasbihBeads();
   }
 }
 
