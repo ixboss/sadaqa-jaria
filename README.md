@@ -93,6 +93,7 @@ Most Quran apps are either heavy, ad-supported, or require an account. This one 
 - **Installable PWA** — runs standalone, no browser chrome
 - **Service Worker** with cache-first / network-first strategies
 - **Offline surah index** bundled locally (no network needed to browse)
+- **Local backup & restore** — export all your data to a single JSON file from **Settings**, and re-import it on a new device. Imported files are schema- and type-validated and never evaluated as code
 - **`AbortController` timeouts** so a slow network never hangs the UI
 - **`prefers-reduced-motion` honoured in every animation path**
 - **Zero dependencies** — nothing to audit, nothing to break
@@ -381,6 +382,8 @@ All data is stored in **`localStorage`** on your device. It will be lost if you:
 - Clear browsing data / site data
 - Use **private/incognito mode** — data is discarded when the tab closes
 - Switch browsers or devices — there is no sync
+
+To protect against this, open **Settings → النسخ الاحتياطي** and **export a backup file** before clearing data or moving to a new device. Keep the file somewhere safe (it contains everything: khatmah, bookmarks, streak, tasbih, preferences) and **import** it on the other device. Everything except the backup file itself stays on your device — nothing is uploaded anywhere.
 
 > **Private mode caveat:** in Safari Private Browsing the app may fail to persist data at all. This is a known limitation — see **B-6** and **B-7** in [`01-bugs.md`](01-bugs.md).
 

@@ -990,6 +990,10 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 .settings-targets { display: flex; flex-wrap: wrap; gap: 8px; }
 .settings-chip { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 20px; padding: 9px 16px; font-size: calc(var(--font-size) * 0.52); font-family: inherit; font-weight: bold; cursor: pointer; transition: all 200ms var(--ease-spring-snap); }
 .settings-chip.active { background: var(--accent-deep); color: var(--color-on-accent); border-color: var(--accent-deep); transform: scale(1.04); }
+.settings-chip.danger { color: #c0392b; border-color: rgba(192,57,43,0.4); }
+body.theme-light .settings-chip.danger { color: #a93226; }
+.settings-backup-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.settings-backup-row .settings-chip { flex: 1 1 auto; text-align: center; }
 .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
 .settings-arrow { color: var(--accent); font-size: calc(var(--font-size) * 0.8); font-weight: bold; }
 .settings-toggle { position: relative; width: 52px; height: 30px; border-radius: 20px; background: var(--surface-2); border: 1px solid var(--border); cursor: pointer; flex-shrink: 0; transition: background 240ms var(--ease-out-quart), border-color 240ms; }
@@ -3521,6 +3525,8 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./app.js" defer></script>
 <!-- وحدات الميزات: المرجعيات، الإحصائيات، الإعدادات، التلاوة، التذكيرات -->
 <script src="./features.js" defer></script>
+<!-- النسخ الاحتياطي المحلي: تصدير/استيراد/مسح مع تحقق صارم من الشكل (بلا تقييم للنص المستورد) -->
+<script src="./backup.js" defer></script>
 <script>
 // Register Service Worker with enhanced error handling
 if ('serviceWorker' in navigator) {

@@ -262,6 +262,17 @@ const Settings = {
         <div class="settings-arrow">←</div>
       </div>
 
+      <div class="settings-card">
+        <div class="settings-label" style="margin-bottom:6px">النسخ الاحتياطي</div>
+        <div class="surah-meta" style="margin-bottom:10px">صدقة جارية: بياناتك على جهازك فقط. صدِّرها إلى ملف قبل تغيير الجهاز أو مسح بيانات التطبيق.</div>
+        <div class="settings-backup-row">
+          <button id="backup-export" class="settings-chip" data-backup="export">تصدير نسخة</button>
+          <button id="backup-import" class="settings-chip" data-backup="import">استيراد نسخة</button>
+          <button id="backup-clear" class="settings-chip danger" data-backup="clear">مسح البيانات</button>
+        </div>
+        <input type="file" id="backup-file" accept="application/json,.json" style="display:none">
+      </div>
+
       <div class="occasion-note" style="margin-top:16px">تطبيق «إسلامي» — صدقة جارية. جميع بياناتك تبقى على جهازك.</div>`;
   },
 
@@ -281,7 +292,23 @@ const Settings = {
       }
       const row = e.target.closest('[data-action="openStats"]');
       if (row) { window.Settings.openStats(); }
+      const bk = e.target.closest('[data-backup]');
+      if (bk) {
+        const act = bk.dataset.backup;
+        if (act === 'export') { Haptics.tap(); window.BackupManager.export(); }
+        else if (act === 'clear') { Haptics.tap(); window.BackupManager.clearAll(); }
+        else if (act === 'import') { const f = document.getElementById('backup-file'); if (f) { f.value = ''; f.click(); } }
+        return;
+      }
     });
+
+    const fileInput = el.querySelector('#backup-file');
+    if (fileInput) {
+      fileInput.addEventListener('change', e => {
+        const file = e.target.files && e.target.files[0];
+        if (file && window.BackupManager) window.BackupManager.importFromFile(file);
+      });
+    }
 
     el.addEventListener('change', e => {
       if (e.target.id === 'settings-reciter') {
