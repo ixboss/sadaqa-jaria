@@ -155,18 +155,20 @@ async function main() {
       window.startKhatmah();
     }`);
     await evaljs(`window.openKhatmahReader()`);
-    for (let i = 0; i < 50 && !await evaljs(`document.getElementById('screen-khatmah-read')?.classList.contains('active')`); i++) await sleep(100);
+    // القارئ الموحّد: الرسم داخل #screen-mushaf تحت اسم khatmah-read (مرحلة ٢+)
+    for (let i = 0; i < 50 && !await evaljs(`document.getElementById('screen-mushaf')?.classList.contains('active')`); i++) await sleep(100);
     await sleep(800); // wait for page load
-    
-    const khatmahMaxMargin = await evaljs(`(() => {
-      const headers = Array.from(document.querySelectorAll('#screen-khatmah-read .surah-header-card'));
-      return Math.max(...headers.map(h => {
-        const m = (h.getAttribute('style') || '').match(/margin-top:\\s*(\\d+)px/);
-        return m ? parseInt(m[1], 10) : 0;
-      }), 0);
+
+    const khatmahChrome = await evaljs(`(() => {
+      const b = document.getElementById('mushaf-wird-banner');
+      return {
+        mode: state.mushafMode,
+        banner: b && b.classList.contains('visible'),
+        range: b && b.querySelector('#mwb-range').textContent
+      };
     })()`);
-    ok('(c) Khatmah: inline margin-top ≤ 14px', khatmahMaxMargin <= 14, `max=${khatmahMaxMargin}px`);
-    console.log(`  Khatmah max inline margin: ${khatmahMaxMargin}px ✓`);
+    ok('(c) Khatmah: unified reader in khatmah mode', khatmahChrome.mode === 'khatmah-read', khatmahChrome);
+    ok('(c) Khatmah: wird banner shows the range', khatmahChrome.banner && khatmahChrome.range.length > 0, khatmahChrome);
     
   } finally {
     browser.kill();

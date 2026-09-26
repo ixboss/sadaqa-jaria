@@ -808,9 +808,68 @@ body.mushaf-zen .mushaf-page { padding-top: calc(env(safe-area-inset-top, 0px) +
 .mushaf-page .mushaf-nav { opacity: 0; height: 0; overflow: hidden; margin: 0; pointer-events: none; transition: opacity 200ms; }
 body.mushaf-hud .mushaf-page .mushaf-nav { opacity: 1; height: auto; margin: 4px 0 12px; pointer-events: auto; }
 
-/* الوضع الهادئ يُخفي كل الكروم الخارجي للتطبيق */
-body.mushaf-zen #header, body.mushaf-zen #nav, body.mushaf-zen #khatmah-controls { display: none; }
+/* الوضع الهادئ يُخفي كل الكروم الخارجي للتطبيق. شريط ورد الختمة وزرّ الإتمام
+   يبقيان: هما تتبّع الورد، لا كروم قراءة. */
+body.mushaf-zen #header, body.mushaf-zen #nav { display: none; }
 body.mushaf-zen #reading-progress-container { display: none !important; }
+
+/* ===== شريط ورد الختمة (مرحلة ٥) ===== */
+.mushaf-wird-banner {
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 64px); left: 12px; right: 12px; z-index: 6;
+  display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 7px 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.22);
+  font-size: calc(var(--font-size) * 0.38);
+  opacity: 0; pointer-events: none; transform: translateY(-8px);
+  transition: opacity 240ms var(--ease-out-quart), transform 240ms var(--ease-out-quart);
+}
+.mushaf-wird-banner.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.mushaf-wird-banner .mwb-label { font-weight: 700; color: var(--accent); }
+.mushaf-wird-banner .mwb-range { color: var(--text); }
+.mushaf-wird-banner .mwb-remain { color: var(--text-dim); font-size: calc(var(--font-size) * 0.34); }
+/* أثناء التلاوة يتنحّى الشريط للأسفل حتى لا يصطدم بالقرص الطافي */
+body.reader-audio-on .mushaf-wird-banner { top: calc(env(safe-area-inset-top, 0px) + 118px); }
+
+/* زر إتمام الورد: يظهر عند بلوغ آخر صفحة في النطاق */
+.mushaf-wird-fab {
+  position: absolute; bottom: calc(var(--nav-clearance-safe, 0px) + 18px); right: 16px; z-index: 8;
+  background: var(--accent-deep); color: var(--color-on-accent); border: none;
+  border-radius: 999px; padding: 12px 20px; cursor: pointer;
+  font-size: calc(var(--font-size) * 0.42); font-weight: 700;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.4);
+  opacity: 0; pointer-events: none; transform: translateY(14px) scale(0.95);
+  transition: opacity 240ms var(--ease-out-quart), transform 260ms var(--ease-spring-snap);
+}
+.mushaf-wird-fab.visible { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
+.mushaf-wird-fab:active { transform: scale(0.95); }
+
+/* مسار ورد الختمة على شريط التقدم: نطاق مُلوَّن ضمن ٦٠٤ صفحة + نقاط مرجعيات */
+#reading-progress-container.wird-mode { height: 16px; }
+#reading-progress-container.wird-mode #reading-progress-bar { display: none; }
+#wird-track {
+  position: absolute; inset: 0; display: none;
+  pointer-events: none;
+}
+#reading-progress-container.wird-mode #wird-track { display: block; }
+#wird-track::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 3px; transform: translateY(-50%);
+  background: rgba(255,255,255,0.16); border-radius: 3px;
+}
+body.theme-light #wird-track::before { background: rgba(0,0,0,0.12); }
+#wird-track .wird-range {
+  position: absolute; top: 50%; height: 6px; transform: translateY(-50%);
+  background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 6px;
+}
+#wird-track .wird-cursor {
+  position: absolute; top: 50%; width: 3px; height: 14px; transform: translate(-50%, -50%);
+  background: var(--color-on-accent, #fff); border-radius: 3px;
+  box-shadow: 0 0 0 2px var(--accent-deep);
+}
+#wird-track .wird-dot {
+  position: absolute; top: 50%; width: 7px; height: 7px; transform: translate(-50%, -50%);
+  background: var(--frame, #d4af37); border-radius: 50%;
+  box-shadow: 0 0 0 1.5px rgba(0,0,0,0.35);
+}
 
 /* ===== شريط إجراءات الآية المحدّدة ===== */
 #ayah-bar { position: fixed; bottom: calc(var(--nav-clearance-safe) + 12px); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface); border: 1px solid var(--accent); border-radius: 30px; padding: 8px 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 96; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; visibility: hidden; opacity: 0; max-width: calc(100vw - 32px); transition: visibility 0s linear 300ms, transform 320ms var(--ease-spring-snap), opacity 260ms var(--ease-out-quart); }
@@ -860,13 +919,6 @@ body.theme-light .btn-scale { color: var(--color-on-accent); }
 .k-wird-badge small { font-size: calc(var(--font-size) * 0.45); color: var(--text-dim); margin-bottom: 4px; transition: font-size 0.3s; }
 .k-wird-arrow { color: var(--accent); font-size: calc(var(--font-size) * 0.8); font-weight: bold; transition: font-size 0.3s; }
 
-.khatmah-controls { position: fixed; bottom: calc(var(--nav-clearance-safe) + 12px); left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 680px; display: flex; gap: 8px; background: rgba(16, 51, 63, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 10px 16px; border-radius: 12px; z-index: 50; transition: bottom 380ms var(--ease-spring), transform 380ms var(--ease-spring), opacity 0.4s, background 0.4s; }
-body.theme-light .khatmah-controls { background: rgba(255, 255, 255, 0.9); border: 1px solid var(--border); }
-/* عندما يكون شريط التنقل مخفياً، تنزل الأزرار لأسفل مباشرة */
-#nav.nav-hidden ~ .khatmah-controls { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
-.khatmah-controls.controls-hidden { transform: translateX(-50%) translateY(150px); opacity: 0; pointer-events: none; }
-/* مساحة سفلية إضافية في قارئ الختمة حتى لا تغطي الأزرار آخر الآيات */
-#screen-khatmah-read { padding-bottom: calc(var(--nav-clearance-safe) + 98px); }
 .k-ctrl-btn { flex: 1; background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: calc(var(--font-size) * 0.55); transition: transform 0.2s, font-size 0.3s, background 0.4s, color 0.4s; }
 .k-ctrl-btn:active { transform: scale(0.95); }
 .k-ctrl-btn.primary { background: var(--success); color: #fff; border-color: var(--success); flex: 2; }
@@ -1312,6 +1364,12 @@ body.theme-light .settings-chip.danger { color: #a93226; }
     </div>
     <div id="reading-progress-container">
         <div id="reading-progress-bar"></div>
+        <!-- مسار ورد الختمة: نطاق مُلوَّن + نقاط المرجعيات + مؤشر الصفحة (مرحلة ٥) -->
+        <div id="wird-track">
+          <div class="wird-range" id="wird-range"></div>
+          <div class="wird-dots" id="wird-dots"></div>
+          <i class="wird-cursor" id="wird-cursor"></i>
+        </div>
     </div>
   </header>
 
@@ -1359,6 +1417,14 @@ body.theme-light .settings-chip.danger { color: #a93226; }
         <button class="map-reciter" id="map-reciter" aria-label="اختيار القارئ"></button>
         <button class="map-btn map-close" id="map-close" aria-label="إيقاف التلاوة">×</button>
       </div>
+      <!-- شريط ورد الختمة: نطاق اليوم وما تبقّى منه (مرحلة ٥) -->
+      <div class="mushaf-wird-banner" id="mushaf-wird-banner">
+        <span class="mwb-label">ورد اليوم</span>
+        <span class="mwb-range" id="mwb-range"></span>
+        <span class="mwb-remain" id="mwb-remain"></span>
+      </div>
+      <!-- زر إتمام الورد يظهر عند بلوغ آخر صفحة في النطاق -->
+      <button class="mushaf-wird-fab" id="mushaf-wird-fab" aria-label="إتمام وحفظ الورد">✓ إتمام وحفظ الورد</button>
       <!-- لوحة الصفحة: محرّك القلب يكتب تحويلاته هنا (مرحلة ٣) -->
       <div class="mushaf-viewport" id="mushaf-viewport">
         <div class="mushaf-page" id="mushaf-page">
@@ -1403,11 +1469,6 @@ body.theme-light .settings-chip.danger { color: #a93226; }
         <button class="btn-scale" onclick="openKhatmahReader()">متابعة القراءة 📖</button>
         <button class="btn-scale" style="background:var(--surface-2); color:var(--text); margin-top:12px;" onclick="resetKhatmah()">إنشاء ختمة جديدة</button>
       </div>
-    </div>
-
-    <div id="screen-khatmah-read" class="screen" hidden>
-      <!-- حاوية قديمة احتُفظ بها للتوافق فقط — الرسم الفعلي داخل #screen-mushaf -->
-      <div class="khatmah-page-reader" id="khatmah-page-container" hidden></div>
     </div>
 
     <div id="screen-athkar-list" class="screen" role="tabpanel" aria-label="الأذكار">
@@ -1463,13 +1524,8 @@ body.theme-light .settings-chip.danger { color: #a93226; }
   <!-- طبقة تعتيم أسفل الشريط: تمنع ظهور نص السور المقصوص حول حواف الشريط -->
   <div class="nav-scrim" aria-hidden="true"></div>
 
-  <!-- شريط تحكم الختمة: خارج .screen ليكون ثابتاً على حافة الشاشة الحقيقية دائماً.
-       يأتي بعد #nav في DOM ليعمل منتقي الأخوين (~) مع حالة nav-hidden -->
-  <div class="khatmah-controls controls-hidden" id="khatmah-controls" role="toolbar" aria-label="تحكم الختمة">
-    <button class="k-ctrl-btn" id="kp-prev" onclick="changeKhatmahPage(-1)">السابق</button>
-    <button class="k-ctrl-btn primary" id="kp-done" onclick="completeWird()">✓ إنهاء الورد</button>
-    <button class="k-ctrl-btn" id="kp-next" onclick="changeKhatmahPage(1)">التالي</button>
-  </div>
+  <!-- شريط تحكم الختمة أُزيل في مرحلة ٥: القارئ الموحّد (شاشة المصحف) يتولّى
+       التنقّل بمحرّك القلب، وزرّ الإتمام أصبح زرّاً طافياً داخله. -->
 
   <div id="custom-dialog-overlay">
     <div id="custom-dialog">
@@ -2069,8 +2125,13 @@ function showScreen(screenId, animClass = 'active') {
     state.mushafMode = screenId;
     // الدخول لأول مرة يبدأ في الوضع الهادئ؛ التنقّل بين المسارين يحافظ على الوضع
     if (!['surah-view', 'khatmah-read'].includes(state.previousScreen)) enterZenMode();
-  } else if (state.previousScreen !== screenId) {
-    document.body.classList.remove('mushaf-zen', 'mushaf-hud');
+  } else {
+    // مغادرة القارئ: لا يبقى وضع مسار معلّقاً — شريط الورد وزرّ الإتمام
+    // ومسار النطاق يعتمدون على هذا العلم فيختفون جميعاً
+    state.mushafMode = null;
+    if (state.previousScreen !== screenId) {
+      document.body.classList.remove('mushaf-zen', 'mushaf-hud');
+    }
   }
   if (target) {
     target.classList.add(animClass);
@@ -2124,9 +2185,8 @@ function showScreen(screenId, animClass = 'active') {
   if(['surah-view', 'khatmah-read'].includes(screenId)) document.getElementById('reading-progress-container').style.display = 'block';
   else { document.getElementById('reading-progress-container').style.display = 'none'; document.getElementById('reading-progress-bar').style.width = '0%'; }
 
-  // شريط تحكم الختمة يظهر فقط داخل قارئ الختمة
-  const kctrl = document.getElementById('khatmah-controls');
-  if (kctrl) kctrl.classList.toggle('controls-hidden', screenId !== 'khatmah-read');
+  // شريط تحكم الختمة أُزيل في مرحلة ٥ — القارئ الموحّد يحمل شريط الورد وزرّ الإتمام
+  renderWirdChrome();
 
   // شاشة الذكر وحدها تستخدم التقاليب الأفقية —
   // إزالتها عند أي مغادرة حتى لا تتأثر بقية الشاشات.
@@ -2980,6 +3040,8 @@ function onAyahBarAction(act) {
         }
       }
     } catch (e) { Toast.show('تعذّر الحفظ'); }
+    // نقاط المرجعيات على مسار الورد تُعاد رسمها فوراً بعد أي تبديل
+    if (state.mushafMode === 'khatmah-read') renderWirdChrome();
   }
 }
 
@@ -3111,21 +3173,6 @@ function checkMissedDays() {
 window.openKhatmahReader = function() { showScreen('khatmah-read', 'slide-left'); loadKhatmahPage(state.khatmah.currentPage); }
 
 async function loadKhatmahPage(pageNum) {
-  // إعادة إظهار شريط التحكم عند فتح صفحة جديدة (المستخدم في وضع القراءة)
-  document.getElementById('khatmah-controls').classList.remove('controls-hidden');
-
-  document.getElementById('kp-prev').disabled = (pageNum <= 1);
-  document.getElementById('kp-next').disabled = (pageNum >= 604);
-
-  const doneBtn = document.getElementById('kp-done');
-  if (pageNum >= state.khatmah.todayWirdEnd) {
-      doneBtn.innerHTML = '✓ إتمام وحفظ الورد'; doneBtn.style.background = 'var(--accent-deep)'; doneBtn.style.borderColor = 'var(--accent-deep)'; doneBtn.style.color = '#f4f1e8';
-  } else {
-      doneBtn.innerHTML = '✓ إنهاء الورد'; doneBtn.style.background = ''; doneBtn.style.borderColor = ''; doneBtn.style.color = '';
-  }
-
-  updateHeaderSubtitle();
-
   // مسار بيانات موحّد: المصحف المحلّى المحلّي أولاً ثم مخبأ الصفحة ثم الشبكة
   await renderMushafPage(pageNum, { surahHeader: true });
 
@@ -3133,13 +3180,74 @@ async function loadKhatmahPage(pageNum) {
   // الرجوع لصفحة سابقة لإعادة القراءة يجب ألّا يمحو ما تحقق.
   state.khatmah.lastPageRead = Math.max(state.khatmah.lastPageRead || 0, pageNum);
   state.khatmah.currentPage = pageNum;
-  saveState(); updateKhatmahUI();
+  saveState(); updateKhatmahUI(); updateHeaderSubtitle();
+  renderWirdChrome();
+}
+
+// شريط ورد الختمة + مسار النطاق + زر الإتمام داخل القارئ الموحّد.
+// تُستدعى عند فتح الصفحة وعند أي تغيير للشاشة حتى لا يبقى شيء منها معلّقاً.
+function renderWirdChrome() {
+  const k = state.khatmah;
+  const isKhatmah = state.mushafMode === 'khatmah-read' && !!(k && k.active);
+  const banner = document.getElementById('mushaf-wird-banner');
+  const fab = document.getElementById('mushaf-wird-fab');
+  if (banner) banner.classList.toggle('visible', isKhatmah);
+  const container = document.getElementById('reading-progress-container');
+  if (container) container.classList.toggle('wird-mode', isKhatmah);
+  if (!isKhatmah) { if (fab) fab.classList.remove('visible'); return; }
+  const s = k.todayWirdStart || 1, e = k.todayWirdEnd || s, cur = k.currentPage || s;
+  const remain = Math.max(0, e - cur);
+  const range = document.getElementById('mwb-range');
+  if (range) range.textContent = `صفحات ${toArabicNum(s)} – ${toArabicNum(e)}`;
+  const rem = document.getElementById('mwb-remain');
+  if (rem) rem.textContent = remain > 0 ? `${toArabicNum(remain)} صفحة متبقية` : 'أتممت ورد اليوم ✓';
+  if (fab) fab.classList.toggle('visible', cur >= e);
+  // مسار النطاق: النسبة من ٦٠٤ صفحة
+  const r = document.getElementById('wird-range');
+  if (r) { r.style.left = (s / 604 * 100).toFixed(2) + '%'; r.style.width = ((e - s + 1) / 604 * 100).toFixed(2) + '%'; }
+  const cursor = document.getElementById('wird-cursor');
+  if (cursor) cursor.style.left = (Math.min(cur, 604) / 604 * 100).toFixed(2) + '%';
+  renderWirdDots();
+}
+
+// نقاط المرجعيات على مسار الورد: صفحات تحوي آية محفوظة
+function renderWirdDots() {
+  const dots = document.getElementById('wird-dots');
+  if (!dots) return;
+  dots.innerHTML = '';
+  const M = window.MushafPageManager;
+  if (!M || !window.BookmarkManager) return;
+  let verses = [];
+  try { verses = BookmarkManager.getAll().verses || []; } catch (e) { return; }
+  // الرقم العالمي للآية = مجموع آيات السور السابقة + رقمها داخل سورتها
+  const list = window.allSurahs || [];
+  for (const v of verses) {
+    let g = 0;
+    for (let i = 0; i < v.surah - 1 && i < list.length; i++) g += list[i].numberOfAyahs || 0;
+    g += v.ayah || 0;
+    let p = 0;
+    if (M.ayahs && M.ayahs.length) p = M.pageOfAyah(g) || 0;   // فهرس المصحف الكامل إن توفر
+    if (!p) {
+      // وإلا فابحث في الصفحات المحمّلة فعلاً
+      for (let q = 1; q <= 604; q++) {
+        const arr = M.pages[q];
+        if (arr && arr.some(a => a.number === g)) { p = q; break; }
+      }
+    }
+    if (p > 0) {
+      const d = document.createElement('i');
+      d.className = 'wird-dot';
+      d.style.left = (p / 604 * 100).toFixed(2) + '%';
+      dots.appendChild(d);
+    }
+  }
 }
 
 window.changeKhatmahPage = function(dir) {
-  let np = state.khatmah.currentPage + dir;
-  if (np >= 1 && np <= 604) { state.khatmah.currentPage = np; saveState(); loadKhatmahPage(np); }
-}
+  // القارئ الموحّد يتولّى التنقّل (قلب الصفحة أو الأزرار) — المسار واحد لكلا القارئين
+  if (!state.khatmah) return;
+  gotoMushafPage((state.khatmah.currentPage || 1) + dir);
+};
 
 window.completeWird = async function() {
   const nx = Math.max(state.khatmah.todayWirdEnd, state.khatmah.lastPageRead) + 1;
@@ -3778,6 +3886,9 @@ document.addEventListener('DOMContentLoaded', () => {
   bindGesturesAndScroll();
   // محرّك قلب الصفحات على لوحة القارئ الموحّد
   if (window.PageFlipEngine) PageFlipEngine.bind();
+  // زر إتمام الورد في قارئ الختمة
+  const wirdFab = document.getElementById('mushaf-wird-fab');
+  if (wirdFab) wirdFab.addEventListener('click', () => { if (window.completeWird) completeWird(); });
 
   // اضبط الفراغ البصري لشريط التنقل حسب منطقة الأمان الفعلية للجهاز.
   // CSS لا يستطيع قياس env() كرقم، لذا نقيسه هنا مرة واحدة عند البدء
