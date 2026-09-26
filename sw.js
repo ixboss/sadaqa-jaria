@@ -1,9 +1,9 @@
 // ==================== Service Worker — إسلامي ====================
-// v42: تقليص فراغات القرآن (bismillah 36px→20px، label 10px→6px، khatmah 20px→14px)
-//      + التقدم التلقائي للأذكار (تبديل ⏭ في شاشة الذكر، انتقال بعد 1.5 ثانية)
-const CACHE_NAME = 'quran-app-v42';
-const API_CACHE = 'quran-api-v42';
-const STATIC_CACHE = 'static-v42';
+// v43: القارئ الموحّد — صفحة واحدة للسورة والختمة + محرّك قلب الصفحات
+//      (pageflip.js وحدة جديدة؛ سبقتها mushaf.js في v42)
+const CACHE_NAME = 'quran-app-v43';
+const API_CACHE = 'quran-api-v43';
+const STATIC_CACHE = 'static-v43';
 
 const PRECACHE_URLS = [
   './',
@@ -17,6 +17,8 @@ const PRECACHE_URLS = [
   './backup.js',
   // محرّك المصحف الموحّد (فهرس الـ٦٠٤ صفحة) — يلزم القراءة بلا إنترنت
   './mushaf.js',
+  // محرّك قلب الصفحات (السحب ثلاثي الأبعاد + بديل الحركة المخفّضة)
+  './pageflip.js',
   // أيقونات التثبيت: تُخزَّن مسبقاً حتى تعمل الشاشة الرئيسية دون اتصال
   './icons/icon-120.png',
   './icons/icon-152.png',

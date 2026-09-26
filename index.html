@@ -3672,6 +3672,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('resize', () => { syncNavSafeArea(); snapNavIndicator(); });
   bindGesturesAndScroll();
+  // محرّك قلب الصفحات على لوحة القارئ الموحّد
+  if (window.PageFlipEngine) PageFlipEngine.bind();
 
   // اضبط الفراغ البصري لشريط التنقل حسب منطقة الأمان الفعلية للجهاز.
   // CSS لا يستطيع قياس env() كرقم، لذا نقيسه هنا مرة واحدة عند البدء
@@ -3848,6 +3850,8 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./backup.js" defer></script>
 <!-- محرّك المصحف الموحّد: فهرس الـ٦٠٤ صفحة + تخزين القرآن محلياً (IndexedDB) -->
 <script src="./mushaf.js" defer></script>
+<!-- محرّك قلب الصفحات: سحب ثلاثي الأبعاد + زخم + بديل الحركة المخفّضة -->
+<script src="./pageflip.js" defer></script>
 <script>
 // Register Service Worker with enhanced error handling
 if ('serviceWorker' in navigator) {
