@@ -682,6 +682,73 @@ body.mushaf-hud .mushaf-topbar { opacity: 1; pointer-events: auto; transform: tr
 .mt-btn:active { transform: scale(0.92); }
 .mt-btn.mt-active { background: var(--accent); color: var(--color-on-accent); border-color: transparent; }
 
+/* ===== قرص التلاوة الطافي (مرحلة ٤) ===== */
+.mushaf-audio-pill {
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 62px); left: 12px; right: 12px; z-index: 7;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--accent); border-radius: 16px;
+  padding: 6px 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.32);
+  opacity: 0; pointer-events: none; transform: translateY(-10px) scale(0.97);
+  transition: opacity 220ms var(--ease-out-quart), transform 240ms var(--ease-spring-snap);
+}
+.mushaf-audio-pill.visible { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
+.mushaf-audio-pill .map-btn {
+  flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--accent); color: var(--color-on-accent);
+  font-size: calc(var(--font-size) * 0.44); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 160ms var(--ease-spring-snap);
+}
+.mushaf-audio-pill .map-btn:active { transform: scale(0.9); }
+.mushaf-audio-pill .map-close { background: transparent; color: var(--text-dim); border-color: transparent; }
+.mushaf-audio-pill .map-info { flex: 1; min-width: 0; }
+.mushaf-audio-pill .map-surah { font-size: calc(var(--font-size) * 0.4); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mushaf-audio-pill .map-ayah { font-size: calc(var(--font-size) * 0.34); color: var(--text-dim); }
+.mushaf-audio-pill .map-reciter {
+  flex-shrink: 0; border: 1px solid var(--border); background: transparent; color: var(--text);
+  border-radius: 999px; padding: 5px 12px; cursor: pointer; font-size: calc(var(--font-size) * 0.34);
+  transition: transform 160ms var(--ease-spring-snap);
+}
+.mushaf-audio-pill .map-reciter:active { transform: scale(0.94); }
+/* الوضع الهادئ: القرص يصبح مشغّلاً مصغّراً بالأسفل — لا كروم للقراءة،
+   لكن يبقى للمستخدم سبيل لإيقاف التلاوة */
+body.mushaf-zen .mushaf-audio-pill { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); }
+/* داخل القارئ الموحّد، الشريط الصوتي العام يتنحّي لصالح القرص */
+body.reader-audio-on #audio-bar { display: none !important; }
+
+/* ===== ورقة سفلية بسيطة (مرحلة ٤: اختيار القارئ) ===== */
+.sheet-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; transition: opacity 200ms ease-out;
+}
+.sheet-overlay.visible { opacity: 1; }
+.bottom-sheet {
+  width: 100%; max-width: 480px;
+  background: var(--surface); color: var(--text);
+  border-top-left-radius: 20px; border-top-right-radius: 20px;
+  border-top: 1px solid var(--border);
+  padding: 8px 12px calc(env(safe-area-inset-bottom, 0px) + 14px);
+  box-shadow: 0 -12px 40px rgba(0,0,0,0.4);
+  transform: translateY(100%); transition: transform 280ms var(--ease-spring-snap);
+}
+.sheet-overlay.visible .bottom-sheet { transform: translateY(0); }
+.sheet-title {
+  text-align: center; font-size: calc(var(--font-size) * 0.42); font-weight: 700;
+  color: var(--accent); padding: 6px 0 10px;
+}
+.sheet-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 12px 14px; margin-bottom: 6px;
+  background: transparent; border: 1px solid transparent; border-radius: 12px;
+  color: var(--text); font-size: calc(var(--font-size) * 0.42); cursor: pointer;
+  transition: background 160ms, border-color 160ms;
+}
+.sheet-item:hover { background: var(--surface-2, rgba(255,255,255,0.05)); }
+.sheet-item.active { border-color: var(--accent); background: rgba(127,170,255,0.1); }
+.sheet-tick { color: var(--accent); font-weight: 700; }
+
 /* لوحة الصفحة: محرّك القلب يكتب تحويلاته على هذا العنصر (مرحلة ٣) */
 .mushaf-viewport {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
@@ -1281,6 +1348,16 @@ body.theme-light .settings-chip.danger { color: #a93226; }
         </div>
         <button class="mt-btn" id="mt-search" aria-label="البحث في القرآن">🔍</button>
         <button class="mt-btn" id="mt-settings" aria-label="إعدادات القارئ">⚙</button>
+      </div>
+      <!-- قرص التلاوة الطافي: يظهر في الوضع النشط أثناء التشغيل (مرحلة ٤) -->
+      <div class="mushaf-audio-pill" id="mushaf-audio-pill">
+        <button class="map-btn" id="map-play" aria-label="تشغيل/إيقاف">⏸</button>
+        <div class="map-info">
+          <div class="map-surah" id="map-surah"></div>
+          <div class="map-ayah" id="map-ayah"></div>
+        </div>
+        <button class="map-reciter" id="map-reciter" aria-label="اختيار القارئ"></button>
+        <button class="map-btn map-close" id="map-close" aria-label="إيقاف التلاوة">×</button>
       </div>
       <!-- لوحة الصفحة: محرّك القلب يكتب تحويلاته هنا (مرحلة ٣) -->
       <div class="mushaf-viewport" id="mushaf-viewport">
@@ -2005,6 +2082,9 @@ function showScreen(screenId, animClass = 'active') {
 
   if (state.currentScreen !== screenId) state.previousScreen = state.currentScreen;
   state.currentScreen = screenId;
+  // قرص التلاوة يظهر فقط داخل القارئ — أعد رسم موقعه هنا لأن تغيير الشاشة
+  // لا يُطلق حدث AudioPlayer
+  if (window.ReaderAudioPill) ReaderAudioPill.render();
   // التبويب المضيء يجب أن يمثّل الشاشة المعروضة دائماً (الشاشات المشتركة ترث أصلها)
   syncNavTab(SCREEN_TAB[screenId] || state.currentTab);
   // أخفِ شريط إجراءات الآية عند مغادرة قارئ السورة
@@ -2638,6 +2718,21 @@ window.changeMushafPage = async function(dir) {
   const n = M.clampPage(state.mushafPage + dir);
   if (n === state.mushafPage) return;
   hideAyahBar();
+  await gotoMushafPage(n);
+  // التلاوة الجارية تتّبع صفحة المستخدم اليدوية (لا تنافسها)
+  if (window.AudioPlayer && AudioPlayer.repointForPage) AudioPlayer.repointForPage(n);
+};
+
+// الانتقال لصفحة محددة (مسار مشترك للتنقّل اليدوي والقلب الآلي للتلاوة).
+// لا حركة هنا: الرسم الفوري هو ما يسمح للتلاوة المتواصلة بالعبور دون انتظار.
+window.gotoMushafPage = async function(n) {
+  const M = window.MushafPageManager;
+  if (!M) return;
+  n = M.clampPage(n);
+  if (n === state.mushafPage) {
+    if (window.AudioPlayer && AudioPlayer.refreshHighlight) AudioPlayer.refreshHighlight();
+    return;
+  }
   if (state.currentScreen === 'khatmah-read') {
     state.khatmah.currentPage = n; saveState();
     await loadKhatmahPage(n);
@@ -2853,7 +2948,16 @@ function onAyahBarAction(act) {
   if (act === 'close') { hideAyahBar(); return; }
   if (act === 'play') {
     hideAyahBar();
-    if (window.AudioPlayer && d) AudioPlayer.playFromAyah(d.surah, d.ayah);
+    // ابدأ من الصفحة المعروضة ومن الآية المحددة بالضبط — يعمل من مسارَي
+    // السورة والختمة على حد سواء (القائمة تُبنى من آيات الصفحة نفسها)
+    if (window.AudioPlayer && d) {
+      const st = window.state || {};
+      if (st.mushafPage && window.MushafPageManager && d.global) {
+        AudioPlayer.playFromPage(st.mushafPage, { fromGlobal: d.global });
+      } else {
+        AudioPlayer.playFromAyah(d.surah, d.ayah);
+      }
+    }
     return;
   }
   if (act === 'copy') {
