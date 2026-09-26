@@ -169,7 +169,162 @@ async function main() {
     })()`);
     ok('(c) Khatmah: unified reader in khatmah mode', khatmahChrome.mode === 'khatmah-read', khatmahChrome);
     ok('(c) Khatmah: wird banner shows the range', khatmahChrome.banner && khatmahChrome.range.length > 0, khatmahChrome);
-    
+
+    // ─── (d) Corpus identity: 604 pages, page N renders its own first ayah ──
+    console.log('\n(d) Corpus identity...');
+    const corpus = await evaljs(`(() => {
+      const M = window.MushafPageManager;
+      return { clamp605: M.clampPage(605), clamp0: M.clampPage(0) };
+    })()`);
+    ok('(d) corpus clamps to 604 pages', corpus.clamp605 === 604 && corpus.clamp0 === 1, JSON.stringify(corpus));
+
+    await evaljs(`window.gotoMushafPage(604)`);
+    for (let i = 0; i < 50 && await evaljs(`state.mushafPage`) !== 604; i++) await sleep(300);
+    await sleep(400);
+    const last = await evaljs(`(() => {
+      const f = document.querySelector('#mushaf-page-foot .mpf-page')?.textContent;
+      return { page: state.mushafPage, foot: f, nextDisabled: document.getElementById('mp-next')?.disabled,
+               prevDisabled: document.getElementById('mp-prev')?.disabled };
+    })()`);
+    ok('(d) last page renders ٦٠٤ and blocks forward nav',
+      last.page === 604 && last.foot === '٦٠٤' && last.nextDisabled === true && last.prevDisabled === false, JSON.stringify(last));
+
+    // الصفحة ٣ تطابق أول آية في فهرس الصفحة نفسها
+    await evaljs(`window.gotoMushafPage(3)`);
+    for (let i = 0; i < 50 && await evaljs(`state.mushafPage`) !== 3; i++) await sleep(300);
+    await sleep(400);
+    const identity = await evaljs(`(() => {
+      const M = window.MushafPageManager;
+      const a = M.pageAyahs(3)[0] || {};
+      const el = document.querySelector('#verses-container .ayah');
+      return { indexed: { s: a.surah && a.surah.number, n: a.numberInSurah },
+               rendered: el ? { s: +el.dataset.surah, n: +el.dataset.ayah } : null };
+    })()`);
+    ok('(d) page 3 renders the ayah the page index declares',
+      identity.rendered && identity.indexed.s === identity.rendered.s && identity.indexed.n === identity.rendered.n,
+      JSON.stringify(identity));
+
+    // ─── (e) prev/next buttons step by one page ────────────────
+    console.log('\n(e) prev/next...');
+    await evaljs(`document.getElementById('mp-next').click()`);
+    for (let i = 0; i < 50 && await evaljs(`state.mushafPage`) !== 4; i++) await sleep(300);
+    ok('(e) next → page 4', await evaljs(`state.mushafPage`) === 4, 'page=' + await evaljs(`state.mushafPage`));
+    await evaljs(`document.getElementById('mp-prev').click()`);
+    for (let i = 0; i < 50 && await evaljs(`state.mushafPage`) !== 3; i++) await sleep(300);
+    ok('(e) prev → back to page 3', await evaljs(`state.mushafPage`) === 3, 'page=' + await evaljs(`state.mushafPage`));
+
+    // ─── (f) surah-list → reader lands on the surah's first page ─
+    console.log('\n(f) surah entry point...');
+    await evaljs(`window.openSurah(18)`);
+    for (let i = 0; i < 60 && !await evaljs(`!!document.querySelector('#verses-container .ayah')`); i++) await sleep(300);
+    await sleep(400);
+    const entry = await evaljs(`(() => {
+      const M = window.MushafPageManager;
+      const el = document.querySelector('#verses-container .ayah');
+      // في المسار الشبكي يُحَل الصفحة من بيانات السورة (firstPageOfSurah
+      // يحتاج فهارس المصحف الكامل) — هذه هي القيمة التي اعتمدها القارئ
+      const data = state.currentSurahData;
+      return {
+        page: state.mushafPage,
+        resolvedFirstPage: data && data.ayahs && data.ayahs.length ? data.ayahs[0].page : null,
+        surah: el ? +el.dataset.surah : null, ayah: el ? +el.dataset.ayah : null,
+        mode: state.mushafMode
+      };
+    })()`);
+    ok('(f) Al-Kahf opens on its first page',
+      entry.page === entry.resolvedFirstPage && entry.surah === 18 && entry.ayah === 1, JSON.stringify(entry));
+    ok('(f) surah route is surah-view mode', entry.mode === 'surah-view', JSON.stringify(entry));
+
+    // ─── (g) Khatmah entry: the wird page + centered scrubber cursor ──
+    console.log('\n(g) khatmah entry point...');
+    await evaljs(`window.switchTab && switchTab('khatmah')`);
+    await sleep(300);
+    await evaljs(`window.openKhatmahReader()`);
+    for (let i = 0; i < 50 && await evaljs(`state.mushafPage`) !== (await evaljs(`state.khatmah && state.khatmah.currentPage`)); i++) await sleep(300);
+    await sleep(400);
+    await evaljs(`window.exitZenMode && exitZenMode()`);
+    await sleep(300);
+    const wird = await evaljs(`(() => {
+      const c = document.getElementById('reading-progress-container');
+      const track = c.querySelector('#wird-track');
+      const cur = c.querySelector('#wird-cursor');
+      const tr = track.getBoundingClientRect(), cr = cur.getBoundingClientRect();
+      const k = state.khatmah;
+      return {
+        page: state.mushafPage,
+        cur: k && k.currentPage,
+        start: k && k.todayWirdStart,
+        cursorCenter: Math.round((cr.left + cr.right) / 2 - tr.left),
+        trackW: Math.round(tr.width),
+        expectedPct: state.mushafPage / 604
+      };
+    })()`);
+    ok('(g) khatmah opens the reader at the saved wird page', wird.page === wird.cur, JSON.stringify(wird));
+    // مؤشّر الصفحة يقف على مركز المسار ضمن النسبة الصحيحة للصفحة الحالية
+    const cursorPct = wird.cursorCenter / wird.trackW;
+    ok('(g) scrubber cursor marks the current page position',
+      Math.abs(cursorPct - wird.expectedPct) < 0.02, JSON.stringify(wird));
+
+    // ─── (h) Audio: pill appears and continues across a page turn ──
+    console.log('\n(h) floating audio...');
+    // شغّل المسار الحقيقي دون الاعتماد على تشغيل المتصفح الصامت: اترك العنصر
+    // الحقيقي (مستمعوه مربوطون) لكن اعترض play()/src حتى لا نلمس الشبكة
+    await evaljs(`(() => {
+      const A = window.AudioPlayer;
+      A.ensure();
+      const el = A.audio;
+      el.play = function () { this.paused = false; return Promise.resolve(); };
+      Object.defineProperty(el, 'src', { value: '', writable: true, configurable: true });
+      A.playFromPage(state.mushafPage, {});
+      return true;
+    })()`);
+    let pill = null;
+    for (let i = 0; i < 40; i++) {
+      pill = await evaljs(`(() => {
+        const A = window.AudioPlayer;
+        const p = document.getElementById('mushaf-audio-pill');
+        const bar = document.getElementById('audio-bar');
+        return A.curItem ? {
+          pillVisible: p.classList.contains('visible'),
+          readerAudioOn: document.body.classList.contains('reader-audio-on'),
+          audioBarHidden: bar ? getComputedStyle(bar).display === 'none' : null,
+          global: A.curItem.global, page: A.curItem.page,
+          mushafPage: state.mushafPage,
+          text: p.querySelector('#map-surah').textContent
+        } : null;
+      })()`);
+      if (pill && pill.pillVisible) break;
+      await sleep(300);
+    }
+    ok('(h) floating pill appears with the reciting ayah',
+      !!pill && pill.pillVisible && pill.readerAudioOn && pill.page === pill.mushafPage, JSON.stringify(pill));
+    ok('(h) the general audio bar yields to the pill',
+      !!pill && pill.audioBarHidden === true, JSON.stringify(pill));
+
+    // تقدّم آيةً آية حتى تعبر الآية الجارية حدود الصفحة: القلب الآلي هو
+    // ما يجعل التلاوة متواصلة عبر الصفحات
+    const startPage = pill.mushafPage;
+    let crossed = null;
+    for (let i = 0; i < 60; i++) {
+      await evaljs(`window.AudioPlayer.advance()`);
+      for (let j = 0; j < 30; j++) {
+        crossed = await evaljs(`(() => {
+          const A = window.AudioPlayer;
+          return A.curItem ? { page: A.curItem.page, mushafPage: state.mushafPage } : null;
+        })()`);
+        if (crossed && crossed.page > startPage) break;
+        await sleep(250);
+      }
+      if (crossed && crossed.page > startPage) break;
+    }
+    ok('(h) recitation auto-turns onto the next page',
+      !!crossed && crossed.page > startPage && crossed.mushafPage === crossed.page, JSON.stringify({ startPage, crossed }));
+    await evaljs(`window.AudioPlayer.stop && AudioPlayer.stop()`);
+    await sleep(300);
+    ok('(h) stopping drops the pill',
+      await evaljs(`!document.getElementById('mushaf-audio-pill').classList.contains('visible') &&
+                   !document.body.classList.contains('reader-audio-on')`), true);
+
   } finally {
     browser.kill();
   }
