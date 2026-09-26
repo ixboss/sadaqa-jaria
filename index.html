@@ -577,6 +577,8 @@ body.theme-light .surah-header-card { box-shadow: 0 4px 15px rgba(31, 122, 90, 0
 .surah-h-name { font-size: calc(var(--font-size)); font-weight: 700; color: var(--color-on-accent); transition: font-size 0.3s, color 0.3s; }
 body.theme-light .surah-h-name { color: var(--color-on-accent); }
 .surah-h-meta { font-size: calc(var(--font-size) * 0.5); color: rgba(244, 241, 232, 0.85); margin-top: 4px; transition: font-size 0.3s, color 0.3s; }
+/* الوضع الفاتح: شبه الأبيض على بطاقة --surface شبه البيضاء لا يُقرأ — اجعله باهتاً موضوعياً */
+body.theme-light .surah-h-meta { color: var(--text-dim); }
 .bookmark-btn { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.2); border: none; color: var(--color-on-accent); font-size: calc(var(--font-size) * 0.77); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; transition: transform 0.2s; }
 body.theme-light .bookmark-btn { background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); color: var(--color-on-accent); }
 .bookmark-btn:active { transform: scale(0.8); }
@@ -632,6 +634,15 @@ body.mushaf-theme-floral {
   --mushaf-ink: #24382a;
   --mushaf-frame: #c07a8c;
   --mushaf-frame-soft: rgba(192, 122, 140, 0.35);
+}
+/* الوضع الليلي: ورقة داكنة وحبر فاتح — يتبع ثيم التطبيق تلقائياً في
+   الوضع التلقائي، وإلا يُختار صراحةً من إعدادات القارئ. */
+body.mushaf-theme-night {
+  --mushaf-paper: #17211d;
+  --mushaf-paper-2: #111a17;
+  --mushaf-ink: #ece4cf;
+  --mushaf-frame: #b39a5a;
+  --mushaf-frame-soft: rgba(179, 154, 90, 0.32);
 }
 
 #screen-mushaf { display: none; flex-direction: column; height: 100%; padding: 0; max-width: 100%; }
@@ -820,6 +831,8 @@ body.mushaf-zen .mushaf-page { padding-top: calc(env(safe-area-inset-top, 0px) +
 .mushaf-page .surah-h-name { color: var(--mushaf-ink); font-family: 'Amiri Quran', 'Amiri', serif; font-size: calc(var(--mushaf-size) * 0.62); }
 .mushaf-page .bismillah { color: var(--mushaf-ink); opacity: 0.9; }
 .mushaf-page .ayah-badge { background: rgba(0,0,0,0.06); color: var(--mushaf-ink); border-color: var(--mushaf-frame); }
+/* الوضع الليلي: شارة بخلفية داكنة لا فاتحة فوق الورقة الداكنة */
+body.mushaf-theme-night .mushaf-page .ayah-badge { background: rgba(255,255,255,0.08); }
 .mushaf-page .ayah.bookmarked .ayah-badge { background: var(--mushaf-frame); color: #fff; box-shadow: 0 0 0 2px var(--mushaf-paper); }
 .mushaf-page .w.reciting, .mushaf-page .w.reciting-now { color: var(--mushaf-frame); }
 .mushaf-page .w.reciting-now { background: var(--mushaf-frame-soft); }
@@ -2041,6 +2054,8 @@ function applyTheme(th) {
   if(th === 'light') { document.body.classList.add('theme-light'); themeBtn.textContent = '☀️'; themeBtn.title = 'الوضع الداكن'; }
   else { document.body.classList.remove('theme-light'); themeBtn.textContent = '🌙'; themeBtn.title = 'الوضع الفاتح'; }
   try { localStorage.setItem('theme', th); } catch(e) {}
+  // ثيم الصفحة التلقائي يتبع ثيم التطبيق — أعد حله فوراً عند التبديل
+  if (window.ReaderSettings) ReaderSettings.applyAll();
   // لون شريط الحالة يتطابق مع الوضع الحالي (PWA)
   const metaTheme = document.getElementById('meta-theme-color');
   if (metaTheme) metaTheme.setAttribute('content', th === 'light' ? '#f5f1e8' : '#0a1f28');
