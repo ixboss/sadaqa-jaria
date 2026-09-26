@@ -720,6 +720,7 @@ const DeepLinks = {
       const ayahNo = parts[2] ? parseInt(parts[2], 10) : null;
       window.openSurah(parseInt(parts[1], 10), ayahNo);
     }
+    else if (route === 'quran' && window.switchTab) { window.switchTab('quran'); }
     else if (route === 'khatmah' && window.switchTab) { window.switchTab('khatmah'); }
     else if (route === 'athkar' && window.switchTab) { window.switchTab('athkar'); }
     else if (route === 'tasbih' && window.openTasbih) { window.openTasbih(); }
