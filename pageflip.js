@@ -188,7 +188,9 @@
 
   // ---------------------------------------------------------------- gestures
   function onDown(e) {
-    if (!enabled || !isReader() || flipping) return;
+    // حتى في الوضع العمودي (المحرّك معطّل) نتابع الإيماءة: النقرة تبقى
+    // تعمل (تبديل الوضع) — السحب فقط هو الذي يُمنع داخل onMove.
+    if (!isReader() || flipping) return;
     if (isControl(e.target)) return;
     // تحديد نص قائم (من إيماءة فأرة سابقة): يمنع السحب فقط، ولا يبطل النقرة
     // التالية — وإلا ظلّ التحديد يبتلع كل لمسة على الحاسوب حتى يُمسح يدوياً.
@@ -212,6 +214,8 @@
       if (Math.abs(dx) < LOCK_PX && Math.abs(dy) < LOCK_PX) return;
       // تمرير عمودي: اتركه للمتصفح (touch-action: pan-y)
       if (Math.abs(dy) > Math.abs(dx)) { cleanup(); return; }
+      // وضع التمرير العمودي: لا قلب، لكن النقرة التي بدأت الإيماءة محفوظة
+      if (!enabled) { cleanup(); return; }
       // بدأ المستخدم بتحديد نص بالفأرة — لا ننازعه هذه الإيماءة
       if (selectionBlock) { cleanup(); return; }
       active = true;
