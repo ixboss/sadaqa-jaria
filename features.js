@@ -753,8 +753,8 @@ const AudioPlayer = {
   },
   // أضف زر التشغيل لبطاقة رأس السورة
   bindSurahHeader() {
-    // استخدم class بدلاً من id مكرر، واقتصر على بطاقة رأس السورة في شاشة العرض
-    const card = document.querySelector('#screen-surah-view .surah-header-card');
+    // استخدم class بدلاً من id مكرر، واقصر على بطاقة رأس السورة في القارئ الموحّد
+    const card = document.querySelector('#screen-mushaf .mushaf-topbar .surah-header-card');
     if (!card || card.querySelector('.audio-play')) return;
     const btn = document.createElement('button');
     // بدون bookmark-btn حتى لا يلتقطه مفوّض المرجعيات في app.js
