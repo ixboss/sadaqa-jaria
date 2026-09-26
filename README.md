@@ -311,20 +311,24 @@ Not out of dogma — but because every one of them would add a build step, a dep
 
 ## 📴 Offline Behaviour
 
+Verified by `tests/e2e-offline-shell.mjs`: after the first online load the service worker precaches the entire app shell, and a cold reload with the network cut at the OS level still boots the app, renders all 114 surahs in the index, and opens Settings including backup export/import/clear.
+
 | Works offline | Needs a connection |
 |---|---|
-| ✅ Full 114-surah index | ❌ Ayah text (first view of a surah) |
-| ✅ All adhkar & supplications | ❌ Audio recitation |
-| ✅ Tasbih | ❌ Fonts on first load |
+| ✅ Full 114-surah index (bundled in `surah-meta.js`) | ❌ Ayah text (first view of a surah — fetched from alquran.cloud) |
+| ✅ All adhkar & supplications | ❌ Audio recitation (streamed per-ayah MP3) |
+| ✅ Tasbih | ❌ The Quran font on first load |
 | ✅ Khatmah tracker | |
 | ✅ Bookmarks, stats, settings | |
-| ✅ Previously-read surahs | |
+| ✅ Backup export / import / clear | |
+| ✅ Previously-read surahs (cached API responses) | |
 
-**Caching strategy:**
+**Caching strategy** (as implemented in `sw.js`):
 
-- **Static assets** — *Cache-First*, falling back to network
-- **API responses** — *Network-First*, falling back to cache when offline
-- **Cache versioning** — old caches are purged automatically on activation
+- **App shell** — precached on install (`PRECACHE_URLS`), then *Network-First* falling back to cache, so an offline reload still serves the last-known good shell
+- **Static assets** (JS/CSS/icons/fonts already fetched) — *Network-First*, falling back to cache
+- **API responses** (`api.alquran.cloud`) — *Cache-First* with a 5s timeout, plus a background `cache: no-store` refresh so a cached surah is served instantly and updated for next time
+- **Cache versioning** — stale caches are purged automatically on activation, while the Quran-text cache is preserved across version bumps so offline readers don't re-download what they already have
 
 ---
 

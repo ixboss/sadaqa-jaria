@@ -14,6 +14,7 @@ const PRECACHE_URLS = [
   './features.js',
   './config.js',
   './app.js',
+  './backup.js',
   // أيقونات التثبيت: تُخزَّن مسبقاً حتى تعمل الشاشة الرئيسية دون اتصال
   './icons/icon-120.png',
   './icons/icon-152.png',
