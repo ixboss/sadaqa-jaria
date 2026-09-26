@@ -389,7 +389,75 @@
     return M.download();
   };
 
-  /* ==================== استعلامات ==================== */
+  /* ==================== مُوفِّر الصفحة الموحّد ====================
+     ضامن واحد لعرض أي صفحة من ١..٦٠٤ بصرف النظر عن توافر المصحف الكامل:
+       ١) فهرس المصحف المحلّي إن جاهزاً (سريع، يعمل بلا إنترنت)
+       ٢) مخبأ localStorage خاص بالصفحة ( نفس عمر مخبأ السور: ٧ أيام)
+       ٣) طلب الشبكة /page/{n} ثم خزّنه في الفهرس وفي المخبأ
+     النتيجة داخلة في M.pages[n] فيُصبح pageHTML() وكل الاستعلامات الأخرى
+     صالحة لكلا المسارين بنفس الشكل تماماً. */
+  var PAGE_TTL = 7 * 24 * 60 * 60 * 1000;
+  function pageCacheKey(n) { return 'q_p_u_' + n; }
+
+  function seedPage(n, ayahs) {
+    var arr = [];
+    for (var i = 0; i < ayahs.length; i++) {
+      var a = ayahs[i];
+      if (a && typeof a.page === 'number') arr.push(a);
+    }
+    M.pages[n] = arr;
+    if (arr.length && !M.juzOfPage[n]) M.juzOfPage[n] = arr[0].juz || null;
+  }
+
+  M.ensurePage = function (n) {
+    n = M.clampPage(n);
+    if (M.pages[n] && M.pages[n].length) return Promise.resolve(M.pages[n]);
+    // مخبأ الصفحة: ينجّي العمل بلا إنترنت لمن تصفّح الصفحة من قبل
+    try {
+      var raw = lsGet(pageCacheKey(n));
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.ayahs) && Date.now() - (parsed._ts || 0) < PAGE_TTL) {
+          seedPage(n, parsed.ayahs);
+          return Promise.resolve(M.pages[n]);
+        }
+        lsDel(pageCacheKey(n));
+      }
+    } catch (e) {}
+    return fetch('https://api.alquran.cloud/v1/page/' + n + '/quran-uthmani')
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (json) {
+        var ayahs = json && json.data && json.data.ayahs;
+        if (!Array.isArray(ayahs) || !ayahs.length) throw new Error('صفحة فارغة');
+        seedPage(n, ayahs);
+        try { lsSet(pageCacheKey(n), JSON.stringify({ ayahs: ayahs, _ts: Date.now() })); } catch (e) {}
+        return M.pages[n];
+      });
+  };
+
+  /* توزيع آيات سورة كاملة (من مسار الشبكة) على الصفحات — يُستخدم عند فتح
+     سورة قبل تنزيل المصحف الكامل، فتعمل بقية المحرّك كأنه محلي. */
+  M.seedFromSurah = function (surahData) {
+    var ayahs = surahData && Array.isArray(surahData.ayahs) ? surahData.ayahs : [];
+    // نقطة /surah/{n} لا تُرجع حقل surah داخل كل آية (السورة مفروضة من
+     // المسار)، بينما /page/{n} تُرجعه. أضِفه هنا ليصبح الشكلان متطابقين.
+    var sn = surahData && typeof surahData.number === 'number' ? surahData.number : 0;
+    var sname = surahData && surahData.name ? surahData.name : null;
+    var changed = false;
+    for (var i = 0; i < ayahs.length; i++) {
+      var a = ayahs[i];
+      if (!a || typeof a.page !== 'number') continue;
+      if (!a.surah && sn) a.surah = { number: sn, name: sname, englishName: (surahData.englishName || '') };
+      if (!M.pages[a.page]) { M.pages[a.page] = []; changed = true; }
+      if (!M.pages[a.page].some(function (x) { return x.number === a.number; })) {
+        M.pages[a.page].push(a); changed = true;
+      }
+      if (!M.juzOfPage[a.page]) M.juzOfPage[a.page] = a.juz || null;
+    }
+    return changed;
+  };
+
+  /* نسخة من ضامن الصفحة للاستخدام المتزامن بعد ضمانها (لا يُطلق طلبات) */
   M.pageAyahs = function (n) {
     n = Math.max(1, Math.min(TOTAL_PAGES, n | 0));
     return M.pages[n] || [];
@@ -409,7 +477,8 @@
     var ayahs = M.pageAyahs(n);
     var runs = [];
     for (var i = 0; i < ayahs.length; i++) {
-      var sn = ayahs[i].surah.number;
+      // حقل surah قد يتخلّف في بعض الاستجابات (مسار /surah/{n}) فلا يتعطّل الرسم
+      var sn = (ayahs[i].surah && ayahs[i].surah.number) || ayahs[i].surahNumber || 0;
       if (!runs.length || runs[runs.length - 1].surahNumber !== sn) {
         runs.push({ surahNumber: sn, startIndex: i, ayahs: [] });
       }

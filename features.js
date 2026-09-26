@@ -768,10 +768,10 @@ const AudioPlayer = {
       const nm = st.currentSurah ? st.currentSurah.name : '';
     if (!n) return;
     // ابدأ من الآية المحددة إن كانت على الصفحة المعروضة، وإلا فمن أول آية فيها
-    const pages = st.surahPages || [];
-    const idx = st.surahPageIndex || 0;
-    let fromAyah = (pages[idx] && pages[idx].ayahs[0] && pages[idx].ayahs[0].numberInSurah) || 1;
-    if (window.selectedAyahNo && pages[idx] && pages[idx].ayahs.some(a => a.numberInSurah === window.selectedAyahNo)) {
+    const M = window.MushafPageManager;
+    const pageAyahs = (M && st.mushafPage) ? M.pageAyahs(st.mushafPage) : [];
+    let fromAyah = (pageAyahs[0] && pageAyahs[0].numberInSurah) || 1;
+    if (window.selectedAyahNo && pageAyahs.some(a => a.numberInSurah === window.selectedAyahNo)) {
       fromAyah = window.selectedAyahNo;
     }
     this.play(n, nm, fromAyah);
@@ -859,6 +859,10 @@ const DeepLinks = {
       const ayahNo = parts[2] ? parseInt(parts[2], 10) : null;
       window.openSurah(parseInt(parts[1], 10), ayahNo);
     }
+    // قارئ موحّد عند صفحة بعينها ١..٦٠٤ (آخر ما قُرئ، أو رابط مباشر)
+    else if (route === 'page' && parts[1] && window.openMushafPage) {
+      window.openMushafPage(parseInt(parts[1], 10));
+    }
     else if (route === 'quran' && window.switchTab) { window.switchTab('quran'); }
     else if (route === 'khatmah' && window.switchTab) { window.switchTab('khatmah'); }
     else if (route === 'athkar' && window.switchTab) { window.switchTab('athkar'); }
@@ -873,7 +877,11 @@ const DeepLinks = {
       'surah-view': (window.state && window.state.currentSurah)
         ? '#/surah/' + window.state.currentSurah.number + (window.selectedAyahNo ? '/' + window.selectedAyahNo : '')
         : '#/quran',
-      'khatmah-main': '#/khatmah', 'khatmah-read': '#/khatmah',
+      'khatmah-main': '#/khatmah',
+      // للختمة رابطها الخاص: الصفحة الحالية ضمن القارئ الموحّد
+      'khatmah-read': (window.state && window.state.khatmah)
+        ? '#/page/' + (window.state.mushafPage || window.state.khatmah.currentPage || 1)
+        : '#/khatmah',
       'athkar-list': '#/athkar', 'thikr-view': '#/athkar',
       'tasbih': '#/tasbih', 'surah-list': '#/quran',
       'bookmarks': '#/bookmarks', 'stats': '#/stats', 'settings': '#/settings'
