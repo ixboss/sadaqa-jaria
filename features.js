@@ -263,6 +263,19 @@ const Settings = {
       </div>
 
       <div class="settings-card">
+        <div class="settings-label" style="margin-bottom:6px">القرآن بدون إنترنت</div>
+        <div class="surah-meta" id="quran-offline-desc" style="margin-bottom:10px">تنزيل المصحف الكامل (٦٠٤ صفحات) لقراءة القرآن والختمة بلا اتصال.</div>
+        <div class="settings-backup-row">
+          <button id="quran-dl" class="settings-chip" data-qoffline="download">تنزيل المصحف</button>
+          <button id="quran-dl-cancel" class="settings-chip danger" data-qoffline="cancel" hidden>إلغاء</button>
+          <button id="quran-dl-delete" class="settings-chip danger" data-qoffline="delete" hidden>حذف النسخة المحلية</button>
+        </div>
+        <div id="quran-dl-bar" class="quran-dl-bar" hidden><div id="quran-dl-fill" class="quran-dl-fill"></div></div>
+        <div id="quran-dl-note" class="quran-dl-note" hidden></div>
+        <div class="surah-meta" style="margin-top:8px; font-size:calc(var(--font-size) * 0.44)">المصدر: نص المصحف العثماني من alquran.cloud — نفس المصدر المستخدم عند القراءة أونلاين. يُخزَّن على جهازك فقط.</div>
+      </div>
+
+      <div class="settings-card">
         <div class="settings-label" style="margin-bottom:6px">النسخ الاحتياطي</div>
         <div class="surah-meta" style="margin-bottom:10px">صدقة جارية: بياناتك على جهازك فقط. صدِّرها إلى ملف قبل تغيير الجهاز أو مسح بيانات التطبيق.</div>
         <div class="settings-backup-row">
@@ -300,6 +313,15 @@ const Settings = {
         else if (act === 'import') { const f = document.getElementById('backup-file'); if (f) { f.value = ''; f.click(); } }
         return;
       }
+      const qo = e.target.closest('[data-qoffline]');
+      if (qo) {
+        Haptics.tap();
+        const act = qo.dataset.qoffline;
+        if (act === 'download') window.QuranOffline.startDownload();
+        else if (act === 'cancel') window.QuranOffline.cancelDownload();
+        else if (act === 'delete') window.QuranOffline.confirmDelete();
+        return;
+      }
     });
 
     const fileInput = el.querySelector('#backup-file');
@@ -326,6 +348,9 @@ const Settings = {
 
     const tgl = el.querySelector('#settings-reminders');
     if (tgl) tgl.addEventListener('click', () => this.toggleReminders());
+
+    // بطاقة القرآن بدون إنترنت: ربط المستمعات وتحديث الحالة الحالية
+    if (window.QuranOffline) { QuranOffline.bind(); QuranOffline.render(); }
   },
 
   async toggleReminders() {
@@ -344,6 +369,120 @@ const Settings = {
   }
 };
 window.Settings = Settings;
+
+/* ==================== 6b) QuranOffline — حالة تنزيل المصحف ==================== */
+// جسر صغير بين محرّك المصحف (mushaf.js) وبطاقة الإعدادات. لا يخزّن شيئاً
+// هو نفسه؛ كل الحالة في MushafPageManager.getStatus() + IndexedDB.
+const QuranOffline = {
+  _bound: false,
+  _lastState: null,
+  _busy: false,
+
+  // يُستدعى بعد بناء شاشة الإعدادات وفي كل تغيير للحالة
+  render() {
+    const M = window.MushafPageManager;
+    if (!M || !M.getStatus) return;
+    const st = M.getStatus() || { state: 'none' };
+    this._lastState = st.state;
+    const desc = document.getElementById('quran-offline-desc');
+    const dl = document.getElementById('quran-dl');
+    const cancel = document.getElementById('quran-dl-cancel');
+    const del = document.getElementById('quran-dl-delete');
+    const bar = document.getElementById('quran-dl-bar');
+    const note = document.getElementById('quran-dl-note');
+    if (!dl) return;
+
+    if (st.state === 'downloading') {
+      dl.hidden = true; cancel.hidden = false; del.hidden = true; bar.hidden = false; note.hidden = false;
+      if (desc) desc.textContent = 'جارٍ تنزيل المصحف… لا تُغلق التطبيق.';
+      this._progress(st.bytes, st.total);
+    } else if (st.state === 'ready') {
+      dl.hidden = true; cancel.hidden = true; del.hidden = false; bar.hidden = true; note.hidden = true;
+      const size = st.bytes ? (st.bytes / 1048576).toFixed(1) + ' ميغابايت' : '';
+      if (desc) desc.textContent = 'المصحف الكامل مخزّن محلياً (٦٢٣٦ آية في ٦٠٤ صفحات' + (size ? ' — ' + size : '') + '). القراءة والختمة تعملان بلا إنترنت.';
+    } else if (st.state === 'error') {
+      dl.hidden = false; cancel.hidden = true; del.hidden = true; bar.hidden = true; note.hidden = true;
+      if (desc) desc.textContent = 'فشل التنزيل (' + this._shortError(st.error) + '). تأكد من الاتصال وحاول مرة أخرى.';
+    } else {
+      dl.hidden = false; cancel.hidden = true; del.hidden = true; bar.hidden = true; note.hidden = true;
+      const again = st.cancelled ? 'أُلغي التنزيل السابق. ' : '';
+      if (desc) desc.textContent = again + 'تنزيل المصحف الكامل (٦٠٤ صفحات) لقراءة القرآن والختمة بلا اتصال.';
+    }
+  },
+
+  // تحديث سريع للشريط فقط — لا يُعيد بناء الشاشة أثناء التنزيل
+  _progress(bytes, total) {
+    const fill = document.getElementById('quran-dl-fill');
+    const note = document.getElementById('quran-dl-note');
+    if (!fill) return;
+    const mib = (bytes / 1048576).toFixed(1);
+    if (total > 0) {
+      fill.style.width = Math.min(100, Math.round(bytes / total * 100)) + '%';
+      if (note) note.textContent = mib + ' / ' + (total / 1048576).toFixed(1) + ' ميغابايت — ' + Math.min(100, Math.round(bytes / total * 100)) + '٪';
+    } else {
+      fill.style.width = (Math.min(100, (bytes % 1572864) / 1572864 * 100)) + '%';
+      if (note) note.textContent = 'تم تنزيل ' + mib + ' ميغابايت…';
+    }
+  },
+
+  _shortError(err) {
+    const s = String(err || 'خطأ غير معروف');
+    return s.length > 90 ? s.slice(0, 90) + '…' : s;
+  },
+
+  async startDownload() {
+    const M = window.MushafPageManager;
+    if (!M || !M.download || this._busy) return;
+    this._busy = true;
+    this.render();
+    try {
+      await M.download({ onProgress: p => this._progress(p.bytes, p.total) });
+    } catch (e) {
+      const msg = String(e && e.message || e);
+      if (!/cancelled/i.test(msg) && window.showAppDialog) {
+        await window.showAppDialog('تعذّر تنزيل المصحف: ' + this._shortError(msg), false);
+      }
+    } finally {
+      this._busy = false;
+      this.render();
+    }
+  },
+
+  async confirmDelete() {
+    const M = window.MushafPageManager;
+    if (!M || !window.showAppDialog) return;
+    const ok = await window.showAppDialog(
+      'سيُحذف المصحف المحلي للقرآن. ستحتاج إلى الإنترنت للقراءة حتى تنزّله مجدداً.<br><br>المرجعيات والتقدّم والباقي لا تتأثر. متابعة الحذف؟', true);
+    if (!ok) return;
+    await M.erase();
+    this.render();
+  },
+
+  cancelDownload() {
+    const M = window.MushafPageManager;
+    if (M && M.cancelDownload) M.cancelDownload();
+  },
+
+  // ربط مستمعي الأحداث مرة واحدة فقط
+  bind() {
+    if (this._bound) { this.render(); return; }
+    this._bound = true;
+    const M = window.MushafPageManager;
+    if (M && M.on) {
+      M.on((type) => {
+        if (type !== 'status' && type !== 'data') return;
+        const st = M.getStatus ? M.getStatus() : { state: 'none' };
+        // أثناء التنزيل: عند أول حدث فقط أعد رسم البطاقة (لإظهار الشريط)،
+        // بعده حدّث الشريط وحده كي لا يُعاد بناء الشاشة مع كل قطعة.
+        if (type === 'status' && st.state === 'downloading' && document.getElementById('quran-dl-bar')) {
+          if (this._lastState === 'downloading') { this._progress(st.bytes, st.total); return; }
+        }
+        this.render();
+      });
+    }
+  }
+};
+window.QuranOffline = QuranOffline;
 
 /* ==================== 7) Audio player — التلاوة الصوتية ==================== */
 // مشغّل آية بآية: كل ملف هو آية واحدة من cdn.islamic.network (نفس المزوّد

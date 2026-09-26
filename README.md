@@ -94,6 +94,7 @@ Most Quran apps are either heavy, ad-supported, or require an account. This one 
 - **Service Worker** with cache-first / network-first strategies
 - **Offline surah index** bundled locally (no network needed to browse)
 - **Local backup & restore** — export all your data to a single JSON file from **Settings**, and re-import it on a new device. Imported files are schema- and type-validated and never evaluated as code
+- **Optional full-Quran download** — one tap in **Settings** stores the complete Uthmani text (6236 ayahs / 604 pages) in IndexedDB, so the whole Mushaf and the Khatmah reader work with no connection. Integrity-gated, cancellable, deletable
 - **`AbortController` timeouts** so a slow network never hangs the UI
 - **`prefers-reduced-motion` honoured in every animation path**
 - **Zero dependencies** — nothing to audit, nothing to break
@@ -299,7 +300,7 @@ sadaqa-jaria/
 | **Styling** | CSS custom properties, no preprocessor | Design tokens change theme in one place |
 | **Logic** | Vanilla ES6+ JavaScript | Zero dependencies, zero build, instant load |
 | **Animation** | Web Animations API + `requestAnimationFrame` | Real spring physics, not easing curves |
-| **Storage** | `localStorage` (hardened) | Private, instant, no backend |
+| **Storage** | `localStorage` (hardened) + `IndexedDB` (Quran corpus) | Private, instant, no backend |
 | **Offline** | Service Worker + Cache API | Cache-First for assets, Network-First for data |
 | **Distribution** | PWA manifest | Home-screen install without an app store |
 
@@ -315,13 +316,16 @@ Verified by `tests/e2e-offline-shell.mjs`: after the first online load the servi
 
 | Works offline | Needs a connection |
 |---|---|
-| ✅ Full 114-surah index (bundled in `surah-meta.js`) | ❌ Ayah text (first view of a surah — fetched from alquran.cloud) |
-| ✅ All adhkar & supplications | ❌ Audio recitation (streamed per-ayah MP3) |
-| ✅ Tasbih | ❌ The Quran font on first load |
+| ✅ Full 114-surah index (bundled in `surah-meta.js`) | ❌ Audio recitation (streamed per-ayah MP3) |
+| ✅ All adhkar & supplications | ❌ The Quran font on first load |
+| ✅ Tasbih | ❌ Ayah text *until* the full Quran is downloaded (see below) |
 | ✅ Khatmah tracker | |
 | ✅ Bookmarks, stats, settings | |
 | ✅ Backup export / import / clear | |
 | ✅ Previously-read surahs (cached API responses) | |
+| ✅ **The full Quran text** — once downloaded from Settings → «القرآن بدون إنترنت» | |
+
+**Optional full-Quran download.** Settings → «القرآن بدون إنترنت» downloads the complete Uthmani text (all 6236 ayahs across the 604 printed pages, ≈ 1.4 MiB) from the same source the reader already uses online (`api.alquran.cloud`, `quran-uthmani` edition) and stores it locally in IndexedDB. Once stored, the Khatmah reader renders any of the 604 pages with no network at all. The download is opt-in, user-initiated, cancellable, and shows live progress; nothing is written until the payload passes an integrity gate (114 surahs, exactly 6236 ayahs, every page 1–604 non-empty, and per-surah ayah counts matching the bundled index). Deleting it from the same card restores the online-only behaviour. Verified by `tests/e2e-mushaf.mjs` (download → offline page render → structural parity with the online path) and `tests/unit-mushaf.mjs` (integrity gate, persistence, cancellation).
 
 **Caching strategy** (as implemented in `sw.js`):
 

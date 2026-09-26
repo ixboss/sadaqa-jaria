@@ -72,9 +72,9 @@ offline readers keep their cached Quran text across future SW updates.
 assets are *network-first with cache fallback*; API responses are *cache-first
 with a 5s timeout plus a background `no-store` refresh*. Now matches `sw.js`.
 
-**Not verified / open:** real-device install, iOS Safari, and the remotely
-fetched Quran text and audio offline paths. **Offline Quran text storage is
-gated** on adopting a verified corpus and its licence — see "Decision needed".
+**Not verified / open:** real-device install, iOS Safari, and the offline
+audio path (audio still streams per-ayah MP3 by design). The offline Quran
+*text* path shipped in Phase 3b — see below.
 
 ---
 
@@ -110,22 +110,57 @@ done. Recommendation: worth doing, but as its own change with a full test run.
 
 ---
 
-## Decision needed — `mushaf.js`
+## Phase 3b — offline Quran corpus (`mushaf.js`): shipped
 
-An untracked 326-line file `mushaf.js` sits in the working tree: a full offline
-Mushaf engine (604-page index, IndexedDB store `mushaf_quran_v1`). **I did not
-write it, it has never been committed, and it is not deployed.** It is not
-referenced by `index.html` or the service worker.
+The user chose **"Audit and ship it"**. The engine is now committed, wired in,
+and covered by two new suites. It was rewritten before shipping: the original
+stored the ~1.4 MiB corpus in `localStorage` (which the plan explicitly rules
+out for a payload this size); the shipped version uses versioned IndexedDB.
 
-This is exactly the Phase 3 gate: offline Quran text should ship only with a
-**verified corpus and its licence**. Options:
+**Provenance and licence.** The text is the same source the reader already
+uses online — `api.alquran.cloud`, edition `quran-uthmani`. No new provider,
+no second copy of the text, no fabricated content. The endpoint is public and
+free; the corpus is fetched once, on the user's explicit tap, and stored only
+on the device.
 
-1. **Ship it** — I audit `mushaf.js` (provenance of the text, licence, page-index correctness against the live API), wire it in behind the existing reader, and add the offline status/download flow from the plan.
-2. **Park it** — leave it untracked and out of the deployment; the app keeps fetching text from alquran.cloud with the cache-first strategy already verified.
-3. **Delete it** — if it isn't wanted.
+**Integrity gate** (`verifyPayload`, runs before anything is written):
 
-Not verified for any of these: I have not inspected the file's text provenance
-or licence, and the IndexedDB store it creates is untested.
+| Check | Rejection reason |
+|---|---|
+| exactly 114 surahs, numbered in order | "عدد السور لا يساوي ١١٤" |
+| per-surah ayah count matches the bundled `SURAH_META` | "عدد آيات السورة N لا يطابق الفهرس" |
+| every ayah has non-empty text | "آية فارغة في السورة N" |
+| every ayah's page is 1–604 | "رقم صفحة غير سليم" |
+| total is exactly 6236 ayahs | "مجموع الآيات … لا يساوي ٦٢٣٦" |
+| every page 1–604 is non-empty | "الصفحة N فارغة" |
+
+**Atomic replacement.** The new `meta` and `payload` are written in a single
+IndexedDB transaction; a load reads `payload` first and only accepts it if it
+re-indexes to 6236 ayahs. A failed or cancelled download never replaces a
+working corpus, and the compact schema is versioned (`v: 2`) so an older blob
+is rejected rather than silently misread.
+
+**Download flow.** Settings → «القرآن بدون إنترنت»: status card with download
+/ progress bar / cancel / delete, driven by `QuranOffline` in `features.js`.
+The fetch is read as a stream so progress is real (bytes in, not a spinner),
+`cancelDownload()` aborts it via `AbortController`, and failures surface a
+retry-able error state. The card names the source (alquran.cloud) inline.
+
+**Reader integration.** `loadKhatmahPage` renders from the local corpus when
+`MushafPageManager.ready` is set, with identical markup to the network path —
+proven, not assumed: `e2e-mushaf.mjs` renders page 293 both ways and asserts
+equal ayah / surah-header / bismillah / mushaf-block counts, and that the
+surah-header text is byte-identical (the source's voweled «سُورَةُ الكَهۡفِ»,
+not the plain index name). If the corpus is absent or deleted, the existing
+network path is unchanged.
+
+**Safari fallback.** If IndexedDB is unavailable (private browsing on Safari),
+the corpus falls back to `localStorage` after the same integrity gate; if that
+also fails, the download errors out cleanly and the app keeps working online.
+
+**Not verified:** real-device download speed on mobile networks, iOS Safari
+IndexedDB behaviour in private mode (the fallback path is unit-tested but not
+device-tested), and disk usage on low-storage devices.
 
 ---
 
@@ -133,6 +168,8 @@ or licence, and the IndexedDB store it creates is untested.
 
 | Suite | Assertions | What it covers |
 |---|---|---|
+| `unit-mushaf.mjs` | 36/36 | Integrity gate (all rejection cases), compact round trip, persistence across reload, cancellation, erase, byte-accurate progress |
+| `e2e-mushaf.mjs` | 30/30 | Real download through the UI → offline Khatmah reading with the network cut → structural parity with the online path → delete → network fallback |
 | `unit-backup.mjs` | 35/35 | Validation, malformed input, injection, round trip, quota |
 | `e2e-backup.mjs` | 29/29 | Export/import/clear in a real browser, incl. reload + live restore |
 | `e2e-offline-shell.mjs` | 11/11 | Cold boot with the network cut; precache completeness |
