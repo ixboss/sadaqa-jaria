@@ -196,7 +196,7 @@ const Settings = {
     { id: 'ar.abdulbasitmurattal', name: 'عبد الباسط عبد الصمد (مرتل)' },
     { id: 'ar.husary', name: 'محمود الحصري' },
     { id: 'ar.minshawi', name: 'محمد المنشاوي' },
-    { id: 'ar.muhammadayyoub', name: 'محمد أيوب' }
+    { id: 'ar.mahermuaiqly', name: 'ماهر المعيقلي' }
   ],
   TASBIH_TARGETS: [
     { v: 33, label: '٣٣ (تسبيح)' },
@@ -493,6 +493,18 @@ window.QuranOffline = QuranOffline;
 const AudioPlayer = {
   audio: null, queue: [], qi: -1, current: null, surahName: '',
   rafId: null, curEl: null, curWords: null, curItem: null, _lastNow: -2, _errCount: 0,
+  // نمط التلاوة: 'surah' (قائمة سورة واحدة) أو 'pages' (نافذة تمتد عبر صفحات المصحف)
+  mode: 'surah',
+  queueStartPage: 0,   // أول صفحة في النافذة (وضع pages)
+  queueEndPage: 0,     // آخر صفحة جُلبت فعلاً (القائمة تمتد كسلاً)
+  _autoTurning: false, // الاختلاف الداخلي: قلب الصفحة الآلي أثناء التلاوة
+  _wantScroll: false,  // مرّر الآية للمنتصف بعد أن يُعرضها القلب الآلي
+  _listeners: [],
+
+  // اشتراك خارجي (القرص الطافي في القارئ) بأي تغيير في حالة التلاوة
+  on(fn) { if (typeof fn === 'function' && !this._listeners.includes(fn)) this._listeners.push(fn); },
+  off(fn) { this._listeners = this._listeners.filter(f => f !== fn); },
+  emit() { for (const f of this._listeners) { try { f(); } catch (e) {} } },
 
   ensure() {
     if (this.audio) return;
@@ -510,17 +522,88 @@ const AudioPlayer = {
   urlForAyah(globalNo) { return `https://cdn.islamic.network/quran/audio/128/${this.reciter()}/${globalNo}.mp3`; },
   urlFor(surah) { return `https://cdn.islamic.network/quran/audio-surah/128/${this.reciter()}/${surah}.mp3`; },
 
-  // يبني قائمة التلاوة من بيانات السورة المخزّنة في state (بدون طلبات إضافية)
-  buildQueue(surah, fromAyah = 1) {
-    const data = window.state && window.state.currentSurahData ? window.state.currentSurahData : null;
-    const ayahs = data && Array.isArray(data.ayahs) ? data.ayahs : [];
-    this.queue = ayahs.filter(a => a.numberInSurah >= fromAyah).map(a => {
-      const sn = (a.surah && a.surah.number) || surah;
-      let text = a.text;
-      if (a.numberInSurah === 1 && sn !== 1 && sn !== 9) text = window.stripBismillah ? stripBismillah(text) : text;
-      return { surah: sn, ayah: a.numberInSurah, global: a.number, text };
-    });
+  // يبني عنصر قائمة تلاوة واحد من سجل آية (مشترك بين النمطين)
+  itemFor(a, page) {
+    const sn = (a.surah && a.surah.number) || 0;
+    let text = a.text;
+    if (a.numberInSurah === 1 && sn !== 1 && sn !== 9) text = window.stripBismillah ? stripBismillah(text) : text;
+    const sName = (a.surah && (a.surah.name || a.surah.englishName)) ||
+      ((window.allSurahs || []).find(s => s.number === sn) || {}).name || '';
+    return { surah: sn, surahName: sName, ayah: a.numberInSurah, global: a.number, text, page: page || 0 };
+  },
+
+  // يبني قائمة التلاوة من بيانات السورة المخزّنة في state، أو من قائمة آيات
+  // صريحة يمرّرها القارئ الموحّد (آيات الصفحة المعروضة) — فيُلغى اعتمادنا على
+  // state.currentSurahData الذي لا يُملأ إلا من شاشة السورة.
+  buildQueue(surah, fromAyah = 1, ayahs) {
+    const data = !Array.isArray(ayahs) && window.state && window.state.currentSurahData ? window.state.currentSurahData : null;
+    const list = Array.isArray(ayahs) && ayahs.length ? ayahs
+      : (data && Array.isArray(data.ayahs) ? data.ayahs : []);
+    this.queue = list.filter(a => a.numberInSurah >= fromAyah).map(a => this.itemFor(a));
     this.qi = this.queue.length ? 0 : -1;
+  },
+
+  // ===== النمط الثاني: تلاوة متواصلة عبر الصفحات =====
+  // القائمة لا تُبنى دفعة واحدة (٦٠٤ صفحة) بل تمتد كسلاً: كلما اقتربنا من
+  // نهاية النافذة جلبنا الصفحة التالية، فتستمر التلاوة عبر حدود الصفحات
+  // ويقلب القارئ الصفحة بنفسه. تتوقف فقط عند آخر آية في المصحف.
+  async extendQueue() {
+    const M = window.MushafPageManager;
+    if (!M) return;
+    const next = this.queueEndPage ? this.queueEndPage + 1 : this.queueStartPage;
+    if (next > 604 || next < 1) return;
+    try { await M.ensurePage(next); } catch (e) { return; }   // قد يكون شبكياً
+    const ayahs = M.pageAyahs(next) || [];
+    if (!ayahs.length) return;
+    for (const a of ayahs) this.queue.push(this.itemFor(a, next));
+    this.queueEndPage = next;
+  },
+
+  async playFromPage(startPage, opts = {}) {
+    this.ensure();
+    const M = window.MushafPageManager;
+    if (!M) return;
+    this.mode = 'pages';
+    this.queueStartPage = M.clampPage(startPage);
+    this.queue = []; this.qi = -1; this.queueEndPage = 0;
+    // وسِّع مرة على الأقل (لبناء أول صفحة)، ثم إن طُلب البدء من آية بعينها قد
+    // تكون على صفحة لاحقة فوسِّع حتى نبلغها — مع حدّ أعلى يحمي من تضخّم النافذة
+    let guard = 0;
+    while (this.queueEndPage < 604 && ++guard < 14 &&
+           (!this.queue.length || (opts.fromGlobal && !this.queue.some(it => it.global === opts.fromGlobal)))) {
+      await this.extendQueue();
+    }
+    const startIdx = opts.fromGlobal ? this.queue.findIndex(it => it.global === opts.fromGlobal) : 0;
+    if (startIdx < 0 || !this.queue.length) { this.hide(); this.emit(); return; }
+    this.qi = startIdx;
+    const first = this.queue[startIdx];
+    this.current = first.surah;
+    this.surahName = first.surahName || this.surahName;
+    this.loadCurrent();
+  },
+
+  // قلب يدوي للصفحة أثناء التلاوة: أعد توجيه القائمة للصفحة الجديدة
+  // (القارئ الموحّد يترك المستخدم يتصرّف بحرية، ثم تتبعه التلاوة)
+  repointForPage(n) {
+    if (this.mode !== 'pages' || this.qi < 0 || this._autoTurning) return;
+    const cur = this.queue[this.qi];
+    if (cur && cur.page === n) return;
+    const idx = this.queue.findIndex(it => it.page === n);
+    if (idx >= 0) { this.qi = idx; this.clearHighlight(); this.loadCurrent(); return; }
+    // الصفحة خارج النافذة الحالية: أعد البناء منها
+    this._restartFromPage(n);
+  },
+  async _restartFromPage(n) {
+    const M = window.MushafPageManager;
+    if (!M) { this.stop(); return; }
+    this.queueStartPage = M.clampPage(n); this.queueEndPage = 0;
+    this.queue = []; this.qi = -1;
+    await this.extendQueue();
+    if (!this.queue.length) { this.stop(); return; }
+    this.qi = 0;
+    const f = this.queue[0];
+    this.current = f.surah; this.surahName = f.surahName || this.surahName;
+    this.loadCurrent();
   },
 
   // زر الرأس: يبدّل بين التشغيل/الإيقاف المؤقت للسورة الحالية، أو يبدأ من الصفحة المعروضة
@@ -551,6 +634,14 @@ const AudioPlayer = {
     const item = this.queue[this.qi];
     if (!item) { this.stop(); return; }
     this.curItem = item;
+    // وضع الصفحات: تأكّد أن الصفحة التي تحوي الآية معروضة. القلب الآلي هنا
+    // هو ما يجعل التلاوة متواصلة عبر الصفحات دون تدخّل المستخدم.
+    if (this.mode === 'pages' && item.page && window.gotoMushafPage &&
+        (window.state ? window.state.mushafPage : 0) !== item.page) {
+      this._autoTurning = true;
+      this._wantScroll = true;
+      window.gotoMushafPage(item.page).catch(() => {}).then(() => { this._autoTurning = false; });
+    }
     this.audio.src = this.urlForAyah(item.global);
     this.audio.play().then(() => {
       this._errCount = 0;
@@ -558,7 +649,8 @@ const AudioPlayer = {
       this.setPlaying(true);
       this.bindHighlight(true);
       this.startClock();
-    }).catch(() => { this.hide(); this.clearHighlight(); });
+      this.emit();
+    }).catch(() => { this.hide(); this.clearHighlight(); this.emit(); });
   },
 
   // تقدير احتياطي لمدة الآية حين يعجز المتصفح عن حسابها (ملفات بدون رأس Xing).
@@ -590,7 +682,7 @@ const AudioPlayer = {
   },
 
   titleFor(item) {
-    const name = this.surahName || (window.state && window.state.currentSurah ? window.state.currentSurah.name : '');
+    const name = (item && item.surahName) || this.surahName || (window.state && window.state.currentSurah ? window.state.currentSurah.name : '');
     return `${name} — آية ${window.toArabicNum ? toArabicNum(item.ayah) : item.ayah}`;
   },
 
@@ -610,6 +702,14 @@ const AudioPlayer = {
       }
     } else this._errCount = 0;
     if (this.qi + 1 < this.queue.length) { this.qi++; this.loadCurrent(); }
+    else if (this.mode === 'pages' && this.queueEndPage < 604) {
+      // نهاية النافذة لا تعني نهاية التلاوة: امتدّ لصفحة جديدة وواصل
+      const before = this.queue.length;
+      this.extendQueue().then(() => {
+        if (this.queue.length > before) { this.qi++; this.loadCurrent(); }
+        else { this.stop(); if (window.Toast) Toast.show('تمت التلاوة ✓'); }
+      });
+    }
     else { this.stop(); if (window.Toast) Toast.show('تمت التلاوة ✓'); }
   },
 
@@ -637,7 +737,7 @@ const AudioPlayer = {
   refreshHighlight() {
     if (!this.curItem) return;
     if (this.curEl && !this.curEl.isConnected) { this.curEl = null; this.curWords = null; }
-    if (!this.curEl) this.bindHighlight(false);
+    if (!this.curEl) { this.bindHighlight(this._wantScroll); this._wantScroll = false; }
   },
 
   // ساعة التظليل: تتبع موضع التشغيل داخل الآية وتحرّك تظليل الكلمات
@@ -694,10 +794,10 @@ const AudioPlayer = {
     document.querySelectorAll('.w.reciting, .w.reciting-now').forEach(w => w.classList.remove('reciting', 'reciting-now'));
   },
 
-  pause() { if (this.audio) { this.audio.pause(); this.setPlaying(false); } },
+  pause() { if (this.audio) { this.audio.pause(); this.setPlaying(false); this.emit(); } },
   resume() {
     if (this.audio && this.current) {
-      this.audio.play().then(() => { this.setPlaying(true); this.startClock(); }).catch(() => {});
+      this.audio.play().then(() => { this.setPlaying(true); this.startClock(); this.emit(); }).catch(() => {});
     }
   },
   setPlaying(on) {
@@ -741,8 +841,10 @@ const AudioPlayer = {
     this.stopClock();
     if (this.audio) { this.audio.pause(); this.audio.currentTime = 0; }
     this.current = null; this.queue = []; this.qi = -1; this.curItem = null;
+    this.mode = 'surah'; this.queueStartPage = 0; this.queueEndPage = 0;
     this.clearHighlight();
     this.hide();
+    this.emit();
   },
   // تغيير القارئ أثناء التشغيل: أعد تحميل الآية الحالية بالقارئ الجديد
   refreshReciter() {
@@ -750,6 +852,7 @@ const AudioPlayer = {
     const wasPlaying = !this.audio.paused;
     this.audio.src = this.urlForAyah(this.queue[this.qi].global);
     if (wasPlaying) this.audio.play().catch(() => {});
+    this.emit();
   },
   // أضف زر التشغيل لبطاقة رأس السورة
   bindSurahHeader() {
@@ -766,20 +869,143 @@ const AudioPlayer = {
       const st = window.state || {};
       const n = st.currentSurah ? st.currentSurah.number : null;
       const nm = st.currentSurah ? st.currentSurah.name : '';
-    if (!n) return;
-    // ابدأ من الآية المحددة إن كانت على الصفحة المعروضة، وإلا فمن أول آية فيها
-    const M = window.MushafPageManager;
-    const pageAyahs = (M && st.mushafPage) ? M.pageAyahs(st.mushafPage) : [];
-    let fromAyah = (pageAyahs[0] && pageAyahs[0].numberInSurah) || 1;
-    if (window.selectedAyahNo && pageAyahs.some(a => a.numberInSurah === window.selectedAyahNo)) {
-      fromAyah = window.selectedAyahNo;
-    }
-    this.play(n, nm, fromAyah);
+      if (!n) return;
+      // القارئ الموحّد: تلاوة متواصلة تبدأ من الصفحة المعروضة، وإن كانت هناك
+      // آية محددة عليها ابدأ منها. تعمل من المسارين معاً (السورة والختمة)
+      // لأن القائمة تُبنى من آيات الصفحة نفسها، لا من state.currentSurahData.
+      if (st.mushafPage && window.MushafPageManager) {
+        const M = window.MushafPageManager;
+        const pageAyahs = M.pageAyahs(st.mushafPage) || [];
+        let fromGlobal = null;
+        if (window.selectedAyahNo) {
+          const hit = pageAyahs.find(a => a.numberInSurah === window.selectedAyahNo);
+          if (hit) fromGlobal = hit.number;
+        }
+        if (!fromGlobal && !pageAyahs.some(a => (a.surah && a.surah.number) === n)) {
+          // السورة المعروضة غير حاضرة في بيانات الصفحة (نظرة قديمة): ابدأ منها
+          this.play(n, nm, 1); return;
+        }
+        this.playFromPage(st.mushafPage, { fromGlobal });
+        return;
+      }
+      this.play(n, nm, 1);
     });
     card.appendChild(btn);
   }
 };
 window.AudioPlayer = AudioPlayer;
+
+/* ==================== 7b) BottomSheet — ورقة سفلية بسيطة ==================== */
+// مكوّن صغير يعيد استخدام لغة التطبيق البصرية (سطح + حد + ظل)، بلا تبعيات.
+// تُستخدم لاختيار القارئ، ولاحقاً لإعدادات القارئ (مرحلة ٦).
+const BottomSheet = {
+  overlay: null,
+  open({ title = '', items = [], current = null, onSelect = null } = {}) {
+    this.close();
+    const ov = document.createElement('div');
+    ov.className = 'sheet-overlay';
+    const sh = document.createElement('div');
+    sh.className = 'bottom-sheet';
+    sh.setAttribute('role', 'dialog');
+    sh.setAttribute('aria-label', title);
+    sh.innerHTML = '<div class="sheet-title"></div>' + items.map((it, i) => {
+      const on = it.value === current;
+      return `<button class="sheet-item ${on ? 'active' : ''}" data-i="${i}" type="button">
+        <span class="sheet-item-label"></span>${on ? '<span class="sheet-tick">✓</span>' : ''}</button>`;
+    }).join('');
+    // املأ النصوص بعيداً عن innerHTML حتى لا تُحقن أي علامة من الأسماء
+    sh.querySelector('.sheet-title').textContent = title;
+    sh.querySelectorAll('.sheet-item').forEach((b, i) => {
+      b.querySelector('.sheet-item-label').textContent = items[i].label;
+      b.addEventListener('click', () => {
+        const it = items[i];
+        this.close();
+        if (onSelect) onSelect(it);
+      });
+    });
+    ov.appendChild(sh);
+    document.body.appendChild(ov);
+    // ارسم الحالة الابتدائية قبل الانتقال كي يُشاهد الانزلاق
+    requestAnimationFrame(() => ov.classList.add('visible'));
+    // النقر خارج الورقة يغلقها
+    ov.addEventListener('click', ev => { if (ev.target === ov) this.close(); });
+    this.overlay = ov;
+    document.body.classList.add('sheet-open');
+  },
+  close() {
+    if (this.overlay) { this.overlay.remove(); this.overlay = null; }
+    document.body.classList.remove('sheet-open');
+  }
+};
+window.BottomSheet = BottomSheet;
+
+// فتح ورقة اختيار القارئ (يستخدمها قرص التلاوة وشاشة الإعدادات)
+window.openReciterSheet = function () {
+  if (!window.Settings) return;
+  BottomSheet.open({
+    title: 'اختر القارئ',
+    current: Settings.getReciter(),
+    items: Settings.RECITERS.map(r => ({ value: r.id, label: r.name })),
+    onSelect: it => {
+      Settings.setReciter(it.value);
+      if (window.AudioPlayer) AudioPlayer.refreshReciter();
+      if (window.Toast) Toast.show('تم اختيار: ' + it.label);
+    }
+  });
+};
+
+/* ==================== 7c) ReaderAudioPill — قرص التلاوة الطافي ==================== */
+// يشترك في تغييرات AudioPlayer (لا يستبدله): يعرض اسم السورة والآية الجارية
+// وزر التشغيل/الإيقاف واسم القارئ (ينفتح على ورقة الاختيار). يظهر فقط في
+// الوضع النشط للقارئ الموحّد، وتُخفى شريط #audio-bar العام مكانه.
+const ReaderAudioPill = {
+  el: null, bound: false,
+  ensure() {
+    if (this.bound) { this.el = document.getElementById('mushaf-audio-pill'); return; }
+    this.el = document.getElementById('mushaf-audio-pill');
+    if (!this.el) return;
+    this.el.querySelector('#map-play').addEventListener('click', () => {
+      const A = window.AudioPlayer; if (!A || !A.audio) return;
+      if (A.audio.paused) A.resume(); else A.pause();
+    });
+    this.el.querySelector('#map-reciter').addEventListener('click', () => {
+      if (window.openReciterSheet) openReciterSheet();
+    });
+    this.el.querySelector('#map-close').addEventListener('click', () => {
+      if (window.AudioPlayer) AudioPlayer.stop();
+    });
+    this.bound = true;
+  },
+  // هل القارئ الموحّد هو الشاشة الحالية؟
+  isReaderActive() {
+    const st = window.state || {};
+    return st.currentScreen === 'surah-view' || st.currentScreen === 'khatmah-read';
+  },
+  render() {
+    this.ensure();
+    if (!this.el) return;
+    const A = window.AudioPlayer;
+    const active = !!(A && A.curItem && this.isReaderActive());
+    this.el.classList.toggle('visible', active);
+    document.body.classList.toggle('reader-audio-on', active);
+    if (!active) return;
+    const item = A.curItem;
+    const name = document.getElementById('map-surah');
+    const ay = document.getElementById('map-ayah');
+    if (name) name.textContent = item.surahName || (window.state && window.state.currentSurah ? window.state.currentSurah.name : '') || '';
+    if (ay) ay.textContent = 'آية ' + (window.toArabicNum ? toArabicNum(item.ayah) : item.ayah);
+    const rec = this.el.querySelector('#map-reciter');
+    if (rec) {
+      const r = (window.Settings ? Settings.RECITERS.find(x => x.id === Settings.getReciter()) : null);
+      rec.textContent = r ? r.name.split(' ')[0] : 'القارئ';
+    }
+    const ic = this.el.querySelector('#map-play');
+    if (ic) ic.textContent = (A.audio && !A.audio.paused) ? '⏸' : '▶';
+  }
+};
+window.ReaderAudioPill = ReaderAudioPill;
+// اشتراك واحد: أي تغيير في التلاوة يُحدّث القرص
+AudioPlayer.on(() => { if (window.ReaderAudioPill) ReaderAudioPill.render(); });
 
 /* ==================== 8) Reminders — التذكيرات المحلية ==================== */
 const Reminders = {
