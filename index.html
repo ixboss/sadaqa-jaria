@@ -1507,7 +1507,7 @@ function stripBismillah(text) {
   return words.slice(4).join(' ').trim();
 }
 const tabsArray = ['quran', 'khatmah', 'athkar'];
-let state = { currentTab: 'quran', currentScreen: 'surah-list', previousScreen: null, previousTab: null, currentSurah: null, fontScale: 1.4, currentCatIndex: null, khatmah: null, theme: 'dark', bookmark: null, scrollPositions: {} };
+let state = { currentTab: 'quran', currentScreen: 'surah-list', previousScreen: null, previousTab: null, currentSurah: null, fontScale: 1.4, currentCatIndex: null, khatmah: null, theme: 'dark', bookmark: null, scrollPositions: {}, mushafPage: 1 };
 // let/const في السكربتات الكلاسيكية لا تنشئ خصائص على window؛
 // features.js يقرأ window.state و window.Motion فلا بد من كشفهما صراحةً
 // (الكائن يُعدَّل بالمرجع نفسه ولا يُعاد إسناده، فالمرجع المشترك يبقى صالحاً).
@@ -2299,11 +2299,179 @@ function renderAyahSearchResults(hits, query) {
   if (window.AnimationManager?.observeReveal) AnimationManager.observeReveal();
 }
 
-// رمز طلب لتفادي سباق التبديل السريع بين السور (يُلغي الرسم إن تغيّرت السورة أثناء التحميل)
+/* ==================== القارئ الموحّد: صفحات المصحف الـ٦٠٤ ====================
+
+   مسار بيانات واحد لقارئ السورة وقارئ الختمة: أي صفحة ١..٦٠٤ تمرّ عبر
+   MushafPageManager.ensurePage() الذي يفضّل المصحف المحلّي (يعمل بلا إنترنت)
+   ثم مخبأ الصفحة، ثم طلب /page/{n} مع مخبأ ٧ أيام. لا يوجد بعد اليوم تجميع
+   خاص بالسورة — المصدر نفسه يُوزَّع على فهرس الصفحات عبر M.seedFromSurah(). */
+
+// رمز طلب لتفادي سباق التحميل عند التنقّل السريع (يُلغي الرسم إن تغيّرت الصفحة)
 let openSurahToken = 0;
+let mushafPageToken = 0;
+
+// الحاوية التي تُرسم فيها صفحة المصحف حسب الشاشة النشطة
+function mushafContainer() {
+  if (state.currentScreen === 'khatmah-read') return document.getElementById('khatmah-page-container');
+  return document.getElementById('verses-container');
+}
+
+// ارسم صفحة المصحح n في الحاوية النشطة (مع الهيكل العظمي أثناء التحميل).
+// يعيد true عند اكتمال الرسم. opts: { focusAyah, surahHeader }
+async function renderMushafPage(pageNum, opts = {}) {
+  const M = window.MushafPageManager;
+  if (!M) return false;
+  const n = M.clampPage(pageNum);
+  const token = ++mushafPageToken;
+  state.mushafPage = n;
+  const container = mushafContainer();
+  if (!container) return false;
+  container.innerHTML = getSkeletonHTML();
+
+  // رأس السورة في أعلى شاشة surah-view؛ لذا لا يُكرَّر داخل الصفحة
+  const showOpts = { surahHeader: opts.surahHeader != null ? opts.surahHeader : (state.currentScreen !== 'surah-view') };
+  try {
+    await M.ensurePage(n);
+    if (token !== mushafPageToken) return false;            // طلب أحدث طغى عليه
+    container.innerHTML = M.pageHTML(n, showOpts) + mushafPageNavHTML(n);
+  } catch (e) {
+    if (token !== mushafPageToken) return false;
+    container.innerHTML = `<div style="text-align:center; padding:20px;">خطأ في التحميل. تأكد من الإنترنت.<br><button class="btn-scale" style="margin-top:15px; width:auto; padding:10px 20px;" onclick="renderMushafPage(${n})">إعادة المحاولة 🔄</button></div>`;
+    return false;
+  }
+  bindMushafPageNav(n);
+
+  document.getElementById('content').scrollTop = 0;
+  // أعد ربط تظليل التلاوة بالعنصر المعروض إن وُجد على هذه الصفحة
+  if (window.AudioPlayer && AudioPlayer.refreshHighlight) AudioPlayer.refreshHighlight();
+  // الرابط العميق للختمة يتبع الصفحة (رابط القارئ الموحّد)، ولا يُحدَّث إلا عند
+  // تغيير الشاشة — أعد تحديثه هنا حتى لا يظلّ يشير لصفحة قديمة بعد التنقّل
+  if (state.currentScreen === 'khatmah-read' && window.DeepLinks) {
+    try { DeepLinks.update('khatmah-read'); } catch (e) {}
+  }
+  if (opts.focusAyah) {
+    const el = container.querySelector(`.ayah[data-ayah="${+opts.focusAyah}"]`);
+    if (el) selectAyah(el, true);
+    else window.selectedAyahNo = null;                       // آية غير موجودة: لا تترك قيمة عالقة في الرابط
+  }
+  if (window.AnimationManager?.observeReveal) AnimationManager.observeReveal();
+  // تسخين الصفحات المجاورة حتى لا ينتظر القلِب على الشبكة
+  M.ensurePage(n + 1).catch(() => {});
+  if (n > 1) M.ensurePage(n - 1).catch(() => {});
+  return true;
+}
+
+// أزرار التنقّل أسفل الصفحة (مرحلة ٢: سيحلّ محلّها محرّك القلب ثلاثي الأبعاد)
+function mushafPageNavHTML(n) {
+  const M = window.MushafPageManager;
+  // في قارئ الختمة يوجد شريط التحكم الخاص بها، فلا حاجة لتنقّل السور هنا
+  const number = state.currentScreen === 'khatmah-read' ? 0 : (state.currentSurah ? state.currentSurah.number : 0);
+  let html = `<div class="mushaf-nav">
+    <button class="btn-scale mushaf-nav-btn" id="mp-prev" ${n <= 1 ? 'disabled' : ''}>→ السابقة</button>
+    <span class="mushaf-nav-pos">صفحة ${toArabicNum(n)} / ${toArabicNum(604)}</span>
+    <button class="btn-scale mushaf-nav-btn" id="mp-next" ${n >= 604 ? 'disabled' : ''}>التالية ←</button>
+  </div>`;
+  // تنقّل بين السور من داخل القارئ — لا حاجة للعودة للقائمة الرئيسية
+  if (number) {
+    html += `<div class="mushaf-nav surah-nav">
+      <button class="btn-scale mushaf-nav-btn" id="sp-prev" ${number <= 1 ? 'disabled' : ''}>→ السورة السابقة</button>
+      <span class="mushaf-nav-pos">${toArabicNum(number)} / ١١٤</span>
+      <button class="btn-scale mushaf-nav-btn" id="sp-next" ${number >= 114 ? 'disabled' : ''}>السورة التالية ←</button>
+    </div>`;
+  }
+  return html;
+}
+
+function bindMushafPageNav(n) {
+  const prev = document.getElementById('mp-prev');
+  const next = document.getElementById('mp-next');
+  if (prev) prev.addEventListener('click', () => changeMushafPage(-1));
+  if (next) next.addEventListener('click', () => changeMushafPage(1));
+  const number = state.currentSurah ? state.currentSurah.number : 0;
+  const spPrev = document.getElementById('sp-prev');
+  const spNext = document.getElementById('sp-next');
+  if (spPrev) spPrev.addEventListener('click', () => { if (number > 1) window.openSurah(number - 1); });
+  if (spNext) spNext.addEventListener('click', () => { if (number < 114) window.openSurah(number + 1); });
+}
+
+// تنقّل صفحة واحدة في أي قارئ (السورة أو الختمة)
+window.changeMushafPage = async function(dir) {
+  const M = window.MushafPageManager;
+  if (!M || !state.mushafPage) return;
+  const n = M.clampPage(state.mushafPage + dir);
+  if (n === state.mushafPage) return;
+  hideAyahBar();
+  if (state.currentScreen === 'khatmah-read') {
+    state.khatmah.currentPage = n; saveState();
+    await loadKhatmahPage(n);
+  } else {
+    await renderMushafPage(n);
+    syncSurahForPage(n);
+    recordReadingPosition();
+    if (window.DeepLinks) try { DeepLinks.update('surah-view'); } catch (e) {}
+  }
+};
+
+// عند عبور حدود السورة داخل القارئ الموحّد، حدّث سياق السورة (العنوان،
+// المرجع الصوتي، أيقونة الحفظ) ليبقى متوافقاً مع ما يراه المستخدم
+async function syncSurahForPage(n) {
+  const M = window.MushafPageManager;
+  if (!M) return;
+  const ayahs = M.pageAyahs(n);
+  const sn = ayahs.length && ayahs[0].surah ? ayahs[0].surah.number : 0;
+  if (!sn) return;
+  if (state.currentSurah && state.currentSurah.number === sn) return;
+  const meta = (window.allSurahs || []).find(s => s.number === sn)
+    || { number: sn, name: (ayahs[0].surah && ayahs[0].surah.name) || (`سورة ${sn}`), numberOfAyahs: 0 };
+  state.currentSurah = meta;
+  const nameEl = document.getElementById('surah-view-name');
+  if (nameEl) nameEl.textContent = meta.name;
+  updateBookmarkIcon();
+  // أثناء التلاوة الفعلية لا نلمس قائمة التلاوة — مرحلة الصوت تتولّى المزامنة
+  if (window.AudioPlayer && AudioPlayer.audio && !AudioPlayer.audio.paused) return;
+  // املأ بيانات السورة لقائمة التلاوة في الخلفية (مخبّأة، سريعة)
+  fetchSurahData(sn).then(d => { if (d) state.currentSurahData = d; }).catch(() => {});
+}
+
+// بيانات سورة كاملة (قائمة التلاوة) مع مخبأ ٧ أيام — مُستخدَم من مسارات متعددة
+async function fetchSurahData(number) {
+  try {
+    const cached = localStorage.getItem(`q_s_u_${number}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Date.now() - (parsed._ts || 0) < 7 * 24 * 60 * 60 * 1000) return parsed.data;
+      localStorage.removeItem(`q_s_u_${number}`);
+    }
+    const res = await fetch(`https://api.alquran.cloud/v1/surah/${number}/quran-uthmani`);
+    const data = (await res.json()).data;
+    if (data && data.ayahs) localStorage.setItem(`q_s_u_${number}`, JSON.stringify({ data, _ts: Date.now() }));
+    return data;
+  } catch (e) { return null; }
+}
+
+// فتح القارئ عند صفحة خام (رابط #/page/{n} أو "قفزة لآخر ما قُرئ"): يعيّن سياق
+// السورة من بيانات الصفحة ذاتها، ويملأ بيانات السورة لقائمة التلاوة في الخلفية
+window.openMushafPage = async function(page) {
+  const M = window.MushafPageManager;
+  if (!M) return;
+  window.selectedAyahNo = null;
+  // إن كانت ختمة جارية فالرابط يعيدها إلى قارئ الختمة (نفس الرابط الموحّد)
+  if (state.khatmah && state.khatmah.currentPage) {
+    state.khatmah.currentPage = M.clampPage(page); saveState();
+    window.openKhatmahReader();
+    return;
+  }
+  showScreen('surah-view', 'slide-left');
+  document.getElementById('verses-container').innerHTML = getSkeletonHTML();
+  await renderMushafPage(page);
+  await syncSurahForPage(page);
+  recordReadingPosition();
+  if (window.DeepLinks) try { DeepLinks.update('surah-view'); } catch (e) {}
+};
 
 window.openSurah = async function(number, focusAyah = null) {
   const token = ++openSurahToken;
+  number = +number;
   // الانتقال لسورة أخرى أثناء التشغيل يوقف قائمة التلاوة القديمة
   // حتى لا تُربط شاشة التظليل بسورة مختلفة عن المسار الصوتي
   if (window.AudioPlayer && state.currentSurah && state.currentSurah.number !== number) { try { AudioPlayer.stop(); } catch (e) {} }
@@ -2319,25 +2487,11 @@ window.openSurah = async function(number, focusAyah = null) {
 
   let surahData = null;
   try {
-    // TTL: 7 أيام للنسخة المخزّنة
-    const cached = localStorage.getItem(`q_s_u_${number}`);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      const age = Date.now() - (parsed._ts || 0);
-      if (age < 7 * 24 * 60 * 60 * 1000) surahData = parsed.data;
-      else localStorage.removeItem(`q_s_u_${number}`);
-    }
-    if (!surahData) {
-      const res = await fetch(`https://api.alquran.cloud/v1/surah/${number}/quran-uthmani`);
-      surahData = (await res.json()).data;
-      localStorage.setItem(`q_s_u_${number}`, JSON.stringify({ data: surahData, _ts: Date.now() }));
-    }
-
-    if(state.currentSurah.numberOfAyahs && surahData.ayahs && surahData.ayahs.length !== state.currentSurah.numberOfAyahs) {
+    surahData = await fetchSurahData(number);
+    if (surahData && state.currentSurah.numberOfAyahs && surahData.ayahs && surahData.ayahs.length !== state.currentSurah.numberOfAyahs) {
         localStorage.removeItem(`q_s_u_${number}`);
         throw new Error("بيانات غير مطابقة");
     }
-
   } catch(e) {
     // لا تعرض خطأً قديماً إذا كان المستخدم قد انتقل لسورة أخرى
     if (token !== openSurahToken) return;
@@ -2347,107 +2501,52 @@ window.openSurah = async function(number, focusAyah = null) {
 
   // ألغِ الرسم إذا بدّل المستخدم السورة أثناء التحميل
   if (token !== openSurahToken) return;
+  if (!surahData) {
+    // لا توجد بيانات سورة (لا إنترنت ولم تُخزّن من قبل): اعرض الصفحة الأولى المتاحة
+    if (window.MushafPageManager) {
+      const page = MushafPageManager.firstPageOfSurah(number);
+      await renderMushafPage(page, { focusAyah: focusAyah || null });
+      recordReadingPosition(focusAyah || null);
+    }
+    if (window.DeepLinks) try { DeepLinks.update('surah-view'); } catch (e) {}
+    return;
+  }
 
   // خزّن بيانات السورة ليتمكن مشغّل التلاوة من بناء القائمة منها
   state.currentSurahData = surahData;
-  // قسّم الآيات على صفحات المصحف كما تأتي من المصدر الموثوق — دون أي طلب إضافي
-  state.surahPages = groupAyahsByPage(surahData.ayahs);
-  state.surahPageIndex = 0;
+  // وزّع آيات السورة على فهرس صفحات المصحف (من المصدر نفسه، دون طلب إضافي)
+  // فتعمل بقية المحرّك كأن المصحف الكامل محلّياً
+  if (window.MushafPageManager) MushafPageManager.seedFromSurah(surahData);
+
+  // حلّ الصفحة المستهدفة: آية محددة، وإلا أول صفحة في السورة
+  let page = 1;
   if (focusAyah) {
-    const pi = state.surahPages.findIndex(p => p.ayahs.some(a => a.numberInSurah === focusAyah));
-    if (pi >= 0) state.surahPageIndex = pi;
+    const a = surahData.ayahs.find(x => x.numberInSurah === +focusAyah);
+    if (a && typeof a.page === 'number') page = a.page;
+  } else if (surahData.ayahs.length && typeof surahData.ayahs[0].page === 'number') {
+    page = surahData.ayahs[0].page;
+  } else if (window.MushafPageManager) {
+    page = MushafPageManager.firstPageOfSurah(number);
   }
-  renderSurahPage(focusAyah);
-}
-
-// تجميع الآيات في صفحات المصحف حسب الحقل page القادم من المصدر نفسه
-function groupAyahsByPage(ayahs) {
-  const pages = []; let cur = null;
-  (ayahs || []).forEach(a => {
-    const pg = a.page || 0;
-    if (!cur || cur.page !== pg) { cur = { page: pg, juz: a.juz || null, ayahs: [] }; pages.push(cur); }
-    cur.ayahs.push(a);
-  });
-  return pages;
-}
-
-// يرسم صفحة مصحف واحدة من state.surahPages[state.surahPageIndex]
-function renderSurahPage(focusAyah = null) {
-  const container = document.getElementById('verses-container');
-  const pages = state.surahPages || [];
-  if (!pages.length) { container.innerHTML = ''; return; }
-  const idx = Math.max(0, Math.min(state.surahPageIndex || 0, pages.length - 1));
-  state.surahPageIndex = idx;
-  const page = pages[idx];
-  const number = state.currentSurah ? state.currentSurah.number : 0;
-
-  let html = '';
-  // البسملة تُعرض مرّة واحدة فوق أول صفحة من السورة
-  if (idx === 0 && number !== 1 && number !== 9) {
-    html += `<div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>`;
-  }
-  html += `<div class="mushaf-page-label">صفحة ${toArabicNum(page.page)}${page.juz ? ` — الجزء ${toArabicNum(page.juz)}` : ''}</div>`;
-  html += `<div class="mushaf-block">${buildMushafHTML(page.ayahs, { surahNumber: number })}</div>`;
-  if (pages.length > 1) {
-    html += `<div class="mushaf-nav">
-      <button class="btn-scale mushaf-nav-btn" id="mp-prev" ${idx === 0 ? 'disabled' : ''}>→ السابقة</button>
-      <span class="mushaf-nav-pos">${toArabicNum(idx + 1)} / ${toArabicNum(pages.length)}</span>
-      <button class="btn-scale mushaf-nav-btn" id="mp-next" ${idx >= pages.length - 1 ? 'disabled' : ''}>التالية ←</button>
-    </div>`;
-  }
-  // تنقّل بين السور من داخل القارئ — لا حاجة للعودة للقائمة الرئيسية
-  if (number) {
-    html += `<div class="mushaf-nav surah-nav">
-      <button class="btn-scale mushaf-nav-btn" id="sp-prev" ${number <= 1 ? 'disabled' : ''}>→ السورة السابقة</button>
-      <span class="mushaf-nav-pos">${toArabicNum(number)} / ١١٤</span>
-      <button class="btn-scale mushaf-nav-btn" id="sp-next" ${number >= 114 ? 'disabled' : ''}>السورة التالية ←</button>
-    </div>`;
-  }
-  container.innerHTML = html;
-
-  const prev = document.getElementById('mp-prev');
-  const next = document.getElementById('mp-next');
-  if (prev) prev.addEventListener('click', () => goSurahPage(-1));
-  if (next) next.addEventListener('click', () => goSurahPage(1));
-  const spPrev = document.getElementById('sp-prev');
-  const spNext = document.getElementById('sp-next');
-  if (spPrev) spPrev.addEventListener('click', () => { if (number > 1) window.openSurah(number - 1); });
-  if (spNext) spNext.addEventListener('click', () => { if (number < 114) window.openSurah(number + 1); });
-  // أعد ربط تظليل التلاوة بالعنصر المعروض إن وُجد على هذه الصفحة
-  if (window.AudioPlayer && AudioPlayer.refreshHighlight) AudioPlayer.refreshHighlight();
-  if (focusAyah) {
-    const el = container.querySelector(`.ayah[data-ayah="${focusAyah}"]`);
-    if (el) selectAyah(el, true);
-    else window.selectedAyahNo = null; // آية غير موجودة: لا تترك قيمة عالقة في الرابط
-  }
-  // سجّل موضع القراءة الحالي (الصفحة + أول آية فيها كأساس) لمتابعة القراءة لاحقاً
-  recordReadingPosition(focusAyah || (page.ayahs[0] && page.ayahs[0].numberInSurah) || null);
+  await renderMushafPage(page, { focusAyah: focusAyah || null });
+  recordReadingPosition(focusAyah || null);
   // حدّث الرابط العميق بعد اكتمال الرسم (يعكس تنقّل الصفحات وتغيّر التحديد)
   if (window.DeepLinks) try { DeepLinks.update('surah-view'); } catch (e) {}
-  if (window.AnimationManager?.observeReveal) AnimationManager.observeReveal();
 }
 
 // حفظ موضع القراءة الحالي لإمكانية العودة إليه (سورة + آية + صفحة)
 function recordReadingPosition(ayahNo = null) {
   try {
     if (!window.ReadingProgressManager || !state.currentSurah) return;
-    const pages = state.surahPages || [];
-    const idx = state.surahPageIndex || 0;
-    const pg = pages[idx];
-    const lastAyah = ayahNo || window.selectedAyahNo || (pg && pg.ayahs.length ? pg.ayahs[pg.ayahs.length - 1].numberInSurah : null);
-    ReadingProgressManager.savePosition(state.currentSurah.number, state.currentSurah.name, lastAyah, pg ? pg.page : null);
+    const M = window.MushafPageManager;
+    const pg = M && state.mushafPage ? M.pageAyahs(state.mushafPage) : [];
+    const lastAyah = ayahNo || window.selectedAyahNo || (pg.length ? pg[pg.length - 1].numberInSurah : null);
+    ReadingProgressManager.savePosition(state.currentSurah.number, state.currentSurah.name, lastAyah, state.mushafPage || null);
   } catch (e) {}
 }
 
-window.goSurahPage = function(dir) {
-  const pages = state.surahPages || [];
-  const nx = (state.surahPageIndex || 0) + dir;
-  if (nx < 0 || nx >= pages.length) return;
-  state.surahPageIndex = nx;
-  hideAyahBar();
-  renderSurahPage();
-  document.getElementById('content').scrollTop = 0;
-};
+// اسم مستعار للتوافق مع الأزرار والاختبارات القديمة
+window.goSurahPage = function(dir) { changeMushafPage(dir); };
 
 /* ==================== تفاعل الآية: تحديد + نسخ + تشغيل + حفظ ==================== */
 let selectedAyahEl = null;
@@ -2671,8 +2770,6 @@ function checkMissedDays() {
 window.openKhatmahReader = function() { showScreen('khatmah-read', 'slide-left'); loadKhatmahPage(state.khatmah.currentPage); }
 
 async function loadKhatmahPage(pageNum) {
-  const container = document.getElementById('khatmah-page-container');
-  container.innerHTML = getSkeletonHTML();
   // إعادة إظهار شريط التحكم عند فتح صفحة جديدة (المستخدم في وضع القراءة)
   document.getElementById('khatmah-controls').classList.remove('controls-hidden');
 
@@ -2688,56 +2785,14 @@ async function loadKhatmahPage(pageNum) {
 
   updateHeaderSubtitle();
 
-  try {
-    // المصحف الكامل المخزّن محلياً (تنزيل اختياري من الإعدادات) له الأولوية:
-    // نفس بنية عرض مسار الشبكة تماماً، لكنه يعمل بلا إنترنت وبلا طلبات.
-    if (window.MushafPageManager && MushafPageManager.ready) {
-      container.innerHTML = MushafPageManager.pageHTML(pageNum);
-      document.getElementById('content').scrollTop = 0;
-      state.khatmah.lastPageRead = Math.max(state.khatmah.lastPageRead || 0, pageNum); saveState(); updateKhatmahUI();
-      return;
-    }
+  // مسار بيانات موحّد: المصحف المحلّى المحلّي أولاً ثم مخبأ الصفحة ثم الشبكة
+  await renderMushafPage(pageNum, { surahHeader: true });
 
-    const res = await fetch(`https://api.alquran.cloud/v1/page/${pageNum}/quran-uthmani`);
-    const data = await res.json();
-
-    let html = `<div style="text-align:center; font-size:calc(var(--font-size) * 0.54); color:var(--text-dim); margin-bottom:10px;">صفحة ${toArabicNum(pageNum)}</div>`;
-    const ayahs = data.data.ayahs;
-    let currentSurah = ayahs[0].surah.number;
-
-    // رأس السورة إذا بدأت الصفحة بأول آية منها
-    if (ayahs[0].numberInSurah === 1) {
-        html += `<div class="surah-header-card" style="margin-top:14px;"><div class="surah-h-name">${escHtml(ayahs[0].surah.name)}</div></div>`;
-        if (currentSurah !== 1 && currentSurah !== 9) html += `<div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>`;
-    }
-
-    html += `<div class="mushaf-block">`;
-    // اجمع آيات كل سورة على حدة، وابنِ ترميزها دفعة واحدة بالمولّد المشترك
-    let blockAyahs = [];
-    const flushBlock = () => { html += buildMushafHTML(blockAyahs); blockAyahs = []; };
-    ayahs.forEach((ayah, index) => {
-      if (ayah.surah.number !== currentSurah) {
-        flushBlock();
-        html += `</div>`;
-        // هامش أخف (14px بدلاً من 20px) لفصل السور في صفحة الختمة دون فراغات مبالغ فيها
-        html += `<div class="surah-header-card" style="margin-top:14px;"><div class="surah-h-name">${escHtml(ayah.surah.name)}</div></div>`;
-        if (ayah.surah.number !== 1 && ayah.surah.number !== 9) html += `<div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>`;
-        html += `<div class="mushaf-block">`;
-        currentSurah = ayah.surah.number;
-      }
-      blockAyahs.push(ayah);
-      if (index === ayahs.length - 1) { flushBlock(); html += `</div>`; }
-    });
-
-    container.innerHTML = html; document.getElementById('content').scrollTop = 0;
-    // التقدّم المحفوظ لا يتراجع: سُجِّل أبعد صفحة وُصل إليها، لا آخر صفحة عُرضت.
-    // الرجوع لصفحة سابقة لإعادة القراءة يجب ألّا يمحو ما تحقق.
-    state.khatmah.lastPageRead = Math.max(state.khatmah.lastPageRead || 0, pageNum); saveState(); updateKhatmahUI();
-
-    if (pageNum < 604) setTimeout(() => fetch(`https://api.alquran.cloud/v1/page/${pageNum + 1}/quran-uthmani`).catch(() => {}), 800);
-  } catch(e) {
-    container.innerHTML = `<div style="text-align:center; padding:40px;">خطأ اتصال. تأكد من الإنترنت وحاول مرة أخرى.<br><button class="btn-scale" style="margin-top:15px; width:auto; padding:10px 20px;" onclick="loadKhatmahPage(${pageNum})">إعادة المحاولة 🔄</button></div>`;
-  }
+  // التقدّم المحفوظ لا يتراجع: سُجِّل أبعد صفحة وُصل إليها، لا آخر صفحة عُرضت.
+  // الرجوع لصفحة سابقة لإعادة القراءة يجب ألّا يمحو ما تحقق.
+  state.khatmah.lastPageRead = Math.max(state.khatmah.lastPageRead || 0, pageNum);
+  state.khatmah.currentPage = pageNum;
+  saveState(); updateKhatmahUI();
 }
 
 window.changeKhatmahPage = function(dir) {
