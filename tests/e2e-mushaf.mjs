@@ -61,15 +61,15 @@ async function waitFor(expr, { timeout = 20000, interval = 250 } = {}) {
 const KHATMAH_PLAN = `window.state.khatmah = { active: true, method: 'pages', totalDays: null, pagesPerDay: 8, currentPage: 293, todayWirdStart: 293, todayWirdEnd: 300, lastPageRead: 293, lastActiveDate: new Date().toISOString().slice(0,10) }; window.saveState();`;
 
 async function pageStructure() {
-  return evaljs(`(() => { const c = document.getElementById('khatmah-page-container'); if (!c) return null;
+  return evaljs(`(() => { const c = document.getElementById('verses-container'); if (!c) return null;
     return { blocks: c.querySelectorAll('.mushaf-block').length, headers: c.querySelectorAll('.surah-header-card').length,
              bism: c.querySelectorAll('.bismillah').length, ayahs: c.querySelectorAll('.ayah').length,
-             label: (c.querySelector('.mushaf-page-label')||{}).textContent || '' }; })()`);
+             foot: (document.getElementById('mushaf-page-foot')||{}).textContent || '' }; })()`);
 }
 
 async function openReader(page) {
   await evaljs(`${KHATMAH_PLAN} window.state.khatmah.currentPage = ${page}; window.showScreen('khatmah-read','slide-left'); window.loadKhatmahPage(${page});`);
-  return waitFor(`document.getElementById('khatmah-page-container').querySelectorAll('.ayah').length > 0`, { timeout: 25000 });
+  return waitFor(`document.getElementById('verses-container').querySelectorAll('.ayah').length > 0`, { timeout: 25000 });
 }
 
 async function main() {
@@ -112,8 +112,8 @@ async function main() {
     await openReader(293);
     const netStruct = await pageStructure();
     ok('(b) network render produced ayahs', netStruct && netStruct.ayahs > 0, netStruct ? JSON.stringify(netStruct) : 'no structure');
-    ok('(b) network render shows the Al-Kahf header', await evaljs(`window.normArabic(document.getElementById('khatmah-page-container').textContent).includes('الكهف')`));
-    ok('(b) header text is the source voweled name', await evaljs(`document.getElementById('khatmah-page-container').textContent.includes('الكَهۡفِ')`));
+    ok('(b) network render shows the Al-Kahf header', await evaljs(`window.normArabic(document.getElementById('verses-container').textContent).includes('الكهف')`));
+    ok('(b) header text is the source voweled name', await evaljs(`document.getElementById('verses-container').textContent.includes('الكَهۡفِ')`));
 
     // ── (c) download the full corpus through the UI, with progress ──
     console.log('(c) downloading the full corpus (live source)...');
@@ -163,12 +163,12 @@ async function main() {
     const renderedOffline = await openReader(293);
     ok('(f) page 293 renders while offline', !!renderedOffline);
     const offStruct = await pageStructure();
-    ok('(f) offline render shows the Al-Kahf header', await evaljs(`window.normArabic(document.getElementById('khatmah-page-container').textContent).includes('الكهف')`));
-    ok('(f) local header uses the same voweled name as the network path', await evaljs(`document.getElementById('khatmah-page-container').textContent.includes('الكَهۡفِ')`));
+    ok('(f) offline render shows the Al-Kahf header', await evaljs(`window.normArabic(document.getElementById('verses-container').textContent).includes('الكهف')`));
+    ok('(f) local header uses the same voweled name as the network path', await evaljs(`document.getElementById('verses-container').textContent.includes('الكَهۡفِ')`));
     ok('(f) offline ayah count matches network', offStruct && netStruct && offStruct.ayahs === netStruct.ayahs, `offline=${offStruct && offStruct.ayahs}`);
 
     await evaljs(`window.changeKhatmahPage(1)`);
-    const p294 = await waitFor(`document.getElementById('khatmah-page-container').querySelectorAll('.ayah').length > 0 && document.getElementById('khatmah-page-container').textContent.includes('صفحة ٢٩٤')`, { timeout: 15000 });
+    const p294 = await waitFor(`document.getElementById('verses-container').querySelectorAll('.ayah').length > 0 && (document.getElementById('mushaf-page-foot')||{}).textContent.includes('٢٩٤')`, { timeout: 15000 });
     ok('(f) page 294 renders offline via changeKhatmahPage', !!p294);
 
     // ── (g) delete the corpus through the confirm dialog ──

@@ -62,14 +62,13 @@ const k = () => evaljs(`window.state && window.state.khatmah ? JSON.stringify(wi
 
 const arabic = n => String(n).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
 
-// loadKhatmahPage ends by writing the "صفحة N" label into the container, so the
-// label is the render-complete signal. (lastPageRead can't be used: after the
+// render-complete signal. (lastPageRead can't be used: after the
 // monotonic-progress fix a backward hop renders page 4 but leaves lastPageRead at 5.)
 async function waitForPage(n) {
-  const want = `صفحة ${arabic(n)}`;
+  const want = arabic(n);
   for (let i = 0; i < 60; i++) {
-    const label = await evaljs(`document.getElementById('khatmah-page-container')?.textContent || ''`);
-    if (label.includes(want)) return;
+    const label = await evaljs(`(document.querySelector('#mushaf-page-foot .mpf-page') || {}).textContent || ''`);
+    if (label === want) return;
     await sleep(100);
   }
   throw new Error(`page ${n} never finished loading`);
