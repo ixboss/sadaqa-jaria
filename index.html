@@ -997,6 +997,10 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 body.theme-light .settings-chip.danger { color: #a93226; }
 .settings-backup-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .settings-backup-row .settings-chip { flex: 1 1 auto; text-align: center; }
+/* شريط تقدّم تنزيل المصحف */
+.quran-dl-bar { height: 8px; border-radius: 6px; background: var(--surface-2); overflow: hidden; margin-top: 10px; border: 1px solid var(--border); }
+.quran-dl-fill { height: 100%; width: 0%; background: var(--accent-grad); transition: width 200ms linear; }
+.quran-dl-note { font-size: calc(var(--font-size) * 0.46); color: var(--text-dim); margin-top: 6px; text-align: center; }
 .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
 .settings-arrow { color: var(--accent); font-size: calc(var(--font-size) * 0.8); font-weight: bold; }
 .settings-toggle { position: relative; width: 52px; height: 30px; border-radius: 20px; background: var(--surface-2); border: 1px solid var(--border); cursor: pointer; flex-shrink: 0; transition: background 240ms var(--ease-out-quart), border-color 240ms; }
@@ -2685,6 +2689,15 @@ async function loadKhatmahPage(pageNum) {
   updateHeaderSubtitle();
 
   try {
+    // المصحف الكامل المخزّن محلياً (تنزيل اختياري من الإعدادات) له الأولوية:
+    // نفس بنية عرض مسار الشبكة تماماً، لكنه يعمل بلا إنترنت وبلا طلبات.
+    if (window.MushafPageManager && MushafPageManager.ready) {
+      container.innerHTML = MushafPageManager.pageHTML(pageNum);
+      document.getElementById('content').scrollTop = 0;
+      state.khatmah.lastPageRead = Math.max(state.khatmah.lastPageRead || 0, pageNum); saveState(); updateKhatmahUI();
+      return;
+    }
+
     const res = await fetch(`https://api.alquran.cloud/v1/page/${pageNum}/quran-uthmani`);
     const data = await res.json();
 
@@ -3189,6 +3202,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   initHijri(); loadState();
+  // إن وُجد المصحف الكامل مخزّناً محلياً فاجعله جاهزاً للعرض بلا إنترنت.
+  // القراءة من IndexedDB فقط — لا طلبات شبكة هنا.
+  if (window.MushafPageManager && MushafPageManager.load) {
+    MushafPageManager.load().catch(() => {});
+  }
   // تسجيل Service Worker يتم مرة واحدة فقط في نهاية <body> (تجنّب التسجيل المزدوج)
 
   // حافظي على state.bookmark متزامناً مع BookmarkManager (نظام موحد للمرجعيات)
@@ -3530,6 +3548,8 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./features.js" defer></script>
 <!-- النسخ الاحتياطي المحلي: تصدير/استيراد/مسح مع تحقق صارم من الشكل (بلا تقييم للنص المستورد) -->
 <script src="./backup.js" defer></script>
+<!-- محرّك المصحف الموحّد: فهرس الـ٦٠٤ صفحة + تخزين القرآن محلياً (IndexedDB) -->
+<script src="./mushaf.js" defer></script>
 <script>
 // Register Service Worker with enhanced error handling
 if ('serviceWorker' in navigator) {
