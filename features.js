@@ -1039,9 +1039,11 @@ const ReaderSettings = {
     reader_layout: { label: 'العرض الأفقي', def: 'single', items: [
       { value: 'single', label: 'صفحة واحدة' },
       { value: 'double', label: 'صفحتان جنباً إلى جنب' } ] },
-    reader_theme: { label: 'ثيم الصفحة', def: 'heritage', items: [
+    reader_theme: { label: 'ثيم الصفحة', def: 'auto', items: [
+      { value: 'auto',     label: 'تلقائي (يتبع وضع التطبيق)' },
       { value: 'heritage', label: 'التراثي (ذهبي)' },
-      { value: 'floral',   label: 'الزهري (أخضر/وردي)' } ] },
+      { value: 'floral',   label: 'الزهري (أخضر/وردي)' },
+      { value: 'night',    label: 'الليلي (داكن)' } ] },
     reader_highlight: { label: 'التظليل الموضوعي', def: '0', items: [
       { value: '0', label: 'متوقف' },
       { value: '1', label: 'تمييز آيات الرحمة والصبر والجنة والتوبة والتوكّل' } ] }
@@ -1083,10 +1085,20 @@ const ReaderSettings = {
       (window.state.currentScreen === 'surah-view' || window.state.currentScreen === 'khatmah-read'));
   },
 
+  // الوضع التلقائي يحلّ ثيم الصفحة تبعاً لثيم التطبيق: داكن ← ليلي،
+  // فاتح ← تراثي. الثيمات الصريحة تبقى كما اختارها المستخدم.
+  effectivePageTheme() {
+    const t = this.get('reader_theme');
+    if (t !== 'auto') return t;
+    return (document.body && document.body.classList.contains('theme-light')) ? 'heritage' : 'night';
+  },
+
   // طبّق كل الإعدادات على الواجهة (بعد التشغيل وبعد كل تغيير)
   applyAll() {
     const b = document.body;
-    b.classList.toggle('mushaf-theme-floral',  this.get('reader_theme') === 'floral');
+    const pageTheme = this.effectivePageTheme();
+    b.classList.toggle('mushaf-theme-floral', pageTheme === 'floral');
+    b.classList.toggle('mushaf-theme-night', pageTheme === 'night');
     b.classList.toggle('mushaf-design-book',   this.get('reader_page_design') === 'book');
     b.classList.toggle('mushaf-layout-double', this.get('reader_layout') === 'double');
     b.classList.toggle('mushaf-highlight-on',  this.get('reader_highlight') === '1');
