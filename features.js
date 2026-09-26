@@ -900,25 +900,41 @@ window.AudioPlayer = AudioPlayer;
 // تُستخدم لاختيار القارئ، ولاحقاً لإعدادات القارئ (مرحلة ٦).
 const BottomSheet = {
   overlay: null,
-  open({ title = '', items = [], current = null, onSelect = null } = {}) {
+  // items: قائمة مسطّحة. sections: [{ label, items, current }] لمجموعات
+  // متعدّدة داخل ورقة واحدة — تستخدمها إعدادات القارئ (مرحلة ٦).
+  open({ title = '', items = [], current = null, sections = null, onSelect = null } = {}) {
     this.close();
+    const groups = sections
+      ? sections.map(sec => ({ label: sec.label || '', items: sec.items || [], current: sec.current != null ? sec.current : current }))
+      : [{ label: '', items: items, current: current }];
+    const flat = [];
+    const bodyHTML = groups.map(sec =>
+      (sec.label ? '<div class="sheet-group-label"></div>' : '') +
+      sec.items.map(it => {
+        flat.push(it);
+        const on = it.value === sec.current;
+        return `<button class="sheet-item ${on ? 'active' : ''}" type="button">
+          <span class="sheet-item-label"></span>${on ? '<span class="sheet-tick">✓</span>' : ''}</button>`;
+      }).join('')
+    ).join('');
     const ov = document.createElement('div');
     ov.className = 'sheet-overlay';
     const sh = document.createElement('div');
     sh.className = 'bottom-sheet';
     sh.setAttribute('role', 'dialog');
     sh.setAttribute('aria-label', title);
-    sh.innerHTML = '<div class="sheet-title"></div>' + items.map((it, i) => {
-      const on = it.value === current;
-      return `<button class="sheet-item ${on ? 'active' : ''}" data-i="${i}" type="button">
-        <span class="sheet-item-label"></span>${on ? '<span class="sheet-tick">✓</span>' : ''}</button>`;
-    }).join('');
+    sh.innerHTML = '<div class="sheet-title"></div>' + bodyHTML;
     // املأ النصوص بعيداً عن innerHTML حتى لا تُحقن أي علامة من الأسماء
     sh.querySelector('.sheet-title').textContent = title;
+    const labels = sh.querySelectorAll('.sheet-group-label');
+    let li = 0;
+    groups.forEach(sec => {
+      if (sec.label) { if (labels[li]) labels[li].textContent = sec.label; li++; }
+    });
     sh.querySelectorAll('.sheet-item').forEach((b, i) => {
-      b.querySelector('.sheet-item-label').textContent = items[i].label;
+      const it = flat[i];
+      b.querySelector('.sheet-item-label').textContent = it.label;
       b.addEventListener('click', () => {
-        const it = items[i];
         this.close();
         if (onSelect) onSelect(it);
       });
@@ -1006,6 +1022,128 @@ const ReaderAudioPill = {
 window.ReaderAudioPill = ReaderAudioPill;
 // اشتراك واحد: أي تغيير في التلاوة يُحدّث القرص
 AudioPlayer.on(() => { if (window.ReaderAudioPill) ReaderAudioPill.render(); });
+
+/* ==================== 7d) ReaderSettings — إعدادات القارئ (مرحلة ٦) ==================== */
+// تُخزَّن بمفاتيحها الخاصّة في localStorage، مستقلّة عن بقية الإعدادات.
+// كل قيمة قابلة للتطبيق الفوري على الواجهة:
+//   applyAll()      — بعد التشغيل وبعد كل تغيير (أصناف body + محرّك القلب)
+//   applyTopics(el) — بعد كل رسم صفحة (تظليل الآيات الموضوعية)
+const ReaderSettings = {
+  KEYS: {
+    reader_scroll_dir: { label: 'اتجاه التمرير', def: 'flip', items: [
+      { value: 'flip',     label: 'قلب الصفحات' },
+      { value: 'vertical', label: 'تمرير عمودي' } ] },
+    reader_page_design: { label: 'تصميم الصفحة', def: 'full', items: [
+      { value: 'full', label: 'هامش عادي' },
+      { value: 'book', label: 'هامش كتابي موسّع' } ] },
+    reader_layout: { label: 'العرض الأفقي', def: 'single', items: [
+      { value: 'single', label: 'صفحة واحدة' },
+      { value: 'double', label: 'صفحتان جنباً إلى جنب' } ] },
+    reader_theme: { label: 'ثيم الصفحة', def: 'heritage', items: [
+      { value: 'heritage', label: 'التراثي (ذهبي)' },
+      { value: 'floral',   label: 'الزهري (أخضر/وردي)' } ] },
+    reader_highlight: { label: 'التظليل الموضوعي', def: '0', items: [
+      { value: '0', label: 'متوقف' },
+      { value: '1', label: 'تمييز آيات الرحمة والصبر والجنة والتوبة والتوكّل' } ] }
+  },
+
+  // جدول موضوعي ثابت مرفق مع التطبيق (بلا اعتماد على الشبكة). كل مدى
+  // [سورة، آية البداية، آية النهاية] داخل سورة واحدة — مختارات شهيرة.
+  TOPIC_RANGES: [
+    { key: 'mercy',    label: 'الرحمة',   ranges: [[1, 1, 7], [39, 53, 53]] },
+    { key: 'patience', label: 'الصبر',    ranges: [[2, 153, 157], [94, 5, 6]] },
+    { key: 'paradise', label: 'الجنة',    ranges: [[3, 133, 136]] },
+    { key: 'repent',   label: 'التوبة',   ranges: [[39, 53, 55]] },
+    { key: 'trust',    label: 'التوكّل',  ranges: [[65, 2, 3]] }
+  ],
+
+  get(key) {
+    const spec = this.KEYS[key];
+    if (!spec) return null;
+    try {
+      const v = localStorage.getItem(key);
+      return (v != null && spec.items.some(i => i.value === v)) ? v : spec.def;
+    } catch (e) { return spec.def; }
+  },
+
+  set(key, v) {
+    const spec = this.KEYS[key];
+    if (!spec) return;
+    try { localStorage.setItem(key, String(v)); } catch (e) {}
+    this.applyAll();
+    // تغيير التخطيط يحتاج إعادة رسم الصفحة لملء/إفراغ العمود الثاني
+    if (key === 'reader_layout' && this.isInReader() && typeof window.renderMushafPage === 'function') {
+      window.renderMushafPage(window.state ? window.state.mushafPage : 1).catch(() => {});
+    }
+    if (window.Toast) Toast.show('تم الحفظ ✓');
+  },
+
+  isInReader() {
+    return !!(window.state &&
+      (window.state.currentScreen === 'surah-view' || window.state.currentScreen === 'khatmah-read'));
+  },
+
+  // طبّق كل الإعدادات على الواجهة (بعد التشغيل وبعد كل تغيير)
+  applyAll() {
+    const b = document.body;
+    b.classList.toggle('mushaf-theme-floral',  this.get('reader_theme') === 'floral');
+    b.classList.toggle('mushaf-design-book',   this.get('reader_page_design') === 'book');
+    b.classList.toggle('mushaf-layout-double', this.get('reader_layout') === 'double');
+    b.classList.toggle('mushaf-highlight-on',  this.get('reader_highlight') === '1');
+    // أفرغ عمود الصفحة الثانية فوراً إن لم يكن العرض المزدوج فاعلاً — بعض
+    // البيئات لا تطلق حدث resize عند الدوران، فلا يبقى محتوى مختبئاً خالياً
+    if (typeof window.mushafPageStep === 'function' && window.mushafPageStep() !== 2) {
+      const col = document.getElementById('mushaf-page-next');
+      if (col) col.innerHTML = '';
+    }
+    // التمرير العمودي ملاذُ وصولٍ لا محرّك قلب: يُطفئ السحب فقط (النقرة تبقى)
+    if (window.PageFlipEngine) PageFlipEngine.setEnabled(this.get('reader_scroll_dir') !== 'vertical');
+    // أعد بناء التظليل الموضوعي على الصفحة المعروضة (إضافة أو إزالة)
+    const scope = document.getElementById('screen-mushaf');
+    if (scope) {
+      scope.querySelectorAll('.ayah.topic').forEach(el => {
+        el.classList.remove('topic');
+        el.classList.remove(...Array.from(el.classList).filter(c => c.startsWith('topic-')));
+        el.removeAttribute('title');
+      });
+      if (this.get('reader_highlight') === '1') this.applyTopics();
+    }
+  },
+
+  // تظليل آيات الموضوعات — تُمرَّر الحاوية أو تُؤخذ من الصفحة الحالية
+  applyTopics(container) {
+    if (this.get('reader_highlight') !== '1') return;
+    const root = container || document.getElementById('verses-container');
+    if (!root) return;
+    root.querySelectorAll('.ayah[data-surah][data-ayah]').forEach(el => {
+      const s = +el.dataset.surah, a = +el.dataset.ayah;
+      if (!s || !a) return;
+      const hit = this.TOPIC_RANGES.find(t =>
+        t.ranges.some(r => s === r[0] && a >= r[1] && a <= r[2]));
+      if (hit) {
+        el.classList.add('topic', 'topic-' + hit.key);
+        el.setAttribute('title', hit.label);
+      }
+    });
+  },
+
+  // ورقة الإعدادات من ترس شريط القارئ — خمس مجموعات في ورقة واحدة
+  open() {
+    if (!window.BottomSheet) return;
+    const sections = Object.keys(this.KEYS).map(k => ({
+      label: this.KEYS[k].label,
+      current: this.get(k),
+      items: this.KEYS[k].items.map(i => ({ value: i.value, label: i.label, key: k }))
+    }));
+    BottomSheet.open({
+      title: 'إعدادات القارئ',
+      sections,
+      onSelect: it => { if (it && it.key) this.set(it.key, it.value); }
+    });
+  }
+};
+window.ReaderSettings = ReaderSettings;
+window.openReaderSettings = function () { if (window.ReaderSettings) ReaderSettings.open(); };
 
 /* ==================== 8) Reminders — التذكيرات المحلية ==================== */
 const Reminders = {
@@ -1123,6 +1261,8 @@ window.DeepLinks = DeepLinks;
 // لا يمكن للمتصفح إطلاقها في الخلفية بدون تثبيت PWA + Periodic Sync.
 document.addEventListener('DOMContentLoaded', () => {
   Reminders.init();
+  // طبّق إعدادات القارئ قبل أول رسم (الثيم والهامش) كي لا يومض
+  ReaderSettings.applyAll();
   // انتظر حتى تصبح showScreen متاحة (ترتيب التحميل غير المضمون مع السكربتات المؤجلة)
   const initDeepLinks = () => {
     if (typeof window.showScreen === 'function') {
