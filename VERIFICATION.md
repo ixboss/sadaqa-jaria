@@ -182,3 +182,144 @@ device-tested), and disk usage on low-storage devices.
 | `probe-backup-geometry.mjs` | 320px + 390px | Backup row layout, no overflow |
 
 All suites were re-run green after every change in this report.
+
+---
+
+# Verification Report — Quran reader: readability, back button, post-back nav
+
+Generated 2026-09-27, on branch `fix/quran-reader-theme-back-nav` (4 commits on
+top of `3de6958`, nothing pushed). Three reported defects, each root-caused
+before it was touched. Every fix is one independently revertable commit.
+
+## Defect 1 — Quran page extremely bright/unreadable
+
+**Not one wrong color — a theming seam.** The `--mushaf-paper/-2/-ink/-frame`
+tokens were declared on `:root` as hard-coded light-cream values, *deliberately*
+decoupled from the app theme. In dark mode (the app default) the reader swaps
+the whole dark app for a full-height light page, and zen mode additionally hides
+`#header` and `#nav`, so every pixel on screen was bright paper. `applyTheme`
+never re-applied reader settings, and the `body.theme-light` block contained
+zero `--mushaf-*` overrides.
+
+**Fix (commit 1):** a third page theme `night` (dark paper, warm off-white ink,
+muted gold frame); `reader_theme` default changed from `heritage` to `auto`,
+which resolves against `body.theme-light` (`night` in dark, `heritage` in
+light); `applyTheme` now re-runs `ReaderSettings.applyAll()` so the page tracks
+the app live. Light mode is byte-for-byte unchanged for anyone who never opened
+the setting (`auto` → `heritage` = the previous look).
+
+**Secondary defect found while investigating:** `.surah-h-meta` was
+`rgba(244,241,232,0.85)` — near-white on the near-white topbar card in light
+mode *and* on the cream page, i.e. invisible everywhere. Now follows
+`--text-dim` in light mode.
+
+**Measured contrast (WCAG relative luminance), `probe-reader-theme.mjs` 13/13:**
+
+| Page theme | Paper | Ink | Contrast |
+|---|---|---|---|
+| dark auto → night | `#17211d` | `#ece4cf` | **13.03** |
+| light auto → heritage | cream | dark ink | **14.04** |
+| light `.surah-h-meta` | — | — | **5.01** (was ~1.2) |
+
+Explicit `heritage`/`floral`/`night` overrides still work, and toggling the app
+theme re-resolves an `auto` page live without a reload.
+
+## Defect 2 — No back button on the Quran page
+
+**Root cause:** the shared `#back-btn` lives in `#header`, but
+`body.mushaf-zen #header { display: none }` removes it entirely, and the reader
+topbar had only ☰ / 🔍 / ⚙. The reader *was* correctly pushed on `screenStack`,
+so `navigateBack()` worked — only the trigger was missing.
+
+**Fix (commit 2):** two triggers, both calling the existing `navigateBack()` —
+`#mt-back` in the HUD topbar and `#ghost-back` at the start edge of the zen
+chrome — colored with `--mushaf-ink`/`--mushaf-frame-soft` so their contrast
+follows the page theme rather than the app chrome. No new routing, no new
+component.
+
+**Bonus defect found by the geometry probe:** the HUD topbar was entirely behind
+`#header` (z-index 7 vs 100) — ☰ / 🔍 / ⚙ were unreachable and the wird banner
+hung over the header. The topbar *is* the HUD (per the intent of 2995b9d /
+d85b43a), so `#header` is now hidden in HUD as well as zen,
+`#screen-mushaf` is `position: relative` so reader chrome anchors to the reader,
+and `#reading-progress-container` moved into the topbar so the khatmah scrubber
+survives. `probe-reader-back.mjs` 22/22: zen header/nav hidden, ghost-back
+visible/hit-testable/at the RTL start corner, HUD topbar at y=0, every HUD
+button hit-testable, both back buttons land on `surah-list`.
+
+## Defect 3 — Bottom nav disappears after Browser Back
+
+**Root cause:** on leaving the reader the zen/hud cleanup was gated on
+`state.previousScreen !== screenId`. On a linear root → reader → back trip,
+`previousScreen` *is* the root being returned to, so the removal was skipped and
+`body.mushaf-zen` survived while `state` stayed consistent — a stale body class,
+not stale state. The guard protected nothing: landing on a non-reader screen can
+never legitimately carry reader-mode classes.
+
+**Second contributor:** `.nav-hidden` is only ever set by the `#content` scroll
+listener and was never cleared by `showScreen`, so a pre-reader scroll-hide
+outlived the trip too.
+
+**Fix (commit 3):** removal made unconditional whenever `!isMushafReader`,
+`.nav-hidden` cleared in the same branch, and the same guarantee added to
+`navigateBack()` as defense in depth.
+
+**Bonus defect found by the new suite:** re-entering the reader
+(Quran → back → Quran again) rendered with *no* mode class — the entry guard
+also read `state.previousScreen`, which stays the reader's name after a
+back-to-root. The guard now checks the body's actual mode classes instead of a
+field that can describe a different point in time.
+
+## Scenario suite — `e2e-reader-nav-theme.mjs` (83/83)
+
+All seven requested scenarios, in both themes, with console capture
+(`Runtime.consoleAPICalled` + `Log.entryAdded` + `Runtime.exceptionThrown`):
+
+1. Home → Quran → in-page back button
+2. Home → Quran → browser Back (`history.back()`)
+3. Quran → back → open Quran again — re-rendered, no duplicate stack entries,
+   zen re-entered (this is where the re-entry bug surfaced)
+4. Several pages → Quran → back
+5. Light mode and dark mode — contrast assertions in both
+6. `#nav` visible and functional after *every* scenario; `body` free of
+   `mushaf-zen`/`mushaf-hud` whenever `currentScreen` is a non-reader; a back
+   button visible and clickable while in the reader
+7. Zero console errors or warnings (two noise sources filtered with a
+   documented allowlist: a gstatic `Amiri Quran` woff2 404 that lives inside
+   Google's served CSS — CDN-side, unfixable from the repo, verified by a
+   Network-domain probe — and the resulting font preload notices)
+
+## Regression sweep — re-run green after commit 3
+
+| Suite | Assertions |
+|---|---|
+| `e2e-reader-nav-theme.mjs` | 83/83 (new) |
+| `probe-reader-theme.mjs` | 13/13 (new) |
+| `probe-reader-back.mjs` | 22/22 (new) |
+| `e2e-quran-layout.mjs` | 19/19 |
+| `e2e-mushaf-fit.mjs` | 19/19 |
+| `e2e-mushaf.mjs` | 30/30 |
+| `e2e-khatmah-lifecycle.mjs` | 20/20 |
+| `e2e-adhkar-pager.mjs` | 79/79 |
+| `e2e-offline-shell.mjs` | 11/11 |
+| `e2e-progress-streak.mjs` | 11/11 |
+| `e2e-backup.mjs` | 29/29 |
+| `probe-deeplinks.mjs` | OK |
+| `service-worker-cache.mjs` | OK |
+
+`.verify-nav.py` — nav clearance **FAILS: 0** across all 9 device models
+(iPhone SE / no inset, iPad, Android gesture, iPhone home bar, Android 2- and
+3-button, small phone h=600, landscape phone, iPad landscape). `node --check`
+clean on all 8 modules (`sw.js features.js app.js config.js mushaf.js
+pageflip.js backup.js surah-meta.js`). `sw.js` bumped v43 → v44 (cache names +
+header) because `index.html`/`features.js` changed.
+
+## Not verified
+
+- Real-device rendering: all contrast and geometry assertions are measured in
+  headless Edge over CDP, not on a physical phone.
+- The gstatic `Amiri Quran` 404 is inside Google's served CSS and cannot be
+  fixed from this repo.
+- `#mt-index` still hard-switches to the Quran tab and clears the stack. That is
+  the index button's purpose and the Quran↔Khatmah landing difference is
+  pre-existing behavior; left as-is deliberately.
