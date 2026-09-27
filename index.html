@@ -645,7 +645,7 @@ body.mushaf-theme-night {
   --mushaf-frame-soft: rgba(179, 154, 90, 0.32);
 }
 
-#screen-mushaf { display: none; flex-direction: column; height: 100%; padding: 0; max-width: 100%; }
+#screen-mushaf { display: none; position: relative; flex-direction: column; height: 100%; padding: 0; max-width: 100%; }
 #screen-mushaf.active, #screen-mushaf.slide-left, #screen-mushaf.slide-right { display: flex; }
 
 /* المصيدة ١: padding-bottom الخاص بـ #content يُنقص ارتفاع أي ابن height:100%
@@ -666,6 +666,23 @@ body.mushaf-theme-night {
 .mushaf-ghost span:first-child { font-size: calc(var(--font-size) * 0.5); font-weight: 700; }
 .mushaf-ghost span:last-child { font-size: calc(var(--font-size) * 0.42); opacity: 0.8; }
 body.mushaf-hud .mushaf-ghost { opacity: 0; }
+
+/* زر الرجوع في الوضع الهادئ: #header كامل مخفي في الوضع الهادئ فلا وسيلة
+   للرجوع بدونه. يتبع ألوان الصفحة (لا ألوان كروم التطبيق) ليبقى مقروءاً
+   فوق أي ثيم صفحة، ويُخفى في الوضع النشط حيث يحل محلّه زر الشريط. */
+.mushaf-back {
+  position: absolute; z-index: 8;
+  top: calc(env(safe-area-inset-top, 0px) + 8px); inset-inline-start: 8px;
+  width: 40px; height: 40px; border-radius: 12px;
+  border: 1px solid var(--mushaf-frame-soft); background: transparent;
+  color: var(--mushaf-ink); font-size: calc(var(--font-size) * 0.62); font-weight: 700;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: opacity 300ms var(--ease-out-quart), transform 180ms var(--ease-spring-snap), background 200ms;
+}
+.mushaf-back:active { transform: scale(0.92); }
+body.mushaf-hud .mushaf-back { opacity: 0; pointer-events: none; }
+/* افسح للزر في حافة البداية حتى لا يغطّي اسم السورة */
+body.mushaf-zen .mushaf-ghost { padding-inline-start: 56px; }
 
 /* شريط الوضع النشط: فهرس + عنوان السورة + بحث + إعدادات */
 .mushaf-topbar {
@@ -854,6 +871,11 @@ body.mushaf-hud .mushaf-page .mushaf-nav { opacity: 1; height: auto; margin: 4px
 /* الوضع الهادئ يُخفي كل الكروم الخارجي للتطبيق. شريط ورد الختمة وزرّ الإتمام
    يبقيان: هما تتبّع الورد، لا كروم قراءة. */
 body.mushaf-zen #header, body.mushaf-zen #nav { display: none; }
+/* الوضع النشط يُخفي رأس التطبيق أيضاً: شريط القارئ هو رأسَ القارئ. بدونه
+   كان شريط القارئ (z-index ٧) يسقط خلف رأس التطبيق (z-index ١٠٠) فلا
+   تُصل أزرار الفهرس والبحث والإعدادات أبداً، ويبقى شريط الورد معلّقاً
+   فوق رأس التطبيق بدل أسفل الشريط. */
+body.mushaf-hud #header { display: none; }
 body.mushaf-zen #reading-progress-container { display: none !important; }
 
 /* ===== شريط ورد الختمة (مرحلة ٥) ===== */
@@ -1405,15 +1427,6 @@ body.theme-light .settings-chip.danger { color: #a93226; }
       <div class="font-popover-title">حجم الخط</div>
       <div id="font-popover-grid"></div>
     </div>
-    <div id="reading-progress-container">
-        <div id="reading-progress-bar"></div>
-        <!-- مسار ورد الختمة: نطاق مُلوَّن + نقاط المرجعيات + مؤشر الصفحة (مرحلة ٥) -->
-        <div id="wird-track">
-          <div class="wird-range" id="wird-range"></div>
-          <div class="wird-dots" id="wird-dots"></div>
-          <i class="wird-cursor" id="wird-cursor"></i>
-        </div>
-    </div>
   </header>
 
   <main id="content">
@@ -1432,6 +1445,8 @@ body.theme-light .settings-chip.danger { color: #a93226; }
     <!-- شاشة واحدة تخدم مساري السورة والختمة (showScreen تعامل surah-view
          و khatmah-read كاسمين لها مع علم وضع). -->
     <div id="screen-mushaf" class="screen">
+      <!-- زر الرجوع في الوضع الهادئ — لا رأس تطبيق هناك، فهذا سبيل الرجوع -->
+      <button class="mushaf-back" id="ghost-back" aria-label="رجوع">&#8594;</button>
       <!-- شبح الوضع الهادئ: اسم السورة يساراً، الجزء/الصفحة يميناً -->
       <div class="mushaf-ghost" id="mushaf-ghost" aria-hidden="true">
         <span id="mushaf-ghost-surah">—</span>
@@ -1439,6 +1454,7 @@ body.theme-light .settings-chip.danger { color: #a93226; }
       </div>
       <!-- شريط الوضع النشط -->
       <div class="mushaf-topbar" id="mushaf-topbar">
+        <button class="mt-btn" id="mt-back" aria-label="رجوع">&#8594;</button>
         <button class="mt-btn" id="mt-index" aria-label="فهرس السور">☰</button>
         <div class="surah-header-card">
           <button class="bookmark-btn" onclick="toggleBookmark('surah')" id="btn-bm-surah" aria-label="حفظ السورة">🔖</button>
@@ -1449,6 +1465,16 @@ body.theme-light .settings-chip.danger { color: #a93226; }
         </div>
         <button class="mt-btn" id="mt-search" aria-label="البحث في القرآن">🔍</button>
         <button class="mt-btn" id="mt-settings" aria-label="إعدادات القارئ">⚙</button>
+        <!-- مسار التقدّم وورد الختمة: كانوا أسفل رأس التطبيق، والآن رأس
+             القارئ هو الشريط، فيتدلّون من أسفله. -->
+        <div id="reading-progress-container">
+          <div id="reading-progress-bar"></div>
+          <div id="wird-track">
+            <div class="wird-range" id="wird-range"></div>
+            <div class="wird-dots" id="wird-dots"></div>
+            <i class="wird-cursor" id="wird-cursor"></i>
+          </div>
+        </div>
       </div>
       <!-- قرص التلاوة الطافي: يظهر في الوضع النشط أثناء التشغيل (مرحلة ٤) -->
       <div class="mushaf-audio-pill" id="mushaf-audio-pill">
@@ -3896,6 +3922,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('back-btn').addEventListener('click', navigateBack);
+  // زرّا الرجوع في القارئ: شريط الوضع النشط، وشبح الوضع الهادئ — كلاهما
+  // يستخدم مسار الرجوع نفسه (navigateBack) دون مسار منفصل.
+  document.getElementById('mt-back').addEventListener('click', navigateBack);
+  document.getElementById('ghost-back').addEventListener('click', navigateBack);
   // أزرار شريط الوضع النشط في القارئ الموحّد
   document.getElementById('mt-index').addEventListener('click', () => { switchTab('quran'); showScreen('surah-list', 'slide-right'); });
   document.getElementById('mt-search').addEventListener('click', () => {
