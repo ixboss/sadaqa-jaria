@@ -8,6 +8,7 @@
 <meta name="author" content="ixboss">
 <meta name="theme-color" content="#0a1f28" id="meta-theme-color">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="إسلامي">
 
@@ -2197,15 +2198,23 @@ function showScreen(screenId, animClass = 'active') {
   const target = document.getElementById(isMushafReader ? 'screen-mushaf' : `screen-${screenId}`);
   if (isMushafReader) {
     state.mushafMode = screenId;
-    // الدخول لأول مرة يبدأ في الوضع الهادئ؛ التنقّل بين المسارين يحافظ على الوضع
-    if (!['surah-view', 'khatmah-read'].includes(state.previousScreen)) enterZenMode();
+    // الدخول لأول مرة يبدأ في الوضع الهادئ؛ التنقّل بين المسارين يحافظ على الوضع.
+    // نفحص حالة الجسم الفعلية لا previousScreen: بعد «القارئ ← رجوع ← إعادة
+    // الدخول» يبقى previousScreen اسم القارئ فكان يُُتخطّى دخول الوضع الهادئ
+    // وتبقى الشاشة بلا وضع إطلاقاً (رأس التطبيق وشريط التنقّل ظاهرين فوق الصفحة).
+    if (!document.body.classList.contains('mushaf-zen') &&
+        !document.body.classList.contains('mushaf-hud')) enterZenMode();
   } else {
-    // مغادرة القارئ: لا يبقى وضع مسار معلّقاً — شريط الورد وزرّ الإتمام
-    // ومسار النطاق يعتمدون على هذا العلم فيختفون جميعاً
+    // مغادرة القارئ: مسار القارئ وكل كرومه يجب أن يزولا دائماً. كان الشرط
+    // السابق (previousScreen !== screenId) يتخطّى التنظيف في الرحلة الخطّية
+    // جذر ← قارئ ← رجوع، فيظلّ body.mushaf-zen عالقاً فيختفي #nav و#header
+    // بعد الرجوع بالمتصفح. لا حالة مشروعة تحملها هذه الأعلام خارج القارئ.
     state.mushafMode = null;
-    if (state.previousScreen !== screenId) {
-      document.body.classList.remove('mushaf-zen', 'mushaf-hud');
-    }
+    document.body.classList.remove('mushaf-zen', 'mushaf-hud');
+    // .nav-hidden لا يُضبط إلا من مستمع تمرير #content، فلا يُمسح تلقائياً —
+    // لو أخفاه المستخدم قبل دخول القارئ بقي مخفياً بعد الرجوع
+    const nav = document.getElementById('nav');
+    if (nav) nav.classList.remove('nav-hidden');
   }
   if (target) {
     target.classList.add(animClass);
@@ -2279,6 +2288,13 @@ function navigateBack() {
   _internalNav = true;
   window._internalNav = true;
   showScreen(target, 'slide-right');
+  // ملاذ أخير: أي مسار خارج showScreen يجب ألا يُبقي كروم القارئ عالقاً.
+  // showScreen ينظّف بنفسه الآن، وهذا يحمي من مسارات مستقبلية تتخطّاه.
+  if (target !== 'surah-view' && target !== 'khatmah-read') {
+    document.body.classList.remove('mushaf-zen', 'mushaf-hud');
+    const nav = document.getElementById('nav');
+    if (nav) nav.classList.remove('nav-hidden');
+  }
   // أعد بناء الحالات الخاصة للشاشة التي عدنا إليها
   if (target === 'athkar-list' && typeof renderAthkarList === 'function') renderAthkarList();
   if (target === 'khatmah-main' && typeof updateKhatmahUI === 'function') updateKhatmahUI();
