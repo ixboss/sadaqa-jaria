@@ -1,9 +1,10 @@
 // ==================== Service Worker — إسلامي ====================
-// v43: القارئ الموحّد — صفحة واحدة للسورة والختمة + محرّك قلب الصفحات
-//      (pageflip.js وحدة جديدة؛ سبقتها mushaf.js في v42)
-const CACHE_NAME = 'quran-app-v43';
-const API_CACHE = 'quran-api-v43';
-const STATIC_CACHE = 'static-v43';
+// v44: إصلاحات صفحة القرآن — ثيم الصفحة يتبع ثيم التطبيق (ليلي تلقائياً)،
+//      زر رجوع في الوضعين، وإخفاء رأس التطبيق في الوضع النشط، وتنظيف
+//      حالة القارئ عند الرجوع. v43: القارئ الموحّد (سبقتها mushaf.js في v42)
+const CACHE_NAME = 'quran-app-v44';
+const API_CACHE = 'quran-api-v44';
+const STATIC_CACHE = 'static-v44';
 
 const PRECACHE_URLS = [
   './',
