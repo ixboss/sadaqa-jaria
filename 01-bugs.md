@@ -1,5 +1,7 @@
 # 01 — Bugs & Weak Logic (End-to-End QA)
 
+> **Historical snapshot (2026-09-20).** Written against an earlier ~2,300-line `index.html` (now ~4,250 lines). Line references have drifted, and several findings below have since been fixed — see [VERIFICATION.md](VERIFICATION.md) for the current, evidence-backed status. Kept for review history.
+
 > **Part 1 of 4** in the *Islami / Sadaqah Jariyah PWA* code review.
 > Sibling files: [`02-uiux.md`](02-uiux.md) · [`03-features.md`](03-features.md) · [`04-architecture.md`](04-architecture.md)
 

@@ -1,8 +1,8 @@
 # Verification Report — Phases 0–4
 
 Evidence-backed record of what was inspected, what was fixed, and what remains
-**Not verified**. Generated 2026-09-25. Every fix below has a test that fails
-without it.
+**Not verified**. Generated 2026-09-25; updated 2026-09-28 (Appendix E —
+page-turn direction fix). Every fix below has a test that fails without it.
 
 ---
 

@@ -127,6 +127,9 @@ test-results/
 coverage/
 *.log
 
+# Screenshots written by the CDP probes in tests/ (never shipped, never tracked)
+tests/settings-screen.png
+
 
 # ----------------------------------------------------------------------------
 #  Logs
@@ -227,6 +230,8 @@ sw.min.js
 
 .workbuddy-ai/
 .workbuddy/
+.zcode/
+.zcodeignore
 .cursor/
 .claude/
 .aider*
