@@ -30,7 +30,7 @@
 
   // حالة السحب الحالية
   var active = false;            // هل تثبّت اتجاه أفقي ودخلنا وضع القلب
-  var goNext = true;             // true = الصفحة التالية (السحب لليسار في RTL)
+  var goNext = true;             // true = الصفحة التالية (السحب لليمين: تتبع الورقة إصبعك نحو المفصل الأيمن)
   var startX = 0, startY = 0, startT = 0;
   var downTarget = null;         // عنصر النقطة الأولى (لتمييز النقر فوق الآية)
   var selectionBlock = false;    // تحديد نص قائم من إيماءة فأرة سابقة: يمنع السحب فقط
@@ -87,15 +87,17 @@
     if (curlEl) curlEl.style.opacity = '0';
   }
 
-  // زاوية/أصل الدوران لاتجاه القلب. الكتاب يمينيّ: الوركة التالية ترفع
-  // حافتها اليسرى (مفصل اليمين)، والسابقة ترفع حافتها اليمنى (مفصل اليسار).
+  // زاوية/أصل الدوران لاتجاه القلب. الكتاب يمينيّ (مفصل اليمين): الورقة
+  // التالية ترفع حافتها اليسرى وتنطوي يميناً نحو المفصل، فتتبع إصبعك
+  // الذي يسحب من اليسار إلى اليمين. الورقة السابقة ترفع حافتها اليمنى
+  // (مفصل اليسار) وتنطوي يساراً مع السحب من اليمين إلى اليسار.
   function applyDrag(p) {
     var page = pageEl();
     if (!page) return;
     var angle = Math.min(1, Math.max(0, p)) * MAX_DRAG_DEG;
     if (reducedMotion()) {
       // مسطّح: انزياح أفقي مع خفوت بسيط
-      var tx = (goNext ? -1 : 1) * Math.min(1, Math.max(0, p)) * 38;
+      var tx = (goNext ? 1 : -1) * Math.min(1, Math.max(0, p)) * 38;
       page.style.transition = 'none';
       page.style.transform = 'translate3d(' + tx.toFixed(1) + '%, 0, 0)';
       page.style.opacity = String(1 - 0.35 * Math.min(1, Math.max(0, p)));
@@ -146,7 +148,7 @@
     };
     if (reducedMotion()) {
       page.style.transition = 'transform 200ms ease-in, opacity 200ms ease-in';
-      page.style.transform = 'translate3d(' + (goNext ? -42 : 42) + '%, 0, 0)';
+      page.style.transform = 'translate3d(' + (goNext ? 42 : -42) + '%, 0, 0)';
       page.style.opacity = '0';
     } else {
       var sign = goNext ? 1 : -1;
@@ -201,7 +203,11 @@
     active = false;
     downTarget = e.target;
     startX = e.clientX; startY = e.clientY; startT = Date.now();
-    width = viewport.clientWidth || 1;
+    // العرض المرجعي هو عرض الورقة نفسها، لا عرض المنظر كاملاً: في العرض
+    // المزدوج يمثّل نصف المنظر، وإلا فلن يكتمل القلب إلا بسحب يتجاوز نصف
+    // الشاشة. كذلك هو مقام زاوية الطيّ فيُبقيها متناسبة مع الورقة.
+    var pg = pageEl();
+    width = (pg ? pg.offsetWidth : 0) || viewport.clientWidth || 1;
     samples = [{ x: startX, t: startT }];
     window.addEventListener('pointermove', onMove, { passive: true });
     window.addEventListener('pointerup', onUp, { once: true });
@@ -219,7 +225,7 @@
       // بدأ المستخدم بتحديد نص بالفأرة — لا ننازعه هذه الإيماءة
       if (selectionBlock) { cleanup(); return; }
       active = true;
-      goNext = dx < 0;                       // RTL: السحب لليسار = الصفحة التالية
+      goNext = dx > 0;                       // RTL: السحب لليمين = الصفحة التالية (الورقة تتبع إصبعك نحو المفصل الأيمن)
       // إيماءة سحب واضحة الآن: تخلّص من أي تحديد مسرّب فوق النص
       var sel = window.getSelection && window.getSelection();
       if (sel && sel.toString()) sel.removeAllRanges();
