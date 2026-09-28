@@ -1,5 +1,7 @@
 # 02 — UI/UX & Animation Review
 
+> **Historical snapshot (2026-09-20).** Written against an earlier ~2,300-line `index.html` (now ~4,250 lines). Line references have drifted, and some proposals have since been implemented — see [VERIFICATION.md](VERIFICATION.md) for the current, evidence-backed status. Kept for review history.
+
 > **Part 2 of 4** in the *Islami / Sadaqah Jariyah PWA* code review.
 > Sibling files: [`01-bugs.md`](01-bugs.md) · [`03-features.md`](03-features.md) · [`04-architecture.md`](04-architecture.md)
 

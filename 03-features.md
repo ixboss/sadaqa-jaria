@@ -1,5 +1,7 @@
 # 03 — Feature Suggestions for the Sadaqah Jariyah Mission
 
+> **Historical snapshot (2026-09-20).** Some proposals here have since been implemented (e.g. the offline full-Quran corpus, real PWA icons) and others may no longer fit the project's direction — see [VERIFICATION.md](VERIFICATION.md) and the README for current status. Kept for review history.
+
 > **Part 3 of 4** in the *Islami / Sadaqah Jariyah PWA* code review.
 > Sibling files: [`01-bugs.md`](01-bugs.md) · [`02-uiux.md`](02-uiux.md) · [`04-architecture.md`](04-architecture.md)
 
