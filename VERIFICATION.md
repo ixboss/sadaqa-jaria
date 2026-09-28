@@ -475,3 +475,134 @@ clean on all 8 modules.
   `entry.text` — filtering on text alone lets 404s through.
 - `showScreen()` adds the animation class (`slide-left`), not `active`; assert
   on `.mushaf-page .mushaf-block` presence instead.
+
+---
+
+# Appendix E — Quran page-turn direction: gesture, fold and index now agree (2026-09-28)
+
+Scope: the horizontal page-turn in the unified Quran reader (`surah-view`) and
+the Khatmah reader (`khatmah-read`) — the same screen, the same
+`PageFlipEngine`. Nothing else was touched.
+
+## E.1 Root cause
+
+`pageflip.js` mapped `goNext = dx < 0`: a **right→left** swipe triggered the
+*next* page. But the 3D fold that plays for `goNext` is a physically-correct
+**right-spined** book turn — `transformOrigin: 'right center'` with
+`rotateY(+θ)`, so the page's *left* edge lifts and folds **rightward** toward
+the right-hand spine. On a right→left swipe the page therefore folded right
+while the finger travelled left. The gesture and the visual argued with each
+other; that disagreement is the "reversed / feels backwards" sensation. The
+page number still landed on the next page, which is why the symptom felt
+confusing rather than like a clean off-by-one.
+
+Everything in the engine — the hinge origins, the rotation signs, the curl
+gradient direction (`90deg` vs `270deg`), the shadow falloff — was built for
+the right-spine model. Only the single trigger line was inverted relative to
+the engine's own animation. The app's separate tab-swipe (`handleSwipeEnd`,
+`dx > 0` → next tab) already used rightward = forward, so the two horizontal
+gestures disagreed app-wide as well.
+
+Direction convention after the fix (a real Arabic codex, spine on the right):
+
+| finger travels | page | hinge | fold direction |
+|---|---|---|---|
+| left → right | **next** | `right center` | left edge lifts, folds right toward the spine — follows the finger |
+| right → left | **previous** | `left center` | right edge lifts, folds left — follows the finger |
+
+## E.2 What changed
+
+`pageflip.js` (one engine, five edits):
+
+1. `goNext = dx > 0` (was `dx < 0`) — the trigger now matches the fold it
+   launches. The 3D branch is **unchanged**; it already encoded the right-spine
+   turn and now agrees with its trigger.
+2. Reduced-motion live drag: `(goNext ? 1 : -1)` (was `-1 : 1`) so the flat
+   translate still slides *with* the finger — rightward for next.
+3. Reduced-motion flip-out: `translate3d(±42%)` sign flipped for the same
+   reason — the page exits toward the right for next.
+4. The two direction comments (the state declaration and the fold-math block)
+   now describe the right-spine convention, so the next reader isn't misled.
+5. The drag threshold and the fold-angle denominator now use the **page's own
+   width** rather than `viewport.clientWidth`. In the two-page landscape layout
+   the viewport is twice the page being dragged, so a full-column drag was
+   ~28% of the viewport — just short of the 30% flip commitment. Turns in
+   double layout only completed if the synthetic drag carried enough momentum,
+   which made them flaky. Now a drag across one page width is a full drag in
+   both layouts.
+
+`sw.js` v45 → v46 (cache names + header): `pageflip.js` is in `PRECACHE_URLS`,
+so installed clients need the version bump to pick up the new engine.
+
+Untouched, as required: Quran themes and their colours, typography, the nav
+bar, the back button, bookmarks, audio/recitation, ayah highlighting, search,
+Khatmah progress logic. `#mp-prev`/`#mp-next`, `#/page/N` deep links, audio
+auto-turn and `changeMushafPage()` never depended on the swipe sign, so their
+behaviour is identical. The adhkar horizontal pager keeps its own
+`dx < 0 = next` convention — it is a scroll-snap content carousel, not a book
+page-turn, and is out of scope by design.
+
+## E.3 Verification — `tests/probe-pageturn-direction.mjs` (87/87, 3 consecutive runs)
+
+A raw-CDP probe that synthesises **real pointer drags** (`Input.dispatchMouseEvent`,
+which generates the PointerEvents the engine listens to) and records the
+start/end `state.mushafPage` *plus the live `transformOrigin` / `rotateY` /
+`translate3d` sampled mid-drag*, so gesture, fold and index are all observed
+rather than inferred. It ran once pre-fix (mode `current`, 59/59) to pin the
+old mapping as a baseline, then post-fix.
+
+Coverage of the requested scenarios:
+
+1. right→left → previous (index −1, `left center` hinge, negative `rotateY`)
+2. left→right → next (index +1, `right center` hinge, positive `rotateY`)
+3. animation matches swipe direction — mid-drag transform sampled, both
+   directions: hinge on the spine side, free edge lifting toward the viewer
+4. `#mp-next` / `#mp-prev` clicks still correct (and step-aware: ±1 single,
+   ±2 two-page)
+5. page 1 + two consecutive previous-direction swipes → holds at 1, footer ١,
+   spring-back, no console error
+6. page 604 + two consecutive next-direction swipes → holds at 604, footer ٦٠٤
+7. three rapid consecutive forward swipes → exactly +3 steps (300→303 single,
+   300→306 double), no skips or duplicates
+8. `state.mushafPage` equals the rendered footer number after every turn
+9. deep link `#/page/42` still opens page 42
+10. in-app back exits the reader; `DeepLinks.update` keeps emitting
+    `#/surah/N` (or `#/page/N` in the Khatmah reader) after turns
+11. themes — `probe-reader-theme-matrix.mjs` re-run green, 163/163
+12. Khatmah — turns inside `khatmah-read`; forward advances `currentPage` and
+    records `lastPageRead`; backward renders the previous page while
+    `lastPageRead` stays monotonic
+13. viewports — 390×844 mobile portrait (step 1), 1280×800 desktop single
+    (step 1) and desktop two-page landscape (step 2, second column rendered);
+    plus a `prefers-reduced-motion` emulation pass asserting the flat
+    translate follows the finger in both directions
+
+Console checked on every run (`Log.entryAdded`, `Runtime.consoleAPICalled`,
+`Runtime.exceptionThrown`; gstatic CDN noise and the pre-existing
+`app.js observeReveal` ordering race allowlisted as out of scope) — clean.
+
+Full regression sweep re-run green: `e2e-mushaf` 30/30, `e2e-mushaf-fit`
+19/19, `e2e-khatmah-lifecycle` 20/20, `e2e-quran-layout` 19/19,
+`e2e-reader-nav-theme` 83/83, `e2e-adhkar-pager` 79/79, `e2e-offline-shell`
+11/11, `e2e-backup` 29/29, `e2e-progress-streak` 11/11, `service-worker-cache`
+PASS, `unit-mushaf` 36/36, `unit-backup` 35/35, `probe-deeplinks` all routed.
+`node --check` clean on all 7 modules; `.verify-nav.py` 0 fails.
+
+## E.4 Probe traps (for the record)
+
+- The flip lock (`flipping`) goes false **synchronously** in the boundary
+  spring-back path while the 260ms fold transition is still animating. Polling
+  `isFlipping()` alone can leave the probe sampling the page mid-fold, where
+  an edge-on page projects to a ~50px-wide rect and `style.transform` already
+  reads the transition's *target* (`rotateY(0deg)`) rather than the rendered
+  value. The settle wait must also require a sane rendered width.
+- The boot-time occasion overlay is `position: fixed` and z-index 999 over the
+  whole reader; a drag started inside it is not a page gesture. Dismiss the
+  overlays first — and note the *first* swipe used to dismiss it by click, so
+  the second swipe was the one that actually worked.
+- `openPage()` must fail loudly with a navigation log; a silent timeout leaves
+  the reader on page 1 and every downstream assertion becomes meaningless.
+- The two-page layout doubles the navigation step, so a turn's expected index
+  delta is `±step`, not `±1`; and the double pass must clear the Khatmah state
+  and the screen stack, or `openPage()` routes into the Khatmah reader and the
+  in-app-back assertion sees the leftover screen instead of the list.
