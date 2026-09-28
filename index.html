@@ -576,7 +576,7 @@ body.theme-light .surah-num { background: var(--surface-2); color: var(--text); 
 .surah-header-card { background: var(--accent-grad); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; text-align: center; box-shadow: 0 4px 15px var(--accent-dim); position: relative; }
 body.theme-light .surah-header-card { box-shadow: 0 4px 15px rgba(31, 122, 90, 0.12); }
 .surah-h-name { font-size: calc(var(--font-size)); font-weight: 700; color: var(--color-on-accent); transition: font-size 0.3s, color 0.3s; }
-body.theme-light .surah-h-name { color: var(--color-on-accent); }
+body.theme-light .mushaf-topbar .surah-h-name { color: var(--text); }
 .surah-h-meta { font-size: calc(var(--font-size) * 0.5); color: rgba(244, 241, 232, 0.85); margin-top: 4px; transition: font-size 0.3s, color 0.3s; }
 /* الوضع الفاتح: شبه الأبيض على بطاقة --surface شبه البيضاء لا يُقرأ — اجعله باهتاً موضوعياً */
 body.theme-light .surah-h-meta { color: var(--text-dim); }
@@ -841,8 +841,10 @@ body.mushaf-zen .mushaf-page { padding-top: calc(env(safe-area-inset-top, 0px) +
 }
 .mushaf-page > * { position: relative; z-index: 1; }
 
-/* داخل لوحة الصفحة، كتلة الآيات تصبح شفافة الخلفية فتظهر الورقة تحتها */
-.mushaf-page .mushaf-block { background: transparent; border: none; box-shadow: none; padding: 6px 4px; margin-bottom: 6px; }
+/* داخل لوحة الصفحة، كتلة الآيات تصبح شفافة الخلفية فتظهر الورقة تحتها.
+   لون نصّها يجب أن يتبع حبر الصفحة لا نصّ التطبيق — وإلا ف الوضع الداكن
+   للتطبيق + ورقة فاتحة يُنتج نصّاً أبيض على ورق كريمي. */
+.mushaf-page .mushaf-block { background: transparent; border: none; box-shadow: none; padding: 6px 4px; margin-bottom: 6px; color: var(--mushaf-ink); }
 .mushaf-page .mushaf-block::before { display: none; }
 .mushaf-page .mushaf-page-label { color: var(--mushaf-ink); opacity: 0.7; margin-bottom: 2px; }
 .mushaf-page .surah-header-card { background: transparent; border: none; box-shadow: none; margin-top: 10px; }
