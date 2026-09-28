@@ -323,3 +323,155 @@ header) because `index.html`/`features.js` changed.
 - `#mt-index` still hard-switches to the Quran tab and clears the stack. That is
   the index button's purpose and the Quran↔Khatmah landing difference is
   pre-existing behavior; left as-is deliberately.
+
+---
+
+# Appendix D — Quran page readability in Light page themes (2026-09-28)
+
+Branch `fix/quran-light-theme-contrast`, three revertable commits on top of the
+theme/back-nav fix work. Nothing pushed.
+
+## D.1 Root cause
+
+The page-scoped override block re-bases the page's background, border, ayah
+badge, bismillah, page label, footer, ghost and back button onto the
+`--mushaf-*` page-theme tokens — but it never re-based the **ayah text color**.
+`.mushaf-block` carries its own `color: var(--text)` (`index.html:587`), and
+`--text` is an **app-theme** variable, not a page-theme one.
+
+So the Quran text tracked the *app* theme while everything around it tracked the
+*page* theme. Dark app (the default, `--text: #f3f0e7`, near-white) + any light
+page theme (heritage cream, floral pale-green) produced white text on cream
+paper — exactly the reported symptom. The inverse broke too (light app +
+explicit night page: dark text on dark paper). Only the `auto` pairing masked
+it, because app and page themes then agree by construction.
+
+A second, independent defect compounded it: `body.theme-light .surah-h-name`
+(specificity (0,2,1)) outranked the page-scoped `.mushaf-page .surah-h-name`
+((0,2,0)) and forced `--color-on-accent`, which is **`#ffffff`** in light mode.
+So the in-page surah title was white on cream paper. This is the sibling of the
+`.surah-h-meta` fix shipped in `331f8e6`, which corrected the meta and left the
+name.
+
+Three smaller page-chrome elements had the same class of bug — sitting on the
+page paper while reading app-theme tokens:
+
+| Element | Was | Contrast on heritage cream | Now | Contrast |
+|---|---|---|---|---|
+| `.mushaf-nav-pos` (صفحة N / ٦٠٤) | `--text-dim` | **1.83:1** | `--mushaf-ink` @ 0.75 | 6.6:1 |
+| `.w.reciting` (active word) | `--mushaf-frame` gold | **2.35:1** | `--mushaf-recite` #8a6a1f | 4.4:1 |
+| `.w.reciting` on floral | `--mushaf-frame` rose | **2.93:1** | `--mushaf-recite` #9a4a5f | 5.3:1 |
+
+The bookmark button was a third failure mode: `updateBookmarkIcon()` forced an
+inline `rgba(255,255,255,0.2)` background for the unmarked state, and the light
+override asked for white-on-white, so the circle was invisible on the
+near-white `--surface` topbar card.
+
+## D.2 What changed
+
+- **`9a48645` — Quran text and surah title follow the page theme.**
+  `color: var(--mushaf-ink)` on `.mushaf-page .mushaf-block`; the light-mode
+  `.surah-h-name` override is rescoped to `.mushaf-topbar` and switched to
+  `--text`, the correct token for the `--surface` topbar card. This also removes
+  the specificity inversion, so the page-scoped rule owns the in-page name.
+  Dark mode is visually unchanged (`--text` #f3f0e7 ≈ `--color-on-accent`
+  #f4f1e8).
+- **`e97dae7` — page-chrome contrast.** New `--mushaf-recite` token in all three
+  page-theme blocks (`#8a6a1f` heritage, `#9a4a5f` floral, `#b39a5a` night — the
+  night value *is* the old frame value, so night is byte-identical);
+  `.mushaf-page .mushaf-nav-pos` now follows `--mushaf-ink` at opacity 0.75
+  beside its sibling `.mushaf-page-label`; the unmarked bookmark state no longer
+  forces inline colors and the light override paints a dark translucent circle
+  with a `--text` glyph. The marked state (inline `--accent` + white) is
+  untouched.
+- **`750e8ac` — `sw.js` v44 → v45**, cache names + header, because `index.html`
+  changed.
+
+Each theme keeps its identity: heritage stays gold-on-cream, floral stays
+rose-on-pale-green, night stays gold-on-charcoal. No hardcoded universal text
+color, no separate Quran theme system — the existing `--mushaf-*` tokens now
+carry one more member each.
+
+## D.3 Verification — every theme, not just one light + dark
+
+`tests/probe-reader-theme-matrix.mjs` (raw CDP, fresh profile, mobile viewport)
+drives the reader through the **full 8-combination matrix** — app dark/light ×
+page auto/heritage/floral/night — and measures WCAG relative-luminance contrast
+on *computed* colors: **163/163 passed**.
+
+Covered, per combination: Quran text, in-page surah title, topbar title and meta
+against their card, bismillah, ayah badge against its composited wash, page
+label, page footer, nav position label, ghost, back button, `.mt-btn`,
+bookmark button, plus a token-resolution check and a reader-mode check.
+
+Scenario coverage from the request:
+
+1. **Quran text clearly visible** — 11.2:1 to 14.0:1 on every paper, all 8
+   combinations.
+2. **Background/text contrast** — measured against the resolved `--mushaf-paper`
+   token, not the computed gradient (which reports `rgba(0,0,0,0)`); heritage
+   #f6efdc / floral #eef4ea / night #17211d, each against its own ink.
+3. **Surah/page info readable** — topbar title 13.2:1, meta 5.0:1, in-page title
+   follows the ink.
+4. **Buttons/controls visible** — `.mt-btn` 13.2:1, bookmark circle delineated,
+   back and ghost follow the ink.
+5. **Ayah selection/highlighting visible** — `.selected`/`.reciting` wash and
+   inset ring present and distinguishable from the paper on all three papers.
+6. **Audio/active-reading highlighting** — the `.w.reciting-now` word now clears
+   the large-text floor on every paper (4.4 / 5.3 / 6.0:1).
+7. **Navigation controls readable** — nav-pos 5.4–7.9:1, page-foot follows ink.
+8. **Direct switching** — `reader_theme` changed through all four values with no
+   reload, in both app themes; every measured color re-resolves (10 switches
+   checked).
+9. **Light → Dark → Light round trip** — computed colors identical to the
+   pre-roundtrip baseline (compared after alpha-serialization normalization);
+   no stale values, and nothing but CSS classes and tokens is involved.
+10. **Reload persistence** — with a light page theme stored, hard reload;
+    `DeepLinks.init()` restores the reader from the hash and colors match the
+    pre-reload measurement exactly.
+
+**Console:** clean across all theme operations. Two filtered noise sources,
+neither from this change:
+- the gstatic `Amiri Quran` 404 inside Google's served CSS (pre-existing,
+  unfixable from the repo);
+- a **pre-existing** render-timing race in `app.js:504`: `observeReveal()` can
+  run before `AnimationManager.init()` (deferred 50ms past `interactive`) and
+  hits `this._revealIO.observe()` on an undefined observer. It is a JS
+  ordering race independent of theming — this fix is CSS-only — so it is
+  reported here as an open item rather than fixed in scope.
+
+Full regression sweep, all on the branch:
+
+| Suite | Result |
+|---|---|
+| `probe-reader-theme-matrix.mjs` | **163/163** (new) |
+| `e2e-reader-nav-theme.mjs` | 83/83 |
+| `e2e-adhkar-pager.mjs` | 79/79 |
+| `e2e-backup.mjs` | 29/29 |
+| `e2e-mushaf.mjs` | 30/30 |
+| `e2e-khatmah-lifecycle.mjs` | 20/20 |
+| `e2e-mushaf-fit.mjs` | 19/19 |
+| `e2e-quran-layout.mjs` | 19/19 |
+| `e2e-offline-shell.mjs` | 11/11 |
+| `e2e-progress-streak.mjs` | 11/11 |
+| `service-worker-cache.mjs` | OK |
+
+`.verify-nav.py` — **FAILS: 0** across all 9 device models. `node --check`
+clean on all 8 modules.
+
+## D.4 Measurement traps (for the record)
+
+- `.mushaf-page` paints via a CSS gradient, so its computed `backgroundColor` is
+  `rgba(0,0,0,0)`. Contrast must be measured against the resolved
+  `--mushaf-paper` token.
+- The ayah badge and bookmark circle use translucent washes; their effective
+  background is the wash alpha-composited onto the surface beneath, not the raw
+  `rgba()` string.
+- Every themed color has a 0.2–0.4s transition; measuring right after a class
+  change catches the animation mid-flight. Wait it out or poll.
+- `location.hash = X` twice with the same value fires no `hashchange`; navigate
+  with `window.openSurah()`.
+- `Log.entryAdded` carries the failing URL on `entry.url`, separate from
+  `entry.text` — filtering on text alone lets 404s through.
+- `showScreen()` adds the animation class (`slide-left`), not `active`; assert
+  on `.mushaf-page .mushaf-block` presence instead.
