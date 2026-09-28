@@ -581,7 +581,10 @@ body.theme-light .mushaf-topbar .surah-h-name { color: var(--text); }
 /* الوضع الفاتح: شبه الأبيض على بطاقة --surface شبه البيضاء لا يُقرأ — اجعله باهتاً موضوعياً */
 body.theme-light .surah-h-meta { color: var(--text-dim); }
 .bookmark-btn { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.2); border: none; color: var(--color-on-accent); font-size: calc(var(--font-size) * 0.77); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; transition: transform 0.2s; }
-body.theme-light .bookmark-btn { background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); color: var(--color-on-accent); }
+/* الوضع الفاتح: الدائرة بيضاء على بطاقة --surface شبه البيضاء لا تُرى —
+   ارسمها بدلاً من ذلك بحبر شفاف. لون الأيقونة يصبح --text لأن
+   --color-on-accent أبيض صريح هنا */
+body.theme-light .bookmark-btn { background: rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.18); color: var(--text); }
 .bookmark-btn:active { transform: scale(0.8); }
 
 .mushaf-block { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px 26px; margin-bottom: 16px; font-family: 'Amiri Quran', 'Amiri', serif; font-size: var(--mushaf-size); line-height: var(--mushaf-lh); text-align: justify; text-justify: inter-word; color: var(--text); direction: rtl; word-spacing: 0.04em; transition: background 0.4s, color 0.4s, font-size 0.3s, line-height 0.3s; }
@@ -628,6 +631,9 @@ body.theme-light .ayah.bookmarked .ayah-badge { box-shadow: 0 0 0 2px var(--surf
   --mushaf-ink: #2a1f12;
   --mushaf-frame: #b89a4e;
   --mushaf-frame-soft: rgba(184, 154, 78, 0.35);
+  /* كلمة التلاوة الفعّالة نص كبير لكن ذهب الإطار فاتح جداً على الورق الكريمي
+     (٢٫٣٥:١) — نفس هويّة الذهب بعد الإعتام بما يكفي للقراءة */
+  --mushaf-recite: #8a6a1f;
 }
 body.mushaf-theme-floral {
   --mushaf-paper: #eef4ea;
@@ -635,6 +641,7 @@ body.mushaf-theme-floral {
   --mushaf-ink: #24382a;
   --mushaf-frame: #c07a8c;
   --mushaf-frame-soft: rgba(192, 122, 140, 0.35);
+  --mushaf-recite: #9a4a5f;
 }
 /* الوضع الليلي: ورقة داكنة وحبر فاتح — يتبع ثيم التطبيق تلقائياً في
    الوضع التلقائي، وإلا يُختار صراحةً من إعدادات القارئ. */
@@ -644,6 +651,7 @@ body.mushaf-theme-night {
   --mushaf-ink: #ece4cf;
   --mushaf-frame: #b39a5a;
   --mushaf-frame-soft: rgba(179, 154, 90, 0.32);
+  --mushaf-recite: #b39a5a;
 }
 
 #screen-mushaf { display: none; position: relative; flex-direction: column; height: 100%; padding: 0; max-width: 100%; }
@@ -847,6 +855,10 @@ body.mushaf-zen .mushaf-page { padding-top: calc(env(safe-area-inset-top, 0px) +
 .mushaf-page .mushaf-block { background: transparent; border: none; box-shadow: none; padding: 6px 4px; margin-bottom: 6px; color: var(--mushaf-ink); }
 .mushaf-page .mushaf-block::before { display: none; }
 .mushaf-page .mushaf-page-label { color: var(--mushaf-ink); opacity: 0.7; margin-bottom: 2px; }
+/* مؤشّر «صفحة N / ٦٠٤» يجلس فوق ورقة الصفحة، فعليه أن يتبع حبرها لا نصّ
+   التطبيق — وإلا فالوضضع الداكن للتطبيق + ورقة فاتحة يُخرج رمادياً شاحباً
+   على الكريمي (١٫٨٣:١) */
+.mushaf-page .mushaf-nav-pos { color: var(--mushaf-ink); opacity: 0.75; }
 .mushaf-page .surah-header-card { background: transparent; border: none; box-shadow: none; margin-top: 10px; }
 .mushaf-page .surah-h-name { color: var(--mushaf-ink); font-family: 'Amiri Quran', 'Amiri', serif; font-size: calc(var(--mushaf-size) * 0.62); }
 .mushaf-page .bismillah { color: var(--mushaf-ink); opacity: 0.9; }
@@ -854,7 +866,7 @@ body.mushaf-zen .mushaf-page { padding-top: calc(env(safe-area-inset-top, 0px) +
 /* الوضع الليلي: شارة بخلفية داكنة لا فاتحة فوق الورقة الداكنة */
 body.mushaf-theme-night .mushaf-page .ayah-badge { background: rgba(255,255,255,0.08); }
 .mushaf-page .ayah.bookmarked .ayah-badge { background: var(--mushaf-frame); color: #fff; box-shadow: 0 0 0 2px var(--mushaf-paper); }
-.mushaf-page .w.reciting, .mushaf-page .w.reciting-now { color: var(--mushaf-frame); }
+.mushaf-page .w.reciting, .mushaf-page .w.reciting-now { color: var(--mushaf-recite); }
 .mushaf-page .w.reciting-now { background: var(--mushaf-frame-soft); }
 .mushaf-page .ayah.selected { background: var(--mushaf-frame-soft); box-shadow: inset 0 0 0 1px var(--mushaf-frame); }
 .mushaf-page .ayah.reciting { background: var(--mushaf-frame-soft); }
@@ -2504,7 +2516,10 @@ function updateBookmarkIcon() {
   // اقرأ الحالة من BookmarkManager (مصدر واحد) بدلاً من state.bookmark
   const isMarked = state.currentScreen === 'surah-view' && state.currentSurah && window.BookmarkManager && BookmarkManager.isSurahBookmarked(state.currentSurah.number);
   if (isMarked) { btn.style.background = 'var(--accent)'; btn.style.color = '#ffffff'; btn.classList.add('active'); }
-  else { btn.style.background = 'rgba(255,255,255,0.2)'; btn.style.color = '#f4f1e8'; btn.classList.remove('active'); }
+  // الحالة غير المعلّمة: لا تفرض ألواناً سطرية — دع CSS يقرّرها حسب ثيم
+  // التطبيق (تتجاوزها قاعدة .theme-light أعلاه). الخلفاء البيضاء السطرية
+  // كانت تُلغي دائرة الزر على البطاقة الفاتحة.
+  else { btn.style.background = ''; btn.style.color = ''; btn.classList.remove('active'); }
 }
 
 function checkBookmarkFAB() {
