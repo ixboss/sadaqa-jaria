@@ -36,7 +36,11 @@ const BackupManager = {
     reader_page_design: 'raw',    // تصميم صفحة المصحف
     reader_layout: 'raw',         // العرض الأفقي للمصحف
     reader_theme: 'raw',          // ثيم ورقة المصحف
-    reader_highlight: 'raw'       // التظليل الموضوعي للآيات
+    reader_highlight: 'raw',      // التظليل الموضوعي للآيات
+    reciter_speed: 'raw',         // سرعة التلاوة المحفوظة
+    custom_athkar: 'json',        // أذكاري وأدعية الأحبة المخصصة
+    prayer_config: 'json',        // إعدادات المدينة وطريقة حساب مواقيت الصلاة
+    recent_pages: 'json'          // سجل آخر صفحات المصحف المقروءة
   },
 
   // القيم المسموحة للمفاتيح الخام الحرجة (حماية من قيم غريبة في ملف مستورد)
@@ -49,7 +53,8 @@ const BackupManager = {
     reader_page_design: ['full', 'book'],
     reader_layout: ['single', 'double'],
     reader_theme: ['auto', 'heritage', 'floral', 'night'],
-    reader_highlight: ['0', '1']
+    reader_highlight: ['0', '1'],
+    reciter_speed: ['0.75', '1', '1.25']
   },
 
   // أوصاف عربية للمعاينة قبل الاستعادة
@@ -72,7 +77,11 @@ const BackupManager = {
     reader_page_design: 'تصميم صفحة المصحف',
     reader_layout: 'تخطيط عرض المصحف',
     reader_theme: 'ثيم ورقة المصحف',
-    reader_highlight: 'التظليل الموضوعي'
+    reader_highlight: 'التظليل الموضوعي',
+    reciter_speed: 'سرعة التلاوة',
+    custom_athkar: 'أذكاري وأدعية الأحبة',
+    prayer_config: 'إعدادات مواقيت الصلاة والقبلة',
+    recent_pages: 'سجل الصفحات الأخيرة'
   },
 
   // ─── أدوات مساعدة ───
@@ -106,6 +115,12 @@ const BackupManager = {
           return Array.isArray(value) && value.every(b => this.isPlainObject(b) && typeof b.surah === 'number');
         case 'athkar_favs':
           return Array.isArray(value) && value.every(f => typeof f === 'string');
+        case 'custom_athkar':
+          return Array.isArray(value) && value.every(it => this.isPlainObject(it) && typeof it.text === 'string');
+        case 'prayer_config':
+          return this.isPlainObject(value);
+        case 'recent_pages':
+          return Array.isArray(value) && value.every(p => typeof p === 'number' && p >= 1 && p <= 604);
         default:
           return false;
       }
