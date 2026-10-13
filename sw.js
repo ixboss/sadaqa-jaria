@@ -1,16 +1,10 @@
 // ==================== Service Worker — إسلامي ====================
-// v46: اتجاه قلب صفحات المصحف — السحب لليمين هو التالي والسحب لليسار هو
-//      السابق، فتتّجه الإيماءة وحركة الطيّ ورقم الصفحة (محرّك pageflip.js).
-//      أيضًا: عتبة القلب تُقاس على عرض الورقة نفسها لا عرض المنظر كاملاً،
-//      فيعمل القلب في العرض المزدوج دون سحب يتجاوز نصف الشاشة.
-//      v45: تباين صفحة القرآن في الثيمات الفاتحة — النص والعنوان وعناصر
-//      الصفحة تتبع حبر الورقة لا نصّ التطبيق. v44: إصلاحات صفحة القرآن —
-//      ثيم الصفحة يتبع ثيم التطبيق (ليلي تلقائياً)، زر رجوع في الوضعين،
-//      وإخفاء رأس التطبيق في الوضع النشط، وتنظيف حالة القارئ عند الرجوع.
-//      v43: القارئ الموحّد (سبقتها mushaf.js في v42)
-const CACHE_NAME = 'quran-app-v46';
-const API_CACHE = 'quran-api-v46';
-const STATIC_CACHE = 'static-v46';
+// v47: تخزين خطوط المصحف (fonts.googleapis.com / fonts.gstatic.com) للعمل
+//      أوفلاين بالكامل، التحقق من سلامة استجابات الـ API قبل تخزينها،
+//      وتحديث الكاش لدعم التفسير الميسر وبطاقات المشاركة وتكرار الآيات.
+const CACHE_NAME = 'quran-app-v47';
+const API_CACHE = 'quran-api-v47';
+const STATIC_CACHE = 'static-v47';
 
 const PRECACHE_URLS = [
   './',
@@ -38,6 +32,7 @@ const PRECACHE_URLS = [
 ];
 
 const API_ORIGIN = 'api.alquran.cloud';
+const FONT_ORIGINS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
 // ==================== Installation ====================
 self.addEventListener('install', event => {
@@ -59,7 +54,6 @@ self.addEventListener('activate', event => {
       return Promise.all(
         keys.filter(key => key !== CACHE_NAME && key !== API_CACHE && key !== STATIC_CACHE)
         .map(key => {
-          console.log('Deleting old cache:', key);
           return caches.delete(key);
         })
       );
@@ -70,9 +64,15 @@ self.addEventListener('activate', event => {
 // ==================== Fetch Strategy ====================
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  
+
   // Skip non-GET requests
   if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // خطوط المصحف والواجهة (Google Fonts): Cache first مع تحديث خلفي لضمان عمل الرسم العثماني بلا إنترنت
+  if (FONT_ORIGINS.some(origin => url.hostname.includes(origin))) {
+    event.respondWith(cacheFirstWithTimeout(event.request, STATIC_CACHE, 6000));
     return;
   }
 
@@ -103,11 +103,15 @@ function isStaticAsset(pathname) {
   return /\.(js|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|webp)$/.test(pathname);
 }
 
+function isCacheableResponse(response) {
+  return !!(response && (response.ok || response.type === 'opaque') && response.status !== 206);
+}
+
 async function cacheFirstWithTimeout(request, cacheName, timeout = 3000) {
   try {
     const cache = await caches.open(cacheName);
     const cached = await cache.match(request);
-    
+
     if (cached) {
       // Return cached, update in background
       updateCacheInBackground(request, cacheName);
@@ -115,10 +119,11 @@ async function cacheFirstWithTimeout(request, cacheName, timeout = 3000) {
     }
 
     const response = await fetchWithTimeout(request, timeout);
-    if (response && response.ok) cache.put(request, response.clone()).catch(() => {});
+    if (isCacheableResponse(response)) {
+      cache.put(request, response.clone()).catch(() => {});
+    }
     return response;
   } catch (err) {
-    console.error('Cache first error:', err);
     const cached = await caches.match(request).catch(() => null);
     if (cached) return cached;
     return new Response('خطأ: لا يوجد اتصال', { status: 503 });
@@ -128,24 +133,23 @@ async function cacheFirstWithTimeout(request, cacheName, timeout = 3000) {
 async function networkFirstWithFallback(request, cacheName, timeout = 5000) {
   try {
     const response = await fetchWithTimeout(request, timeout);
-    
-    if (response && response.ok) {
+
+    if (isCacheableResponse(response)) {
       const cache = await caches.open(cacheName);
       cache.put(request, response.clone()).catch(() => {});
     }
-    
+
     return response;
   } catch (err) {
-    console.warn('Network error, checking cache:', err);
     const cached = await caches.match(request).catch(() => null);
-    
+
     if (cached) return cached;
-    
+
     // Return offline page for HTML requests
     if (request.headers.get('accept')?.includes('text/html')) {
       return new Response('لا يوجد اتصال بالإنترنت', { status: 503 });
     }
-    
+
     throw err;
   }
 }
@@ -162,34 +166,11 @@ function updateCacheInBackground(request, cacheName) {
   // no-store: تجاوز ذاكرة HTTP المؤقتة لضمان التحديث الفعلي
   fetch(request, { cache: 'no-store' })
     .then(response => {
-      if (response && response.ok) {
-        const cache = caches.open(cacheName);
-        cache.then(c => c.put(request, response.clone()).catch(() => {}));
+      if (isCacheableResponse(response)) {
+        caches.open(cacheName).then(c => c.put(request, response.clone()).catch(() => {}));
       }
     })
     .catch(() => {});
-}
-
-// ==================== Background Sync ====================
-self.addEventListener('sync', event => {
-  if (event.tag === 'sync-data') {
-    event.waitUntil(syncData());
-  }
-});
-
-async function syncData() {
-  try {
-    // Sync bookmarks or reading progress
-    const clients = await self.clients.matchAll();
-    clients.forEach(client => {
-      client.postMessage({
-        type: 'SYNC_COMPLETE',
-        timestamp: Date.now()
-      });
-    });
-  } catch (err) {
-    console.error('Sync error:', err);
-  }
 }
 
 // ==================== Push Notifications ====================
@@ -197,13 +178,12 @@ self.addEventListener('push', event => {
   if (event.data) {
     const options = {
       body: event.data.text(),
-      // data URLs must not be prefixed with ./
-      icon: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"%3E%3Crect width="192" height="192" rx="32" fill="%230a1f28"/%3E%3Cpath d="M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z" fill="none" stroke="%233ecf9e" stroke-width="8" stroke-linejoin="round"/%3E%3C/svg%3E',
-      badge: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"%3E%3Crect width="192" height="192" rx="32" fill="%230a1f28"/%3E%3C/svg%3E',
+      icon: './icons/icon-192.png',
+      badge: './icons/icon-120.png',
       tag: 'islamic-app-notification',
       requireInteraction: false
     };
-    
+
     event.waitUntil(
       self.registration.showNotification('إسلامي', options)
     );
@@ -213,8 +193,6 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   event.waitUntil(
-    // includeUncontrolled: true حتى نصل إلى كل نسخ التطبيق المفتوحة،
-    // والمقارنة تبدأ من نطاق التسجيل لأن روابط العميل تكون مطلقة.
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
       const scope = self.registration.scope;
       for (let client of clientList) {
@@ -228,4 +206,3 @@ self.addEventListener('notificationclick', event => {
     })
   );
 });
-

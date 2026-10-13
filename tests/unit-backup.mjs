@@ -3,7 +3,8 @@
  * Unit tests — BackupManager validation logic (no browser required)
  * ─────────────────────────────────────────────────────────────────
  * Loads backup.js into a shimmed globals sandbox and asserts the pure
- * logic: envelope validation, per-key type checks, malformed-key
+ * logic: envelope validation, per-key type checks (including real
+ * BookmarkManager object shape + ReaderSettings keys), malformed-key
  * resilience, unknown/future-schema handling, and a full
  * build → stringify → parse → apply round trip.
  *
@@ -35,15 +36,15 @@ const ok = (name, cond, detail = '') => results.push({ name, pass: !!cond, detai
 function seedGood() {
   store.clear();
   localStorage.setItem('app_state', JSON.stringify({ currentTab: 'quran', khatmah: { active: true, totalDays: 30, currentPage: 5 }, theme: 'dark', scrollPositions: {} }));
-  localStorage.setItem('app_stats_v1', JSON.stringify({ streak: 3, dates: ['2026-09-23'] }));
-  localStorage.setItem('islamic_bookmarks', JSON.stringify([{ surah: 2, ayah: 255, label: 'آية الكرسي' }]));
+  localStorage.setItem('app_stats_v1', JSON.stringify({ days: { '2026-09-23': 4 }, totalTasbih: 100, completedKhatmahs: 1, khatmahHistory: [{ date: '2026-09-23', intention: 'عن والدي' }] }));
+  localStorage.setItem('islamic_bookmarks', JSON.stringify({ surahs: { '2': { name: 'سورة البقرة', timestamp: 1 } }, verses: [{ surah: 2, ayah: 255, text: 'آية الكرسي', timestamp: 1 }] }));
   localStorage.setItem('reading_progress', JSON.stringify({ surah: 18, ayah: 1, timestamp: 1 }));
   localStorage.setItem('athkar_favs', JSON.stringify(['0:3', '1:0']));
   localStorage.setItem('tasbihCount', '41');
   localStorage.setItem('tasbihLap', '2');
   localStorage.setItem('tasbih_target', '99');
   localStorage.setItem('adhkar_auto_advance', '1');
-  localStorage.setItem('font_scale', '110');
+  localStorage.setItem('font_scale', '130');
   localStorage.setItem('reciter', 'ar.husary');
   localStorage.setItem('reminders_enabled', '0');
   localStorage.setItem('theme', 'dark');
@@ -60,12 +61,22 @@ function main() {
   ok('build: all 13 user keys present', Object.keys(payload.data).length === 13, Object.keys(payload.data).join(','));
   ok('build: no skipped on clean store', skipped.length === 0, skipped.join(','));
   ok('build: json keys parsed', payload.data.app_state.khatmah.currentPage === 5);
+  ok('build: real BookmarkManager object shape exported', payload.data.islamic_bookmarks && payload.data.islamic_bookmarks.surahs && Array.isArray(payload.data.islamic_bookmarks.verses));
   ok('build: raw keys kept as strings', payload.data.tasbihCount === '41');
   ok('build: missing keys are omitted (not null)', (() => {
     localStorage.removeItem('theme');
     const b = BM.build();
-    return !('theme' in b.payload.data) && !('theme' in Object.fromEntries(Object.entries(b.payload.data).filter(([k]) => k === 'theme')));
+    return !('theme' in b.payload.data);
   })());
+
+  // ── (1b) ReaderSettings & tasbih_phrase keys supported ──
+  seedGood();
+  localStorage.setItem('reader_theme', 'floral');
+  localStorage.setItem('reader_scroll_dir', 'vertical');
+  localStorage.setItem('tasbih_phrase', 'istighfar');
+  localStorage.setItem('font_scale', '200');
+  const r1b = BM.build();
+  ok('build: reader & tasbih keys included when set', r1b.payload.data.reader_theme === 'floral' && r1b.payload.data.reader_scroll_dir === 'vertical' && r1b.payload.data.tasbih_phrase === 'istighfar' && r1b.payload.data.font_scale === '200');
 
   // ── (2) malformed keys must not break the export ──
   seedGood();
@@ -151,7 +162,6 @@ function main() {
   // ── (8) apply() is per-key fault tolerant ──
   seedGood();
   const r8 = BM.parse(JSON.stringify(payload7));
-  // force a quota failure on one key by replacing setItem
   const realSetItem = localStorage.setItem;
   let blocked = false;
   localStorage.setItem = function (k) { if (k === 'app_stats_v1') { blocked = true; throw new Error('QuotaExceededError'); } return realSetItem.apply(this, arguments); };
