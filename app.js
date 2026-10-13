@@ -7,7 +7,6 @@ class StorageManager {
       localStorage.setItem(key, JSON.stringify(value));
       return true;
     } catch (e) {
-      console.warn('Storage error:', e);
       return false;
     }
   }
@@ -17,7 +16,6 @@ class StorageManager {
       const item = localStorage.getItem(key);
       return item ? JSON.parse(item) : defaultValue;
     } catch (e) {
-      console.warn('Storage retrieval error:', e);
       return defaultValue;
     }
   }
@@ -27,7 +25,6 @@ class StorageManager {
       localStorage.removeItem(key);
       return true;
     } catch (e) {
-      console.warn('Storage removal error:', e);
       return false;
     }
   }
@@ -37,7 +34,6 @@ class StorageManager {
       localStorage.clear();
       return true;
     } catch (e) {
-      console.warn('Storage clear error:', e);
       return false;
     }
   }
@@ -48,10 +44,17 @@ class BookmarkManager {
   static STORAGE_KEY = 'islamic_bookmarks';
 
   static getAll() {
-    return StorageManager.get(this.STORAGE_KEY, {
+    const raw = StorageManager.get(this.STORAGE_KEY, {
       surahs: {},
       verses: []
     });
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return { surahs: {}, verses: Array.isArray(raw) ? raw : [] };
+    }
+    return {
+      surahs: raw.surahs && typeof raw.surahs === 'object' ? raw.surahs : {},
+      verses: Array.isArray(raw.verses) ? raw.verses : []
+    };
   }
 
   static addSurahBookmark(surahNumber, surahName) {
@@ -79,10 +82,13 @@ class BookmarkManager {
   }
 
   static addVerseBookmark(surahNumber, ayahNumber, text) {
+    const s = +surahNumber;
+    const a = +ayahNumber;
     const bookmarks = this.getAll();
+    bookmarks.verses = bookmarks.verses.filter(v => !(Number(v.surah) === s && Number(v.ayah) === a));
     bookmarks.verses.push({
-      surah: surahNumber,
-      ayah: ayahNumber,
+      surah: s,
+      ayah: a,
       text: text,
       timestamp: Date.now()
     });
@@ -92,9 +98,11 @@ class BookmarkManager {
   }
 
   static removeVerseBookmark(surahNumber, ayahNumber) {
+    const s = +surahNumber;
+    const a = +ayahNumber;
     const bookmarks = this.getAll();
-    bookmarks.verses = bookmarks.verses.filter(v => 
-      !(v.surah === surahNumber && v.ayah === ayahNumber)
+    bookmarks.verses = bookmarks.verses.filter(v =>
+      !(Number(v.surah) === s && Number(v.ayah) === a)
     );
     StorageManager.set(this.STORAGE_KEY, bookmarks);
     this.notifyChange();
@@ -144,66 +152,29 @@ class ReadingProgressManager {
 
 // ==================== Advanced Search ====================
 class AdvancedSearch {
+  static normArabic(text) {
+    if (typeof window.normArabic === 'function') return window.normArabic(text);
+    return String(text || '')
+      .replace(/[أإآٱ]/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .replace(/ى/g, 'ي')
+      .replace(/[\u064B-\u0652\u0670\u0640\u06D6-\u06ED]/g, '');
+  }
+
   static async searchSurahs(query, surahs) {
-    if (!query.trim()) return [];
-
-    const lowerQuery = query.toLowerCase().trim();
+    if (!query || !query.trim()) return [];
+    const nQuery = this.normArabic(query.trim()).toLowerCase();
     const results = [];
-
-    for (const surah of surahs) {
-      // Search by name
-      if (surah.name.includes(query) || surah.englishName.toLowerCase().includes(lowerQuery)) {
-        results.push({
-          type: 'surah',
-          surah: surah,
-          matchType: 'name',
-          relevance: 100
-        });
-      }
-      // Search by number
-      else if (surah.number.toString() === lowerQuery) {
-        results.push({
-          type: 'surah',
-          surah: surah,
-          matchType: 'number',
-          relevance: 100
-        });
-      }
-      // Fuzzy search
-      else if (this.fuzzyMatch(surah.name, query)) {
-        results.push({
-          type: 'surah',
-          surah: surah,
-          matchType: 'fuzzy',
-          relevance: 50
-        });
+    for (const surah of (surahs || [])) {
+      const nName = this.normArabic(surah.name || '');
+      const eName = String(surah.englishName || '').toLowerCase();
+      if (surah.number && surah.number.toString() === nQuery) {
+        results.push({ type: 'surah', surah, matchType: 'number', relevance: 100 });
+      } else if (nName.includes(nQuery) || eName.includes(nQuery)) {
+        results.push({ type: 'surah', surah, matchType: 'name', relevance: 95 });
       }
     }
-
-    return results.sort((a, b) => b.relevance - a.relevance);
-  }
-
-  static fuzzyMatch(str, pattern) {
-    const lowerStr = str.toLowerCase();
-    const lowerPattern = pattern.toLowerCase();
-    let strIndex = 0;
-    let patternIndex = 0;
-
-    while (strIndex < lowerStr.length && patternIndex < lowerPattern.length) {
-      if (lowerStr[strIndex] === lowerPattern[patternIndex]) {
-        patternIndex++;
-      }
-      strIndex++;
-    }
-
-    return patternIndex === lowerPattern.length;
-  }
-
-  static highlightText(text, query) {
-    if (!query.trim()) return text;
-
-    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    return text.replace(regex, '<span class="highlight">$1</span>');
+    return results.sort((a, b) => b.relevance - a.relevance || a.surah.number - b.surah.number);
   }
 }
 
@@ -216,9 +187,11 @@ class AccessibilityHelper {
       }
       // Ctrl/Cmd + F for search
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault();
         const searchBar = document.getElementById('search-bar');
-        if (searchBar) searchBar.focus();
+        if (searchBar && window.state && window.state.currentScreen === 'surah-list') {
+          e.preventDefault();
+          searchBar.focus();
+        }
       }
       // Alt + Right/Left for navigation
       if (e.altKey && e.key === 'ArrowRight') {
@@ -231,6 +204,9 @@ class AccessibilityHelper {
   }
 
   static closeModals() {
+    if (window.BottomSheet && window.BottomSheet.overlay) {
+      window.BottomSheet.close();
+    }
     const modals = document.querySelectorAll('[role="dialog"], .modal, [id*="overlay"]');
     modals.forEach(modal => {
       if (modal.classList.contains('active')) {
@@ -240,13 +216,13 @@ class AccessibilityHelper {
   }
 
   static navigateNext() {
-    const nextBtn = document.querySelector('[data-action="next"]');
-    if (nextBtn) nextBtn.click();
+    const nextBtn = document.querySelector('[data-action="next"], #mp-next');
+    if (nextBtn && !nextBtn.disabled) nextBtn.click();
   }
 
   static navigatePrev() {
-    const prevBtn = document.querySelector('[data-action="prev"]');
-    if (prevBtn) prevBtn.click();
+    const prevBtn = document.querySelector('[data-action="prev"], #mp-prev');
+    if (prevBtn && !prevBtn.disabled) prevBtn.click();
   }
 
   static announceMessage(message) {
@@ -255,9 +231,7 @@ class AccessibilityHelper {
     announcement.setAttribute('aria-live', 'polite');
     announcement.setAttribute('aria-atomic', 'true');
     announcement.textContent = message;
-    // سرّ المنطقة عن البصر دون أن تخلق تجاوزاً أفقياً للصفحة: وضع «sr-only»
-    // القياسي (مربع ١px مع clip) بدل الإزاحة إلى -9999px التي كانت تفعّل
-    // خاصية «shrink-to-fit» على الجوال فتكبّر الصفحة كلها بعد إكمال أي ذكر.
+    // سرّ المنطقة عن البصر دون أن تخلق تجاوزاً أفقياً للصفحة (sr-only القياسي)
     announcement.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;margin:0;border:0;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;';
     document.body.appendChild(announcement);
     setTimeout(() => announcement.remove(), 3000);
@@ -276,7 +250,6 @@ class AccessibilityHelper {
   }
 
   static initScreenReaderSupport() {
-    // Add ARIA labels to buttons and interactive elements
     document.querySelectorAll('button').forEach(btn => {
       if (!btn.getAttribute('aria-label')) {
         const text = btn.textContent.trim() || btn.title;
@@ -292,7 +265,7 @@ class AccessibilityHelper {
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
       const target = e.target.closest('[role="button"]');
-      if (!target) return;
+      if (!target || target.tagName === 'BUTTON') return;
       e.preventDefault();
       e.stopPropagation();
       target.click();
@@ -305,147 +278,29 @@ class PerformanceMonitor {
   static metrics = {};
 
   static startMeasure(label) {
-    performance.mark(label + '-start');
+    try { performance.mark(label + '-start'); } catch (e) {}
   }
 
   static endMeasure(label) {
-    performance.mark(label + '-end');
     try {
+      performance.mark(label + '-end');
       performance.measure(label, label + '-start', label + '-end');
       const measure = performance.getEntriesByName(label)[0];
-      this.metrics[label] = measure.duration;
-      console.log(`📊 ${label}: ${measure.duration.toFixed(2)}ms`);
-    } catch (e) {
-      console.warn('Performance measurement error:', e);
-    }
+      if (measure) this.metrics[label] = measure.duration;
+    } catch (e) {}
   }
 
   static getMetrics() {
     return this.metrics;
   }
-
-  static reportWebVitals() {
-    if ('web-vital' in window) {
-      window.addEventListener('web-vital', (e) => {
-        console.log('Web Vital:', e.detail);
-      });
-    }
-  }
-}
-
-// ==================== Service Worker Registration ====================
-class ServiceWorkerManager {
-  static async register() {
-    if (!('serviceWorker' in navigator)) {
-      console.log('Service Workers not supported');
-      return false;
-    }
-
-    try {
-      const registration = await navigator.serviceWorker.register('./sw.js', {
-        scope: './',
-        updateViaCache: 'none'
-      });
-
-      console.log('✅ Service Worker registered:', registration);
-
-      // Listen for updates
-      registration.addEventListener('updatefound', () => {
-        const newWorker = registration.installing;
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            this.notifyUpdate();
-          }
-        });
-      });
-
-      // Check for updates periodically
-      setInterval(() => {
-        registration.update().catch(() => {});
-      }, 60000); // Check every minute
-
-      return true;
-    } catch (err) {
-      console.error('❌ Service Worker registration failed:', err);
-      return false;
-    }
-  }
-
-  static notifyUpdate() {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('إسلامي', {
-        body: 'تحديث جديد متاح! أعد تحميل الصفحة.',
-        tag: 'app-update'
-      });
-    }
-  }
-
-  static async requestNotificationPermission() {
-    if (!('Notification' in window)) return false;
-    if (Notification.permission === 'granted') return true;
-    if (Notification.permission !== 'denied') {
-      const permission = await Notification.requestPermission();
-      return permission === 'granted';
-    }
-    return false;
-  }
-}
-
-// ==================== Data Sync Manager ====================
-class DataSyncManager {
-  static async sync() {
-    if (!navigator.onLine) {
-      console.log('Offline - skipping sync');
-      return false;
-    }
-
-    if ('serviceWorker' in navigator && 'SyncManager' in window) {
-      try {
-        const registration = await navigator.serviceWorker.ready;
-        await registration.sync.register('sync-data');
-        console.log('✅ Background sync registered');
-        return true;
-      } catch (err) {
-        console.warn('Background sync not available:', err);
-        return false;
-      }
-    }
-    return false;
-  }
 }
 
 // ==================== Initialization ====================
-document.addEventListener('DOMContentLoaded', async () => {
-  // Initialize all managers
-  // ملاحظة: تسجيل Service Worker يتم مرة واحدة فقط في نهاية <body> في index.html
+document.addEventListener('DOMContentLoaded', () => {
   AccessibilityHelper.initKeyboardNavigation();
   AccessibilityHelper.initScreenReaderSupport();
   AccessibilityHelper.enhanceFormAccessibility();
   AccessibilityHelper.initKeyboardActivation();
-  DataSyncManager.sync();
-
-  // Setup event listeners
-  window.addEventListener('online', () => {
-    console.log('🌐 Back online!');
-    DataSyncManager.sync();
-  });
-
-  // Performance monitoring
-  if (window.PerformanceObserver) {
-    try {
-      const observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          console.log('Performance:', entry.name, entry.duration);
-        }
-      });
-      observer.observe({ entryTypes: ['measure', 'navigation'] });
-    } catch (e) {
-      console.warn('PerformanceObserver not supported');
-    }
-  }
-
-  // إذن الإشعارات لا يُطلب الآن عند الإقلاع — يُطلب فقط عندما يفعّل المستخدم
-  // التذكيرات (Reminders.enable) ليكون مرتبطاً بإجراء واضح من المستخدم.
 });
 
 // ==================== Global Exports ====================
@@ -458,7 +313,14 @@ window.PerformanceMonitor = PerformanceMonitor;
 
 // ==================== Animation & Microinteraction Manager ====================
 class AnimationManager {
+  static _initialized = false;
+
   static init() {
+    if (this._initialized) {
+      this.observeReveal();
+      return;
+    }
+    this._initialized = true;
     this.setupReducedMotion();
     this.initReveal();
     this.initDelegation();
@@ -472,7 +334,9 @@ class AnimationManager {
     } catch (e) {}
   }
 
-  static initReveal() {
+  static ensureObservers() {
+    if (this._revealIO && this._listIO) return;
+    if (!('IntersectionObserver' in window)) return;
     // مراقب واحد دائم يُعاد استخدامه عبر جميع عمليات إعادة الرسم
     this._revealIO = new IntersectionObserver((entries, obs) => {
       entries.forEach(entry => {
@@ -490,11 +354,18 @@ class AnimationManager {
         }
       });
     }, { threshold: 0.05 });
+  }
 
+  static initReveal() {
+    this.ensureObservers();
     this.observeReveal();
   }
 
   static observeReveal() {
+    // ضمان وجود المراقب قبل الاستخدام حتى لو استُدعي observeReveal قبل اكتمال init()
+    this.ensureObservers();
+    if (!this._revealIO || !this._listIO) return;
+
     const selector = '.surah-row, .mushaf-block, .thikr-card, .dua-card, .quick-nav-card, .occasion-card, .k-dash-card, .stat-card, .settings-card';
     const items = Array.from(document.querySelectorAll(selector)).filter(el => !el.dataset.revealObserved);
     items.forEach((el, i) => {
@@ -518,26 +389,19 @@ class AnimationManager {
       // #btn-bm-surah له معالجه الخاص في index.html (toggleBookmark) — تجنّب الازدواج
       if (btn && btn.id !== 'btn-bm-surah') {
         try {
-          // استخرج رقم السورة من الزر أو من أقرب عنصر يحتوي data-surah
           let surahNum = btn.dataset.surah || btn.getAttribute('data-surah');
           if (!surahNum) {
             const surahEl = btn.closest('[data-surah]');
             if (surahEl) surahNum = surahEl.dataset.surah;
           }
-          // رفض الحفظ برقم سورة غير معروف بدلاً من كتابة قيمة '0' مزيفة
-          if (!surahNum || surahNum === '0') {
-            console.warn('تم تجاهل حفظ المرجعية: رقم السورة غير معروف');
-            return;
-          }
+          if (!surahNum || surahNum === '0') return;
           const isActive = btn.classList.toggle('active');
           btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
           const surahName = document.getElementById('surah-view-name')?.textContent?.trim() || btn.title || 'سورة';
           if (isActive) BookmarkManager.addSurahBookmark(surahNum, surahName);
           else BookmarkManager.removeSurahBookmark(surahNum);
           this.bounce(btn);
-        } catch (err) {
-          console.warn('Bookmark toggle error', err);
-        }
+        } catch (err) {}
       }
 
       // Ripple for interactive elements
@@ -571,7 +435,6 @@ class AnimationManager {
   }
 
   static bounce(el) {
-    // نهج CSS class بدلاً من WAAPI el.animate لتجنّب التعارض مع transitions الموجودة على الأزرار
     if (!el) return;
     el.classList.remove('pop');
     void el.offsetWidth;
@@ -582,8 +445,7 @@ class AnimationManager {
 window.AnimationManager = AnimationManager;
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
-  setTimeout(() => AnimationManager.init(), 50);
+  AnimationManager.init();
 } else {
   document.addEventListener('DOMContentLoaded', () => AnimationManager.init());
 }
-

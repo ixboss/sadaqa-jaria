@@ -30,7 +30,7 @@
 <link rel="dns-prefetch" href="https://api.alquran.cloud">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Amiri:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Amiri:wght@400;700&display=swap">
 
 <!-- PWA Manifest -->
 <link rel="manifest" href="manifest.json">
@@ -75,8 +75,7 @@
 <script src="./surah-meta.js"></script>
 
 <style>
-/* ==================== استيراد خط المصحف العثماني + Amiri للواجهة ==================== */
-@import url('https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Amiri:wght@400;700&display=swap');
+/* ==================== خط المصحف العثماني + Amiri يُحمَّل عبر <link> في <head> ==================== */
 
 /* ==================== متغيرات التصميم (الوضع الداكن الافتراضي) ==================== */
 :root {
@@ -356,7 +355,7 @@ body.theme-light {
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Amiri', 'Traditional Arabic', 'Segoe UI', Tahoma, sans-serif; direction: rtl; overflow: hidden; transition: background 0.4s, color 0.4s; user-select: none; -webkit-user-select: none; }
-.mushaf-block { user-select: text; -webkit-user-select: text; }
+.mushaf-block, .dua-text, .occasion-sunnah-item, #custom-dialog-text, .tafsir-sheet-body, .tafsir-sheet-ayah { user-select: text; -webkit-user-select: text; }
 
 /* نقش الخلفية — شبكة تدرجات خفيفة بدلاً من مربع SVG متكرر (أخف على GPU) */
 body::before {
@@ -394,8 +393,8 @@ body.theme-light #back-btn { background: var(--surface-2); color: var(--text); }
 #back-btn:active { transform: scale(0.9); }
 #back-btn.visible { display: flex; }
 
-#font-ctrl { display: flex; gap: 4px; flex-shrink: 0; }
-.header-btn { background: rgba(255,255,255,0.14); border: none; border-radius: 6px; color: #f0f7f2; font-size: calc(var(--font-size) * 0.58); cursor: pointer; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-weight: bold; }
+#font-ctrl { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+.header-btn { background: rgba(255,255,255,0.14); border: none; border-radius: 8px; color: #f0f7f2; font-size: calc(var(--font-size) * 0.58); cursor: pointer; width: 38px; height: 38px; min-width: 38px; min-height: 38px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-weight: bold; }
 body.theme-light .header-btn { background: var(--surface-2); color: var(--text); }
 .header-btn:active { transform: scale(0.9); }
 .header-btn.active { background: rgba(255,255,255,0.22); color: #eafff5; }
@@ -881,9 +880,10 @@ body.mushaf-theme-night .mushaf-page .ayah-badge { background: rgba(255,255,255,
 }
 .mushaf-page-foot .mpf-juz { display: block; font-size: calc(var(--font-size) * 0.34); opacity: 0.75; margin-top: 2px; }
 
-/* أزرار تنقّل الصفحات تظهر فقط في الوضع النشط — الوضع الهادئ بلا كروم */
+/* أزرار تنقّل الصفحات تظهر في الوضع النشط، وفي وضع التمرير العمودي دائماً */
 .mushaf-page .mushaf-nav { opacity: 0; height: 0; overflow: hidden; margin: 0; pointer-events: none; transition: opacity 200ms; }
-body.mushaf-hud .mushaf-page .mushaf-nav { opacity: 1; height: auto; margin: 4px 0 12px; pointer-events: auto; }
+body.mushaf-hud .mushaf-page .mushaf-nav,
+body.mushaf-scroll-vertical .mushaf-page .mushaf-nav { opacity: 1; height: auto; margin: 8px 0 14px; pointer-events: auto; }
 
 /* الوضع الهادئ يُخفي كل الكروم الخارجي للتطبيق. شريط ورد الختمة وزرّ الإتمام
    يبقيان: هما تتبّع الورد، لا كروم قراءة. */
@@ -1247,7 +1247,7 @@ body.theme-light .occasion-card { box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
 #tasbih-circle-wrap { position: relative; width: min(280px, 70vw); height: min(280px, 70vw); margin: 0 auto; }
 .tasbih-bead { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); transform: translate(-50%, -50%); transition: 0.2s; }
 .tasbih-bead.filled { background: var(--accent); border-color: var(--accent); transform: translate(-50%, -50%) scale(1.3); }
-#tasbih-tap-btn { position: absolute; inset: 34px; border-radius: 50%; background: var(--accent-grad); border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: transform 0.1s; }
+#tasbih-tap-btn { position: absolute; inset: 14%; border-radius: 50%; background: var(--accent-grad); border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: transform 0.1s; }
 body.theme-light #tasbih-tap-btn { box-shadow: 0 4px 20px rgba(31, 122, 90, 0.2); }
 #tasbih-tap-btn:active { transform: scale(0.92); }
 #tasbih-count-num { font-size: calc(var(--font-size) * 1.8); font-weight: 700; color: var(--color-on-accent); transition: font-size 0.3s, color 0.4s; }
@@ -1416,6 +1416,76 @@ body.theme-light .settings-chip.danger { color: #a93226; }
 @media (max-width: 340px) {
   .athkar-grid, .quick-nav-row { grid-template-columns: 1fr; }
 }
+
+/* ===== إضافات التطوير الشامل: التفسير، بطاقات المشاركة، تكرار التلاوة، وأذكار السبحة ===== */
+.mushaf-audio-pill .map-pill-chip {
+  flex-shrink: 0; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-dim);
+  border-radius: 999px; padding: 4px 9px; cursor: pointer; font-size: calc(var(--font-size) * 0.32);
+  font-family: Tahoma, sans-serif; font-weight: 700; transition: transform 160ms var(--ease-spring-snap), background 180ms, color 180ms, border-color 180ms;
+}
+.mushaf-audio-pill .map-pill-chip:active { transform: scale(0.92); }
+.mushaf-audio-pill .map-pill-chip.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+
+.tafsir-sheet-ayah {
+  font-family: 'Amiri Quran', 'Amiri', serif; font-size: calc(var(--font-size) * 0.72);
+  line-height: 2.0; color: var(--accent); background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
+  margin-bottom: 12px; text-align: center; max-height: 28vh; overflow-y: auto;
+}
+.tafsir-sheet-body {
+  font-size: calc(var(--font-size) * 0.62); line-height: 1.95; color: var(--text);
+  padding: 6px 4px 14px; max-height: 36vh; overflow-y: auto; text-align: justify;
+}
+.tafsir-sheet-actions {
+  display: flex; gap: 8px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--border);
+}
+.tafsir-sheet-actions .settings-chip { flex: 1 1 auto; text-align: center; }
+
+.card-actions-row {
+  display: flex; align-items: center; gap: 6px; align-self: flex-end; margin: 0 0 6px;
+}
+.dhikr-card .copy-btn, .dhikr-card .share-card-btn { position: static; margin: 0; }
+.share-card-btn {
+  display: inline-flex; align-items: center; gap: 4px; background: var(--surface-2);
+  color: var(--text-dim); border: 1px solid var(--border); border-radius: 20px;
+  padding: 5px 10px; font-size: calc(var(--font-size) * 0.45); font-family: inherit;
+  font-weight: bold; cursor: pointer; transition: transform 200ms var(--ease-spring-snap), color 200ms, background 200ms;
+}
+.share-card-btn:active { transform: scale(0.92); }
+.dua-card .share-card-btn { position: absolute; top: 10px; left: 82px; }
+
+.tasbih-phrase-box {
+  width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px; margin-bottom: 16px; text-align: center;
+}
+.tasbih-phrase-chips {
+  display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 8px;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.tasbih-phrase-chips::-webkit-scrollbar { display: none; }
+.tasbih-phrase-chip {
+  flex: 0 0 auto; background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border);
+  border-radius: 999px; padding: 5px 12px; font-size: calc(var(--font-size) * 0.44);
+  font-family: inherit; font-weight: 700; cursor: pointer; transition: all 180ms var(--ease-spring-snap);
+}
+.tasbih-phrase-chip.active { background: var(--accent-deep); color: var(--color-on-accent); border-color: var(--accent-deep); }
+.tasbih-phrase-current {
+  font-family: 'Amiri Quran', 'Amiri', serif; font-size: calc(var(--font-size) * 0.78);
+  color: var(--accent); line-height: 1.8; margin-bottom: 4px;
+}
+.tasbih-virtue { font-size: calc(var(--font-size) * 0.44); color: var(--text-dim); line-height: 1.6; }
+
+.k-intention-badge {
+  background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent);
+  border-radius: 8px; padding: 6px 10px; font-size: calc(var(--font-size) * 0.48);
+  font-weight: 700; display: none; width: 90%;
+}
+.k-intention-badge.visible { display: block; }
+
+@media (min-width: 768px) {
+  .screen { max-width: 760px; padding: 20px 24px; }
+  .athkar-grid { grid-template-columns: repeat(3, 1fr); }
+}
 </style>
 </head>
 <body>
@@ -1437,8 +1507,9 @@ body.theme-light .settings-chip.danger { color: #a93226; }
     <div id="font-ctrl">
       <button class="header-btn" id="bookmarks-btn" title="المرجعيات" aria-label="المرجعيات">🔖</button>
       <button class="header-btn" id="theme-btn" title="الوضع الفاتح">☀️</button>
-      <button class="header-btn" id="share-btn" title="مشاركة التطبيق" aria-label="مشاركة التطبيق"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg></button>
+      <button class="header-btn" id="share-btn" title="مشاركة التطبيق" aria-label="مشاركة التطبيق"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg></button>
       <button class="header-btn" id="font-size-btn" title="حجم الخط" aria-label="حجم الخط" aria-haspopup="true" aria-expanded="false">أ</button>
+      <button class="header-btn" id="settings-btn" title="الإعدادات والإحصائيات" aria-label="الإعدادات">⚙️</button>
     </div>
     <div id="font-popover" role="dialog" aria-label="حجم الخط" hidden>
       <div class="font-popover-title">حجم الخط</div>
@@ -1500,6 +1571,8 @@ body.theme-light .settings-chip.danger { color: #a93226; }
           <div class="map-surah" id="map-surah"></div>
           <div class="map-ayah" id="map-ayah"></div>
         </div>
+        <button class="map-pill-chip" id="map-repeat" title="تكرار الآية للتحفيظ" aria-label="تكرار الآية">🔁1×</button>
+        <button class="map-pill-chip" id="map-speed" title="سرعة التلاوة" aria-label="سرعة التلاوة">1×</button>
         <button class="map-reciter" id="map-reciter" aria-label="اختيار القارئ"></button>
         <button class="map-btn map-close" id="map-close" aria-label="إيقاف التلاوة">×</button>
       </div>
@@ -1533,6 +1606,8 @@ body.theme-light .settings-chip.danger { color: #a93226; }
           <input type="number" id="k-val" class="k-input" placeholder="مثال: 20" value="20" min="1">
           <label class="k-label">تبدأ من أي صفحة؟ (1 - 604):</label>
           <input type="number" id="k-start" class="k-input" value="1" min="1" max="604">
+          <label class="k-label" for="k-intention">نية الختمة / إهداء الثواب (اختياري):</label>
+          <input type="text" id="k-intention" class="k-input" maxlength="80" placeholder="مثال: صدقة جارية عن والديّ، أو بنية تفريج كرب...">
           <button class="btn-scale" onclick="startKhatmah()">على بركة الله ➔</button>
         </div>
       </div>
@@ -1545,6 +1620,7 @@ body.theme-light .settings-chip.danger { color: #a93226; }
                <div class="k-wird-arrow">←</div>
                <div class="k-wird-badge"><small>النهاية</small><span id="kd-end-badge">--</span></div>
             </div>
+            <div id="kd-intention-badge" class="k-intention-badge"></div>
             <div style="margin-top:4px; font-size:calc(var(--font-size) * 0.5); color:var(--text-dim);">آخر ما قرأت: <span id="kd-last" style="color:var(--text); font-weight:bold;">--</span></div>
           </div>
           <div class="circle-wrap" id="khatmah-ring">
@@ -1556,11 +1632,16 @@ body.theme-light .settings-chip.danger { color: #a93226; }
           </div>
         </div>
         <button class="btn-scale" onclick="openKhatmahReader()">متابعة القراءة 📖</button>
-        <button class="btn-scale" style="background:var(--surface-2); color:var(--text); margin-top:12px;" onclick="resetKhatmah()">إنشاء ختمة جديدة</button>
+        <button class="btn-scale" style="background:var(--surface); color:var(--accent); border:1px solid var(--border); margin-top:10px;" onclick="showKhatmDua()">🤲 دعاء ختم القرآن الكريم</button>
+        <button class="btn-scale" style="background:var(--surface-2); color:var(--text); margin-top:10px;" onclick="resetKhatmah()">إنشاء ختمة جديدة</button>
       </div>
     </div>
 
     <div id="screen-athkar-list" class="screen" role="tabpanel" aria-label="الأذكار">
+      <div class="search-wrapper" style="margin-bottom:14px;">
+        <input type="search" id="athkar-search-bar" style="width:100%; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:11px 16px; color:var(--text); font-size:calc(var(--font-size) * 0.6); outline:none;" placeholder="ابحث في الأذكار والأدعية والرقية...">
+      </div>
+      <div id="athkar-search-results" style="display:none; margin-bottom:16px;"></div>
       <div class="quick-nav-row">
         <div class="quick-nav-card" id="nav-dua-card" role="button" tabindex="0" aria-label="أدعية النبي"><span class="quick-nav-icon">🤲</span><span class="quick-nav-label">أدعية النبي</span></div>
         <div class="quick-nav-card" id="nav-tasbih-card" role="button" tabindex="0" aria-label="السبحة الرقمية"><span class="quick-nav-icon">📿</span><span class="quick-nav-label">السبحة</span></div>
@@ -1588,6 +1669,11 @@ body.theme-light .settings-chip.danger { color: #a93226; }
 
     <div id="screen-tasbih" class="screen">
       <div class="tasbih-complete-banner" id="tasbih-msg">أتممت سبحة كاملة (٩٩) - تقبل الله 🤲</div>
+      <div class="tasbih-phrase-box" id="tasbih-phrase-box">
+        <div class="tasbih-phrase-chips" id="tasbih-phrase-chips"></div>
+        <div class="tasbih-phrase-current" id="tasbih-phrase-current">سُبْحَانَ اللَّهِ وَبِحَمْدِهِ</div>
+        <div class="tasbih-virtue" id="tasbih-virtue">من قالها مائة مرة حُطَّت خطاياه وإن كانت مثل زبد البحر</div>
+      </div>
       <div class="tasbih-laps" id="tasbih-laps">
         <div class="tasbih-lap-dot"></div>
         <div class="tasbih-lap-dot"></div>
@@ -1617,7 +1703,7 @@ body.theme-light .settings-chip.danger { color: #a93226; }
        التنقّل بمحرّك القلب، وزرّ الإتمام أصبح زرّاً طافياً داخله. -->
 
   <div id="custom-dialog-overlay">
-    <div id="custom-dialog">
+    <div id="custom-dialog" role="dialog" aria-modal="true" aria-labelledby="custom-dialog-text">
       <div id="custom-dialog-text">هل أنت متأكد؟</div>
       <div style="display:flex; gap:10px; margin-top:20px;">
         <button class="btn-scale" id="custom-dialog-cancel" style="background:var(--surface-2); color:var(--text); flex:1;">إلغاء</button>
@@ -1627,7 +1713,7 @@ body.theme-light .settings-chip.danger { color: #a93226; }
   </div>
 
   <div id="occasion-overlay">
-    <div id="occasion-modal">
+    <div id="occasion-modal" role="dialog" aria-modal="true" aria-labelledby="occasion-modal-title">
       <div class="occasion-modal-icon">🌙</div>
       <div class="occasion-modal-title" id="occasion-modal-title">مناسبة اليوم</div>
       <div id="occasion-modal-body"></div>
@@ -1739,6 +1825,23 @@ const ATHKAR=[
   {text:"اللَّهُمَّ هَوِّنْ عَلَيْنَا سَفَرَنَا هَذَا وَاطْوِ عَنَّا بُعْدَهُ.",count:1},
   {text:"اللَّهُمَّ أَنْتَ الصَّاحِبُ فِي السَّفَرِ، وَالْخَلِيفَةُ فِي الْأَهْلِ.",count:1},
   {text:"آيِبُونَ تَائِبُونَ عَابِدُونَ لِرَبِّنَا حَامِدُونَ. (دعاء الرجوع من السفر)",count:1}
+]},
+{name:"الرقية الشرعية",icon:"🛡️",items:[
+  {text:"سورة الفاتحة:\nبِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ ۝ الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ ۝ الرَّحْمَٰنِ الرَّحِيمِ ۝ مَالِكِ يَوْمِ الدِّينِ ۝ إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ ۝ اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ ۝ صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ.",count:1},
+  {text:AYAT_AL_KURSI,count:1},
+  {text:MUAWIDHAT,count:3},
+  {text:"أَعُوذُ بِكَلِمَاتِ اللَّهِ التَّامَّاتِ مِنْ شَرِّ مَا خَلَقَ.",count:3},
+  {text:"أَعُوذُ بِكَلِمَاتِ اللَّهِ التَّامَّةِ، مِنْ كُلِّ شَيْطَانٍ وَهَامَّةٍ، وَمِنْ كُلِّ عَيْنٍ لَامَّةٍ.",count:3},
+  {text:"بِسْمِ اللَّهِ أَرْقِيكَ، مِنْ كُلِّ شَيْءٍ يُؤْذِيكَ، مِنْ شَرِّ كُلِّ نَفْسٍ أَوْ عَيْنِ حَاسِدٍ، اللَّهُ يَشْفِيكَ، بِسْمِ اللَّهِ أَرْقِيكَ.",count:3},
+  {text:"اللَّهُمَّ رَبَّ النَّاسِ أَذْهِبِ الْبَاسَ، اشْفِ وَأَنْتَ الشَّافِي، لَا شِفَاءَ إِلَّا شِفَاؤُكَ، شِفَاءً لَا يُغَادِرُ سَقَمًا.",count:3},
+  {text:"بِسْمِ اللَّهِ (ثَلاثاً)\nأَعُوذُ بِاللَّهِ وَقُدْرَتِهِ مِنْ شَرِّ مَا أَجِدُ وَأُحَاذِرُ. (ضع يدك على الذي تألّم من جسدك)",count:7}
+]},
+{name:"أذكار الكرب والهم",icon:"🌿",items:[
+  {text:"لَا إِلَهَ إِلَّا اللَّهُ الْعَظِيمُ الْحَلِيمُ، لَا إِلَهَ إِلَّا اللَّهُ رَبُّ الْعَرْشِ الْعَظِيمِ، لَا إِلَهَ إِلَّا اللَّهُ رَبُّ السَّمَاوَاتِ وَرَبُّ الْأَرْضِ وَرَبُّ الْعَرْشِ الْكَرِيمِ.",count:1},
+  {text:"اللَّهُمَّ إِنِّي عَبْدُكَ، ابْنُ عَبْدِكَ، ابْنُ أَمَتِكَ، نَاصِيَتِي بِيَدِكَ، مَاضٍ فِيَّ حُكْمُكَ، عَدْلٌ فِيَّ قَضَاؤُكَ، أَسْأَلُكَ بِكُلِّ اسْمٍ هُوَ لَكَ سَمَّيْتَ بِهِ نَفْسَكَ، أَوْ أَنْزَلْتَهُ فِي كِتَابِكَ، أَوْ عَلَّمْتَهُ أَحَدًا مِنْ خَلْقِكَ، أَوِ اسْتَأْثَرْتَ بِهِ فِي عِلْمِ الْغَيْبِ عِنْدَكَ، أَنْ تَجْعَلَ الْقُرْآنَ رَبِيعَ قَلْبِي، وَنُورَ صَدْرِي، وَجِلَاءَ حُزْنِي، وَذَهَابَ هَمِّي.",count:1},
+  {text:"لَا إِلَهَ إِلَّا أَنْتَ سُبْحَانَكَ إِنِّي كُنْتُ مِنَ الظَّالِمِينَ.",count:3},
+  {text:"اللَّهُ اللَّهُ رَبِّي لَا أُشْرِكُ بِهِ شَيْئًا.",count:1},
+  {text:"يَا حَيُّ يَا قَيُّومُ بِرَحْمَتِكَ أَسْتَغِيثُ.",count:3}
 ]}
 ];
 
@@ -2132,6 +2235,7 @@ function applyFontSize(scale) {
   document.documentElement.style.setProperty('--mushaf-scale', String(Math.min(1.25, 0.9 + (step.scale - 0.8) * 0.35)));
   document.documentElement.style.setProperty('--mushaf-lh', step.scale >= 1.5 ? '1.95' : '2.15');
   state.fontScale = step.scale;
+  try { localStorage.setItem('font_scale', String(Math.round(step.scale * 100))); } catch(e) {}
   // سجلّات تحديد الحجم القديم لا تُستخدم بعد الآن
   delete state.fontSize;
   saveState();
@@ -2758,6 +2862,16 @@ function mushafViewport() {
 function enterZenMode() {
   document.body.classList.add('mushaf-zen');
   document.body.classList.remove('mushaf-hud');
+  try {
+    if (!localStorage.getItem('zen_hint_shown')) {
+      localStorage.setItem('zen_hint_shown', '1');
+      setTimeout(() => {
+        if (window.Toast && document.body.classList.contains('mushaf-zen')) {
+          Toast.show('اضغط وسط الصفحة لإظهار أدوات القراءة والتلاوة 👆');
+        }
+      }, 450);
+    }
+  } catch (e) {}
 }
 function exitZenMode() {
   document.body.classList.remove('mushaf-zen');
@@ -3123,7 +3237,9 @@ function showAyahBar() {
     bar = document.createElement('div');
     bar.id = 'ayah-bar';
     bar.innerHTML = `<button data-act="play">▶ تشغيل</button>
+      <button data-act="tafsir">📖 تفسير</button>
       <button data-act="copy">⧉ نسخ</button>
+      <button data-act="share-card">🖼 بطاقة</button>
       <button data-act="bookmark">🔖 حفظ</button>
       <button class="ayah-close" data-act="close" aria-label="إغلاق">✕</button>`;
     document.body.appendChild(bar);
@@ -3163,6 +3279,20 @@ function onAyahBarAction(act) {
     }
     return;
   }
+  if (act === 'tafsir') {
+    if (window.TafsirManager && d) TafsirManager.openForAyah(d);
+    return;
+  }
+  if (act === 'share-card') {
+    if (window.ShareCardGenerator && d) {
+      const sName = (state.currentSurah && state.currentSurah.name) || `سورة ${d.surah}`;
+      ShareCardGenerator.share({
+        badge: `${sName} — آية ${toArabicNum(d.ayah)}`,
+        text: `﴿ ${d.text} ﴾`
+      });
+    }
+    return;
+  }
   if (act === 'copy') {
     copyAyah(d).then(ok => Toast.show(ok ? 'تم نسخ الآية ✓' : 'تعذّر النسخ'));
     return;
@@ -3189,6 +3319,7 @@ function onAyahBarAction(act) {
 }
 
 // نسخ نص عربي بحت (بدون HTML أو علامات اتجاه) عبر الحافظة أو execCommand
+window.copyTextToClipboard = copyTextToClipboard;
 async function copyTextToClipboard(text) {
   try {
     if (navigator.clipboard && window.isSecureContext && navigator.clipboard.writeText) {
@@ -3239,6 +3370,7 @@ const Toast = {
   }
 };
 window.Toast = Toast;
+window.showAppToast = (msg) => Toast.show(msg);
 
 function updateKhatmahUI() {
   if (!state.khatmah || !state.khatmah.active) {
@@ -3254,6 +3386,16 @@ function updateKhatmahUI() {
       startLabel.parentElement.parentElement.title = `ختمة في ${toArabicNum(state.khatmah.totalDays)} يوم — ${toArabicNum(state.khatmah.pagesPerDay)} صفحة يومياً`;
     }
     document.getElementById('kd-last').textContent = toArabicNum(state.khatmah.lastPageRead || start - 1);
+    const intBadge = document.getElementById('kd-intention-badge');
+    if (intBadge) {
+      if (state.khatmah.intention) {
+        intBadge.textContent = `🤲 النية: ${state.khatmah.intention}`;
+        intBadge.classList.add('visible');
+      } else {
+        intBadge.textContent = '';
+        intBadge.classList.remove('visible');
+      }
+    }
 
     const progPct = Math.min(Math.round(((state.khatmah.lastPageRead || 0) / 604) * 100), 100);
     document.getElementById('kd-prog-txt').textContent = `${toArabicNum(progPct)}%`;
@@ -3291,9 +3433,38 @@ window.startKhatmah = function() {
     const remaining = Math.max(1, 604 - startPage + 1);
     pagesPerDay = Math.max(1, Math.ceil(remaining / totalDays));
   }
-  state.khatmah = { active: true, method, totalDays, pagesPerDay, currentPage: startPage, todayWirdStart: startPage, todayWirdEnd: Math.min(startPage + pagesPerDay - 1, 604), lastPageRead: startPage > 1 ? startPage - 1 : 0, lastActiveDate: getLocalToday() };
+  const intention = (document.getElementById('k-intention')?.value || '').trim().slice(0, 80);
+  state.khatmah = { active: true, method, totalDays, pagesPerDay, intention, currentPage: startPage, todayWirdStart: startPage, todayWirdEnd: Math.min(startPage + pagesPerDay - 1, 604), lastPageRead: startPage > 1 ? startPage - 1 : 0, lastActiveDate: getLocalToday() };
   saveState(); updateKhatmahUI();
 }
+window.showKhatmDua = function() {
+  const duaText = `اللَّهُمَّ ارْحَمْنِي بِالْقُرْآنِ وَاجْعَلْهُ لِي إِمَامًا وَنُورًا وَهُدًى وَرَحْمَةً،
+اللَّهُمَّ ذَكِّرْنِي مِنْهُ مَا نُسِّيتُ وَعَلِّمْنِي مِنْهُ مَا جَهِلْتُ وَارْزُقْنِي تِلَاوَتَهُ آنَاءَ اللَّيْلِ وَأَطْرَافَ النَّهَارِ وَاجْعَلْهُ لِي حُجَّةً يَا رَبَّ الْعَالَمِينَ.
+
+اللَّهُمَّ أَصْلِحْ لِي دِينِي الَّذِي هُوَ عِصْمَةُ أَمْرِي، وَأَصْلِحْ لِي دُنْيَايَ الَّتِي فِيهَا مَعَاشِي، وَأَصْلِحْ لِي آخِرَتِي الَّتِي فِيهَا مَعَادِي، وَاجْعَلِ الْحَيَاةَ زِيَادَةً لِي فِي كُلِّ خَيْرٍ، وَاجْعَلِ الْمَوْتَ رَاحَةً لِي مِنْ كُلِّ شَرٍّ.
+
+اللَّهُمَّ اجْعَلْ خَيْرَ عُمْرِي آخِرَهُ، وَخَيْرَ عَمَلِي خَوَاتِيمَهُ، وَخَيْرَ أَيَّامِي يَوْمَ أَلْقَاكَ فِيهِ.`;
+  if (window.BottomSheet) {
+    const sh = BottomSheet.open({
+      title: '🤲 دعاء ختم القرآن الكريم',
+      customHTML: `<div class="tafsir-sheet-body" style="max-height:52vh; white-space:pre-line; font-family:'Amiri Quran','Amiri',serif; font-size:calc(var(--font-size)*0.72)">${escHtml(duaText)}</div>
+        <div class="tafsir-sheet-actions">
+          <button type="button" class="settings-chip" id="khatm-dua-copy">⧉ نسخ الدعاء</button>
+          <button type="button" class="settings-chip" id="khatm-dua-card">🖼 مشاركة كبطاقة</button>
+        </div>`
+    });
+    sh.querySelector('#khatm-dua-copy')?.addEventListener('click', async () => {
+      const ok = await copyTextToClipboard(duaText);
+      Toast.show(ok ? 'تم نسخ دعاء الختم ✓' : 'تعذّر النسخ');
+    });
+    sh.querySelector('#khatm-dua-card')?.addEventListener('click', () => {
+      BottomSheet.close();
+      if (window.ShareCardGenerator) ShareCardGenerator.share({ badge: 'دعاء ختم القرآن الكريم', text: duaText });
+    });
+  } else if (window.showAppDialog) {
+    window.showAppDialog(escHtml(duaText).replace(/\n/g, '<br>'), false);
+  }
+};
 window.resetKhatmah = async function() {
   const confirmed = await window.showAppDialog('هل تريد بالفعل إنشاء ختمة جديدة وإلغاء الختمة الحالية؟', true);
   if(confirmed) { state.khatmah = null; saveState(); updateKhatmahUI(); }
@@ -3400,9 +3571,12 @@ window.completeWird = async function() {
     StatsManager.recordRead(pagesRead);
   }
   if (nx > 604) {
+      const finishedIntention = state.khatmah.intention || '';
+      if (window.StatsManager && StatsManager.recordKhatmah) StatsManager.recordKhatmah(finishedIntention);
       window.Celebrate ? Celebrate(null, { confetti: 120, burst: 0, ring: false }) : Motion.confetti(120);
       await new Promise(r => setTimeout(r, 300));
-      await window.showAppDialog('مبارك عليك ختم القرآن الكريم! 🤲<br><span style="font-size:calc(var(--font-size) * 0.54); font-weight:normal; color:var(--text-dim)">تقبل الله منك صالح الأعمال.</span>', false);
+      const intLine = finishedIntention ? `<br><span style="font-size:calc(var(--font-size) * 0.56); color:var(--accent)">النية: ${escHtml(finishedIntention)}</span>` : '';
+      await window.showAppDialog(`مبارك عليك ختم القرآن الكريم! 🤲${intLine}<br><span style="font-size:calc(var(--font-size) * 0.54); font-weight:normal; color:var(--text-dim)">تقبل الله منك صالح الأعمال، وسُجّلت الختمة في إحصائياتك.</span>`, false);
       state.khatmah = null; saveState(); navigateBack();
   } else {
       // احتفال صغير بإتمام الورد
@@ -3515,6 +3689,21 @@ const ATHKAR_SOURCES = {
   '7:2':  'مسلم 4/ 2084',
   '7:3':  'مسلم 4/ 2084',
   '7:4':  'كان النبي صلى الله عليه وسلم يقوله إذا قفل من غزو أو حج ، البخاري 7/163 ومسلم 2/ 980',
+  // الرقية الشرعية
+  '8:0':  'فاتحة الكتاب أعظم سورة في القرآن وهي الرقية الشافية، البخاري 4/ 532 ومسلم 4/ 1727',
+  '8:1':  'آية الكرسي حرز من الشيطان والعين، البخاري مع الفتح 4/ 487',
+  '8:2':  'كان النبي ﷺ يتعوذ بهن، البخاري مع الفتح 9/ 62 ومسلم 4/ 1723',
+  '8:3':  'رواه مسلم 4/ 2080',
+  '8:4':  'كان النبي ﷺ يعوّذ بهما الحسن والحسين، البخاري 4/ 119',
+  '8:5':  'رقية جبريل للنبي ﷺ، رواه مسلم 4/ 1718',
+  '8:6':  'متفق عليه: البخاري مع الفتح 10/ 206 ومسلم 4/ 1721',
+  '8:7':  'رواه مسلم 4/ 1728',
+  // أذكار الكرب والهم
+  '9:0':  'دعاء الكرب المتفق عليه: البخاري 7/ 154 ومسلم 4/ 2092',
+  '9:1':  'رواه أحمد 1/ 391 وصححه الألباني في السلسلة الصحيحة برقم 199',
+  '9:2':  'دعوة ذي النون، ما دعا بها مكروب إلا فرّج الله كربه، الترمذي 5/ 529 والحاكم وصححه',
+  '9:3':  'أبو داود 2/ 87 وابن ماجه برقم 3882 وحسنه الألباني',
+  '9:4':  'الترمذي 5/ 539 والحاكم 1/ 509 وحسنه الألباني في صحيح الجامع'
 };
 // اسم المصدر العام للعناصر بلا تخريج مفصّل في حصن المسلم
 const ATHKAR_SOURCE_GENERIC = 'حصن المسلم';
@@ -3578,7 +3767,10 @@ window.openCategory = function(ci, favOnly) {
         <button class="dhikr-fav ${fav ? 'active' : ''}" onclick="toggleFavFromCard(${ci}, ${i}, this)" aria-label="${fav ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}" aria-pressed="${fav}">☆</button>
       </div>
       <div class="thikr-text" dir="rtl">${item.text}</div>
-      <button class="copy-btn" data-copy-from=".thikr-text" aria-label="نسخ الذكر" title="نسخ"><span aria-hidden="true">⧉</span> نسخ</button>
+      <div class="card-actions-row">
+        <button class="copy-btn" data-copy-from=".thikr-text" aria-label="نسخ الذكر" title="نسخ"><span aria-hidden="true">⧉</span> نسخ</button>
+        <button class="share-card-btn" data-share-badge="${escHtml(cat.name)}" data-share-from=".thikr-text" aria-label="مشاركة الذكر كبطاقة" title="مشاركة كصورة"><span aria-hidden="true">🖼</span> بطاقة</button>
+      </div>
       <div class="dhikr-count-line">${toArabicNum(Math.min(prog, item.count))} من ${toArabicNum(item.count)} ${item.count === 1 ? 'مرة' : 'مرات'}</div>
       <div class="dhikr-progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="dhikr-progress-fill" style="width:${pct}%"></div></div>
       <div class="dhikr-bottom">
@@ -3596,7 +3788,7 @@ window.openCategory = function(ci, favOnly) {
 // مفوَّضٌ مرة واحدة على الحاوية فيبقى يعمل بعد كل إعادة بناء،
 // ويتجاهل أي ضغطٍ على الأزرار (المفضلة/المصدر/النسخ/العدّاد) لتبقى تعمل وحدها.
 document.getElementById('thikr-list-container').addEventListener('click', (e) => {
-  if (e.target.closest('button, .copy-btn')) return;
+  if (e.target.closest('button, .copy-btn, .share-card-btn')) return;
   const card = e.target.closest('.dhikr-card');
   if (!card) return;
   const tapBtn = card.querySelector('.thikr-tap-btn');
@@ -3689,16 +3881,47 @@ window.tapThikr = function(ci, i, btn) {
 let tasbihCount = (() => { try { return parseInt(localStorage.getItem('tasbihCount') || '0', 10) || 0; } catch (e) { return 0; } })();
 let tasbihLap = (() => { try { return parseInt(localStorage.getItem('tasbihLap') || '0', 10) || 0; } catch (e) { return 0; } })();
 
+const TASBIH_PHRASES = [
+  { id: 'subhan', short: 'سبحان الله وبحمده', text: 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ', virtue: 'من قالها مائة مرة حُطَّت خطاياه وإن كانت مثل زبد البحر (متفق عليه)' },
+  { id: 'istighfar', short: 'أستغفر الله', text: 'أَسْتَغْفِرُ اللَّهَ وَأَتُوبُ إِلَيْهِ', virtue: 'كان النبي ﷺ يستغفر الله ويتوب إليه في اليوم أكثر من سبعين مرة (البخاري)' },
+  { id: 'salat', short: 'الصلاة على النبي ﷺ', text: 'اللَّهُمَّ صَلِّ وَسَلِّمْ عَلَى نَبِيِّنَا مُحَمَّدٍ', virtue: 'من صلى عليَّ صلاة واحدة صلى الله عليه بها عشراً (مسلم)' },
+  { id: 'hawqala', short: 'لا حول ولا قوة إلا بالله', text: 'لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ', virtue: 'كلمة هي كنز من كنوز الجنة (متفق عليه)' },
+  { id: 'baqiyat', short: 'الباقيات الصالحات', text: 'سُبْحَانَ اللَّهِ، وَالْحَمْدُ لِلَّهِ، وَلَا إِلَهَ إِلَّا اللَّهُ، وَاللَّهُ أَكْبَرُ', virtue: 'أحب الكلام إلى الله أربع: سبحان الله والحمد لله ولا إله إلا الله والله أكبر (مسلم)' }
+];
+
+function getTasbihPhraseId() {
+  try { return localStorage.getItem('tasbih_phrase') || 'subhan'; } catch (e) { return 'subhan'; }
+}
+function setTasbihPhraseId(id) {
+  try { localStorage.setItem('tasbih_phrase', id); } catch (e) {}
+  renderTasbihPhrases();
+}
+function renderTasbihPhrases() {
+  const chipsEl = document.getElementById('tasbih-phrase-chips');
+  const curEl = document.getElementById('tasbih-phrase-current');
+  const virEl = document.getElementById('tasbih-virtue');
+  if (!chipsEl || !curEl || !virEl) return;
+  const activeId = getTasbihPhraseId();
+  const current = TASBIH_PHRASES.find(p => p.id === activeId) || TASBIH_PHRASES[0];
+  chipsEl.innerHTML = TASBIH_PHRASES.map(p =>
+    `<button type="button" class="tasbih-phrase-chip ${p.id === current.id ? 'active' : ''}" data-phrase-id="${p.id}">${p.short}</button>`
+  ).join('');
+  curEl.textContent = current.text;
+  virEl.textContent = current.virtue;
+}
+
 function tasbihTarget() { return (window.Settings ? Settings.getTasbihTarget() : 33) || 33; }
 // الجولات: ٣ جولات لكل هدف (دائماً ٣ للتجربة التقليدية)
 function tasbihTotalLaps() { return 3; }
 
 // تبني خرزات السبحة ونقاط الجولات حسب الهدف الحالي — دون مسّ العدّات
+// سقف الخرزات البصرية ٣٣ خرزة لمنع تداخل الخرزات عند الأهداف الكبيرة (٩٩ / ١٠٠ / ١٠٠٠)
 function buildTasbihBeads() {
+  renderTasbihPhrases();
   const wrap = document.getElementById('tasbih-circle-wrap');
   wrap.querySelectorAll('.tasbih-bead').forEach(b => b.remove());
   const t = tasbihTarget();
-  const beads = Math.min(t, 99);
+  const beads = Math.min(t, 33);
   for (let i = 0; i < beads; i++) {
     const angle = (i / beads) * 2 * Math.PI - Math.PI / 2;
     const bead = document.createElement('div'); bead.className = 'tasbih-bead';
@@ -3889,7 +4112,7 @@ document.addEventListener('DOMContentLoaded', () => {
     this.setAttribute('aria-pressed', !current ? 'true' : 'false');
     this.querySelector('.fab-icon').textContent = !current ? '⏭' : '⏹';
     this.querySelector('.fab-label').textContent = !current ? 'تقدم تلقائي' : 'إيقاف التقدم';
-    if (window.showAppToast) showAppToast(!current ? 'تم تفعيل التقدم التلقائي ⏭' : 'تم إلغاء التقدم التلقائي');
+    if (window.Toast) Toast.show(!current ? 'تم تفعيل التقدم التلقائي ⏭' : 'تم إلغاء التقدم التلقائي');
   });
 
   // Reduced-motion: استجب للتغيير أثناء التشغيل وليس مرة واحدة فقط
@@ -3971,7 +4194,25 @@ document.addEventListener('DOMContentLoaded', () => {
   // العرض الأفقي، الثيم، التظليل الموضوعي
   document.getElementById('mt-settings').addEventListener('click', () => { if (window.openReaderSettings) window.openReaderSettings(); });
   document.getElementById('bookmarks-btn').addEventListener('click', () => window.openBookmarks());
-  document.getElementById('nav-dua-card').addEventListener('click', () => { showScreen('dua-list', 'slide-left'); document.getElementById('dua-list-container').innerHTML = DUA_LIST.map(d => `<div class="dua-card" data-magnetic><button class="copy-btn" data-copy-from=".dua-text" aria-label="نسخ الدعاء" title="نسخ"><span aria-hidden="true">⧉</span> نسخ</button><div class="dua-occasion">${d.occasion}</div><div class="dua-text">${d.text}</div></div>`).join(''); Motion.staggerIn(document.getElementById('dua-list-container')); });
+  document.getElementById('settings-btn')?.addEventListener('click', () => window.openSettings());
+  document.getElementById('tasbih-phrase-chips')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-phrase-id]');
+    if (chip) {
+      if (window.Haptics) Haptics.tap();
+      setTasbihPhraseId(chip.dataset.phraseId);
+    }
+  });
+  document.addEventListener('click', (e) => {
+    const shareCardBtn = e.target.closest('.share-card-btn');
+    if (!shareCardBtn || !window.ShareCardGenerator) return;
+    const card = shareCardBtn.closest('.dhikr-card, .dua-card, .thikr-card');
+    const sel = shareCardBtn.dataset.shareFrom || '.thikr-text, .dua-text';
+    const textEl = card ? card.querySelector(sel) : null;
+    if (!textEl) return;
+    const badge = shareCardBtn.dataset.shareBadge || 'أذكار المسلم';
+    ShareCardGenerator.share({ badge, text: textEl.textContent.trim() });
+  });
+  document.getElementById('nav-dua-card').addEventListener('click', () => { showScreen('dua-list', 'slide-left'); document.getElementById('dua-list-container').innerHTML = DUA_LIST.map(d => `<div class="dua-card" data-magnetic><button class="copy-btn" data-copy-from=".dua-text" aria-label="نسخ الدعاء" title="نسخ"><span aria-hidden="true">⧉</span> نسخ</button><button class="share-card-btn" data-share-badge="${escHtml(d.occasion)}" data-share-from=".dua-text" aria-label="مشاركة الدعاء كبطاقة" title="مشاركة كصورة"><span aria-hidden="true">🖼</span> بطاقة</button><div class="dua-occasion">${d.occasion}</div><div class="dua-text">${d.text}</div></div>`).join(''); Motion.staggerIn(document.getElementById('dua-list-container')); });
   document.getElementById('nav-tasbih-card').addEventListener('click', () => { showScreen('tasbih', 'slide-left'); buildTasbih(); updateTasbihUI(); });
   document.getElementById('nav-occasion-card').addEventListener('click', () => { showScreen('occasion-list', 'slide-left'); renderOccasionPage(currentOccasionKeys); });
 
@@ -4029,6 +4270,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 150);
   });
   clearBtn.addEventListener('click', () => { searchBar.value = ''; clearBtn.style.transform = 'translateY(-50%) scale(0.7)'; setTimeout(() => clearBtn.style.display = 'none', 200); renderSurahList(allSurahs); const box = document.getElementById('ayah-search-container'); if (box) { box.style.display = 'none'; box.innerHTML = ''; } searchBar.focus(); });
+
+  // ─── بحث فوري داخل الأذكار والأدعية والرقية ───
+  const athkarSearchBar = document.getElementById('athkar-search-bar');
+  const athkarSearchBox = document.getElementById('athkar-search-results');
+  if (athkarSearchBar && athkarSearchBox) {
+    athkarSearchBar.addEventListener('input', (e) => {
+      const q = e.target.value.trim();
+      if (!q) {
+        athkarSearchBox.style.display = 'none';
+        athkarSearchBox.innerHTML = '';
+        return;
+      }
+      const nq = normArabic(q);
+      const hits = [];
+      ATHKAR.forEach((cat, ci) => {
+        cat.items.forEach((it, ii) => {
+          if (normArabic(cat.name).includes(nq) || normArabic(it.text).includes(nq)) {
+            hits.push({ type: 'thikr', ci, ii, title: `${cat.icon} ${cat.name} — ذكر ${toArabicNum(ii + 1)}`, text: it.text });
+          }
+        });
+      });
+      DUA_LIST.forEach((d) => {
+        if (normArabic(d.occasion).includes(nq) || normArabic(d.text).includes(nq)) {
+          hits.push({ type: 'dua', title: `🤲 ${d.occasion}`, text: d.text });
+        }
+      });
+      athkarSearchBox.style.display = 'block';
+      if (!hits.length) {
+        athkarSearchBox.innerHTML = `<div class="ayah-search-status">لا توجد أذكار أو أدعية مطابقة لـ «${escHtml(q)}».</div>`;
+        return;
+      }
+      athkarSearchBox.innerHTML = `<div class="section-heading" style="margin-top:0">نتائج البحث (${toArabicNum(hits.length)})</div>` +
+        hits.slice(0, 15).map(h => `
+          <div class="dua-card" style="padding:42px 16px 14px; cursor:${h.type === 'thikr' ? 'pointer' : 'default'}" ${h.type === 'thikr' ? `onclick="if(!event.target.closest('button')) openCategory(${h.ci})"` : ''}>
+            <button class="copy-btn" data-copy-from=".dua-text" aria-label="نسخ"><span aria-hidden="true">⧉</span> نسخ</button>
+            <button class="share-card-btn" data-share-badge="${escHtml(h.title)}" data-share-from=".dua-text" aria-label="بطاقة"><span aria-hidden="true">🖼</span> بطاقة</button>
+            <div class="dua-occasion">${highlightQuery(escHtml(h.title), nq)}</div>
+            <div class="dua-text" style="font-size:calc(var(--font-size)*0.72)">${highlightQuery(escHtml(h.text.slice(0, 220)) + (h.text.length > 220 ? '…' : ''), nq)}</div>
+          </div>`).join('');
+    });
+  }
 
   window.addEventListener('resize', () => { syncNavSafeArea(); snapNavIndicator(); });
   // الدوران بين العمودي والأفقي يُضيف/يُزيل عمود الصفحة الثانية (مرحلة ٦)
@@ -4101,7 +4383,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // loadSurahList() قد تكتمل أسرع بكثير من ذلك، لذا نفرض حداً أدنى للمدة
   // بدل إخفاء الشاشة فور جاهزية البيانات.
   const _splash = document.getElementById('splash-screen');
-  const SPLASH_MIN_MS = 1500;   // المدة الدنيا لعرض شاشة البداية
+  let _seenSplash = false; try { _seenSplash = sessionStorage.getItem('splash_seen') === '1'; sessionStorage.setItem('splash_seen', '1'); } catch(e) {}
+  const SPLASH_MIN_MS = _seenSplash ? 250 : 750;   // سريعة عند الزيارات المتكررة
   const SPLASH_MAX_MS = 4000;   // حد أقصى احتياطي: لا ننتظر البيانات للأبد
   const _splashStart = performance.now();
   let _splashHidden = false;
@@ -4229,27 +4512,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Optimize performance with requestIdleCallback
-if ('requestIdleCallback' in window) {
-  requestIdleCallback(() => {
-    // Load non-critical resources
-    const link = document.createElement('link');
-    link.rel = 'preload';
-    link.as = 'font';
-    link.href = 'https://fonts.gstatic.com/s/amiriquran/v1/SlGTmQieoJc-_EXiEtUe5cEB0En-fNRV.0.woff2';
-    link.crossOrigin = 'anonymous';
-    document.head.appendChild(link);
-  });
-}
-
-// Lazy load resources
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    // Pause heavy operations
-  } else {
-    // Resume operations
-  }
-});
+// ملاحظة: تم إزالة رابط preload الثابت لملف woff2 القديم لأنه كان يعيد 404؛
+// الخطوط تُحمّل وتُخزّن الآن تلقائياً عبر <link rel="stylesheet"> و Service Worker (STATIC_CACHE).
 
 // ملاحظة: تهيئة السمة تتم بواسطة applyTheme() في DOMContentLoaded فقط
 // (أزيلنا الـ IIFE الذي كان يضيف theme-light قبل تطبيق applyTheme ويسبب وميضاً)

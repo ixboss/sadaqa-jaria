@@ -14,23 +14,29 @@ const BackupManager = {
   //   'raw'  = مخزّن كنص خام (string)
   // المفاتيح المؤقتة التالية لا تُنسخ احتياطياً لأنها قابلة لإعادة التوليد:
   //   ath_<تاريخ>_<فئة>_<ذكر>  (تقدّم الأذكار اليومي، يُمحى كل يوم)
-  //   q_s_u_<سورة>             (ذاكرة النص القرآني، TTL ٧ أيام)
+  //   q_s_u_<سورة> / q_p_u_<صفحة> / tf_m_<آية> (ذاكرة النصوص والتفسير المؤقتة)
   //   reciter_wps_<قارئ>       (سرعة تقديرية تُعاد معايرتها تلقائياً)
-  //   occasion_popup_last_period
+  //   occasion_popup_last_period / zen_hint_shown
   KEYS: {
     app_state: 'json',            // حالة الختمة والإشارات والتمرير
-    app_stats_v1: 'json',         // السلسلة والإحصائيات
-    islamic_bookmarks: 'json',    // المرجعيات
+    app_stats_v1: 'json',         // السلسلة والإحصائيات وسجل الختمات
+    islamic_bookmarks: 'json',    // المرجعيات (سور وآيات)
     reading_progress: 'json',     // موضع القراءة الأخير
     athkar_favs: 'json',          // الأذكار المفضلة
     tasbihCount: 'raw',           // عدّاد التسبيح
     tasbihLap: 'raw',             // عدد الجولات
     tasbih_target: 'raw',         // هدف السبحة
+    tasbih_phrase: 'raw',         // صيغة الذكر المختارة في السبحة
     adhkar_auto_advance: 'raw',   // تقدّم تلقائي بين الأذكار
     font_scale: 'raw',            // مقياس الخط
     reciter: 'raw',               // القارئ
     reminders_enabled: 'raw',     // التذكيرات
-    theme: 'raw'                  // الوضع الداكن/الفاتح
+    theme: 'raw',                 // الوضع الداكن/الفاتح
+    reader_scroll_dir: 'raw',     // اتجاه تمرير المصحف
+    reader_page_design: 'raw',    // تصميم صفحة المصحف
+    reader_layout: 'raw',         // العرض الأفقي للمصحف
+    reader_theme: 'raw',          // ثيم ورقة المصحف
+    reader_highlight: 'raw'       // التظليل الموضوعي للآيات
   },
 
   // القيم المسموحة للمفاتيح الخام الحرجة (حماية من قيم غريبة في ملف مستورد)
@@ -38,7 +44,12 @@ const BackupManager = {
     tasbih_target: ['33', '99', '100', '1000'],
     adhkar_auto_advance: ['0', '1'],
     reminders_enabled: ['0', '1'],
-    theme: ['light', 'dark']
+    theme: ['light', 'dark'],
+    reader_scroll_dir: ['flip', 'vertical'],
+    reader_page_design: ['full', 'book'],
+    reader_layout: ['single', 'double'],
+    reader_theme: ['auto', 'heritage', 'floral', 'night'],
+    reader_highlight: ['0', '1']
   },
 
   // أوصاف عربية للمعاينة قبل الاستعادة
@@ -51,11 +62,17 @@ const BackupManager = {
     tasbihCount: 'عدّاد التسبيح',
     tasbihLap: 'جولات التسبيح',
     tasbih_target: 'هدف السبحة',
+    tasbih_phrase: 'ذكر السبحة المختار',
     adhkar_auto_advance: 'التقدّم التلقائي للأذكار',
     font_scale: 'حجم الخط',
     reciter: 'القارئ',
     reminders_enabled: 'التذكيرات',
-    theme: 'المظهر'
+    theme: 'المظهر',
+    reader_scroll_dir: 'اتجاه تمرير المصحف',
+    reader_page_design: 'تصميم صفحة المصحف',
+    reader_layout: 'تخطيط عرض المصحف',
+    reader_theme: 'ثيم ورقة المصحف',
+    reader_highlight: 'التظليل الموضوعي'
   },
 
   // ─── أدوات مساعدة ───
@@ -77,7 +94,15 @@ const BackupManager = {
         case 'reading_progress':
           return this.isPlainObject(value);
         case 'islamic_bookmarks':
-          // كل مرجعية должны أن تكون كائناً عادياً يحوي رقماً للسورة
+          // الشكل الفعلي لـ BookmarkManager: { surahs: { ... }, verses: [ ... ] }
+          if (this.isPlainObject(value)) {
+            const hasKnownKey = ('surahs' in value) || ('verses' in value);
+            if (!hasKnownKey) return false;
+            const sOk = value.surahs === undefined || this.isPlainObject(value.surahs);
+            const vOk = value.verses === undefined || (Array.isArray(value.verses) && value.verses.every(v => this.isPlainObject(v) && typeof +v.surah === 'number' && !isNaN(+v.surah)));
+            return sOk && vOk;
+          }
+          // توافق عكسي مع شكل المصفوفة القديم (إن وُجد في نسخ سابقة أو اختبارات)
           return Array.isArray(value) && value.every(b => this.isPlainObject(b) && typeof b.surah === 'number');
         case 'athkar_favs':
           return Array.isArray(value) && value.every(f => typeof f === 'string');
@@ -90,7 +115,8 @@ const BackupManager = {
     const allow = this.RAW_ALLOW[key];
     if (allow) return allow.includes(value);
     if (key === 'tasbihCount' || key === 'tasbihLap') return /^\d+$/.test(value);
-    if (key === 'font_scale') { const n = Number(value); return /^\d+$/.test(value) && n >= 80 && n <= 140; }
+    if (key === 'tasbih_phrase') return value.length > 0 && value.length <= 160;
+    if (key === 'font_scale') { const n = Number(value); return /^\d+$/.test(value) && n >= 80 && n <= 200; }
     if (key === 'reciter') {
       // القارئ يجب أن يكون معروفاً في قائمة التطبيق (إن وُجدت)
       if (window.Settings && Array.isArray(window.Settings.RECITERS))
@@ -188,7 +214,13 @@ const BackupManager = {
     const lines = Object.keys(data).map(key => {
       const label = this.LABELS[key] || key;
       let detail = '';
-      if (key === 'islamic_bookmarks') detail = ` (${data[key].length})`;
+      if (key === 'islamic_bookmarks') {
+        const val = data[key];
+        const count = Array.isArray(val)
+          ? val.length
+          : (Object.keys((val && val.surahs) || {}).length + (Array.isArray(val && val.verses) ? val.verses.length : 0));
+        detail = ` (${count})`;
+      }
       else if (key === 'athkar_favs') detail = ` (${data[key].length})`;
       else if (key === 'app_state' && data[key].khatmah) detail = ' (ختمة نشطة)';
       else if (key === 'reading_progress' && data[key].surah) detail = ` (سورة ${this.esc(data[key].surah)})`;
@@ -249,7 +281,7 @@ const BackupManager = {
       `<span style="font-size:calc(var(--font-size) * 0.54)">${this.previewText(result.data)}</span><br><br>` +
       `<span style="font-size:calc(var(--font-size) * 0.5); color:var(--text-dim)">` +
       (result.rejected.length ? `رُفضت ${this.esc(result.rejected.length)} قيمة غير سليمة.<br>` : '') +
-      (result.ignored.length ? `تجاهلت التطبيق ${this.esc(result.ignored.length)} مفاتيح غير معروفة (مخطط أحدث).<br>` : '') +
+      (result.ignored.length ? `تجاهل التطبيق ${this.esc(result.ignored.length)} مفاتيح غير معروفة (مخطط أحدث).<br>` : '') +
       `سيُعاد تحميل التطبيق لتطبيق التغييرات.</span>`;
 
     const confirmed = window.showAppDialog ? await window.showAppDialog(confirmMsg, true) : false;

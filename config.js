@@ -4,8 +4,8 @@ const APP_CONFIG = {
   // App Info
   app: {
     name: 'إسلامي',
-    version: '2.0.0',
-    description: 'تطبيق إسلامي شامل',
+    version: '2.1.0',
+    description: 'تطبيق إسلامي شامل — صدقة جارية',
     author: 'ixboss',
     license: 'MIT'
   },
@@ -47,6 +47,8 @@ const APP_CONFIG = {
     darkMode: true,
     search: true,
     sharing: true,
+    shareImageCard: true,
+    tafsir: true,
     notifications: true
   },
 
@@ -60,7 +62,7 @@ const APP_CONFIG = {
   // UI
   ui: {
     theme: 'dark', // 'dark' or 'light'
-    fontScale: 1.4, // 0.8 / 1.0 / 1.3 / 1.5 / 2.0
+    fontScale: 1.3, // 0.8 / 1.0 / 1.3 / 1.5 / 2.0
     fontFamily: 'Amiri Quran',
     animationDuration: 300,
     transitionDuration: 400
@@ -105,7 +107,7 @@ const Config = {
   get(path, defaultValue = null) {
     const keys = path.split('.');
     let value = APP_CONFIG;
-    
+
     for (const key of keys) {
       if (value && typeof value === 'object' && key in value) {
         value = value[key];
@@ -113,7 +115,7 @@ const Config = {
         return defaultValue;
       }
     }
-    
+
     return value;
   },
 
@@ -121,14 +123,14 @@ const Config = {
     const keys = path.split('.');
     const lastKey = keys.pop();
     let obj = APP_CONFIG;
-    
+
     for (const key of keys) {
       if (!(key in obj)) {
         obj[key] = {};
       }
       obj = obj[key];
     }
-    
+
     obj[lastKey] = value;
     return true;
   },
@@ -162,7 +164,7 @@ const FeatureDetection = {
   notification: () => 'Notification' in window,
   share: () => 'share' in navigator,
   clipboard: () => 'clipboard' in navigator,
-  backgroundSync: () => 'sync' in ServiceWorkerRegistration.prototype,
+  backgroundSync: () => 'ServiceWorkerRegistration' in window && 'sync' in ServiceWorkerRegistration.prototype,
   webWorkers: () => typeof (Worker) !== 'undefined',
   webSockets: () => 'WebSocket' in window,
   geolocation: () => 'geolocation' in navigator,
@@ -172,15 +174,14 @@ const FeatureDetection = {
 // Global access
 window.FeatureDetection = FeatureDetection;
 
-// Log feature detection
-console.log('🔍 Feature Detection:', {
-  serviceWorker: FeatureDetection.serviceWorker(),
-  localStorage: FeatureDetection.localStorage(),
-  indexedDB: FeatureDetection.indexedDB(),
-  notification: FeatureDetection.notification(),
-  share: FeatureDetection.share(),
-  clipboard: FeatureDetection.clipboard(),
-  backgroundSync: FeatureDetection.backgroundSync(),
-  webWorkers: FeatureDetection.webWorkers(),
-  webSockets: FeatureDetection.webSockets()
-});
+// طباعة تشخيصية مشروطة بتفعيل وضع التصحيح فقط (منع تلوث الكونسول في الإنتاج)
+if (Config.isDebugEnabled()) {
+  console.log('🔍 Feature Detection:', {
+    serviceWorker: FeatureDetection.serviceWorker(),
+    localStorage: FeatureDetection.localStorage(),
+    indexedDB: FeatureDetection.indexedDB(),
+    notification: FeatureDetection.notification(),
+    share: FeatureDetection.share(),
+    clipboard: FeatureDetection.clipboard()
+  });
+}
