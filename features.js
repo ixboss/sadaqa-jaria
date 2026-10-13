@@ -562,10 +562,12 @@ const AudioPlayer = {
   _autoTurning: false,
   _wantScroll: false,
   _listeners: [],
-  // ميزة تكرار الآية للتحفيظ + سرعة التلاوة
+  // ميزة تكرار الآية للتحفيظ + سرعة التلاوة المحفوظة + مؤقت النوم (مستوحاة من تطبيق آية وبلال)
   repeatTarget: 1,       // 1 = بدون تكرار، 3 = 3 مرات، 5 = 5 مرات، 0 = تكرار غير محدود (∞)
   _repeatDone: 0,
-  playbackRate: 1,       // 0.75 | 1 | 1.25
+  playbackRate: (() => { try { const r = parseFloat(localStorage.getItem('reciter_speed') || '1'); return [0.75, 1, 1.25].includes(r) ? r : 1; } catch (e) { return 1; } })(),
+  sleepMinutes: 0,       // 0 = متوقف، 15، 30، 60، أو -1 = حتى نهاية ورد الختمة اليومي
+  _sleepTimer: null,
 
   on(fn) { if (typeof fn === 'function' && !this._listeners.includes(fn)) this._listeners.push(fn); },
   off(fn) { this._listeners = this._listeners.filter(f => f !== fn); },
@@ -599,11 +601,55 @@ const AudioPlayer = {
     const rates = [1, 1.25, 0.75];
     const nextIdx = (rates.indexOf(this.playbackRate) + 1) % rates.length;
     this.playbackRate = rates[nextIdx];
+    try { localStorage.setItem('reciter_speed', String(this.playbackRate)); } catch (e) {}
     if (this.audio) {
       try { this.audio.playbackRate = this.playbackRate; } catch (e) {}
     }
-    if (window.Toast) Toast.show(`سرعة التلاوة: ${this.playbackRate}×`);
+    if (window.Toast) Toast.show(`سرعة التلاوة: ${this.playbackRate}× (محفوظة)`);
     this.emit();
+  },
+
+  cycleSleepTimer() {
+    const modes = [0, 15, 30, -1]; // -1 = نهاية الورد اليومي
+    const idx = (modes.indexOf(this.sleepMinutes) + 1) % modes.length;
+    this.sleepMinutes = modes[idx];
+    clearTimeout(this._sleepTimer);
+    this._sleepTimer = null;
+    if (this.sleepMinutes > 0) {
+      this._sleepTimer = setTimeout(() => {
+        this.stop();
+        if (window.Toast) Toast.show('انتهى مؤقت النوم — توقفت التلاوة 🌙');
+      }, this.sleepMinutes * 60000);
+      if (window.Toast) Toast.show(`مؤقت النوم: إيقاف بعد ${this.sleepMinutes} دقيقة 🌙`);
+    } else if (this.sleepMinutes === -1) {
+      if (window.Toast) Toast.show('مؤقت التلاوة: التوقف عند نهاية الورد اليومي 📖');
+    } else {
+      if (window.Toast) Toast.show('تم إلغاء مؤقت النوم');
+    }
+    this.emit();
+  },
+
+  updateMediaSession(item) {
+    if (!('mediaSession' in navigator) || !item) return;
+    try {
+      const rObj = (window.Settings ? Settings.RECITERS.find(x => x.id === Settings.getReciter()) : null);
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: `${item.surahName || 'القرآن الكريم'} — آية ${window.toArabicNum ? toArabicNum(item.ayah) : item.ayah}`,
+        artist: rObj ? rObj.name : 'مشاري العفاسي',
+        album: 'تطبيق إسلامي · صدقة جارية',
+        artwork: [
+          { src: './icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: './icons/icon-512.png', sizes: '512x512', type: 'image/png' }
+        ]
+      });
+      navigator.mediaSession.setActionHandler('play', () => this.resume());
+      navigator.mediaSession.setActionHandler('pause', () => this.pause());
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        if (this.qi > 0) { this.qi--; this.loadCurrent(); }
+      });
+      navigator.mediaSession.setActionHandler('nexttrack', () => this.advance(false));
+      navigator.mediaSession.setActionHandler('stop', () => this.stop());
+    } catch (e) {}
   },
 
   itemFor(a, page) {
@@ -718,6 +764,8 @@ const AudioPlayer = {
       this.setPlaying(true);
       this.bindHighlight(true);
       this.startClock();
+      this.updateMediaSession(item);
+      if (window.WakeLockManager) WakeLockManager.acquire();
       this.emit();
     }).catch(() => { this.hide(); this.clearHighlight(); this.emit(); });
   },
@@ -764,6 +812,16 @@ const AudioPlayer = {
     }
     this._repeatDone = 0;
     this.clearHighlight();
+    // إذا اختار المستخدم التوقف عند نهاية الورد اليومي (ميزة تطبيق آية)
+    if (!fromError && this.sleepMinutes === -1 && window.state && window.state.khatmah && window.state.khatmah.active) {
+      const endP = window.state.khatmah.todayWirdEnd || 604;
+      const nextItem = this.queue[this.qi + 1];
+      if (nextItem && nextItem.page && nextItem.page > endP) {
+        this.stop();
+        if (window.Toast) Toast.show('اكتملت تلاوة ورد اليوم بحمد الله 📖✓');
+        return;
+      }
+    }
     if (fromError) {
       this._errCount = (this._errCount || 0) + 1;
       if (this._errCount >= 3) {
@@ -1021,12 +1079,13 @@ window.openReciterSheet = function () {
     onSelect: it => {
       Settings.setReciter(it.value);
       if (window.AudioPlayer) AudioPlayer.refreshReciter();
+      if (window.ReaderAudioPill) ReaderAudioPill.render();
       if (window.Toast) Toast.show('تم اختيار: ' + it.label);
     }
   });
 };
 
-/* ==================== 7c) ReaderAudioPill — قرص التلاوة الطافي ==================== */
+/* ==================== 7c) ReaderAudioPill — قرص التلاوة الطافي (مطابق للتصميم المرجعي) ==================== */
 const ReaderAudioPill = {
   el: null, bound: false,
   ensure() {
@@ -1034,14 +1093,29 @@ const ReaderAudioPill = {
     this.el = document.getElementById('mushaf-audio-pill');
     if (!this.el) return;
     this.el.querySelector('#map-play')?.addEventListener('click', () => {
-      const A = window.AudioPlayer; if (!A || !A.audio) return;
-      if (A.audio.paused) A.resume(); else A.pause();
+      const A = window.AudioPlayer; if (!A) return;
+      if (A.curItem && A.audio) {
+        if (A.audio.paused) A.resume(); else A.pause();
+      } else {
+        // إذا لم تكن التلاوة جارية بعد، يبدأ التشغيل فوراً من الصفحة الحالية (أو الآية المحددة)
+        const st = window.state || {};
+        const page = st.mushafPage || 1;
+        let fromGlobal = null;
+        if (window.selectedAyahNo && window.MushafPageManager) {
+          const hit = (MushafPageManager.pageAyahs(page) || []).find(a => a.numberInSurah === window.selectedAyahNo);
+          if (hit) fromGlobal = hit.number;
+        }
+        A.playFromPage(page, { fromGlobal });
+      }
     });
     this.el.querySelector('#map-repeat')?.addEventListener('click', () => {
       if (window.AudioPlayer) AudioPlayer.cycleRepeat();
     });
     this.el.querySelector('#map-speed')?.addEventListener('click', () => {
       if (window.AudioPlayer) AudioPlayer.cycleSpeed();
+    });
+    this.el.querySelector('#map-sleep')?.addEventListener('click', () => {
+      if (window.AudioPlayer) AudioPlayer.cycleSleepTimer();
     });
     this.el.querySelector('#map-reciter')?.addEventListener('click', () => {
       if (window.openReciterSheet) openReciterSheet();
@@ -1059,22 +1133,39 @@ const ReaderAudioPill = {
     this.ensure();
     if (!this.el) return;
     const A = window.AudioPlayer;
-    const active = !!(A && A.curItem && this.isReaderActive());
-    this.el.classList.toggle('visible', active);
-    document.body.classList.toggle('reader-audio-on', active);
-    if (!active) return;
-    const item = A.curItem;
+    const playing = !!(A && A.curItem && this.isReaderActive());
+    const hudOpen = document.body.classList.contains('mushaf-hud') && this.isReaderActive();
+    // يظهر القرص دائماً في وضع HUD (لاختيار القارئ أو بدء التشغيل بضغطة واحدة كما في الصورة المرجعية)،
+    // كما يبقى ظاهراً في الوضع الهادئ إذا كانت التلاوة جارية.
+    const showPill = playing || hudOpen;
+    this.el.classList.toggle('visible', showPill);
+    this.el.classList.toggle('is-idle', !playing);
+    document.body.classList.toggle('reader-audio-on', playing);
+    if (!showPill) return;
+
     const name = document.getElementById('map-surah');
     const ay = document.getElementById('map-ayah');
-    if (name) name.textContent = item.surahName || (window.state && window.state.currentSurah ? window.state.currentSurah.name : '') || '';
-    if (ay) {
-      const repTxt = A.repeatTarget === 0 ? ' (تكرار ∞)' : (A.repeatTarget > 1 ? ` (${A._repeatDone + 1}/${A.repeatTarget})` : '');
-      ay.textContent = 'آية ' + (window.toArabicNum ? toArabicNum(item.ayah) : item.ayah) + repTxt;
+    const closeBtn = this.el.querySelector('#map-close');
+    const rObj = (window.Settings ? Settings.RECITERS.find(x => x.id === Settings.getReciter()) : null);
+    const recName = rObj ? rObj.name : 'مشاري العفاسي';
+
+    if (playing) {
+      const item = A.curItem;
+      if (name) name.textContent = item.surahName || (window.state && window.state.currentSurah ? window.state.currentSurah.name : '') || '';
+      if (ay) {
+        const repTxt = A.repeatTarget === 0 ? ' • تكرار ∞' : (A.repeatTarget > 1 ? ` • تكرار ${A._repeatDone + 1}/${A.repeatTarget}` : '');
+        ay.textContent = 'آية ' + (window.toArabicNum ? toArabicNum(item.ayah) : item.ayah) + repTxt;
+      }
+      if (closeBtn) closeBtn.hidden = false;
+    } else {
+      if (name) name.textContent = recName;
+      if (ay) ay.textContent = 'اضغط ▶ للاستماع للصفحة أو اختر القارئ';
+      if (closeBtn) closeBtn.hidden = true;
     }
+
     const rec = this.el.querySelector('#map-reciter');
     if (rec) {
-      const r = (window.Settings ? Settings.RECITERS.find(x => x.id === Settings.getReciter()) : null);
-      rec.textContent = r ? r.name.split(' ')[0] : 'القارئ';
+      rec.textContent = (playing ? recName.split(' ')[0] : 'اختر القارئ') + ' ⌄';
     }
     const repBtn = this.el.querySelector('#map-repeat');
     if (repBtn) {
@@ -1086,8 +1177,13 @@ const ReaderAudioPill = {
       spdBtn.textContent = `${A.playbackRate || 1}×`;
       spdBtn.classList.toggle('active', (A.playbackRate || 1) !== 1);
     }
+    const slpBtn = this.el.querySelector('#map-sleep');
+    if (slpBtn) {
+      slpBtn.textContent = A.sleepMinutes === -1 ? '🌙ورد' : (A.sleepMinutes > 0 ? `🌙${A.sleepMinutes}د` : '🌙');
+      slpBtn.classList.toggle('active', A.sleepMinutes !== 0);
+    }
     const ic = this.el.querySelector('#map-play');
-    if (ic) ic.textContent = (A.audio && !A.audio.paused) ? '⏸' : '▶';
+    if (ic) ic.textContent = (playing && A.audio && !A.audio.paused) ? '⏸' : '▶';
   }
 };
 window.ReaderAudioPill = ReaderAudioPill;
@@ -1454,6 +1550,553 @@ const ShareCardGenerator = {
 };
 window.ShareCardGenerator = ShareCardGenerator;
 
+
+/* ==================== 11) WakeLockManager — منع انطفاء الشاشة أثناء القراءة ==================== */
+const WakeLockManager = {
+  _sentinel: null,
+  async acquire() {
+    if (!('wakeLock' in navigator) || this._sentinel) return;
+    try {
+      this._sentinel = await navigator.wakeLock.request('screen');
+      this._sentinel.addEventListener('release', () => { this._sentinel = null; });
+    } catch (e) {}
+  },
+  async release() {
+    if (!this._sentinel) return;
+    try { await this._sentinel.release(); } catch (e) {}
+    this._sentinel = null;
+  }
+};
+window.WakeLockManager = WakeLockManager;
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && window.state && ['surah-view', 'khatmah-read', 'thikr-view'].includes(window.state.currentScreen)) {
+    WakeLockManager.acquire();
+  }
+});
+
+/* ==================== 12) PrayerEngine — محرك مواقيت الصلاة والقبلة الفلكي (100% أوفلاين — مستوحى من بلال وأذكار) ==================== */
+// يحسب مواقيت الصلوات الخمس + الشروق + الضحى + منتصف الليل + الثلث الأخير من الليل + زاوية القبلة
+// بمعادلات فلكية دقيقة على الجهاز مباشرة دون الحاجة لأي خادم أو اتصال بالإنترنت.
+const PrayerEngine = {
+  STORAGE_KEY: 'prayer_config',
+  CITIES: [
+    { id: 'cairo',     name: 'القاهرة / الجيزة، مصر',   lat: 30.0444, lng: 31.2357, tz: 2, method: 'egypt' },
+    { id: 'alex',      name: 'الإسكندرية، مصر',         lat: 31.2001, lng: 29.9187, tz: 2, method: 'egypt' },
+    { id: 'makkah',    name: 'مكة المكرمة، السعودية',    lat: 21.4225, lng: 39.8262, tz: 3, method: 'makkah' },
+    { id: 'madinah',   name: 'المدينة المنورة، السعودية', lat: 24.4672, lng: 39.6112, tz: 3, method: 'makkah' },
+    { id: 'riyadh',    name: 'الرياض، السعودية',        lat: 24.7136, lng: 46.6753, tz: 3, method: 'makkah' },
+    { id: 'jeddah',    name: 'جدة، السعودية',           lat: 21.5433, lng: 39.1728, tz: 3, method: 'makkah' },
+    { id: 'jerusalem', name: 'القدس، فلسطين',           lat: 31.7683, lng: 35.2137, tz: 2, method: 'mwl' },
+    { id: 'amman',     name: 'عمّان، الأردن',            lat: 31.9454, lng: 35.9284, tz: 3, method: 'mwl' },
+    { id: 'damascus',  name: 'دمشق، سوريا',             lat: 33.5138, lng: 36.2765, tz: 3, method: 'mwl' },
+    { id: 'baghdad',   name: 'بغداد، العراق',           lat: 33.3152, lng: 44.3661, tz: 3, method: 'mwl' },
+    { id: 'kuwait',    name: 'الكويت',                  lat: 29.3759, lng: 47.9774, tz: 3, method: 'makkah' },
+    { id: 'doha',      name: 'الدوحة، قطر',             lat: 25.2854, lng: 51.5310, tz: 3, method: 'makkah' },
+    { id: 'dubai',     name: 'دبي / أبوظبي، الإمارات',  lat: 25.2048, lng: 55.2708, tz: 4, method: 'makkah' },
+    { id: 'khartoum',  name: 'الخرطوم، السودان',        lat: 15.5007, lng: 32.5599, tz: 2, method: 'egypt' },
+    { id: 'casablanca',name: 'الدار البيضاء / الرباط، المغرب', lat: 33.5731, lng: -7.5898, tz: 1, method: 'mwl' },
+    { id: 'algiers',   name: 'الجزائر العاصمة',         lat: 36.7538, lng: 3.0588,  tz: 1, method: 'mwl' },
+    { id: 'tunis',     name: 'تونس العاصمة',            lat: 36.8065, lng: 10.1815, tz: 1, method: 'mwl' }
+  ],
+  METHODS: {
+    egypt:  { name: 'الهيئة المصرية العامة للمساحة', fajrAngle: 19.5, ishaAngle: 17.5, ishaMin: 0 },
+    makkah: { name: 'تقويم أم القرى (مكة المكرمة)', fajrAngle: 18.5, ishaAngle: 0,    ishaMin: 90 },
+    mwl:    { name: 'رابطة العالم الإسلامي',        fajrAngle: 18.0, ishaAngle: 17.0, ishaMin: 0 },
+    isna:   { name: 'الجمعية الإسلامية لأمريكا الشمالية (ISNA)', fajrAngle: 15.0, ishaAngle: 15.0, ishaMin: 0 }
+  },
+  _timer: null,
+
+  getConfig() {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (p && typeof p.lat === 'number' && typeof p.lng === 'number') return p;
+      }
+    } catch (e) {}
+    return { ...this.CITIES[0] };
+  },
+
+  saveConfig(cfg) {
+    try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(cfg)); } catch (e) {}
+    this.renderWidget();
+  },
+
+  // حساب زاوية القبلة من الموقع الحالي إلى الكعبة المشرفة (21.4225°N, 39.8262°E)
+  getQiblaBearing(lat, lng) {
+    const kaabaLat = 21.4225 * Math.PI / 180;
+    const kaabaLng = 39.8262 * Math.PI / 180;
+    const phi = lat * Math.PI / 180;
+    const dLng = kaabaLng - (lng * Math.PI / 180);
+    const y = Math.sin(dLng);
+    const x = Math.cos(phi) * Math.tan(kaabaLat) - Math.sin(phi) * Math.cos(dLng);
+    let brng = Math.atan2(y, x) * 180 / Math.PI;
+    return Math.round((brng + 360) % 360);
+  },
+
+  // الحساب الفلكي اليومي لمواقيت الصلاة وأوقات النوافل
+  computeForDate(date = new Date(), cfg = this.getConfig()) {
+    const rad = d => d * Math.PI / 180;
+    const deg = r => r * 180 / Math.PI;
+    const year = date.getFullYear(), month = date.getMonth() + 1, day = date.getDate();
+
+    // Julian Date
+    let Y = year, M = month;
+    if (M <= 2) { Y -= 1; M += 12; }
+    const A = Math.floor(Y / 100);
+    const B = 2 - A + Math.floor(A / 4);
+    const JD = Math.floor(365.25 * (Y + 4716)) + Math.floor(30.6001 * (M + 1)) + day + B - 1524.5;
+    const d = JD - 2451545.0;
+
+    // زاوية الشمس ومعادلة الوقت
+    const g = (357.529 + 0.98560028 * d) % 360;
+    const q = (280.459 + 0.98564736 * d) % 360;
+    const L = (q + 1.915 * Math.sin(rad(g)) + 0.020 * Math.sin(rad(2 * g))) % 360;
+    const e = 23.439 - 0.00000036 * d;
+    const RA = deg(Math.atan2(Math.cos(rad(e)) * Math.sin(rad(L)), Math.cos(rad(L)))) / 15;
+    const decl = deg(Math.asin(Math.sin(rad(e)) * Math.sin(rad(L))));
+    let EqT = q / 15 - ((RA + 24) % 24);
+    if (EqT > 12) EqT -= 24;
+    if (EqT < -12) EqT += 24;
+
+    // فرق التوقيت المحلي الفعلي للجهاز بالساعات
+    const tz = -date.getTimezoneOffset() / 60;
+    const dhuhr = 12 + tz - (cfg.lng / 15) - EqT;
+
+    const hourAngle = (angle) => {
+      const num = -Math.sin(rad(angle)) - Math.sin(rad(cfg.lat)) * Math.sin(rad(decl));
+      const den = Math.cos(rad(cfg.lat)) * Math.cos(rad(decl));
+      const c = Math.max(-1, Math.min(1, num / den));
+      return deg(Math.acos(c)) / 15;
+    };
+
+    // زاوية العصر القياسية (الشافعي/المالكي/الحنبلي: مثل ظل الشيء = 1)
+    const asrAlt = deg(Math.atan(1 / (1 + Math.tan(Math.abs(rad(cfg.lat - decl))))));
+    const asrHA = hourAngle(-asrAlt);
+
+    const mSpec = this.METHODS[cfg.method] || this.METHODS.egypt;
+    const sunrise = dhuhr - hourAngle(0.833);
+    const maghrib = dhuhr + hourAngle(0.833);
+    const fajr = dhuhr - hourAngle(mSpec.fajrAngle);
+    const asr = dhuhr + asrHA;
+    const isha = mSpec.ishaMin > 0 ? (maghrib + mSpec.ishaMin / 60) : (dhuhr + hourAngle(mSpec.ishaAngle));
+
+    // حساب النوافل: الضحى (بعد الشروق بـ 20 دقيقة)، منتصف الليل الشرعي، والثلث الأخير من الليل
+    const duha = sunrise + (20 / 60);
+    const nightDuration = (fajr + 24) - maghrib;
+    const midnight = (maghrib + nightDuration / 2) % 24;
+    const lastThird = (maghrib + (nightDuration * 2 / 3)) % 24;
+
+    const toMin = h => Math.round(((h + 24) % 24) * 60);
+    return {
+      fajr: toMin(fajr),
+      sunrise: toMin(sunrise),
+      duha: toMin(duha),
+      dhuhr: toMin(dhuhr) + 1, // دقيقة احتياط للزوال
+      asr: toMin(asr),
+      maghrib: toMin(maghrib),
+      isha: toMin(isha),
+      midnight: toMin(midnight),
+      lastThird: toMin(lastThird)
+    };
+  },
+
+  fmtTime(totalMin) {
+    const m = ((totalMin % 1440) + 1440) % 1440;
+    const h24 = Math.floor(m / 60);
+    const min = m % 60;
+    const period = h24 >= 12 ? 'م' : 'ص';
+    const h12 = h24 % 12 || 12;
+    const ar = window.toArabicNum || (x => String(x));
+    return `${ar(h12)}:${ar(String(min).padStart(2, '0'))} ${period}`;
+  },
+
+  getNextPrayerInfo(now = new Date()) {
+    const times = this.computeForDate(now);
+    const curMin = now.getHours() * 60 + now.getMinutes();
+    const curSec = now.getSeconds();
+    const order = [
+      { key: 'fajr',    name: 'الفجر',   icon: '🌌', min: times.fajr },
+      { key: 'sunrise', name: 'الشروق',  icon: '🌅', min: times.sunrise },
+      { key: 'dhuhr',   name: 'الظهر',   icon: '☀️', min: times.dhuhr },
+      { key: 'asr',     name: 'العصر',   icon: '🌤️', min: times.asr },
+      { key: 'maghrib', name: 'المغرب',  icon: '🌇', min: times.maghrib },
+      { key: 'isha',    name: 'العشاء',  icon: '🌙', min: times.isha }
+    ];
+
+    // فحص ما إذا كنا في وقت ما بين الأذان والإقامة (أول ٢٠ دقيقة بعد أذان الفريضة — ميزة تطبيق بلال)
+    let iqamahActive = null;
+    for (const p of order) {
+      if (p.key !== 'sunrise' && curMin >= p.min && curMin < p.min + 20) {
+        iqamahActive = { ...p, elapsedMin: curMin - p.min, remainIqamah: 20 - (curMin - p.min) };
+        break;
+      }
+    }
+
+    let next = order.find(p => p.min > curMin);
+    let diffSec = 0;
+    if (next) {
+      diffSec = (next.min - curMin) * 60 - curSec;
+    } else {
+      next = order[0];
+      diffSec = ((1440 - curMin) + next.min) * 60 - curSec;
+    }
+    const hh = Math.floor(diffSec / 3600);
+    const mm = Math.floor((diffSec % 3600) / 60);
+    const ss = diffSec % 60;
+    const ar = window.toArabicNum || (x => String(x));
+    const countdown = `${ar(String(hh).padStart(2, '0'))}:${ar(String(mm).padStart(2, '0'))}:${ar(String(ss).padStart(2, '0'))}`;
+    return { times, order, next, countdown, iqamahActive };
+  },
+
+  // اقتراح ذكي للعبادة حسب الوقت الحالي ومواقيت الصلاة (مستوحى من الواجهة المبسطة في تطبيق أذكار)
+  getSmartSuggestion(now = new Date()) {
+    const { times, iqamahActive } = this.getNextPrayerInfo(now);
+    const curMin = now.getHours() * 60 + now.getMinutes();
+    const isFriday = now.getDay() === 5;
+
+    if (iqamahActive) {
+      return {
+        badge: `⏳ بين أذان وإقامة ${iqamahActive.name}`,
+        title: 'الدعاء لا يُرد بين الأذان والإقامة',
+        desc: 'اغتنم هذه الدقائق بالدعاء وسؤال الله العافية في الدنيا والآخرة.',
+        actionLabel: 'أذكار بعد الصلاة 🕌',
+        action: () => { if (window.openCategory) window.openCategory(6); }
+      };
+    }
+    if (curMin >= times.fajr && curMin <= times.sunrise + 45) {
+      return {
+        badge: '🌅 وقت الصباح المبارك',
+        title: 'أذكار الصباح حصنك اليومي',
+        desc: 'ابدأ يومك بذكر الله لتنال الحفظ والبركة والسكينة.',
+        actionLabel: 'قراءة أذكار الصباح 🌅',
+        action: () => { if (window.openCategory) window.openCategory(0); }
+      };
+    }
+    if (isFriday && curMin >= times.sunrise && curMin < times.maghrib) {
+      return {
+        badge: '🕌 سنن يوم الجمعة',
+        title: 'نورٌ ما بين الجمعتين',
+        desc: 'لا تنسَ قراءة سورة الكهف والإكثار من الصلاة على النبي ﷺ وتحرّي ساعة الإجابة.',
+        actionLabel: 'فتح سورة الكهف 📖',
+        action: () => { if (window.switchTab && window.openSurah) { window.switchTab('quran'); window.openSurah(18); } }
+      };
+    }
+    if (curMin >= times.duha && curMin < times.dhuhr - 15) {
+      return {
+        badge: '☀️ وقت صلاة الضحى',
+        title: 'صلاة الأوابين — صدقة عن كل مفصل',
+        desc: 'ركعتان في الضحى تجزئان عن ٣٦٠ صدقة في يومك.',
+        actionLabel: 'السبحة الرقمية 📿',
+        action: () => { if (window.openTasbih) window.openTasbih(); }
+      };
+    }
+    if (curMin >= times.asr && curMin <= times.maghrib + 45) {
+      return {
+        badge: '🌇 وقت المساء',
+        title: 'أذكار المساء والسكينة',
+        desc: 'حافظ على وردك المسائي من حصن المسلم.',
+        actionLabel: 'قراءة أذكار المساء 🌙',
+        action: () => { if (window.openCategory) window.openCategory(1); }
+      };
+    }
+    if ((times.lastThird > times.isha && curMin >= times.lastThird) || (times.lastThird < times.fajr && (curMin >= times.lastThird && curMin < times.fajr))) {
+      return {
+        badge: '✨ الثلث الأخير من الليل',
+        title: 'ساعة التنزّل الإلهي والاستغفار بالأسحار',
+        desc: '«هل من سائلٍ فيُعطى؟ هل من مستغفرٍ فيُغفر له؟»',
+        actionLabel: 'جوامع الدعاء 🤲',
+        action: () => { if (window.openCategory) window.openCategory(3); }
+      };
+    }
+    return {
+      badge: '🌙 أوراد المساء والنوم',
+      title: 'أذكار النوم والرقية الشرعية',
+      desc: 'اختم يومك بآية الكرسي والمعوذات وأذكار النوم.',
+      actionLabel: 'أذكار النوم 😴',
+      action: () => { if (window.openCategory) window.openCategory(4); }
+    };
+  },
+
+  detectGPS() {
+    if (!('geolocation' in navigator)) {
+      if (window.Toast) Toast.show('المتصفح لا يدعم تحديد الموقع');
+      return;
+    }
+    if (window.Toast) Toast.show('جارٍ تحديد موقعك لحساب المواقيت والقبلة… 📍');
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const cfg = this.getConfig();
+        cfg.id = 'gps';
+        cfg.name = 'موقعي الحالي (GPS)';
+        cfg.lat = +pos.coords.latitude.toFixed(4);
+        cfg.lng = +pos.coords.longitude.toFixed(4);
+        this.saveConfig(cfg);
+        if (window.Toast) Toast.show('تم تحديث المواقيت واتجاه القبلة حسب موقعك ✓');
+      },
+      () => {
+        if (window.Toast) Toast.show('تعذّر جلب الموقع — يمكنك اختيار مدينتك من القائمة');
+      },
+      { timeout: 8000 }
+    );
+  },
+
+  openCitySheet() {
+    if (!window.BottomSheet) return;
+    const cur = this.getConfig();
+    BottomSheet.open({
+      title: 'اختر المدينة وطريقة الحساب',
+      sections: [
+        {
+          label: 'طريقة الحساب الفلكي',
+          current: cur.method || 'egypt',
+          items: Object.entries(this.METHODS).map(([k, v]) => ({ value: k, label: v.name, type: 'method' }))
+        },
+        {
+          label: 'المدينة',
+          current: cur.id || 'cairo',
+          items: [
+            { value: 'gps', label: '📍 تحديد موقعي تلقائياً (GPS)', type: 'gps' },
+            ...this.CITIES.map(c => ({ value: c.id, label: c.name, type: 'city' }))
+          ]
+        }
+      ],
+      onSelect: it => {
+        if (!it) return;
+        if (it.type === 'gps') { this.detectGPS(); return; }
+        const cfg = this.getConfig();
+        if (it.type === 'method') {
+          cfg.method = it.value;
+          this.saveConfig(cfg);
+          if (window.Toast) Toast.show('تم اختيار: ' + it.label);
+        } else if (it.type === 'city') {
+          const city = this.CITIES.find(c => c.id === it.value);
+          if (city) {
+            this.saveConfig({ ...city });
+            if (window.Toast) Toast.show('تم اختيار مدينة: ' + city.name);
+          }
+        }
+      }
+    });
+  },
+
+  sharePrayerTimesCard() {
+    const cfg = this.getConfig();
+    const { times, order } = this.getNextPrayerInfo();
+    const lines = order.map(p => `${p.icon} ${p.name}: ${this.fmtTime(p.min)}`).join('\n');
+    const nawafil = `☀️ الضحى: ${this.fmtTime(times.duha)}  •  ✨ الثلث الأخير: ${this.fmtTime(times.lastThird)}`;
+    if (window.ShareCardGenerator) {
+      ShareCardGenerator.share({
+        badge: `مواقيت الصلاة — ${cfg.name}`,
+        text: lines,
+        subtext: nawafil
+      });
+    }
+  },
+
+  renderWidget() {
+    const box = document.getElementById('prayer-widget-container');
+    if (!box) return;
+    const cfg = this.getConfig();
+    const info = this.getNextPrayerInfo();
+    const qibla = this.getQiblaBearing(cfg.lat, cfg.lng);
+    const ar = window.toArabicNum || (x => String(x));
+    const smart = this.getSmartSuggestion();
+
+    box.innerHTML = `
+      <div class="prayer-widget-card">
+        <div class="pw-top">
+          <div class="pw-next-wrap">
+            <span class="pw-badge">${info.iqamahActive ? `⏳ إقامة ${info.iqamahActive.name}` : `الصلاة القادمة: ${info.next.icon} ${info.next.name}`}</span>
+            <div class="pw-countdown" id="pw-live-countdown">${info.countdown}</div>
+          </div>
+          <div class="pw-actions">
+            <button type="button" class="pw-chip-btn" id="pw-city-btn" title="تغيير المدينة أو طريقة الحساب">📍 ${escapeHtml(cfg.name.split('،')[0])}</button>
+            <button type="button" class="pw-chip-btn" id="pw-share-btn" title="مشاركة مواقيت اليوم كبطاقة">🖼</button>
+          </div>
+        </div>
+        <div class="pw-grid">
+          ${info.order.map(p => `
+            <div class="pw-cell ${p.key === info.next.key ? 'active' : ''}">
+              <span class="pw-name">${p.name}</span>
+              <span class="pw-time">${this.fmtTime(p.min)}</span>
+            </div>`).join('')}
+        </div>
+        <div class="pw-nawafil-row">
+          <span>☀️ الضحى: <b>${this.fmtTime(info.times.duha)}</b></span>
+          <span>✨ الثلث الأخير: <b>${this.fmtTime(info.times.lastThird)}</b></span>
+          <span>🧭 القبلة: <b>${ar(qibla)}°</b></span>
+        </div>
+      </div>
+      <div class="smart-suggest-card" id="smart-suggest-card">
+        <div class="ssc-info">
+          <span class="ssc-badge">${smart.badge}</span>
+          <div class="ssc-title">${smart.title}</div>
+          <div class="ssc-desc">${smart.desc}</div>
+        </div>
+        <button type="button" class="ssc-btn" id="smart-suggest-btn">${smart.actionLabel}</button>
+      </div>`;
+
+    box.querySelector('#pw-city-btn')?.addEventListener('click', () => this.openCitySheet());
+    box.querySelector('#pw-share-btn')?.addEventListener('click', () => this.sharePrayerTimesCard());
+    box.querySelector('#smart-suggest-btn')?.addEventListener('click', () => { if (smart.action) smart.action(); });
+  },
+
+  startLiveTicker() {
+    if (this._timer) clearInterval(this._timer);
+    this._timer = setInterval(() => {
+      const cdEl = document.getElementById('pw-live-countdown');
+      if (!cdEl) return;
+      const info = this.getNextPrayerInfo();
+      cdEl.textContent = info.countdown;
+    }, 1000);
+  }
+};
+window.PrayerEngine = PrayerEngine;
+
+/* ==================== 13) DailyTadabbur — إشراقة آية وفائدة تدبرية يومية (مستوحاة من تطبيق آية) ==================== */
+// مختارات قرآنية مع فوائد تدبرية موثقة من التفسير الميسر والمختصر في التفسير، تتجدد تلقائياً كل يوم
+const DailyTadabbur = {
+  ITEMS: [
+    { surah: 2,  ayah: 186, surahName: 'سورة البقرة', text: 'وَإِذَا سَأَلَكَ عِبَادِي عَنِّي فَإِنِّي قَرِيبٌ ۖ أُجِيبُ دَعْوَةَ الدَّاعِ إِذَا دَعَانِ', reflection: 'لم يقل «فقل إني قريب» بل قال سبحانه ﴿فَإِنِّي قَرِيبٌ﴾ دون واسطة؛ ليشعر العبد بقرب ربه منه فور رفع يديه بالدعاء. (التفسير الميسر)' },
+    { surah: 39, ayah: 53,  surahName: 'سورة الزمر',  text: 'قُلْ يَا عِبَادِيَ الَّذِينَ أَسْرَفُوا عَلَىٰ أَنفُسِهِمْ لَا تَقْنَطُوا مِن رَّحْمَةِ اللَّهِ ۚ إِنَّ اللَّهَ يَغْفِرُ الذُّنُوبَ جَمِيعًا', reflection: 'أرجى آية في كتاب الله: نسبهم الله إليه بقوله ﴿يَا عِبَادِيَ﴾ تلطّفاً بهم رغم إسرافهم، وفتح باب التوبة لكل ذنب مهما عظم. (المختصر في التفسير)' },
+    { surah: 65, ayah: 2,   surahName: 'سورة الطلاق', text: 'وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا ۝ وَيَرْزُقْهُ مِنْ حَيْثُ لَا يَحْتَسِبُ ۚ وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ', reflection: 'قاعدة قرآنية ثابتة: تقوى الله والتوكل عليه كفيلان بتفريج أشد المضائق وسوق الرزق من أبواب لم تخطر على البال. (التفسير الميسر)' },
+    { surah: 94, ayah: 5,   surahName: 'سورة الشرح',  text: 'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا', reflection: 'جاء لفظ «العسر» معرّفاً فهو واحد، وجاء «اليسر» منكّراً مرتين؛ فلن يغلب عسرٌ واحدٌ يُسرَين، ومع كل شدة يولد الفرج مقترناً بها. (تفسير السعدي)' },
+    { surah: 13, ayah: 28,  surahName: 'سورة الرعد',  text: 'أَلَا بِذِكْرِ اللَّهِ تَتْمَئِنُّ الْقُلُوبُ', reflection: 'حقيقة فطرية: لا يسكن قلق القلب ولا يزول اضطرابه ووحشته إلا بالأنس بالله وذكره وتلاوة كتابه. (التفسير الميسر)' },
+    { surah: 20, ayah: 2,   surahName: 'سورة طه',     text: 'مَا أَنزَلْنَا عَلَيْكَ الْقُرْآنَ لِتَشْقَىٰ', reflection: 'القرآن نزل ليكون رحمةً وسعادةً وانشراحاً للصدر، فمن صاحب القرآن بصدق رفعه الله وأسعد قلبه في الدارين. (المختصر في التفسير)' },
+    { surah: 18, ayah: 46,  surahName: 'سورة الكهف',  text: 'الْمَالُ وَالْبَنُونَ زِينَةُ الْحَيَاةِ الدُّنْيَا ۖ وَالْبَاقِيَاتُ الصَّالِحَاتُ خَيْرٌ عِندَ رَبِّكَ ثَوَابًا وَخَيْرٌ أَمَلًا', reflection: 'تذكير بحقيقة البقاء: زينة الدنيا تفنى، أما التسبيح والتحميد والصلاة والصدقة الجارية فهي التي تبقى لصاحبها ذخراً وأملاً عند الله. (التفسير الميسر)' }
+  ],
+
+  getTodayItem() {
+    const dayIndex = Math.floor(Date.now() / 86400000) % this.ITEMS.length;
+    return this.ITEMS[dayIndex];
+  },
+
+  render() {
+    const box = document.getElementById('daily-tadabbur-container');
+    if (!box) return;
+    const item = this.getTodayItem();
+    const ar = window.toArabicNum || (x => String(x));
+    box.innerHTML = `
+      <div class="tadabbur-card">
+        <div class="td-header">
+          <span class="td-badge">✨ إشراقة آية اليوم</span>
+          <span class="td-ref">${item.surahName} — آية ${ar(item.ayah)}</span>
+        </div>
+        <div class="td-ayah" onclick="window.openSurah && window.openSurah(${item.surah}, ${item.ayah})">﴿ ${escapeHtml(item.text)} ﴾</div>
+        <div class="td-reflection">${escapeHtml(item.reflection)}</div>
+        <div class="td-actions">
+          <button type="button" class="pw-chip-btn" id="td-open-btn">📖 فتح في المصحف</button>
+          <button type="button" class="pw-chip-btn" id="td-share-btn">🖼 مشاركة الفائدة</button>
+        </div>
+      </div>`;
+
+    box.querySelector('#td-open-btn')?.addEventListener('click', () => {
+      if (window.openSurah) window.openSurah(item.surah, item.ayah);
+    });
+    box.querySelector('#td-share-btn')?.addEventListener('click', () => {
+      if (window.ShareCardGenerator) {
+        ShareCardGenerator.share({
+          badge: `${item.surahName} — آية ${ar(item.ayah)}`,
+          text: `﴿ ${item.text} ﴾`,
+          subtext: item.reflection
+        });
+      }
+    });
+  }
+};
+window.DailyTadabbur = DailyTadabbur;
+
+/* ==================== 14) CustomAthkarManager — قسم «أذكاري وأدعية الأحبة» (مستوحى من تطبيق أذكار) ==================== */
+const CustomAthkarManager = {
+  KEY: 'custom_athkar',
+  PRESETS: [
+    { tag: 'لوالديّ', text: 'رَّبِّ ارْحَمْهُمَا كَمَا رَبَّيَانِي صَغِيرًا، اللَّهُمَّ اغْفِرْ لِوَالِدَيَّ وَارْفَعْ دَرَجَتَهُمَا فِي الْمَهْدِيِّينَ، وَاجْعَلْ هَذَا الْعَمَلَ صَدَقَةً جَارِيَةً لَهُمَا.', count: 3 },
+    { tag: 'لمتوفى / صدقة جارية', text: 'اللَّهُمَّ اغْفِرْ لَهُ وَارْحَمْهُ، وَعَافِهِ وَاعْفُ عَنْهُ، وَأَكْرِمْ نُزُلَهُ، وَوَسِّعْ مُدْخَلَهُ، وَاغْسِلْهُ بِالْمَاءِ وَالثَّلْجِ وَالْبَرَدِ، وَاجْعَلْ قَبْرَهُ رَوْضَةً مِنْ رِيَاضِ الْجَنَّةِ.', count: 3 }
+  ],
+
+  getAll() {
+    try {
+      const raw = localStorage.getItem(this.KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      }
+    } catch (e) {}
+    return JSON.parse(JSON.stringify(this.PRESETS));
+  },
+
+  saveAll(list) {
+    try { localStorage.setItem(this.KEY, JSON.stringify(list)); } catch (e) {}
+  },
+
+  add(tag, text, count = 3) {
+    const cleanText = String(text || '').trim().slice(0, 600);
+    if (!cleanText) return false;
+    const cleanTag = String(tag || 'دعاء خاص').trim().slice(0, 50) || 'دعاء خاص';
+    const c = Math.max(1, Math.min(1000, parseInt(count, 10) || 1));
+    const list = this.getAll();
+    list.unshift({ id: Date.now(), tag: cleanTag, text: cleanText, count: c });
+    this.saveAll(list);
+    return true;
+  },
+
+  remove(index) {
+    const list = this.getAll();
+    list.splice(index, 1);
+    this.saveAll(list);
+  },
+
+  openModal() {
+    if (!window.BottomSheet) return;
+    const list = this.getAll();
+    const ar = window.toArabicNum || (x => String(x));
+    const sh = BottomSheet.open({
+      title: '🤍 أذكاري وأدعية الأحبة',
+      customHTML: `
+        <div style="margin-bottom:12px; background:var(--surface-2); padding:12px; border-radius:12px; border:1px solid var(--border)">
+          <div style="font-size:calc(var(--font-size)*0.48); color:var(--accent); font-weight:700; margin-bottom:6px">إضافة دعاء لمن تحب (والدين / مريض / متوفى / حاجة):</div>
+          <input type="text" id="ca-tag" class="k-input" style="padding:8px 10px; margin-bottom:8px; font-size:calc(var(--font-size)*0.5)" placeholder="الوسم (مثال: دعاء لوالديّ، لصديقي...)" maxlength="50">
+          <textarea id="ca-text" class="k-input" rows="2" style="padding:8px 10px; margin-bottom:8px; font-size:calc(var(--font-size)*0.52); resize:vertical" placeholder="اكتب الدعاء أو الذكر هنا..." maxlength="500"></textarea>
+          <div style="display:flex; gap:8px; align-items:center">
+            <input type="number" id="ca-count" class="k-input" style="width:90px; margin-bottom:0; padding:8px" value="3" min="1" max="100" aria-label="عدد التكرار">
+            <button type="button" class="btn-scale" id="ca-add-btn" style="padding:9px 14px; font-size:calc(var(--font-size)*0.52)">+ حفظ في أذكاري</button>
+          </div>
+        </div>
+        <div id="ca-list-wrap" style="max-height:38vh; overflow-y:auto;">
+          ${list.map((it, idx) => `
+            <div class="dua-card" style="padding:36px 14px 12px; margin-bottom:10px">
+              <button type="button" class="bm-remove" data-ca-del="${idx}" style="top:18px; left:10px" aria-label="حذف">×</button>
+              <button type="button" class="share-card-btn" data-share-badge="${escapeHtml(it.tag)}" data-share-from=".dua-text" style="top:8px; left:48px"><span aria-hidden="true">🖼</span> بطاقة</button>
+              <div class="dua-occasion">🤲 ${escapeHtml(it.tag)} (${ar(it.count)} مرات)</div>
+              <div class="dua-text" style="font-size:calc(var(--font-size)*0.68)">${escapeHtml(it.text)}</div>
+            </div>`).join('')}
+        </div>`
+    });
+
+    sh.querySelector('#ca-add-btn')?.addEventListener('click', () => {
+      const tag = sh.querySelector('#ca-tag')?.value;
+      const text = sh.querySelector('#ca-text')?.value;
+      const count = sh.querySelector('#ca-count')?.value;
+      if (this.add(tag, text, count)) {
+        if (window.Toast) Toast.show('تم حفظ الدعاء في قسم أذكاري 🤍');
+        this.openModal();
+      } else {
+        if (window.Toast) Toast.show('اكتب نص الدعاء أولاً');
+      }
+    });
+
+    sh.querySelector('#ca-list-wrap')?.addEventListener('click', e => {
+      const del = e.target.closest('[data-ca-del]');
+      if (del) {
+        this.remove(parseInt(del.dataset.caDel, 10));
+        this.openModal();
+      }
+    });
+  }
+};
+window.CustomAthkarManager = CustomAthkarManager;
+
 /* ==================== 8) Reminders — التذكيرات المحلية ==================== */
 const Reminders = {
   timers: [],
@@ -1561,6 +2204,9 @@ window.DeepLinks = DeepLinks;
 document.addEventListener('DOMContentLoaded', () => {
   Reminders.init();
   ReaderSettings.applyAll();
+  PrayerEngine.renderWidget();
+  PrayerEngine.startLiveTicker();
+  DailyTadabbur.render();
   const initDeepLinks = () => {
     if (typeof window.showScreen === 'function') {
       DeepLinks.init();

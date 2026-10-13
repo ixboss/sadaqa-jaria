@@ -181,8 +181,17 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 bun.lockb
-package.json
-!tests/package.json
+!package.json
+!capacitor.config.json
+! tests/package.json
+www/
+android/
+ios/
+*.apk
+*.aab
+*.ipa
+*.keystore
+*.jks
 
 vendor/
 composer.json
