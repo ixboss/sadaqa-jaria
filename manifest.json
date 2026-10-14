@@ -5,7 +5,7 @@
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "theme_color": "#0a1f28",
   "background_color": "#0a1f28",
   "lang": "ar",
@@ -54,7 +54,10 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["lifestyle", "productivity"],
+  "categories": [
+    "lifestyle",
+    "productivity"
+  ],
   "shortcuts": [
     {
       "name": "الختمة",

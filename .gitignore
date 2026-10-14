@@ -183,7 +183,7 @@ pnpm-lock.yaml
 bun.lockb
 !package.json
 !capacitor.config.json
-! tests/package.json
+!tests/package.json
 www/
 android/
 ios/
