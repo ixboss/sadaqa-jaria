@@ -240,9 +240,22 @@
     if (!isReader()) return;
     var dx = e.clientX - startX, dy = e.clientY - startY, dt = Date.now() - startT;
     if (!active) {
-      // نقرة خالصة → بدّل الوضع، إلا فوق الآية فيُترك الاختيار لمعالجه الأصلي
+      // نقرة خالصة: النقر على حافة الورقة اليسرى/اليمنى يقلب الصفحة بيد واحدة (RTL)، والنقر في الوسط يبدّل أشرطة القارئ (HUD)
       if (Math.abs(dx) < TAP_MAX_MOVE && Math.abs(dy) < TAP_MAX_MOVE && dt < TAP_MAX_MS) {
-        if (!isAyahArea(downTarget) && window.toggleMushafHUD) toggleMushafHUD();
+        if (!isAyahArea(downTarget)) {
+          var pg = pageEl();
+          var r = pg ? pg.getBoundingClientRect() : null;
+          var relX = (r && r.width > 0) ? ((e.clientX - r.left) / r.width) : 0.5;
+          if (enabled && relX < 0.14) {
+            goNext = true;
+            completeFlip(1);
+          } else if (enabled && relX > 0.86) {
+            goNext = false;
+            completeFlip(-1);
+          } else if (window.toggleMushafHUD) {
+            toggleMushafHUD();
+          }
+        }
       }
       return;
     }

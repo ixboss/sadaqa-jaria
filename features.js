@@ -1129,18 +1129,36 @@ const ReaderAudioPill = {
     const st = window.state || {};
     return st.currentScreen === 'surah-view' || st.currentScreen === 'khatmah-read';
   },
+  toggleOrStart() {
+    const A = window.AudioPlayer; if (!A) return;
+    if (A.curItem && A.audio) {
+      if (A.audio.paused) A.resume(); else A.pause();
+    } else {
+      const st = window.state || {};
+      const page = st.mushafPage || 1;
+      let fromGlobal = null;
+      if (window.selectedAyahNo && window.MushafPageManager) {
+        const hit = (MushafPageManager.pageAyahs(page) || []).find(a => a.numberInSurah === window.selectedAyahNo);
+        if (hit) fromGlobal = hit.number;
+      }
+      A.playFromPage(page, { fromGlobal });
+    }
+  },
   render() {
     this.ensure();
     if (!this.el) return;
     const A = window.AudioPlayer;
     const playing = !!(A && A.curItem && this.isReaderActive());
-    const hudOpen = document.body.classList.contains('mushaf-hud') && this.isReaderActive();
-    // يظهر القرص دائماً في وضع HUD (لاختيار القارئ أو بدء التشغيل بضغطة واحدة كما في الصورة المرجعية)،
-    // كما يبقى ظاهراً في الوضع الهادئ إذا كانت التلاوة جارية.
-    const showPill = playing || hudOpen;
+    const showPill = playing;
     this.el.classList.toggle('visible', showPill);
     this.el.classList.toggle('is-idle', !playing);
     document.body.classList.toggle('reader-audio-on', playing);
+    const mbhBtn = document.getElementById('mbh-audio-btn');
+    if (mbhBtn) {
+      const isPaused = !(playing && A.audio && !A.audio.paused);
+      mbhBtn.textContent = playing ? (isPaused ? '▶ متابعة التلاوة' : '⏸ إيقاف مؤقت') : '▶ استماع للصفحة';
+      mbhBtn.classList.toggle('active', playing && !isPaused);
+    }
     if (!showPill) return;
 
     const name = document.getElementById('map-surah');
