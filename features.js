@@ -1149,7 +1149,8 @@ const ReaderAudioPill = {
     if (!this.el) return;
     const A = window.AudioPlayer;
     const playing = !!(A && A.curItem && this.isReaderActive());
-    const showPill = playing;
+    const isHud = document.body.classList.contains('mushaf-hud');
+    const showPill = this.isReaderActive() && (playing || isHud);
     this.el.classList.toggle('visible', showPill);
     this.el.classList.toggle('is-idle', !playing);
     document.body.classList.toggle('reader-audio-on', playing);
@@ -1183,7 +1184,7 @@ const ReaderAudioPill = {
 
     const rec = this.el.querySelector('#map-reciter');
     if (rec) {
-      rec.textContent = (playing ? recName.split(' ')[0] : 'اختر القارئ') + ' ⌄';
+      rec.textContent = (playing ? recName.split(' ')[0] : ('القارئ: ' + recName)) + ' ⌄';
     }
     const repBtn = this.el.querySelector('#map-repeat');
     if (repBtn) {
