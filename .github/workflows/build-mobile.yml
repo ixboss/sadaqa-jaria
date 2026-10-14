@@ -29,10 +29,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # لا تفعّل cache: 'npm' — package-lock.json محجوب في .gitignore
+          # لأن التطبيق ثابت بدون build step، والـ cache يتطلب وجود الـ lockfile.
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund --no-package-lock
 
       - name: Prepare web assets (www/)
         run: node scripts/prepare-www.mjs
@@ -100,10 +101,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # لا تفعّل cache: 'npm' — package-lock.json محجوب في .gitignore
+          # لأن التطبيق ثابت بدون build step، والـ cache يتطلب وجود الـ lockfile.
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund --no-package-lock
 
       - name: Prepare web assets (www/)
         run: node scripts/prepare-www.mjs
