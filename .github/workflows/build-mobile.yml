@@ -56,9 +56,9 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: |
-            platforms;android-34
-            build-tools;34.0.0
+          # سطر واحد مفصول بمسافات — الفواصل الأساسية تكسر sdkmanager
+          packages: 'platforms;android-34 build-tools;34.0.0'
+          accept-android-sdk-licenses: true
 
       - name: Add Capacitor Android platform
         run: npx cap add android || npx cap sync android
@@ -123,20 +123,28 @@ jobs:
       - name: Sync Capacitor (ios)
         run: npx cap sync ios
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_15.3.app || true
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios/App
+          pod install --repo-update
 
       - name: Build unsigned IPA
         run: |
           set -e
+          # Capacitor 6 يستخدم CocoaPods — يجب البناء من خلال الـ workspace
           SCHEME="App"
-          PROJECT="ios/App/App.xcodeproj"
+          WORKSPACE="ios/App/App.xcworkspace"
           ARCHIVE_PATH="$RUNNER_TEMP/App.xcarchive"
-          EXPORT_PATH="$RUNNER_TEMP/ExportOptions"
           PAYLOAD_PATH="$RUNNER_TEMP/Payload"
 
+          if [ ! -d "$WORKSPACE" ]; then
+            echo "::error::Missing workspace $WORKSPACE"
+            ls -la ios/App || true
+            exit 1
+          fi
+
           echo "::group::xcodebuild archive"
-          xcodebuild -project "$PROJECT" \
+          xcodebuild -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
             -configuration Release \
             -archivePath "$ARCHIVE_PATH" \
@@ -154,11 +162,12 @@ jobs:
           APP_PATH=$(find "$ARCHIVE_PATH/Products/Applications" -maxdepth 1 -name "*.app" | head -n1)
           if [ -z "$APP_PATH" ]; then
             echo "::error::No .app found in $ARCHIVE_PATH/Products/Applications"
+            tail -40 "$RUNNER_TEMP/archive.log" || true
             exit 1
           fi
           echo "Found app bundle: $APP_PATH"
 
-          rm -rf "$PAYLOAD_PATH" "$EXPORT_PATH"
+          rm -rf "$PAYLOAD_PATH"
           mkdir -p "$PAYLOAD_PATH"
           cp -R "$APP_PATH" "$PAYLOAD_PATH/"
           mkdir -p artifacts
