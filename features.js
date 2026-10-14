@@ -121,11 +121,11 @@ const StatsManager = {
 
     el.innerHTML = `
       <div class="stats-cards">
-        <div class="stat-card"><div class="stat-value">${this.toArabic(streak)}</div><div class="stat-label">أيام متتالية 🔥</div></div>
-        <div class="stat-card"><div class="stat-value">${this.toArabic(all.totalPages || 0)}</div><div class="stat-label">صفحات مقروءة</div></div>
-        <div class="stat-card"><div class="stat-value">${this.toArabic(all.totalTasbih || 0)}</div><div class="stat-label">تسبيحات</div></div>
-        <div class="stat-card"><div class="stat-value">${this.toArabic(athkarDays)}</div><div class="stat-label">أيام أذكار</div></div>
-        <div class="stat-card" style="grid-column: span 2;"><div class="stat-value">${this.toArabic(khatmahCount)}</div><div class="stat-label">ختمات قرآنية مكتملة 🕋</div></div>
+        <div class="stat-card"><div style="font-size:20px;margin-bottom:4px;">🔥</div><div class="stat-value">${this.toArabic(streak)} <small style="font-size:0.45em;font-weight:700;color:var(--text-dim);">يوم</small></div><div class="stat-label">أيام قراءة متتالية</div></div>
+        <div class="stat-card"><div style="font-size:20px;margin-bottom:4px;">📖</div><div class="stat-value">${this.toArabic(all.totalPages || 0)} <small style="font-size:0.45em;font-weight:700;color:var(--text-dim);">صفحة</small></div><div class="stat-label">إجمالي الصفحات المقروءة</div></div>
+        <div class="stat-card"><div style="font-size:20px;margin-bottom:4px;">📿</div><div class="stat-value">${this.toArabic(all.totalTasbih || 0)} <small style="font-size:0.45em;font-weight:700;color:var(--text-dim);">ذكر</small></div><div class="stat-label">إجمالي التسبيحات</div></div>
+        <div class="stat-card"><div style="font-size:20px;margin-bottom:4px;">🛡️</div><div class="stat-value">${this.toArabic(athkarDays)} <small style="font-size:0.45em;font-weight:700;color:var(--text-dim);">يوم</small></div><div class="stat-label">أيام المواظبة على الأذكار</div></div>
+        <div class="stat-card" style="grid-column: span 2;"><div style="font-size:22px;margin-bottom:4px;">🕋</div><div class="stat-value">${this.toArabic(khatmahCount)} <small style="font-size:0.45em;font-weight:700;color:var(--text-dim);">ختمة</small></div><div class="stat-label">ختمات قرآنية مكتملة</div></div>
       </div>
       <div class="stats-chart-card">
         <div class="section-heading" style="margin-top:0">قراءة آخر ٧ أيام</div>
@@ -143,7 +143,7 @@ const StatsManager = {
         ${history.slice(0, 10).map((item, i) => `
           <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 4px; border-bottom:1px solid var(--border); font-size:calc(var(--font-size) * 0.52)">
             <span>🕋 الختمة ${this.toArabic(history.length - i)}${item.intention ? ` — <b style="color:var(--accent)">${escapeHtml(item.intention)}</b>` : ''}</span>
-            <span style="color:var(--text-dim); font-family:Tahoma,sans-serif">${escapeHtml(item.date || '')}</span>
+            <span style="color:var(--text-dim); font-family:var(--font-num)">${escapeHtml(item.date || '')}</span>
           </div>`).join('')}
       </div>` : ''}
       <div class="occasion-note">البيانات محفوظة على جهازك فقط ولا تُرسل لأي خادم.</div>`;
@@ -315,7 +315,7 @@ const Settings = {
       </div>
 
       <div class="settings-card">
-        <div class="settings-label">حجم الخط <span id="font-scale-value">${fontScale}%</span></div>
+        <div class="settings-label">حجم الخط <span id="font-scale-value">${window.toArabicNum ? window.toArabicNum(fontScale) : fontScale}٪</span></div>
         <div class="settings-targets" style="margin-bottom:10px">
           ${this.FONT_OPTIONS.map(f => `
             <button class="settings-chip ${fontScale === f.pct ? 'active' : ''}" data-font-pct="${f.pct}">${f.label}</button>`).join('')}

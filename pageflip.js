@@ -177,6 +177,7 @@
       return;
     }
     resetPage();
+    if (window.fitMushafPageToViewport) window.fitMushafPageToViewport();
     page.style.transition = 'none';
     page.style.opacity = '0';
     // دع الرسم يستقرّ ثم أدخل الورقة الجديدة بخفوت

@@ -28,9 +28,9 @@
 <!-- Performance Optimization -->
 <link rel="preconnect" href="https://api.alquran.cloud" crossorigin>
 <link rel="dns-prefetch" href="https://api.alquran.cloud">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Amiri:wght@400;700&display=swap">
+<!-- الخطوط العربية المحلية المدمجة للعمل ١٠٠٪ بدون إنترنت (Offline-First) -->
+<link rel="preload" href="./assets/fonts/NotoSansArabic-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./assets/fonts/NotoNaskhArabic-Regular.woff2" as="font" type="font/woff2" crossorigin>
 
 <!-- PWA Manifest -->
 <link rel="manifest" href="manifest.json">
@@ -75,10 +75,85 @@
 <script src="./surah-meta.js"></script>
 
 <style>
-/* ==================== خط المصحف العثماني + Amiri يُحمَّل عبر <link> في <head> ==================== */
+/* ==================== الخطوط العربية المحلية المدمجة (Offline-First Bundled Fonts) ==================== */
+@font-face {
+  font-family: 'Noto Sans Arabic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Noto Sans Arabic'), url('./assets/fonts/NotoSansArabic-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Sans Arabic';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Noto Sans Arabic Bold'), local('NotoSansArabic-Bold'), url('./assets/fonts/NotoSansArabic-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Naskh Arabic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Noto Naskh Arabic'), url('./assets/fonts/NotoNaskhArabic-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Naskh Arabic';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Noto Naskh Arabic Bold'), local('NotoNaskhArabic-Bold'), url('./assets/fonts/NotoNaskhArabic-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Amiri'), local('Amiri Regular'), url('./assets/fonts/NotoNaskhArabic-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Amiri Bold'), url('./assets/fonts/NotoNaskhArabic-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Amiri Quran';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Amiri Quran'), local('AmiriQuran-Regular'), url('./assets/fonts/NotoNaskhArabic-Regular.woff2') format('woff2');
+}
 
-/* ==================== متغيرات التصميم (الوضع الداكن الافتراضي) ==================== */
+/* ==================== متغيرات نظام التصميم الموحد (Design System Tokens — الوضع الداكن) ==================== */
 :root {
+  /* Design Tokens: Typography */
+  --font-ui: 'Noto Sans Arabic', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
+  --font-num: 'Noto Sans Arabic', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-serif: 'Amiri', 'Noto Naskh Arabic', 'Traditional Arabic', serif;
+  --font-quran: 'Amiri Quran', 'Amiri', 'Noto Naskh Arabic', 'Traditional Arabic', serif;
+
+  /* Design Tokens: Spacing Scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Design Tokens: Border Radius */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* Design Tokens: Elevation & Shadows */
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.45);
+  --shadow-glow: 0 0 20px rgba(62, 207, 158, 0.28);
   /* ===== الهوية اللونية الجديدة: زمردی + فيروزي + أزرق ليلي + كريمي ===== */
   --bg: #0a1f28;            /* أزرق ليلي عميق مائل للفيروز (ليس أسوداً) */
   --surface: #10333f;       /* سطح فيروزي عميق */
@@ -354,7 +429,7 @@ body.theme-light {
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; height: 100dvh; background: var(--bg); color: var(--text); font-family: 'Amiri', 'Traditional Arabic', 'Segoe UI', Tahoma, sans-serif; direction: rtl; overflow: hidden; transition: background 0.4s, color 0.4s; user-select: none; -webkit-user-select: none; }
+html, body { height: 100%; height: 100dvh; background: var(--bg); color: var(--text); font-family: var(--font-ui); direction: rtl; overflow: hidden; transition: background 0.4s, color 0.4s; user-select: none; -webkit-user-select: none; -webkit-font-smoothing: antialiased; }
 .dua-text, .occasion-sunnah-item, #custom-dialog-text, .tafsir-sheet-body, .tafsir-sheet-ayah { user-select: text; -webkit-user-select: text; }
 .mushaf-page, .mushaf-block, .ayah, .w { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 
@@ -377,25 +452,25 @@ body.theme-light ::-webkit-scrollbar-thumb { background: rgba(31, 122, 90, 0.25)
 #app { position: fixed; inset: 0; width: 100%; height: 100%; height: 100dvh; display: flex; flex-direction: column; z-index: 1; }
 
 /* ==================== الشريط العلوي ==================== */
-#header { position: relative; min-height: var(--header-h); height: auto; background: var(--header-grad); display: flex; align-items: center; justify-content: space-between; padding: calc(env(safe-area-inset-top, 0px) + 6px) 16px 6px; flex-shrink: 0; z-index: 100; box-shadow: 0 2px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10); transition: background 0.4s, box-shadow 0.4s; }
+#header { position: relative; min-height: var(--header-h); height: auto; background: var(--header-grad); display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: calc(env(safe-area-inset-top, 0px) + 6px) 10px 6px; flex-shrink: 0; z-index: 100; box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.10); transition: background 0.4s, box-shadow 0.4s; }
 body.theme-light #header { box-shadow: 0 2px 15px rgba(20, 51, 58, 0.08), inset 0 1px 0 rgba(255,255,255,0.9); border-bottom: 1px solid var(--border); }
 
 #reading-progress-container { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: transparent; z-index: 99; display: none; pointer-events: none; }
 #reading-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #3ecf9e 0%, #46c8d6 50%, #3ecf9e 100%); transition: width 0.1s ease-out; }
 
-.header-center { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: center; }
-#header-title { font-size: calc(var(--font-size) * 0.7); font-weight: 700; color: #f0f7f2; transition: color 0.4s; }
+.header-center { flex: 1; min-width: 0; text-align: right; padding-inline: 4px; display: flex; flex-direction: column; justify-content: center; }
+#header-title { display: block; font-size: clamp(15.5px, 4.2vw, 20px); line-height: 1.25; font-weight: 700; color: #f0f7f2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.4s; }
 body.theme-light #header-title { color: var(--accent); }
-#header-subtitle { font-size: calc(var(--font-size) * 0.42); font-weight: bold; color: #c3ded2; margin-top: 2px; direction: rtl; transition: color 0.4s, font-size 0.3s; }
+#header-subtitle { font-size: clamp(11px, 3vw, 12.5px); line-height: 1.25; font-weight: 700; color: #d0ebe0; margin-top: 1px; direction: rtl; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.4s; }
 body.theme-light #header-subtitle { color: var(--text-dim); }
 
-#back-btn { display: none; background: rgba(255,255,255,0.14); border: none; border-radius: 8px; color: #f0f7f2; font-size: calc(var(--font-size) * 0.85); cursor: pointer; width: 40px; height: 40px; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
-body.theme-light #back-btn { background: var(--surface-2); color: var(--text); }
-#back-btn:active { transform: scale(0.9); }
+#back-btn { display: none; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-sm); color: #f0f7f2; font-size: 20px; cursor: pointer; width: 44px; height: 44px; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
+body.theme-light #back-btn { background: var(--surface-2); border-color: var(--border); color: var(--text); }
+#back-btn:active { transform: scale(0.92); }
 #back-btn.visible { display: flex; }
 
-#font-ctrl { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
-.header-btn { background: rgba(255,255,255,0.14); border: none; border-radius: 8px; color: #f0f7f2; font-size: calc(var(--font-size) * 0.58); cursor: pointer; width: 38px; height: 38px; min-width: 38px; min-height: 38px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-weight: bold; }
+#font-ctrl { display: flex; gap: 4px; flex-shrink: 0; align-items: center; }
+.header-btn { background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.10); border-radius: var(--radius-sm); color: #f0f7f2; font-size: 16px; cursor: pointer; width: 44px; height: 44px; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-weight: 700; }
 body.theme-light .header-btn { background: var(--surface-2); color: var(--text); }
 .header-btn:active { transform: scale(0.9); }
 .header-btn.active { background: rgba(255,255,255,0.22); color: #eafff5; }
@@ -608,7 +683,7 @@ body.theme-light .ayah.reciting { background: rgba(31, 122, 90, 0.10); }
 .w.reciting-now { color: var(--accent); background: var(--accent-dim); }
 
 /* شارة رقم الآية الدائرية كما في المصحف المدني */
-.ayah-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.24em; height: 1.24em; margin: 0 2px; padding: 0 2px; border-radius: 50%; background: rgba(184, 154, 78, 0.14); color: var(--mushaf-ink, var(--accent)); border: 1.5px solid var(--mushaf-frame, var(--accent)); box-shadow: inset 0 0 0 1px rgba(184, 154, 78, 0.25); font-size: 0.48em; font-family: 'Amiri', Tahoma, sans-serif; font-weight: 700; line-height: 1; vertical-align: middle; transform: translateY(-0.03em); }
+.ayah-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.14em; height: 1.14em; margin: 0 1px; padding: 0 1px; border-radius: 50%; background: rgba(184, 154, 78, 0.14); color: var(--mushaf-ink, var(--accent)); border: 1.5px solid var(--mushaf-frame, var(--accent)); box-shadow: inset 0 0 0 1px rgba(184, 154, 78, 0.25); font-size: 0.44em; font-family: 'Amiri', Tahoma, sans-serif; font-weight: 700; line-height: 1; vertical-align: middle; transform: translateY(-0.03em); }
 /* الآية المحفوظة: تُملأ شارتها باللون المميِّز فتظهر العلامة على الآية نفسها */
 .ayah.bookmarked .ayah-badge { background: var(--accent); color: var(--color-on-accent); border-color: transparent; box-shadow: 0 0 0 2px var(--surface); }
 body.theme-light .ayah.bookmarked .ayah-badge { box-shadow: 0 0 0 2px var(--surface); }
@@ -618,7 +693,7 @@ body.theme-light .ayah.bookmarked .ayah-badge { box-shadow: 0 0 0 2px var(--surf
 .mushaf-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 4px 0 18px; }
 .mushaf-nav-btn { flex: 1; max-width: 150px; }
 .mushaf-nav-btn:disabled { opacity: 0.35; pointer-events: none; }
-.mushaf-nav-pos { font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); font-family: Tahoma, sans-serif; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; text-align: center; }
+.mushaf-nav-pos { font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); font-family: var(--font-num); white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; text-align: center; }
 /* تنقّل السور أرفق من تنقّل الصفحات حتى لا يتساوى بصرياً معه */
 .surah-nav { margin-top: -6px; }
 .surah-nav .mushaf-nav-btn { max-width: 130px; font-size: calc(var(--font-size) * 0.44); }
@@ -875,7 +950,7 @@ body.mushaf-scroll-vertical .mushaf-viewport {
   display: flex; flex-direction: column; justify-content: space-between;
   background: linear-gradient(160deg, var(--mushaf-paper), var(--mushaf-paper-2));
   color: var(--mushaf-ink);
-  padding: calc(env(safe-area-inset-top, 0px) + 30px) calc(env(safe-area-inset-right, 0px) + 12px) calc(env(safe-area-inset-bottom, 0px) + 6px) calc(env(safe-area-inset-left, 0px) + 12px);
+  padding: calc(env(safe-area-inset-top, 0px) + 28px) calc(env(safe-area-inset-right, 0px) + 8px) calc(env(safe-area-inset-bottom, 0px) + 4px) calc(env(safe-area-inset-left, 0px) + 8px);
   border-radius: 0; box-shadow: 0 0 0 1px var(--mushaf-frame-soft), 0 12px 40px rgba(0,0,0,0.35);
   transition: background 0.4s, color 0.4s;
   overflow: hidden;
@@ -908,7 +983,7 @@ body.mushaf-design-book .mushaf-page::after { display: block; }
 .mushaf-page > * { position: relative; z-index: 1; }
 
 /* داخل لوحة الصفحة، كتلة الآيات تصبح شفافة الخلفية فتظهر الورقة تحتها وتملأ المساحة المتاحة */
-.mushaf-page .mushaf-block { background: transparent; border: none; box-shadow: none; padding: 2px 2px; margin-bottom: 2px; color: var(--mushaf-ink); }
+.mushaf-page .mushaf-block { background: transparent; border: none; box-shadow: none; padding: 0 1px; margin-bottom: 0; color: var(--mushaf-ink); word-spacing: -0.02em; }
 .mushaf-page .mushaf-block::before { display: none; }
 .mushaf-page .mushaf-page-label { color: var(--mushaf-ink); opacity: 0.7; margin-bottom: 2px; }
 .mushaf-page .mushaf-nav-pos { color: var(--mushaf-ink); opacity: 0.75; }
@@ -962,7 +1037,7 @@ body.mushaf-theme-night .mushaf-page .ayah-badge { background: rgba(255,255,255,
 /* رقم الصفحة في منتصف الأسفل كما في تطبيق Ayah (سطر واحد مدمج بدون أكل مساحة) */
 .mushaf-page-foot {
   margin-top: 2px; padding-top: 0; text-align: center; flex-shrink: 0;
-  font-family: Tahoma, 'Amiri', sans-serif; font-weight: 600;
+  font-family: var(--font-num); font-weight: 600;
   font-size: 13px; line-height: 1.15; color: var(--mushaf-ink); opacity: 0.72;
 }
 .mushaf-page-foot .mpf-juz { display: none !important; }
@@ -1045,7 +1120,7 @@ body.theme-light #wird-track::before { background: rgba(0,0,0,0.12); }
 #ayah-bar::-webkit-scrollbar { display: none; }
 body.theme-light #ayah-bar { background: rgba(255, 253, 247, 0.97); box-shadow: 0 10px 28px rgba(20, 51, 58, 0.22); }
 #ayah-bar.visible { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0) scale(1); transition: visibility 0s linear 0s, transform 240ms var(--ease-spring-snap), opacity 200ms var(--ease-out-quart); }
-#ayah-bar button { background: var(--accent-dim); color: var(--accent); border: none; border-radius: 999px; min-height: 30px; padding: 5px 10px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-family: Tahoma, 'Amiri', sans-serif; font-size: 12px; line-height: 1.2; font-weight: 700; white-space: nowrap; cursor: pointer; flex: 0 0 auto; transition: transform 160ms var(--ease-spring-snap), background 180ms; }
+#ayah-bar button { background: var(--accent-dim); color: var(--accent); border: none; border-radius: 999px; min-height: 30px; padding: 5px 10px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-family: var(--font-num); font-size: 12px; line-height: 1.2; font-weight: 700; white-space: nowrap; cursor: pointer; flex: 0 0 auto; transition: transform 160ms var(--ease-spring-snap), background 180ms; }
 #ayah-bar button:active { transform: scale(0.92); }
 #ayah-bar button.ayah-close { background: var(--surface-2); color: var(--text-dim); width: 30px; height: 30px; min-height: 30px; flex: 0 0 30px; padding: 0; border-radius: 50%; justify-content: center; }
 
@@ -1068,7 +1143,7 @@ body.mushaf-zen #resume-fab, body.mushaf-hud #resume-fab { visibility: hidden; o
 .circular-chart { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
 .circle-bg { fill: none; stroke: var(--surface-2); stroke-width: 3.5; transition: stroke 0.4s; }
 .circle-path { fill: none; stroke: var(--accent); stroke-width: 3.5; stroke-linecap: round; transition: stroke-dasharray 1s cubic-bezier(0.5, 1.5, 0.4, 1), stroke 0.4s; }
-.circle-text { position: absolute; font-size: calc(var(--font-size) * 0.45); font-weight: bold; color: var(--text); font-family: Tahoma; }
+.circle-text { position: absolute; font-size: calc(var(--font-size) * 0.45); font-weight: bold; color: var(--text); font-family: var(--font-num); }
 
 .pulse-success { animation: pulse-green 2s infinite; }
 
@@ -1185,7 +1260,7 @@ body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success
 .dhikr-badge {
   font-size: calc(var(--font-size) * 0.5); font-weight: 700; color: var(--accent);
   background: var(--accent-dim); border-radius: 999px; padding: 4px 14px;
-  font-family: Tahoma, sans-serif; white-space: nowrap;
+  font-family: var(--font-num); white-space: nowrap;
 }
 .dhikr-fav {
   background: transparent; border: none; font-size: calc(var(--font-size) * 0.7);
@@ -1196,7 +1271,7 @@ body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success
 .dhikr-fav.active { color: var(--accent); }
 .dhikr-count-line {
   font-size: calc(var(--font-size) * 0.55); color: var(--text-dim); font-weight: 700;
-  padding-top: 8px; font-family: Tahoma, sans-serif; flex: 0 0 auto;
+  padding-top: 8px; font-family: var(--font-num); flex: 0 0 auto;
 }
 /* منطقة النص: هي الجزء المرن الوحيد في البطاقة. flex: 0 1 auto يجعلها
    تأخذ ارتفاعها الطبيعي حين تتّسع البطاقة (فتبقى البطاقة متمركزة ومضغوطة)،
@@ -1238,40 +1313,30 @@ body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success
   text-align: center; padding: 60px 24px; color: var(--text-dim);
   font-size: calc(var(--font-size) * 0.6); line-height: 2.2;
 }
-/* صفحة فلتر المفضلة — صفّ رفيع لا يلتهم ارتفاع البطاقة */
-.dhikr-filter-row { display: flex; justify-content: center; padding: 2px 0 6px; }
+/* صفحة فلتر المفضلة والتقدم التلقائي — صفّ موحّد رفيع لا يلتهم ارتفاع البطاقة ولا يغطي محتواها */
+.dhikr-filter-row { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 2px 0 6px; flex-wrap: nowrap; }
 .dhikr-chip {
   background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border);
-  border-radius: 999px; padding: 5px 18px; font-size: calc(var(--font-size) * 0.5);
+  border-radius: 999px; padding: 5px 16px; font-size: calc(var(--font-size) * 0.48);
   font-weight: 700; cursor: pointer; transition: all 200ms var(--ease-spring-snap);
-  display: flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
 }
 .dhikr-chip[aria-pressed="true"] { background: var(--accent); color: var(--color-on-accent); border-color: var(--accent); }
 .dhikr-chip:active { transform: scale(0.95); }
 
-/* Floating Auto-Advance FAB */
+/* Auto-Advance Chip integrated into the top filter row */
 .dhikr-auto-fab {
-  position: fixed;
-  right: 16px;
-  bottom: calc(var(--nav-clearance-safe) + 16px);
-  display: flex; align-items: center; gap: 10px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)),
-              rgba(12, 42, 52, 0.94);
-  backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  position: static;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 10px 16px;
-  color: var(--text);
-  font-size: calc(var(--font-size) * 0.5);
+  padding: 5px 14px;
+  color: var(--text-dim);
+  font-size: calc(var(--font-size) * 0.48);
   font-weight: 700;
   cursor: pointer;
-  z-index: 95;
-  box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.35),
-    0 2px 6px rgba(0, 0, 0, 0.20),
-    inset 0 1px 1px rgba(255, 255, 255, 0.18);
-  transition: transform 200ms var(--ease-spring-snap), box-shadow 200ms, background 200ms, border-color 200ms, opacity 200ms;
-  will-change: transform, box-shadow, background;
+  transition: transform 200ms var(--ease-spring-snap), box-shadow 200ms, background 200ms, border-color 200ms, color 200ms;
 }
 .dhikr-auto-fab:active { transform: scale(0.96); }
 .dhikr-auto-fab[aria-pressed="true"] {
@@ -1339,7 +1404,7 @@ body.theme-light .occasion-card { box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
 #tasbih-tap-btn { position: absolute; inset: 14%; border-radius: 50%; background: var(--accent-grad); border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: transform 0.1s; }
 body.theme-light #tasbih-tap-btn { box-shadow: 0 4px 20px rgba(31, 122, 90, 0.2); }
 #tasbih-tap-btn:active { transform: scale(0.92); }
-#tasbih-count-num { font-size: calc(var(--font-size) * 1.8); font-weight: 700; color: var(--color-on-accent); transition: font-size 0.3s, color 0.4s; }
+#tasbih-count-num { font-family: var(--font-num); font-size: calc(var(--font-size) * 1.8); font-weight: 700; line-height: 1.1; color: var(--color-on-accent); transition: font-size 0.3s, color 0.4s; }
 body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 .tasbih-complete-banner { background: linear-gradient(135deg, rgba(62, 207, 158, 0.14), rgba(70, 200, 214, 0.07)); border: 1px solid var(--accent); border-radius: var(--radius); padding: 14px; text-align: center; color: var(--accent); margin-bottom: 20px; display: none; width: 100%; max-width: 320px; }
 .tasbih-complete-banner.active { display: block; }
@@ -1396,15 +1461,15 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 .stats-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
 .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 14px; text-align: center; transition: transform 280ms var(--ease-out-quart), border-color 280ms; }
 .stat-card:active { transform: scale(0.97); }
-.stat-value { font-size: calc(var(--font-size) * 1.2); font-weight: 800; color: var(--accent); font-family: Tahoma, sans-serif; }
+.stat-value { font-size: calc(var(--font-size) * 1.2); font-weight: 800; color: var(--accent); font-family: var(--font-num); }
 .stat-label { font-size: calc(var(--font-size) * 0.48); color: var(--text-dim); margin-top: 6px; }
 .stats-chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 16px; }
 .stats-bars { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; height: 130px; margin-top: 10px; }
 .stats-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; }
 .stats-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; position: relative; }
 .stats-bar { width: 70%; max-width: 34px; background: linear-gradient(180deg, var(--accent), var(--accent-deep)); border-radius: 8px 8px 4px 4px; transition: height 600ms var(--ease-spring); min-height: 4px; position: relative; }
-.stats-bar-tip { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: calc(var(--font-size) * 0.42); color: var(--accent); font-weight: bold; font-family: Tahoma, sans-serif; }
-.stats-bar-label { font-size: calc(var(--font-size) * 0.42); color: var(--text-dim); font-family: Tahoma, sans-serif; }
+.stats-bar-tip { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: calc(var(--font-size) * 0.42); color: var(--accent); font-weight: bold; font-family: var(--font-num); }
+.stats-bar-label { font-size: calc(var(--font-size) * 0.42); color: var(--text-dim); font-family: var(--font-num); }
 
 /* ==================== شاشة الإعدادات ==================== */
 .settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; }
@@ -1512,7 +1577,7 @@ body.theme-light .settings-chip.danger { color: #a93226; }
   display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid var(--border); background: var(--surface-2); color: var(--text-dim);
   border-radius: 999px; padding: 4px 10px; cursor: pointer; font-size: calc(var(--font-size) * 0.32);
-  font-family: Tahoma, sans-serif; font-weight: 700; transition: transform 160ms var(--ease-spring-snap), background 180ms, color 180ms, border-color 180ms;
+  font-family: var(--font-num); font-weight: 700; transition: transform 160ms var(--ease-spring-snap), background 180ms, color 180ms, border-color 180ms;
 }
 .mushaf-audio-pill .map-pill-chip:active { transform: scale(0.92); }
 .mushaf-audio-pill .map-pill-chip.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
@@ -1608,7 +1673,7 @@ body.mushaf-hud #nav, body.mushaf-hud .nav-scrim { opacity: 0; pointer-events: n
   background: transparent;
   border: none;
   padding: 1px 10px; text-align: center; font-size: 12px; font-weight: 700;
-  color: var(--text-dim); font-family: Tahoma, 'Amiri', sans-serif; cursor: pointer;
+  color: var(--text-dim); font-family: var(--font-num); cursor: pointer;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: transform 160ms var(--ease-spring-snap), color 180ms;
 }
@@ -1669,7 +1734,7 @@ body.mushaf-hud #nav, body.mushaf-hud .nav-scrim { opacity: 0; pointer-events: n
   transition: transform 160ms var(--ease-spring-snap), background 200ms;
 }
 .mbh-side-btn:active { transform: scale(0.92); }
-.mbh-side-btn small { font-size: 10px; color: var(--text-dim); font-family: Tahoma, sans-serif; }
+.mbh-side-btn small { font-size: 10px; color: var(--text-dim); font-family: var(--font-num); }
 
 .mbh-strip {
   flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
@@ -1700,7 +1765,7 @@ body.theme-light .mbh-thumb-page {
 }
 .mbh-thumb-page i:nth-child(even) { width: 82%; margin-inline-start: auto; }
 .mbh-thumb-num {
-  font-size: 11px; font-family: Tahoma, sans-serif; font-weight: 700; line-height: 1;
+  font-size: 11px; font-family: var(--font-num); font-weight: 700; line-height: 1;
 }
 .mbh-thumb.active { color: var(--accent); }
 .mbh-thumb.active .mbh-thumb-page {
@@ -1762,7 +1827,7 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
 
 .pw-next-wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .pw-countdown {
-  font-family: Tahoma, monospace; font-size: calc(var(--font-size) * 0.68);
+  font-family: var(--font-num); font-size: calc(var(--font-size) * 0.68);
   font-weight: 800; color: var(--text); letter-spacing: 0.5px;
 }
 .pw-grid {
@@ -1780,13 +1845,13 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
 }
 .pw-name { font-size: calc(var(--font-size) * 0.42); color: var(--text-dim); font-weight: 700; }
 .pw-cell.active .pw-name { color: var(--accent); }
-.pw-time { font-size: calc(var(--font-size) * 0.44); font-family: Tahoma, sans-serif; font-weight: 700; color: var(--text); }
+.pw-time { font-size: calc(var(--font-size) * 0.44); font-family: var(--font-num); font-weight: 700; color: var(--text); }
 .pw-nawafil-row {
   display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap;
   font-size: calc(var(--font-size) * 0.42); color: var(--text-dim);
   padding-top: 8px; border-top: 1px solid var(--border);
 }
-.pw-nawafil-row b { color: var(--accent); font-family: Tahoma, sans-serif; }
+.pw-nawafil-row b { color: var(--accent); font-family: var(--font-num); }
 
 .smart-suggest-card {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
@@ -1802,6 +1867,20 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
   transition: transform 160ms var(--ease-spring-snap);
 }
 .ssc-btn:active { transform: scale(0.94); }
+
+/* ==================== Accessibility & 44px Minimum Touch Target Enforcement ==================== */
+#clear-search { width: 44px; height: 44px; min-width: 44px; min-height: 44px; right: 4px; align-items: center; justify-content: center; }
+.mt-btn { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+.bookmark-btn, .mushaf-topbar .bookmark-btn { width: 44px; height: 44px; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.font-step-btn, .settings-chip, .pw-chip-btn, .tasbih-phrase-chip, .ssc-btn, .k-ctrl-btn, .btn-scale { min-height: 44px; min-width: 44px; }
+.settings-toggle { min-width: 52px; min-height: 44px; display: inline-flex; align-items: center; }
+.settings-toggle .settings-toggle-knob { top: 50%; transform: translateY(-50%); }
+.settings-toggle.on .settings-toggle-knob { transform: translate(-22px, -50%); }
+.bm-remove, .audio-play, #audio-bar button { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+.mushaf-audio-pill .map-btn, .mushaf-audio-pill .map-reciter, .mushaf-audio-pill .map-pill-chip { min-height: 44px; min-width: 44px; }
+.mbh-step-btn, .mbh-side-btn, .mbh-surah-title, .mbh-audio-trigger { min-height: 44px; min-width: 44px; }
+#ayah-bar button, #ayah-bar button.ayah-close { min-height: 44px; min-width: 44px; }
+
 </style>
 </head>
 <body>
@@ -1822,29 +1901,28 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
     </div>
     <div id="font-ctrl">
       <button class="header-btn" id="bookmarks-btn" title="المرجعيات" aria-label="المرجعيات">🔖</button>
-      <button class="header-btn" id="theme-btn" title="الوضع الفاتح">☀️</button>
-      <button class="header-btn" id="share-btn" title="مشاركة التطبيق" aria-label="مشاركة التطبيق"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg></button>
-      <button class="header-btn" id="font-size-btn" title="حجم الخط" aria-label="حجم الخط" aria-haspopup="true" aria-expanded="false">أ</button>
+      <button class="header-btn" id="theme-btn" title="تبديل المظهر" aria-label="تبديل المظهر">☀️</button>
+      <button class="header-btn" id="font-size-btn" title="حجم الخط ومشاركة التطبيق" aria-label="حجم الخط" aria-haspopup="true" aria-expanded="false">أ</button>
       <button class="header-btn" id="settings-btn" title="الإعدادات والإحصائيات" aria-label="الإعدادات">⚙️</button>
     </div>
     <div id="font-popover" role="dialog" aria-label="حجم الخط" hidden>
       <div class="font-popover-title">حجم الخط</div>
       <div id="font-popover-grid"></div>
+      <button class="btn-scale" id="share-btn" title="مشاركة التطبيق" aria-label="مشاركة التطبيق" style="margin-top:10px; min-height:44px; padding:8px 14px; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+        <span>مشاركة التطبيق كصدقة جارية</span>
+      </button>
     </div>
   </header>
 
   <main id="content">
     <button id="resume-fab" onclick="resumeBookmark()"><span>🔖 متابعة القراءة</span></button>
-    <!-- Floating Auto-Advance Button (خارج .screen حتى لا يتأثر بـ transform حركات الدخول) -->
-    <button class="dhikr-auto-fab" id="dhikr-auto-fab" aria-label="تقدم تلقائي" aria-pressed="false" style="display:none;">
-      <span class="fab-icon" aria-hidden="true">⏭</span>
-      <span class="fab-label">تقدم تلقائي</span>
-    </button>
+
 
     <div id="screen-surah-list" class="screen active" role="tabpanel" aria-label="القرآن الكريم">
       <div class="search-wrapper">
         <input type="search" id="search-bar" placeholder="ابحث باسم السورة، نص الآية، أو رقمها (مثال 2:255)...">
-        <button id="clear-search">&times;</button>
+        <button id="clear-search" aria-label="مسح البحث">&times;</button>
       </div>
     <div id="daily-tadabbur-container"></div>
     <div id="surah-list-container"></div>
@@ -2000,7 +2078,11 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
 
     <div id="screen-thikr-view" class="screen">
       <div class="dhikr-filter-row" id="dhikr-filter-row" style="display:none;">
-        <button class="dhikr-chip" id="dhikr-fav-chip" aria-pressed="false">★ المفضلة</button>
+        <button class="dhikr-chip" id="dhikr-fav-chip" aria-pressed="false" aria-label="تصفية الأذكار المفضلة">★ المفضلة</button>
+        <button class="dhikr-auto-fab" id="dhikr-auto-fab" aria-label="تقدم تلقائي" aria-pressed="false" style="display:none;">
+          <span class="fab-icon" aria-hidden="true">⏭</span>
+          <span class="fab-label">تقدم تلقائي</span>
+        </button>
       </div>
       <div id="thikr-list-container"></div>
     </div>
@@ -2020,9 +2102,9 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
         <div class="tasbih-lap-dot"></div>
       </div>
       <div id="tasbih-circle-wrap">
-        <button id="tasbih-tap-btn"><span id="tasbih-count-num">٠</span><div style="font-size:calc(var(--font-size) * 0.5); color:var(--text-dim); transition: color 0.4s;">اضغط للعدّ</div></button>
+        <button id="tasbih-tap-btn" aria-label="اضغط للتسبيح"><span id="tasbih-count-num">٠</span><div id="tasbih-goal-meta" style="font-size:calc(var(--font-size) * 0.44); color:var(--color-on-accent-soft); font-weight:700; margin-top:2px;">من ٣٣ • الشوط ١ / ٣</div><div style="font-size:calc(var(--font-size) * 0.46); color:var(--color-on-accent-soft); opacity:0.85; margin-top:2px; transition: color 0.4s;">اضغط للعدّ</div></button>
       </div>
-      <button class="btn-scale" id="tasbih-reset-btn" style="width:auto; padding:10px 30px; margin-top:40px; background:var(--surface-2); color:var(--text);">تصفير العداد</button>
+      <button class="btn-scale" id="tasbih-reset-btn" aria-label="تصفير عداد السبحة" style="width:auto; padding:10px 30px; margin-top:40px; background:var(--surface-2); color:var(--text);">تصفير العداد</button>
     </div>
 
     <div id="screen-bookmarks" class="screen"><div id="bookmarks-container"></div></div>
@@ -2294,6 +2376,7 @@ function updateHeaderSubtitle() {
 
 const SURAHS_DATA = Array.from({length: 114}, (_, i) => ({number: i+1, name: `سورة ${i+1}`, numberOfAyahs: 10}));
 const toArabicNum = n => n.toString().replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+window.toArabicNum = toArabicNum;
 
 /* ==================== تطبيع النصوص العربية وإزالة البسملة ==================== */
 /* المشكلة: واجهة الـ API تُرجع تشكيل البسملة بترتيب غير قياسي (الشدّة U+0651 قبل
@@ -3305,6 +3388,11 @@ async function renderMushafPage(pageNum, opts = {}) {
   container.classList.add('page-entering');
   // مواءمة حجم الخط وارتفاع السطر تلقائياً لتسع الشاشة الصفحة كاملة بدون أي سكرول
   fitMushafPageToViewport();
+  requestAnimationFrame(() => fitMushafPageToViewport());
+  setTimeout(() => fitMushafPageToViewport(), 160);
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => fitMushafPageToViewport()).catch(() => {});
+  }
   // العمود الثاني في العرض المزدوج الأفقي (مرحلة ٦)
   renderMushafPageNext(n);
   // التظليل الموضوعي للآيات حسب الإعداد (مرحلة ٦)
@@ -3399,16 +3487,18 @@ function fitMushafPageToViewport() {
     bodyEl.style.justifyContent = '';
     return;
   }
-  const pageH = page.clientHeight || vp.clientHeight || window.innerHeight;
-  const pageW = page.clientWidth || vp.clientWidth || window.innerWidth;
+  // استخدام offsetHeight/offsetWidth بدلاً من getBoundingClientRect لأن الدوران ثلاثي الأبعاد (rotateY في PageFlipEngine)
+  // يضخّم getBoundingClientRect().height بنسبة ~1.38x فيؤدي لتصغير الخط وترك فراغ سفلي!
+  const pageH = page.offsetHeight || vp.clientHeight || window.innerHeight;
+  const pageW = page.offsetWidth || vp.clientWidth || window.innerWidth;
   if (pageH < 180) return;
 
   const cs = getComputedStyle(page);
-  const padTop = parseFloat(cs.paddingTop) || 30;
-  const padBottom = parseFloat(cs.paddingBottom) || 6;
+  const padTop = parseFloat(cs.paddingTop) || 28;
+  const padBottom = parseFloat(cs.paddingBottom) || 4;
   const footH = footEl ? (footEl.offsetHeight + (parseFloat(getComputedStyle(footEl).marginTop) || 0)) : 16;
-  const targetH = Math.max(120, pageH - padTop - padBottom - footH - 10);
-  const textW = Math.max(200, pageW - (parseFloat(cs.paddingLeft) || 12) - (parseFloat(cs.paddingRight) || 12) - 4);
+  const targetH = Math.max(120, pageH - padTop - padBottom - footH - 8);
+  const textW = Math.max(200, pageW - (parseFloat(cs.paddingLeft) || 8) - (parseFloat(cs.paddingRight) || 8) - 2);
 
   // لقياس الارتفاع الطبيعي الفعلي للنص بدون تمدد أو انكماش flex:
   const prevFlex = bodyEl.style.flex;
@@ -3416,21 +3506,23 @@ function fitMushafPageToViewport() {
   bodyEl.style.flex = '0 0 auto';
   bodyEl.style.height = 'auto';
 
-  const measureH = () => bodyEl.getBoundingClientRect().height;
+  const measureH = () => bodyEl.offsetHeight;
   const curPageNum = (window.state && window.state.mushafPage) || 1;
-  const textLen = (bodyEl.textContent || '').trim().length;
+  const isLandscape = pageW > pageH * 1.15;
 
   // الصفحتان الاستفتاحيتان (الفاتحة ١ وأول البقرة ٢) قصيرتان بطبيعتهما (٧-٨ أسطر)
-  if (curPageNum <= 2 || textLen < 240) {
-    let fSize = Math.min(28, Math.max(20, Math.round(textW * 0.068 * 10) / 10));
-    let lh = 2.05;
+  if (curPageNum <= 2) {
+    let fSize = isLandscape
+      ? Math.min(24, Math.max(14, Math.round(pageH * 0.062 * 10) / 10))
+      : Math.min(31, Math.max(21, Math.round(textW * 0.075 * 10) / 10));
+    let lh = isLandscape ? 1.65 : 2.12;
     page.style.setProperty('--mushaf-fit-size', fSize + 'px');
     page.style.setProperty('--mushaf-fit-lh', String(lh));
     let g = 0;
-    while (measureH() > targetH && g < 20) {
+    while (measureH() > targetH && g < 28) {
       g++;
-      if (fSize > 16) fSize = +(fSize - 0.5).toFixed(1);
-      else if (lh > 1.55) lh = +(lh - 0.05).toFixed(2);
+      if (fSize > 13) fSize = +(fSize - 0.5).toFixed(1);
+      else if (lh > 1.32) lh = +(lh - 0.05).toFixed(2);
       page.style.setProperty('--mushaf-fit-size', fSize + 'px');
       page.style.setProperty('--mushaf-fit-lh', String(lh));
     }
@@ -3442,13 +3534,15 @@ function fitMushafPageToViewport() {
 
   // باقي صفحات المصحف (٣..٦٠٤):
   // المرحلة ١: إيجاد أكبر حجم خط واضح يملأ عرض الصفحة ويسع ارتفاع الشاشة بدون قصّ
-  const baseLh = 1.66;
-  const maxF = Math.min(30, Math.max(18, Math.round(textW * 0.074 * 10) / 10));
-  const minF = 14.5;
+  const baseLh = isLandscape ? 1.38 : 1.56;
+  const maxF = isLandscape
+    ? Math.min(25, Math.max(13, Math.round(pageH * 0.062 * 10) / 10))
+    : Math.min(34, Math.max(20, Math.round(textW * 0.082 * 10) / 10));
+  const minF = isLandscape ? 11.0 : 15.0;
   let bestF = minF;
   page.style.setProperty('--mushaf-fit-lh', String(baseLh));
 
-  for (let f = maxF; f >= minF; f = +(f - 0.4).toFixed(1)) {
+  for (let f = maxF; f >= minF; f = +(f - 0.3).toFixed(1)) {
     page.style.setProperty('--mushaf-fit-size', f + 'px');
     if (measureH() <= targetH) {
       bestF = f;
@@ -3459,17 +3553,17 @@ function fitMushafPageToViewport() {
 
   let lh = baseLh;
   let shrinkGuard = 0;
-  while (measureH() > targetH && lh > 1.42 && shrinkGuard < 16) {
+  while (measureH() > targetH && lh > 1.26 && shrinkGuard < 20) {
     shrinkGuard++;
     lh = +(lh - 0.02).toFixed(2);
     page.style.setProperty('--mushaf-fit-lh', String(lh));
   }
 
-  // المرحلة ٢: توزيع السطور رأسياً بدقة لملء الشاشة بالكامل حتى أسفل الصفحة (بدون أي فراغ سفلي)
+  // المرحلة ٢: توزيع السطور رأسياً بدقة لملء الشاشة بالكامل حتى رقم الصفحة بالأسفل (بدون أي فراغ سفلي)
   const curH = measureH();
-  if (curH < targetH - 3) {
-    let lo = lh, hi = 2.68, bestLh = lh;
-    for (let step = 0; step < 10; step++) {
+  if (curH < targetH - 2) {
+    let lo = lh, hi = 3.50, bestLh = lh;
+    for (let step = 0; step < 12; step++) {
       const mid = +((lo + hi) / 2).toFixed(3);
       page.style.setProperty('--mushaf-fit-lh', String(mid));
       if (measureH() <= targetH) {
@@ -3487,6 +3581,13 @@ function fitMushafPageToViewport() {
   bodyEl.style.justifyContent = 'space-between';
 }
 window.fitMushafPageToViewport = fitMushafPageToViewport;
+if (document.fonts && document.fonts.addEventListener) {
+  document.fonts.addEventListener('loadingdone', () => {
+    if (window.state && (window.state.currentScreen === 'surah-view' || window.state.currentScreen === 'khatmah-read')) {
+      fitMushafPageToViewport();
+    }
+  });
+}
 
 // بناء وتحديث شريط مصغّرات الصفحات السفلي (Page Scrubber Carousel)
 function syncMushafPageStrip(n, surahName) {
@@ -4681,6 +4782,8 @@ function updateTasbihUI() {
   tapBtn.classList.toggle('breathe', tasbihCount === 0 && !prefersReducedMotion);
   // الحلقة تمثل تقدماً نسبياً نحو الهدف (خرزات أقل من الهدف)، فيُملأ كل خرزة بنسبة تقدمه
   const goal = tasbihTarget();
+  const goalMeta = document.getElementById('tasbih-goal-meta');
+  if (goalMeta) goalMeta.textContent = `من ${toArabicNum(goal)} • الشوط ${toArabicNum(Math.min(tasbihTotalLaps(), tasbihLap + 1))} / ${toArabicNum(tasbihTotalLaps())}`;
   const beadsList = document.querySelectorAll('.tasbih-bead');
   const filledBeads = goal > beadsList.length ? Math.floor((tasbihCount / goal) * beadsList.length) : tasbihCount;
   beadsList.forEach((b, i) => b.classList.toggle('filled', i < filledBeads));
@@ -5277,8 +5380,11 @@ document.addEventListener('DOMContentLoaded', () => {
 // Register Service Worker with enhanced error handling
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js', { scope: './' })
-      .then(reg => console.log('✅ SW registered:', reg.scope))
+    navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' })
+      .then(reg => {
+        console.log('✅ SW registered:', reg.scope);
+        try { reg.update(); } catch (e) {}
+      })
       .catch(err => console.error('❌ SW registration failed:', err));
   });
 }

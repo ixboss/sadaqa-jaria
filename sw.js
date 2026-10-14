@@ -2,9 +2,9 @@
 // v47: تخزين خطوط المصحف (fonts.googleapis.com / fonts.gstatic.com) للعمل
 //      أوفلاين بالكامل، التحقق من سلامة استجابات الـ API قبل تخزينها،
 //      وتحديث الكاش لدعم التفسير الميسر وبطاقات المشاركة وتكرار الآيات.
-const CACHE_NAME = 'quran-app-v48';
-const API_CACHE = 'quran-api-v48';
-const STATIC_CACHE = 'static-v48';
+const CACHE_NAME = 'quran-app-v49';
+const API_CACHE = 'quran-api-v49';
+const STATIC_CACHE = 'static-v49';
 
 const PRECACHE_URLS = [
   './',
@@ -28,7 +28,11 @@ const PRECACHE_URLS = [
   './icons/icon-512.png',
   './icons/apple-touch-icon-180.png',
   './icons/maskable-192.png',
-  './icons/maskable-512.png'
+  './icons/maskable-512.png',
+  './assets/fonts/NotoSansArabic-Regular.woff2',
+  './assets/fonts/NotoSansArabic-Bold.woff2',
+  './assets/fonts/NotoNaskhArabic-Regular.woff2',
+  './assets/fonts/NotoNaskhArabic-Bold.woff2'
 ];
 
 const API_ORIGIN = 'api.alquran.cloud';
