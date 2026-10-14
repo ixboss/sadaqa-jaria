@@ -2,14 +2,14 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="description" content="تطبيق إسلامي شامل: اقرأ القرآن الكريم، أذكار يومية، دعاء، سبحة رقمية، وختمة قرآنية. تطبيق ويب متقدم للعبادة والتعليم الإسلامي.">
 <meta name="keywords" content="قرآن, إسلام, أذكار, دعاء, سبحة, ختمة, تطبيق إسلامي, عبادة">
 <meta name="author" content="ixboss">
 <meta name="theme-color" content="#0a1f28" id="meta-theme-color">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="إسلامي">
 
 <!-- Open Graph Meta Tags -->
@@ -163,7 +163,7 @@
   --accent-2: #46c8d6;      /* فيروزي - لون ثانوي */
   --accent-dim: rgba(62, 207, 158, 0.14);
   --accent-grad: linear-gradient(135deg, #16906b, #0f6d7a);
-  --header-grad: linear-gradient(135deg, #15604c, #0e4a57);
+  --header-grad: linear-gradient(180deg, rgba(10, 31, 40, 0.96) 0%, rgba(16, 51, 63, 0.92) 100%);
   --text: #f3f0e7;          /* أبيض دافئ */
   --text-dim: #9fb8b6;      /* رمادي ناعم مائل للأخضر */
   --success: #4fd1a5;
@@ -172,52 +172,40 @@
   --color-success: var(--success);
   --color-on-accent: #f4f1e8;   /* نص فوق الأزرار الملوّنة */
   --color-on-accent-soft: rgba(244, 241, 232, 0.85);
-  --radius: 12px;
+  --radius: 14px;
+  --app-h: 100dvh;
   /* ===== نظام الخطوط: حجم أساسي واحد × نسبة تكبير واحدة ===== */
   --font-base: 26px;                        /* الحجم المرجعي (متوسط) */
   --font-scale: 1;                          /* نسبة التكبير: ٠.٨ / ١ / ١.٣ / ١.٥ / ٢ */
   --font-size: calc(var(--font-base) * var(--font-scale));  /* الحجم الفعلي المشتق */
   --line-height: 2.3;
   /* ===== نظام المصحف: حجم مستقل عن حجم الواجهة ===== */
-  /* حتى لو صغّر المستخدم الواجهة، يبقى نص المصحف مريحاً للقراءة */
   --mushaf-base: 22px;                      /* حجم نص المصحف المتناسق مع صفحة الـ15 سطراً */
   --mushaf-scale: 1;                        /* نسبة تكبير مستقلة */
   --mushaf-size: calc(var(--mushaf-base) * var(--mushaf-scale));
   --mushaf-lh: 1.78;                        /* ارتفاع سطر متوازن يمنع الفراغات والاسكرول */
-  --header-h: 70px;
+  --header-h: 60px;
 
-  /* ===== هندسة شريط التنقل السفلي ===== */
-  /* ارتفاع الشريط */
-  --nav-h: 76px;
-  /* الفراغ البصري بين الشريط وأسفل الشاشة. الشريط يلامس منطقة الأمان
-     (safe area) — منطقة الأمان نفسها هي كل الهامش المطلوب (شريط iOS
-     السفلي، أزرار أندرويد) فلا نترك فوقها فراغاً إضافياً. القيمة 0.
-     تُكتب بالـ JS عبر syncNavSafeArea() كنمط مضمَّن على <html> — لا تضع
-     قيمة لها في أي media query لأن النمط المضمَّن يتغلب عليها. */
-  --nav-gap: 0px;
-  /* إزاحة إضافية لأسفل الشريط (تصميمية لا وظيفية).
-     0 = الشريط ملتصق بمنطقة الأمان. لزيادة النزول فوقها: كبّر هذه القيمة
-     فقط (هي و--nav-gap معاً).
-     تحذير: لا تستخدم قيمة سالبة — تُخرج الشريط خارج الشاشة. */
+  /* ===== هندسة شريط التنقل السفلي (Apple iOS Liquid Glass Capsule) ===== */
+  --nav-h: 56px;
+  --nav-gap: 6px;
   --nav-drop: 0px;
-  /* إجمالي المسافة من أسفل الشاشة = فراغ بصري + منطقة الأمان + إزاحة اختيارية */
-  --nav-bottom: calc(var(--nav-gap) + env(safe-area-inset-bottom, 0px) + var(--nav-drop));
-  /* المسافة التي يحتاجها أي عنصر ليجلس فوق الشريط بارتياح.
-     = ارتفاع الشريط + الفراغ أسفله + هامش مريح فوقه. */
-  --nav-clearance: calc(var(--nav-h) + var(--nav-gap) + var(--nav-drop) + 20px);
-  /* نفس المسافة + منطقة الأمان: للعناصر الثابتة فوق الشريط */
-  --nav-clearance-safe: calc(max(var(--nav-h), var(--nav-h-actual, 0px)) + var(--nav-gap) + var(--nav-drop) + 20px + env(safe-area-inset-bottom, 0px));
+  /* يتموضع مباشرة فوق شريط الخروج (Home Indicator / Gesture Bar) بدون فراغ ضائع */
+  --nav-bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) * 0.42 + var(--nav-gap)));
+  --nav-clearance: calc(var(--nav-h) + var(--nav-bottom) + 14px);
+  --nav-clearance-safe: calc(max(var(--nav-h), var(--nav-h-actual, 0px)) + var(--nav-bottom) + 14px);
 
-/* Motion & animation tokens */
-  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  /* Calm, Luxurious Premium Motion Tokens */
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-quart: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-spring-soft: cubic-bezier(0.5, 1.5, 0.4, 1);
-  --ease-spring-snap: cubic-bezier(0.5, 1.7, 0.6, 1);
-  --motion-duration-fast: 180ms;
-  --motion-duration: 260ms;
-  --bounce-step: 12ms;
+  --ease-in-out-quart: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring-soft: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring-snap: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-duration-fast: 160ms;
+  --motion-duration: 280ms;
+  --bounce-step: 8ms;
 }
 
 /* Respect users who prefer reduced motion */
@@ -227,29 +215,30 @@
 [style*="--reveal-delay"] { transition-delay: 0ms !important; }
 }
 
-/* ==================== Keyframe Library ==================== */
-@keyframes ripple-anim { to { transform: scale(3.5); opacity: 0; } }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
-@keyframes slideInLeft { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; } }
-@keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; } }
+/* ==================== Calm & Premium Keyframe Library ==================== */
+@keyframes ripple-anim { to { transform: scale(2.8); opacity: 0; } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideInLeft { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 @keyframes pulse-green {
-  0% { box-shadow: 0 0 0 0 rgba(76, 175, 125, 0.4); }
-  70% { box-shadow: 0 0 0 15px rgba(76, 175, 125, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(76, 175, 125, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(62, 207, 158, 0.28); }
+  70% { box-shadow: 0 0 0 10px rgba(62, 207, 158, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(62, 207, 158, 0); }
 }
 
-/* New: depth-in adds a subtle scale for layered feel */
-@keyframes depthIn { from { opacity: 0; transform: scale(0.97) translateY(14px); filter: blur(4px); } to { opacity: 1; } }
+/* Smooth layered entrance without GPU-heavy blur */
+@keyframes depthIn { from { opacity: 0; transform: scale(0.992) translateY(6px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
-/* New: count pop for number feedback */
-@keyframes countPop { 0% { transform: scale(1); } 35% { transform: scale(1.22); } 70% { transform: scale(0.95); } 100% { transform: scale(1); } }
+/* Refined, gentle pulse for counter & state updates */
+@keyframes countPop { 0% { transform: scale(1); } 45% { transform: scale(1.045); } 100% { transform: scale(1); } }
+@keyframes titleSlideIn { from { opacity: 0.35; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 
-/* New: surge ring (success / completion) */
-@keyframes surgeRing { 0% { transform: scale(0.6); opacity: 0.7; } 100% { transform: scale(2.4); opacity: 0; } }
+/* Subtle surge ring */
+@keyframes surgeRing { 0% { transform: scale(0.85); opacity: 0.45; } 100% { transform: scale(1.85); opacity: 0; } }
 
-/* New: float up + fade for transient labels (e.g. +1 badge) */
-@keyframes floatUp { 0% { opacity: 0; transform: translate(-50%, 0) scale(0.6); } 20% { opacity: 1; transform: translate(-50%, -10px) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -70px) scale(0.9); } }
+/* Gentle float up for transient labels */
+@keyframes floatUp { 0% { opacity: 0; transform: translate(-50%, 0) scale(0.88); } 25% { opacity: 0.95; transform: translate(-50%, -8px) scale(1); } 100% { opacity: 0; transform: translate(-50%, -44px) scale(0.96); } }
 
 /* New: shimmer wave for skeleton loading */
 @keyframes shimmerWave { 0% { background-position: -120% 0; } 100% { background-position: 220% 0; } }
@@ -283,7 +272,7 @@
 .bookmark-btn.pop { animation: countPop 480ms var(--ease-spring-snap); }
 
 /* Ripple effect (lightweight) */
-.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple-anim 500ms linear; background-color: rgba(255,255,255,0.22); pointer-events: none; z-index: 0; }
+.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple-anim 520ms var(--ease-premium); background-color: rgba(255,255,255,0.09); pointer-events: none; z-index: 0; }
 .ripple.dark { background-color: rgba(255,255,255,0.25); }
 
 /* Floating counter badge (+1 / +3) */
@@ -309,7 +298,7 @@
 [data-magnetic] { transition: transform 180ms var(--ease-out-quart); }
 
 /* Stagger helper for lists */
-[data-stagger] > * { opacity: 0; transform: translateY(12px) scale(0.985); }
+[data-stagger] > * { opacity: 0; transform: translateY(6px); }
 [data-stagger].mounted > * { opacity: 1; transform: none; transition: opacity 420ms var(--ease-out-quart) var(--stagger-delay), transform 480ms var(--ease-out-quart) var(--stagger-delay), filter 420ms var(--ease-out-quart) var(--stagger-delay); filter: blur(0); }
 [data-stagger].mounted > *:nth-child(1)  { --stagger-delay: 0ms; }
 [data-stagger].mounted > *:nth-child(2)  { --stagger-delay: 50ms; }
@@ -346,7 +335,7 @@ html.theme-transitioning, html.theme-transitioning *:not(.nav-indicator):not(#re
 #header.theme-flash { animation: themeFlash 600ms var(--ease-out-quart); }
 
 /* Modal spring entry */
-@keyframes modalSpringIn { 0% { opacity: 0; transform: translateY(20px) scale(0.85); } 60% { opacity: 1; transform: translateY(-4px) scale(1.02); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes modalSpringIn { 0% { opacity: 0; transform: translateY(10px) scale(0.97); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
 #custom-dialog, #occasion-modal { animation: modalSpringIn 480ms var(--ease-spring-snap) both; transform-origin: center; }
 
 /* Backdrop blur ramp for modals */
@@ -371,10 +360,10 @@ html.theme-transitioning, html.theme-transitioning *:not(.nav-indicator):not(#re
 
 /* Header title pop on screen change */
 #header-title { display: inline-block; }
-#header-title.title-in { animation: countPop 380ms var(--ease-spring-snap); }
+#header-title.title-in { animation: titleSlideIn 260ms var(--ease-premium); }
 
 /* Back button spring entry */
-@keyframes btnSpringIn { 0% { opacity: 0; transform: scale(0.4) rotate(-12deg); } 60% { opacity: 1; transform: scale(1.12) rotate(4deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes btnSpringIn { 0% { opacity: 0; transform: translateX(6px) scale(0.92); } 100% { opacity: 1; transform: translateX(0) scale(1); } }
 .btn-spring-in { animation: btnSpringIn 420ms var(--ease-spring-snap) !important; }
 
 /* Bead flash on tap */
@@ -383,9 +372,7 @@ html.theme-transitioning, html.theme-transitioning *:not(.nav-indicator):not(#re
 /* Lap dot pop on lap complete */
 .tasbih-lap-dot.pop { animation: countPop 480ms var(--ease-spring-snap); }
 
-/* Resume FAB visibility */
-#resume-fab { opacity: 0; transform: translateY(20px) scale(0.9); pointer-events: none; transition: opacity 320ms var(--ease-out-quart), transform 380ms var(--ease-spring-snap), background 320ms var(--ease-out-quart); }
-#resume-fab.visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+/* Resume inline card handled below */
 
 /* Pop utility */
 .pop { animation: countPop 480ms var(--ease-spring-snap); }
@@ -429,7 +416,7 @@ body.theme-light {
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; height: 100dvh; background: var(--bg); color: var(--text); font-family: var(--font-ui); direction: rtl; overflow: hidden; transition: background 0.4s, color 0.4s; user-select: none; -webkit-user-select: none; -webkit-font-smoothing: antialiased; }
+html, body { width: 100%; height: 100%; height: var(--app-h, 100dvh); max-height: var(--app-h, 100dvh); background: var(--bg); color: var(--text); font-family: var(--font-ui); direction: rtl; overflow: hidden; overscroll-behavior: none; transition: background 0.4s, color 0.4s; user-select: none; -webkit-user-select: none; -webkit-font-smoothing: antialiased; }
 .dua-text, .occasion-sunnah-item, #custom-dialog-text, .tafsir-sheet-body, .tafsir-sheet-ayah { user-select: text; -webkit-user-select: text; }
 .mushaf-page, .mushaf-block, .ayah, .w { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 
@@ -449,10 +436,11 @@ body.theme-light::before { opacity: 0.04; }
 ::-webkit-scrollbar-thumb { background: rgba(62, 207, 158, 0.3); border-radius: 10px; }
 body.theme-light ::-webkit-scrollbar-thumb { background: rgba(31, 122, 90, 0.25); }
 
-#app { position: fixed; inset: 0; width: 100%; height: 100%; height: 100dvh; display: flex; flex-direction: column; z-index: 1; }
+#app { position: fixed; inset: 0; width: 100%; height: 100%; height: var(--app-h, 100dvh); max-height: var(--app-h, 100dvh); display: flex; flex-direction: column; z-index: 1; }
 
-/* ==================== الشريط العلوي ==================== */
-#header { position: relative; min-height: var(--header-h); height: auto; background: var(--header-grad); display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: calc(env(safe-area-inset-top, 0px) + 6px) 10px 6px; flex-shrink: 0; z-index: 100; box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.10); transition: background 0.4s, box-shadow 0.4s; }
+/* ==================== الشريط العلوي (مندمج بسلاسة مع شريط الحالة في APK و IPA) ==================== */
+#header { position: relative; min-height: var(--header-h); height: auto; background: var(--header-grad); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: calc(env(safe-area-inset-top, 0px) + 6px) 12px 8px; flex-shrink: 0; z-index: 100; border-bottom: 1px solid rgba(62, 207, 158, 0.12); box-shadow: 0 4px 20px rgba(0,0,0,0.18); transition: background 0.4s, box-shadow 0.4s; }
+#header::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 120px; background: var(--bg); pointer-events: none; }
 body.theme-light #header { box-shadow: 0 2px 15px rgba(20, 51, 58, 0.08), inset 0 1px 0 rgba(255,255,255,0.9); border-bottom: 1px solid var(--border); }
 
 #reading-progress-container { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: transparent; z-index: 99; display: none; pointer-events: none; }
@@ -490,132 +478,120 @@ body.theme-light .font-step-btn { background: var(--surface-2); }
 
 #content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-bottom: calc(var(--nav-clearance-safe) + 36px); scroll-behavior: smooth; touch-action: pan-y; }
 
-/* ==================== الشريط السفلي الزجاجي (Liquid Glass) ==================== */
+/* ==================== الشريط السفلي الزجاجي (Apple iOS Liquid Glass Capsule) ==================== */
 #nav {
-  /* الشريط يلتصق بالحافة السفلية: فراغ بصري صغير (--nav-gap) فوق منطقة الأمان.
-     في الوضع المثبّت على الشاشة الرئيسية تكون env(safe-area-inset-bottom) هي
-     شريط iOS السفلي (~34px)، فيجلس الشريط فوقه مباشرة بدل أن يطفو في الفراغ. */
   position: fixed; bottom: var(--nav-bottom); left: 50%; transform: translateX(-50%);
-  width: calc(100% - 32px); max-width: 420px; height: auto; min-height: var(--nav-h);
-  /* طبقات زجاجية: تدرج علوي لامع + قاعدة معتمة.
-     القاعدة كانت شبه شفافة (55%) فكان نص السور يظهر من خلف الشريط
-     ويبدو مقصوصاً. الآن 96% — يحافظ على إحساس الزجاج (بفضل التدرج
-     العلوي و backdrop-filter) لكن يمنع قراءة المحتوى من خلفه. */
+  width: min(calc(100% - 44px), 336px); height: var(--nav-h); min-height: var(--nav-h);
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02) 55%, rgba(255,255,255,0.05)),
-    rgba(12, 42, 52, 0.96);
-  backdrop-filter: blur(32px) saturate(200%); -webkit-backdrop-filter: blur(32px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 35px;
-  display: flex; align-items: center; padding: 0 6px; z-index: 100;
-  /* عمق: ظل خارجي ناعم + ضوء داخلي علوي + ظل داخلي سفلي */
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.03) 48%, rgba(255, 255, 255, 0.06) 100%),
+    rgba(11, 35, 44, 0.78);
+  backdrop-filter: blur(40px) saturate(210%); -webkit-backdrop-filter: blur(40px) saturate(210%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  display: flex; align-items: center; padding: 4px; z-index: 100;
   box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.45),
-    0 2px 8px rgba(0, 0, 0, 0.25),
-    inset 0 1px 1px rgba(255, 255, 255, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.25);
-  transition: bottom 380ms var(--ease-spring), transform 380ms var(--ease-spring), opacity 0.4s, background 0.4s, border-color 0.4s, box-shadow 0.4s;
+    0 14px 34px rgba(0, 0, 0, 0.42),
+    0 2px 8px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0.5px rgba(255, 255, 255, 0.08);
+  transition: bottom 340ms var(--ease-premium), transform 340ms var(--ease-premium), opacity 300ms var(--ease-premium), background 340ms, border-color 340ms;
   touch-action: none;
+  overflow: visible;
 }
 
 body.theme-light #nav {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.78) 55%, rgba(255,255,255,0.88)),
-    rgba(255, 253, 247, 0.97);
-  border: 1px solid rgba(31, 122, 90, 0.18);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.68) 52%, rgba(255, 255, 255, 0.82) 100%),
+    rgba(248, 244, 235, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.75);
   box-shadow:
-    0 18px 40px rgba(20, 51, 58, 0.14),
-    0 2px 8px rgba(20, 51, 58, 0.08),
-    inset 0 1px 1px rgba(255, 255, 255, 1),
-    inset 0 -1px 2px rgba(20, 51, 58, 0.08);
+    0 12px 30px rgba(20, 51, 58, 0.14),
+    0 2px 6px rgba(20, 51, 58, 0.06),
+    inset 0 1px 0.5px rgba(255, 255, 255, 1),
+    inset 0 -1px 1px rgba(31, 122, 90, 0.10);
 }
-/* عند إخفاء شريط التنقل أثناء التمرير: ينزلق للأسفل بسلاسة (bottom) بدل التحول المفاجئ.
-   يُحسب من --nav-bottom نفسه حتى تنزلق المسافة الصحيحة تماماً بعد إضافة --nav-drop. */
-#nav.nav-hidden { bottom: calc(-1 * (var(--nav-h) + var(--nav-gap) + var(--nav-drop) + 20px) + env(safe-area-inset-bottom, 0px)); opacity: 0; pointer-events: none; }
+#nav.nav-hidden { bottom: calc(-1 * (var(--nav-h) + 32px)); opacity: 0; pointer-events: none; transform: translateX(-50%) scale(0.95); }
 
-/* ===== المؤشر الزجاجي السائل (Liquid Glass indicator) ===== */
-/* طبقة تعتيم خلف الشريط: تمنع ظهور نص المحتوى المقصوص من حول حواف
-   الشريط الدائرية، وهي المنطقة التي كان النص يظهر فيها بوضوح.
-   ملاحظة: الشريط ينشئ سياق تكديس خاصاً (z-index: 100)، لذا لا يمكن
-   استخدام z-index سالب هنا — الطبقة تُرسم فوق خلفية الشريط لكن تحت
-   العناصر التفاعلية، وهذا كافٍ لأن دورها تغطية المنطقة المحيطة. */
+/* طبقة تدرج ناعمة جداً أسفل الكبسولة الزجاجية */
 .nav-scrim {
   position: fixed; left: 0; right: 0; bottom: 0;
-  height: calc(var(--nav-bottom) + var(--nav-h) - 20px);
+  height: calc(var(--nav-bottom) + var(--nav-h) * 0.65);
   pointer-events: none; z-index: 90;
-  background: linear-gradient(180deg, transparent, var(--bg) 28%);
-  opacity: 0; transition: opacity 300ms var(--ease-out-quart);
+  background: linear-gradient(180deg, transparent 0%, rgba(10, 31, 40, 0.72) 100%);
+  opacity: 0; transition: opacity 300ms var(--ease-premium);
 }
-/* نظهر الطبقة فقط عندما يكون الشريط في مكانه الطبيعي (غير مخفي) */
+body.theme-light .nav-scrim {
+  background: linear-gradient(180deg, transparent 0%, rgba(245, 241, 232, 0.75) 100%);
+}
 body:has(#nav:not(.nav-hidden)) .nav-scrim { opacity: 1; }
-/* بديل للمتصفحات التي لا تدعم :has() */
 #nav:not(.nav-hidden) ~ .nav-scrim { opacity: 1; }
 
+/* عدسة الزجاج السائل المتحركة (Apple iOS Liquid Glass Lens) */
 .nav-indicator {
-  position: absolute; left: 0; top: 6px; bottom: 6px; width: 0;
-  /* طبقات: ضوء علوي داخلي + صبغة زمردي/فيروزية شفافة */
+  position: absolute; left: 0; top: 4px; bottom: 4px; width: 0;
   background:
-    linear-gradient(160deg, rgba(255,255,255,0.38), rgba(255,255,255,0.08) 46%, rgba(255,255,255,0.18)),
-    linear-gradient(135deg, rgba(62, 207, 158, 0.48), rgba(70, 200, 214, 0.24));
-  border: 1px solid rgba(255, 255, 255, 0.26);
-  border-radius: 26px; z-index: 1;
-  /* ضوء داخلي ناعم + حدود ناعمة + توهج زمردي خفيف */
+    radial-gradient(90% 80% at 50% 15%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.03) 65%, transparent 100%),
+    linear-gradient(165deg, rgba(62, 207, 158, 0.22) 0%, rgba(70, 200, 214, 0.10) 55%, rgba(62, 207, 158, 0.18) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px; z-index: 1;
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.20),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.18),
-    0 6px 16px rgba(0, 0, 0, 0.30),
-    0 0 24px rgba(62, 207, 158, 0.28);
-  backdrop-filter: blur(8px) saturate(150%); -webkit-backdrop-filter: blur(8px) saturate(150%);
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.48),
+    inset 0 -1px 1px rgba(62, 207, 158, 0.22),
+    0 4px 14px rgba(0, 0, 0, 0.24),
+    0 0 14px rgba(62, 207, 158, 0.14);
+  backdrop-filter: blur(14px) saturate(165%); -webkit-backdrop-filter: blur(14px) saturate(165%);
   pointer-events: none;
   transform-origin: center;
   will-change: transform, width;
   overflow: hidden;
-  /* لا تستخدم transition: الحركة يقودها محرك الـ spring في JS */
 }
-/* ضوء علوي ثابت داخل المؤشر (Inner light) */
 .nav-indicator::before {
-  content: ''; position: absolute; inset: 0 0 auto 0; height: 45%;
-  background: linear-gradient(180deg, rgba(255,255,255,0.30), transparent);
-  border-radius: 26px 26px 0 0; pointer-events: none;
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(80% 55% at 50% 0%, rgba(255, 255, 255, 0.12) 0%, transparent 100%);
+  border-radius: 999px; pointer-events: none;
 }
-/* وميض زجاجي يمر عند الاستقرار (Specular sheen) */
 .nav-indicator::after {
-  content: ''; position: absolute; top: 0; bottom: 0; width: 42%; left: -55%;
-  background: linear-gradient(100deg, transparent, rgba(255,255,255,0.38), transparent);
+  content: ''; position: absolute; top: 0; bottom: 0; width: 45%; left: -60%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.20), transparent);
   transform: skewX(-18deg); pointer-events: none;
 }
-.nav-indicator.sheen::after { animation: sheenSweep 900ms var(--ease-out-quart); }
-@keyframes sheenSweep { from { left: -55%; } to { left: 115%; } }
-/* الوميض مخصص فقط للاستقرار — يُضاف صنف .sheen بعد انتهاء الحركة في JS،
-   لذا لا يظهر أي وميض أثناء انزلاق المؤشر. هذا السطر يضمن ذلك حتى لو
-   أُضيف .sheen بالنقر السريع قبل استقرار المحرك. */
+.nav-indicator.sheen::after { animation: sheenSweep 680ms var(--ease-premium); }
+@keyframes sheenSweep { from { left: -60%; } to { left: 115%; } }
 .nav-indicator.is-moving::after { animation: none; opacity: 0; }
 
 body.theme-light .nav-indicator {
   background:
-    linear-gradient(160deg, rgba(255,255,255,0.9), rgba(255,255,255,0.5) 46%, rgba(255,255,255,0.7)),
-    linear-gradient(135deg, rgba(31, 122, 90, 0.24), rgba(18, 131, 127, 0.14));
-  border-color: rgba(31, 122, 90, 0.28);
+    radial-gradient(90% 80% at 50% 15%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.50) 65%, transparent 100%),
+    linear-gradient(165deg, rgba(31, 122, 90, 0.18) 0%, rgba(18, 131, 127, 0.10) 100%);
+  border-color: rgba(31, 122, 90, 0.22);
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.30),
-    inset 0 -1px 2px rgba(20, 51, 58, 0.10),
-    0 6px 16px rgba(20, 51, 58, 0.16),
-    0 0 22px rgba(31, 122, 90, 0.18);
+    inset 0 1px 0.5px rgba(255, 255, 255, 1),
+    inset 0 -1px 1px rgba(31, 122, 90, 0.12),
+    0 4px 12px rgba(20, 51, 58, 0.10),
+    0 0 12px rgba(31, 122, 90, 0.10);
 }
 
+/* أزرار التبويبات: فصل خط الإيموجي عن خط النص وإلغاء filter:drop-shadow لمنع قصّ أعلى الأيقونة نهائياً */
 .nav-tab {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: none; border: none;
-  color: var(--text-dim); font-size: calc(var(--font-size) * 0.5); cursor: pointer; transition: color 0.3s, background 0.3s; position: relative; z-index: 2; height: 100%; overflow: hidden; border-radius: 30px;
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; padding: 6px 4px 4px; background: none; border: none;
+  color: var(--text-dim); font-size: 11px; line-height: 1.15; cursor: pointer;
+  transition: color 260ms var(--ease-premium); position: relative; z-index: 2;
+  height: 100%; min-height: 48px; overflow: visible; border-radius: 999px;
 }
-.nav-tab.active { color: var(--accent); font-weight: bold; }
+.nav-tab.active { color: #ffffff; font-weight: 700; }
 body.theme-light .nav-tab.active { color: var(--accent); }
-.nav-tab .nav-icon { font-size: calc(var(--font-size) * 0.7); transition: transform 0.4s cubic-bezier(0.5, 1.5, 0.4, 1); pointer-events: none; }
-.nav-tab.active .nav-icon { transform: translateY(-3px) scale(1.15); filter: drop-shadow(0 4px 6px rgba(62, 207, 158, 0.5)); }
-body.theme-light .nav-tab.active .nav-icon { filter: drop-shadow(0 4px 6px rgba(31, 122, 90, 0.35)); }
-.nav-tab .nav-text { pointer-events: none; transition: color 0.3s; }
+.nav-tab .nav-icon {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-size: 17.5px; line-height: 1.45; height: 26px; min-height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 2px 4px 0; overflow: visible; pointer-events: none;
+  transition: transform 280ms var(--ease-premium);
+}
+.nav-tab.active .nav-icon {
+  transform: scale(1.05);
+}
+.nav-tab .nav-text { font-size: 11px; line-height: 1.15; letter-spacing: 0.01em; pointer-events: none; transition: color 260ms var(--ease-premium); }
 
 /* ================== انتقالات الشاشات الملساء ================== */
 .screen { display: none; width: 100%; max-width: 680px; margin: 0 auto; padding: 16px; }
@@ -1130,12 +1106,47 @@ body.theme-light #ayah-bar { background: rgba(255, 253, 247, 0.97); box-shadow: 
 /* تباعد مُحكَم: 8px أعلى + 12px أسفل = 20px بدلاً من 36px للتخفيف من الفراغ الكبير قبل نص الآيات */
 .bismillah { text-align: center; font-family: 'Amiri Quran', 'Amiri', serif; font-size: calc(var(--mushaf-size) * 1.08); color: var(--accent); padding: 8px 10px 12px 10px; line-height: var(--mushaf-lh); transition: font-size 0.3s; }
 
-/* display غير قابل للتحريك؛ نستخدم visibility + opacity للحصول على تلاشٍ ناعم */
-#resume-fab { position: fixed; bottom: calc(var(--nav-clearance-safe) + 12px); right: 20px; background: var(--accent-grad); color: var(--color-on-accent); border: none; border-radius: 30px; padding: 12px 20px; font-weight: bold; font-size: calc(var(--font-size) * 0.54); box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; z-index: 90; display: flex; align-items: center; gap: 8px; visibility: hidden; opacity: 0; transform: translateY(20px) scale(0.9); pointer-events: none; transition: visibility 0s linear 320ms, transform 380ms var(--ease-spring-snap), opacity 320ms var(--ease-out-quart), background 320ms var(--ease-out-quart), box-shadow 320ms var(--ease-out-quart); }
-body.theme-light #resume-fab { box-shadow: 0 4px 15px rgba(31, 122, 90, 0.3); }
-#resume-fab:active { transform: scale(0.95); }
-#resume-fab.visible { visibility: visible; opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; transition: visibility 0s linear 0s, transform 380ms var(--ease-spring-snap), opacity 320ms var(--ease-out-quart), background 320ms var(--ease-out-quart), box-shadow 320ms var(--ease-out-quart); animation: fabSpringIn 480ms var(--ease-spring-snap) backwards; }
-body.mushaf-zen #resume-fab, body.mushaf-hud #resume-fab { visibility: hidden; opacity: 0; pointer-events: none; transform: translateY(20px) scale(0.9); }
+/* شريط متابعة القراءة المدمج أعلى قائمة السور (بدلاً من الزر العائم المزعج بالأسفل) */
+#resume-fab {
+  position: static;
+  width: 100%;
+  min-height: 46px;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 12px 0;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(62, 207, 158, 0.14), rgba(70, 200, 214, 0.06));
+  border: 1px solid rgba(62, 207, 158, 0.28);
+  border-radius: var(--radius-md, 14px);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: clamp(13px, 3.4vw, 15px);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: transform 220ms var(--ease-premium), background 220ms var(--ease-premium), border-color 220ms var(--ease-premium);
+}
+body.theme-light #resume-fab {
+  background: linear-gradient(135deg, rgba(31, 122, 90, 0.10), rgba(18, 131, 127, 0.05));
+  border-color: rgba(31, 122, 90, 0.24);
+  box-shadow: 0 2px 10px rgba(20, 51, 58, 0.06);
+}
+#resume-fab::before { content: '📖'; font-size: 16px; flex-shrink: 0; }
+#resume-fab span { flex: 1; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#resume-fab::after {
+  content: 'متابعة ←';
+  font-size: 12px;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 4px 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+#resume-fab:active { transform: scale(0.985); }
+#resume-fab.visible { display: flex; visibility: visible; opacity: 1; transform: none; pointer-events: auto; animation: fadeIn 260ms var(--ease-premium) backwards; }
+body.mushaf-zen #resume-fab, body.mushaf-hud #resume-fab { display: none; }
 @keyframes fabSpringIn { 0% { opacity: 0; transform: translateY(24px) scale(0.85); } 60% { opacity: 1; transform: translateY(-3px) scale(1.04); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
 
 /* ================= الحلقات الدائرية وتأثير النبض ================= */
@@ -1916,14 +1927,12 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
   </header>
 
   <main id="content">
-    <button id="resume-fab" onclick="resumeBookmark()"><span>🔖 متابعة القراءة</span></button>
-
-
     <div id="screen-surah-list" class="screen active" role="tabpanel" aria-label="القرآن الكريم">
       <div class="search-wrapper">
         <input type="search" id="search-bar" placeholder="ابحث باسم السورة، نص الآية، أو رقمها (مثال 2:255)...">
         <button id="clear-search" aria-label="مسح البحث">&times;</button>
       </div>
+      <button id="resume-fab" onclick="resumeBookmark()" aria-label="متابعة القراءة من آخر موضع"><span>🔖 متابعة القراءة</span></button>
     <div id="daily-tadabbur-container"></div>
     <div id="surah-list-container"></div>
     <div id="ayah-search-container" style="display:none"></div>
@@ -2869,7 +2878,7 @@ function navigateBack() {
 const navIndicatorEl = document.getElementById('nav-indicator');
 const navSpring = {
   x: 0, w: 0, vx: 0, vw: 0, targetX: 0, targetW: 0,
-  k: 220, c: 22,            /* ثابت الصلابة + التخميد ← حركة زنبركية ناعمة مع تردد بسيط */
+  k: 285, c: 32,            /* تخميد حرج مطابق لعدسة Apple Liquid Glass بدون اهتزاز زائد */
   raf: null, running: false, lastT: 0, traveled: 0
 };
 
@@ -2905,10 +2914,10 @@ function navSpringStep(now) {
     s.w += s.vw * h;
   }
 
-  // التمدد/الانضغاط حسب السرعة ← إحساس "السائل الزجاجي"
+  // التمدد الانسيابي الهادئ لعدسة الزجاج السائل (Liquid Glass Morph)
   const speed = Math.abs(s.vx);
-  const stretchX = 1 + Math.min(speed / 900, 0.16);
-  const squashY = 1 - Math.min(speed / 1400, 0.10);
+  const stretchX = 1 + Math.min(speed / 1500, 0.065);
+  const squashY = 1 - Math.min(speed / 2400, 0.035);
   applyNavIndicator(s.x, s.w, stretchX, squashY);
 
   // شرط الاستقرار: وصول للهدف بسرعة شبه صفرية
@@ -3014,9 +3023,9 @@ function bindGesturesAndScroll() {
     const isAtBottom = sy >= maxScroll - 20;
     const nav = document.getElementById('nav'); const fab = document.getElementById('resume-fab');
     if (sy > lastScrollY && sy > 50 && !isAtBottom) {
-      nav.classList.add('nav-hidden'); if(fab) fab.style.transform = 'translateY(140px) scale(0.85)';
+      nav.classList.add('nav-hidden');
     } else {
-      nav.classList.remove('nav-hidden'); if(fab) fab.style.transform = '';
+      nav.classList.remove('nav-hidden');
     }
     lastScrollY = sy;
     if (['surah-view', 'khatmah-read'].includes(state.currentScreen)) { document.getElementById('reading-progress-bar').style.width = (maxScroll > 0 ? (sy / maxScroll) * 100 : 0) + '%'; }
@@ -5206,24 +5215,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // الكتابة هنا تذهب كـ inline style على <html>، وهي تتغلّب على قواعد
   // :root داخل @media — فأي قيمة هناك ستكون ميتة.
   function syncNavSafeArea() {
-    // الشريط يلامس منطقة الأمان تماماً (gap = 0): منطقة الأمان نفسها هي
-    // كل الهامش المطلوب فوق الحافة — شريط iOS السفلي على الأيفون، شريط
-    // الإيماءات/الأزرار على أندرويد، ولا شيء على شاشات بلا منطقة آمنة
-    // فيلتصق الشريط بالحافة السفلية مباشرة. env() يعطي القيمة الصحيحة
-    // لكل جهاز ومقاس واتجاه، فلا حاجة لقياسها أو لمنطق تكيّفي هنا.
-    // تبقى الدالة لتبقى مصدر القيمة واحداً ولتربطها بحدث resize.
-    document.documentElement.style.setProperty('--nav-gap', '0px');
-    // ارتفاع الشريط الفعلي مقياساً: عند تكبير الخط قد يزيد محتوى التبويب
-    // عن --nav-h الثابت، فيكبر الشريط (height: auto) — وهنا نسجّل القياس
-    // حتى تحسب مساحة التغطية (--nav-clearance-safe) الارتفاع الحقيقي لا الثابت.
+    // ضبط الارتفاع الفعلي للـ WebView في تطبيقات APK و IPA لتجنب أي خلل في الأبعاد (100dvh vs WebView frame)
+    const vvh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    if (vvh > 0) {
+      document.documentElement.style.setProperty('--app-h', Math.round(vvh) + 'px');
+    }
+    document.documentElement.style.setProperty('--nav-gap', '6px');
     const nav = document.getElementById('nav');
     if (nav) {
       const h = nav.getBoundingClientRect().height;
       if (h > 0) document.documentElement.style.setProperty('--nav-h-actual', h + 'px');
     }
-    // الرأس كذلك: عند تكبير الخط يزيد ارتفاعه عن --header-h الثابت (min-height
-    // + height: auto). نسجّل القياس لتفتح نافذة حجم الخط أسفل حافته الفعلية
-    // بدل ارتكازها على قيمة ثابتة قد تكون أصغر من الواقع.
     const header = document.getElementById('header');
     if (header) {
       const h = header.getBoundingClientRect().height;

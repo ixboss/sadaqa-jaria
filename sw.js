@@ -2,9 +2,9 @@
 // v47: تخزين خطوط المصحف (fonts.googleapis.com / fonts.gstatic.com) للعمل
 //      أوفلاين بالكامل، التحقق من سلامة استجابات الـ API قبل تخزينها،
 //      وتحديث الكاش لدعم التفسير الميسر وبطاقات المشاركة وتكرار الآيات.
-const CACHE_NAME = 'quran-app-v49';
-const API_CACHE = 'quran-api-v49';
-const STATIC_CACHE = 'static-v49';
+const CACHE_NAME = 'quran-app-v50';
+const API_CACHE = 'quran-api-v50';
+const STATIC_CACHE = 'static-v50';
 
 const PRECACHE_URLS = [
   './',
