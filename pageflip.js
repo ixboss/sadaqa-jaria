@@ -1,14 +1,15 @@
 /* ============================================================================
-   pageflip.js — محرّك قلب صفحات المصحف
+   pageflip.js — محرّك قلب صفحات المصحف وتفاعل اللمس (نقر مفرد = HUD / ضغط مطوّل = تحديد آية)
    ----------------------------------------------------------------------------
    يُربط على .mushaf-viewport. السحب الأفقي يرفع حافة الورقة (perspective +
    rotateY حول طرف الكتاب) مع ظلّ وظلال الحافة تتبع التقدّم. عند الإفلات:
    تجاوز ٣٠٪ من العرض (+ زخم العينات الأخيرة) يقلب الصفحة، وإلا ترتدّ نابضة.
 
    - prefers-reduced-motion: انزياح أفقي مسطّح بلا ثلاثي الأبعاد.
-   - النقر الخالص (بلا سحب) يبدّل الوضعين الهادئ/النّشط — إلا على الآية
-     أو الأزرار فتُترك لمعالجاتها الأصلية.
-   - يمكن تعطيله (خطوة ٦: اتجاه التمرير "رأسي" يعطّله).
+   - النقر الخالص (دوسة واحدة في أي مكان بالشاشة حتى فوق الآيات) يبدّل أشرطة
+     القارئ العائمة (Overlay HUD) كما في تطبيق Ayah — أو يغلق شريط الآية إن كان مفتوحاً.
+   - الضغط المطوّل (Hold / Long Press لمدة ٤٢٠ مللي ثانية) على أي آية يحدّدها
+     ويُظهر شريط خيارات القراءة والتفسير فوق الآية مباشرة.
    ============================================================================ */
 
 (function () {
@@ -16,8 +17,9 @@
 
   var FLIP_THRESHOLD = 0.30;     // ٣٠٪ من عرض اللوحة لقلب الصفحة
   var MOMENTUM_MS = 140;         // نافذة قياس الزخم (مللي ثانية)
-  var TAP_MAX_MOVE = 9;          // حركة أقل من هذا تعتبر نقرة
-  var TAP_MAX_MS = 500;
+  var TAP_MAX_MOVE = 9;          // حركة أقل من هذا تعتبر نقرة أو ضغطاً مطوّلاً
+  var TAP_MAX_MS = 420;          // أقصى مدة للنقرة الخالصة قبل تحوّلها لضغط مطوّل
+  var HOLD_MS = 420;             // مدة الضغط المطوّل (Hold) لتحديد الآية وإظهار خياراتها
   var LOCK_PX = 10;              // تثبيت الاتجاه بعد هذه المسافة
   var MAX_DRAG_DEG = 84;         // أقصى زاوية أثناء السحب (لا نُظهر ظهر الورقة)
   var FLIP_OUT_DEG = 96;         // زاوية إتمام القلب (بعداها تختفي الورقة)
@@ -28,11 +30,13 @@
   var enabled = true;
   var flipping = false;          // جاري قلب محرّك (نتجاهل أي سحب جديد)
 
-  // حالة السحب الحالية
+  // حالة السحب واللمس الحالية
   var active = false;            // هل تثبّت اتجاه أفقي ودخلنا وضع القلب
   var goNext = true;             // true = الصفحة التالية (السحب لليمين: تتبع الورقة إصبعك نحو المفصل الأيمن)
   var startX = 0, startY = 0, startT = 0;
-  var downTarget = null;         // عنصر النقطة الأولى (لتمييز النقر فوق الآية)
+  var downTarget = null;         // عنصر النقطة الأولى
+  var holdTimer = null;          // مؤقّت الضغط المطوّل لتحديد الآية
+  var holdFired = false;         // هل تمّ تفعيل تحديد الآية بالضغط المطوّل في هذه الإيماءة
   var selectionBlock = false;    // تحديد نص قائم من إيماءة فأرة سابقة: يمنع السحب فقط
   var width = 1;
   var samples = [];              // [{x, t}]
@@ -50,16 +54,16 @@
   }
 
   // عناصر التحكّم الحقيقية: نقراتها يجب أن تعمل (لا تُحوَّل إلى قلب/تبديل وضع).
-  // ملاحظة: السحب قد يبدأ فوق نص الآية نفسها — كما في التطبيقات الحقيقية —
-  // وتمييز "نقر أم سحب" يُفصل بين الاختيار والقلب (انظر onUp).
   function isControl(target) {
     if (!target || target.closest === undefined) return true; // عقدة غير عنصرية: لا نلمسها
-    return !!target.closest('button, a, input, select, textarea, label, .mushaf-nav, .mushaf-topbar, [data-no-flip]');
+    return !!target.closest('button, a, input, select, textarea, label, .mushaf-nav, .mushaf-topbar, .mushaf-bottom-hud, .mushaf-audio-pill, #ayah-bar, [data-no-flip]');
   }
-  // النقر فوق آية يتركه لمعالج الاختيار الأصلي (لا يبدّل الوضع)
-  function isAyahArea(target) {
-    if (!target || target.closest === undefined) return false;
-    return !!target.closest('.ayah, .w');
+
+  function clearHoldTimer() {
+    if (holdTimer) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
   }
 
   function pageEl() {
@@ -191,31 +195,48 @@
   // ---------------------------------------------------------------- gestures
   function onDown(e) {
     // حتى في الوضع العمودي (المحرّك معطّل) نتابع الإيماءة: النقرة تبقى
-    // تعمل (تبديل الوضع) — السحب فقط هو الذي يُمنع داخل onMove.
+    // تعمل (تبديل الوضع) والضغط المطوّل يحدّد الآية — السحب فقط يُمنع داخل onMove.
     if (!isReader() || flipping) return;
     if (isControl(e.target)) return;
-    // تحديد نص قائم (من إيماءة فأرة سابقة): يمنع السحب فقط، ولا يبطل النقرة
-    // التالية — وإلا ظلّ التحديد يبتلع كل لمسة على الحاسوب حتى يُمسح يدوياً.
+    if (e.button !== undefined && e.button !== 0) return;
     selectionBlock = (e.pointerType === 'mouse' &&
                       !!(window.getSelection && window.getSelection().toString()));
     viewport = viewport || document.getElementById('mushaf-viewport');
     if (!viewport || !pageEl()) return;
     active = false;
+    holdFired = false;
+    clearHoldTimer();
     downTarget = e.target;
     startX = e.clientX; startY = e.clientY; startT = Date.now();
-    // العرض المرجعي هو عرض الورقة نفسها، لا عرض المنظر كاملاً: في العرض
-    // المزدوج يمثّل نصف المنظر، وإلا فلن يكتمل القلب إلا بسحب يتجاوز نصف
-    // الشاشة. كذلك هو مقام زاوية الطيّ فيُبقيها متناسبة مع الورقة.
     var pg = pageEl();
     width = (pg ? pg.offsetWidth : 0) || viewport.clientWidth || 1;
     samples = [{ x: startX, t: startT }];
+
+    // الضغط المطوّل (Hold) على الآية يحدّدها ويُظهر قائمة خيارات الآية
+    var ayahEl = (downTarget && downTarget.closest) ? downTarget.closest('.ayah') : null;
+    if (ayahEl) {
+      holdTimer = setTimeout(function () {
+        holdTimer = null;
+        if (active || !isReader()) return;
+        holdFired = true;
+        var sel = window.getSelection && window.getSelection();
+        if (sel && sel.removeAllRanges) { try { sel.removeAllRanges(); } catch (err) {} }
+        if (window.Haptics && window.Haptics.tap) window.Haptics.tap(18);
+        if (window.selectAyah) window.selectAyah(ayahEl, false);
+      }, HOLD_MS);
+    }
+
     window.addEventListener('pointermove', onMove, { passive: true });
     window.addEventListener('pointerup', onUp, { once: true });
-    window.addEventListener('pointercancel', onUp, { once: true });
+    window.addEventListener('pointercancel', onCancel, { once: true });
   }
 
   function onMove(e) {
     var dx = e.clientX - startX, dy = e.clientY - startY;
+    if (Math.abs(dx) >= TAP_MAX_MOVE || Math.abs(dy) >= TAP_MAX_MOVE) {
+      clearHoldTimer();
+    }
+    if (holdFired) return;
     if (!active) {
       if (Math.abs(dx) < LOCK_PX && Math.abs(dy) < LOCK_PX) return;
       // تمرير عمودي: اتركه للمتصفح (touch-action: pan-y)
@@ -226,7 +247,6 @@
       if (selectionBlock) { cleanup(); return; }
       active = true;
       goNext = dx > 0;                       // RTL: السحب لليمين = الصفحة التالية (الورقة تتبع إصبعك نحو المفصل الأيمن)
-      // إيماءة سحب واضحة الآن: تخلّص من أي تحديد مسرّب فوق النص
       var sel = window.getSelection && window.getSelection();
       if (sel && sel.toString()) sel.removeAllRanges();
     }
@@ -235,26 +255,34 @@
     applyDrag(Math.abs(e.clientX - startX) / width);
   }
 
+  function onCancel() {
+    clearHoldTimer();
+    cleanup();
+    if (active) springBack();
+    active = false;
+  }
+
   function onUp(e) {
+    clearHoldTimer();
     cleanup();
     if (!isReader()) return;
+    if (holdFired) {
+      holdFired = false;
+      return;
+    }
     var dx = e.clientX - startX, dy = e.clientY - startY, dt = Date.now() - startT;
     if (!active) {
-      // نقرة خالصة: النقر على حافة الورقة اليسرى/اليمنى يقلب الصفحة بيد واحدة (RTL)، والنقر في الوسط يبدّل أشرطة القارئ (HUD)
+      // نقرة خالصة (دوسة واحدة في الشاشة):
+      // ١) إن كانت هناك آية محددة حالياً، تُلغى التحديد وتُغلق قائمة الآية أولاً.
+      // ٢) وإلا تبدّل أشرطة القارئ العائمة (Overlay HUD) ظهوراً وإخفاءً كما في تطبيق Ayah.
       if (Math.abs(dx) < TAP_MAX_MOVE && Math.abs(dy) < TAP_MAX_MOVE && dt < TAP_MAX_MS) {
-        if (!isAyahArea(downTarget)) {
-          var pg = pageEl();
-          var r = pg ? pg.getBoundingClientRect() : null;
-          var relX = (r && r.width > 0) ? ((e.clientX - r.left) / r.width) : 0.5;
-          if (enabled && relX < 0.14) {
-            goNext = true;
-            completeFlip(1);
-          } else if (enabled && relX > 0.86) {
-            goNext = false;
-            completeFlip(-1);
-          } else if (window.toggleMushafHUD) {
-            toggleMushafHUD();
-          }
+        var ayahBar = document.getElementById('ayah-bar');
+        if (ayahBar && ayahBar.classList.contains('visible')) {
+          if (window.hideAyahBar) window.hideAyahBar();
+          return;
+        }
+        if (window.toggleMushafHUD) {
+          window.toggleMushafHUD();
         }
       }
       return;
@@ -276,10 +304,22 @@
     }
   }
 
+  function onContextMenu(e) {
+    if (!isReader()) return;
+    var ayahEl = (e.target && e.target.closest) ? e.target.closest('.ayah') : null;
+    if (ayahEl) {
+      e.preventDefault();
+      clearHoldTimer();
+      holdFired = true;
+      if (window.Haptics && window.Haptics.tap) window.Haptics.tap(18);
+      if (window.selectAyah) window.selectAyah(ayahEl, false);
+    }
+  }
+
   function cleanup() {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
-    window.removeEventListener('pointercancel', onUp);
+    window.removeEventListener('pointercancel', onCancel);
   }
 
   var Engine = {
@@ -288,11 +328,12 @@
       if (!viewport || bound) return viewport;
       bound = true;
       viewport.addEventListener('pointerdown', onDown, { passive: false });
+      viewport.addEventListener('contextmenu', onContextMenu);
       return viewport;
     },
     setEnabled: function (v) {
       enabled = !!v;
-      if (!enabled) { cleanup(); resetPage(); flipping = false; active = false; }
+      if (!enabled) { clearHoldTimer(); cleanup(); resetPage(); flipping = false; active = false; }
     },
     isEnabled: function () { return enabled; },
     isFlipping: function () { return flipping; },
