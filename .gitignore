@@ -181,9 +181,11 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 bun.lockb
+# مع Capacitor: ملفات البناء الخاصة بتطبيق الموبايل يجب أن تُتتبع
 !package.json
 !capacitor.config.json
 !tests/package.json
+# مخرجات توليد Capacitor — لا تُدخل في الريبو (تُبنى في CI)
 www/
 android/
 ios/
