@@ -655,14 +655,15 @@ body.mushaf-theme-night {
   --mushaf-recite: #b39a5a;
 }
 
-#screen-mushaf { display: none; position: relative; flex-direction: column; width: 100%; max-width: 100%; height: 100%; height: 100dvh; padding: 0; margin: 0; overflow: hidden; }
+#screen-mushaf { display: none; position: relative; flex: 1 1 auto; flex-direction: column; width: 100%; max-width: 100%; height: 100%; min-height: 0; padding: 0; margin: 0; overflow: hidden; overflow: clip; }
 #screen-mushaf.active, #screen-mushaf.slide-left, #screen-mushaf.slide-right { display: flex; }
 
-/* المصيدة ١: padding-bottom الخاص بـ #content يُنقص ارتفاع أي ابن height:100%
-   لأن النسبة تُحسب ضد صندوق المحتوى. صفره هنا فقط داخل القارئ. */
+/* المصيدة ١: داخل القارئ يتوقف #content عن التمرير والـ padding-bottom تماماً حتى يملأ #screen-mushaf كامل الارتفاع المرئي في Safari */
+body.mushaf-zen #content,
+body.mushaf-hud #content,
 #content:has(> #screen-mushaf.active),
 #content:has(> #screen-mushaf.slide-left),
-#content:has(> #screen-mushaf.slide-right) { padding-bottom: 0; }
+#content:has(> #screen-mushaf.slide-right) { padding-bottom: 0; overflow: hidden; scroll-behavior: auto; }
 
 /* شبح الوضع الهادئ: اسم السورة يساراً والجزء يميناً، شبه شفاف فوق الصفحة */
 .mushaf-ghost {
@@ -764,7 +765,9 @@ body.theme-light .mushaf-audio-pill {
 .mushaf-audio-pill .map-surah { font-size: calc(var(--font-size) * 0.4); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mushaf-audio-pill .map-ayah { font-size: calc(var(--font-size) * 0.34); color: var(--text-dim); }
 .mushaf-audio-pill .map-reciter {
-  flex-shrink: 0; border: 1px solid var(--border); background: transparent; color: var(--text);
+  flex-shrink: 0; min-height: 32px; min-width: 64px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: transparent; color: var(--text);
   border-radius: 999px; padding: 5px 12px; cursor: pointer; font-size: calc(var(--font-size) * 0.34);
   transition: transform 160ms var(--ease-spring-snap);
 }
@@ -1259,7 +1262,7 @@ body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success
     0 8px 24px rgba(0, 0, 0, 0.35),
     0 2px 6px rgba(0, 0, 0, 0.20),
     inset 0 1px 1px rgba(255, 255, 255, 0.18);
-  transition: all 200ms var(--ease-spring-snap);
+  transition: transform 200ms var(--ease-spring-snap), box-shadow 200ms, background 200ms, border-color 200ms, opacity 200ms;
   will-change: transform, box-shadow, background;
 }
 .dhikr-auto-fab:active { transform: scale(0.96); }
@@ -1497,8 +1500,10 @@ body.theme-light .settings-chip.danger { color: #a93226; }
 
 /* ===== إضافات التطوير الشامل: التفسير، بطاقات المشاركة، تكرار التلاوة، وأذكار السبحة ===== */
 .mushaf-audio-pill .map-pill-chip {
-  flex-shrink: 0; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-dim);
-  border-radius: 999px; padding: 4px 9px; cursor: pointer; font-size: calc(var(--font-size) * 0.32);
+  flex-shrink: 0; min-height: 32px; min-width: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text-dim);
+  border-radius: 999px; padding: 4px 10px; cursor: pointer; font-size: calc(var(--font-size) * 0.32);
   font-family: Tahoma, sans-serif; font-weight: 700; transition: transform 160ms var(--ease-spring-snap), background 180ms, color 180ms, border-color 180ms;
 }
 .mushaf-audio-pill .map-pill-chip:active { transform: scale(0.92); }
@@ -1590,18 +1595,22 @@ body.mushaf-hud #nav, body.mushaf-hud .nav-scrim { opacity: 0; pointer-events: n
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
 .mbh-surah-title {
-  flex: 1; min-width: 0; background: rgba(62, 207, 158, 0.08);
+  flex: 1; min-width: 0; min-height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(62, 207, 158, 0.08);
   border: 1px solid rgba(62, 207, 158, 0.22); border-radius: 999px;
-  padding: 4px 12px; text-align: center; font-size: 12px; font-weight: 700;
+  padding: 5px 12px; text-align: center; font-size: 12px; font-weight: 700;
   color: var(--text); font-family: inherit; cursor: pointer;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: transform 160ms var(--ease-spring-snap), background 180ms;
 }
 .mbh-surah-title:active { transform: scale(0.96); }
 .mbh-audio-trigger {
-  flex-shrink: 0; background: var(--surface); color: var(--accent);
+  flex-shrink: 0; min-height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface); color: var(--accent);
   border: 1px solid var(--border); border-radius: 999px;
-  padding: 4px 11px; font-size: 11.5px; font-weight: 700; font-family: inherit;
+  padding: 5px 12px; font-size: 11.5px; font-weight: 700; font-family: inherit;
   cursor: pointer; transition: transform 160ms var(--ease-spring-snap), background 180ms;
 }
 .mbh-audio-trigger:active { transform: scale(0.95); }
@@ -1827,6 +1836,11 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
 
   <main id="content">
     <button id="resume-fab" onclick="resumeBookmark()"><span>🔖 متابعة القراءة</span></button>
+    <!-- Floating Auto-Advance Button (خارج .screen حتى لا يتأثر بـ transform حركات الدخول) -->
+    <button class="dhikr-auto-fab" id="dhikr-auto-fab" aria-label="تقدم تلقائي" aria-pressed="false" style="display:none;">
+      <span class="fab-icon" aria-hidden="true">⏭</span>
+      <span class="fab-label">تقدم تلقائي</span>
+    </button>
 
     <div id="screen-surah-list" class="screen active" role="tabpanel" aria-label="القرآن الكريم">
       <div class="search-wrapper">
@@ -1853,9 +1867,9 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
       <div class="mushaf-topbar" id="mushaf-topbar">
         <button class="mt-btn" id="mt-back" aria-label="رجوع">&#8594;</button>
         <button class="mt-btn" id="mt-index" aria-label="فهرس السور">☰</button>
-        <div class="surah-header-card" id="mushaf-topbar-card" role="button" tabindex="0" aria-label="الانتقال السريع بين السور والأجزاء والصفحات" style="cursor:pointer;">
+        <div class="surah-header-card" id="mushaf-topbar-card" role="button" tabindex="0" onclick="if(!event.target.closest('button')) openMushafJumpSheet()" aria-label="الانتقال السريع بين السور والأجزاء والصفحات" style="cursor:pointer;">
           <button class="bookmark-btn" onclick="event.stopPropagation(); toggleBookmark('surah')" id="btn-bm-surah" aria-label="حفظ السورة">🔖</button>
-          <div style="min-width:0; flex:1;" onclick="openMushafJumpSheet()">
+          <div style="min-width:0; flex:1;">
             <div class="surah-h-name" id="surah-view-name"></div>
             <div class="surah-h-meta" id="surah-view-meta"></div>
           </div>
@@ -1990,11 +2004,6 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
         <button class="dhikr-chip" id="dhikr-fav-chip" aria-pressed="false">★ المفضلة</button>
       </div>
       <div id="thikr-list-container"></div>
-      <!-- Floating Auto-Advance Button -->
-      <button class="dhikr-auto-fab" id="dhikr-auto-fab" aria-label="تقدم تلقائي" aria-pressed="false" style="display:none;">
-        <span class="fab-icon" aria-hidden="true">⏭</span>
-        <span class="fab-label">تقدم تلقائي</span>
-      </button>
     </div>
     <div id="screen-dua-list" class="screen"><div id="dua-list-container"></div></div>
     <div id="screen-occasion-list" class="screen"><div id="occasion-list-container"></div></div>
@@ -2706,13 +2715,19 @@ function showScreen(screenId, animClass = 'active') {
   }
   updateHeaderSubtitle(); updateBookmarkIcon(); checkBookmarkFAB();
 
+  if (isMushafReader) {
+    contentArea.scrollTop = 0;
+    if (target) target.scrollTop = 0;
+    const vpNow = mushafViewport();
+    if (vpNow && !document.body.classList.contains('mushaf-scroll-vertical')) vpNow.scrollTop = 0;
+  }
   setTimeout(() => {
     if(['surah-list', 'athkar-list'].includes(screenId) && state.scrollPositions[screenId]) { contentArea.scrollTop = state.scrollPositions[screenId]; }
     else if (isMushafReader) {
-      // القارئ الموحّد يتمرّر داخل .mushaf-viewport وليس #content (مصيدة ١)
       const vp = mushafViewport();
-      if (vp) vp.scrollTop = state.scrollPositions[screenId] || 0;
+      if (vp) vp.scrollTop = document.body.classList.contains('mushaf-scroll-vertical') ? (state.scrollPositions[screenId] || 0) : 0;
       contentArea.scrollTop = 0;
+      if (target) target.scrollTop = 0;
     }
     else { contentArea.scrollTop = 0; }
   }, 30);
@@ -2727,7 +2742,11 @@ function showScreen(screenId, animClass = 'active') {
   // إزالتها عند أي مغادرة حتى لا تتأثر بقية الشاشات.
   const isThikr = screenId === 'thikr-view';
   contentArea.classList.toggle('pager-dhikr', isThikr);
-  if (!isThikr) { state.dhikrFavOnly = false; }
+  if (!isThikr) {
+    state.dhikrFavOnly = false;
+    const autoFab = document.getElementById('dhikr-auto-fab');
+    if (autoFab) autoFab.style.display = 'none';
+  }
 }
 
 // الشاشات الجذرية لكل تبويب
@@ -3454,8 +3473,9 @@ function syncMushafPageStrip(n, surahName) {
   requestAnimationFrame(() => {
     syncBottomHudHeightVar();
     const activeThumb = track.querySelector('.mbh-thumb.active');
-    if (activeThumb) {
-      try { activeThumb.scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' }); } catch (e) {}
+    if (activeThumb && track.clientWidth > 0) {
+      const targetLeft = activeThumb.offsetLeft - (track.clientWidth - activeThumb.offsetWidth) / 2;
+      track.scrollLeft = targetLeft;
     }
   });
 }
@@ -3832,7 +3852,7 @@ window.selectAyah = function(el, scroll = false) {
   // الآية المحددة هي موضع القراءة الحالي — سجّله بدقة
   recordReadingPosition(+el.dataset.ayah);
   showAyahBar();
-  if (scroll) {
+  if (scroll && document.body.classList.contains('mushaf-scroll-vertical')) {
     const r = el.getBoundingClientRect();
     const vh = window.innerHeight;
     if (r.top < 130 || r.bottom > vh - 170) {
@@ -4952,13 +4972,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('resize', () => { syncNavSafeArea(); snapNavIndicator(); });
   // الدوران أو تغيير حجم النافذة يعيد ضبط ملاءمة الصفحة والعمود الثاني
-  window.addEventListener('resize', () => {
+  const onViewportResize = () => {
     syncBottomHudHeightVar();
     if (window.state && window.state.mushafPage) {
       fitMushafPageToViewport();
       renderMushafPageNext(window.state.mushafPage);
     }
-  });
+  };
+  window.addEventListener('resize', onViewportResize);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', onViewportResize);
+  }
   document.getElementById('mushaf-strip-track')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-strip-page]');
     if (!btn) return;

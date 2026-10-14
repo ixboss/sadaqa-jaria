@@ -124,7 +124,9 @@ async function cacheFirstWithTimeout(request, cacheName, timeout = 3000) {
     }
     return response;
   } catch (err) {
-    const cached = await caches.match(request).catch(() => null);
+    const targetCache = await caches.open(cacheName).catch(() => null);
+    const cached = (targetCache && await targetCache.match(request).catch(() => null)) ||
+                   (await caches.match(request).catch(() => null));
     if (cached) return cached;
     return new Response('خطأ: لا يوجد اتصال', { status: 503 });
   }
