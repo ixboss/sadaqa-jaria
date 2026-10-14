@@ -167,7 +167,11 @@
   --text: #f3f0e7;          /* أبيض دافئ */
   --text-dim: #9fb8b6;      /* رمادي ناعم مائل للأخضر */
   --success: #4fd1a5;
-  --border: #1f4b5a;
+  --border: rgba(62, 207, 158, 0.16);
+  --gold: #d4af37;
+  --gold-soft: rgba(212, 175, 55, 0.26);
+  --gold-dim: rgba(212, 175, 55, 0.10);
+  --islamic-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg fill='none' stroke='%233ecf9e' stroke-width='0.6' stroke-opacity='0.055'%3E%3Cpath d='M32 4 L40 24 L60 32 L40 40 L32 60 L24 40 L4 32 L24 24 Z'/%3E%3Crect x='16' y='16' width='32' height='32' transform='rotate(45 32 32)'/%3E%3Ccircle cx='32' cy='32' r='6' stroke='%23d4af37' stroke-opacity='0.06'/%3E%3C/g%3E%3C/svg%3E");
   /* ===== أسماء دلالية للألوان (لتسهيل التغيير المستقبلي) ===== */
   --color-success: var(--success);
   --color-on-accent: #f4f1e8;   /* نص فوق الأزرار الملوّنة */
@@ -408,7 +412,11 @@ body.theme-light {
   --text: #14333a;          /* أزرق مخضر عميق (ليس أسوداً) */
   --text-dim: #5c7276;      /* رمادي ناعم */
   --success: #2e8b57;
-  --border: #ddd4c1;
+  --border: rgba(31, 122, 90, 0.18);
+  --gold: #9a7418;
+  --gold-soft: rgba(154, 116, 24, 0.24);
+  --gold-dim: rgba(154, 116, 24, 0.08);
+  --islamic-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg fill='none' stroke='%231f7a5a' stroke-width='0.6' stroke-opacity='0.045'%3E%3Cpath d='M32 4 L40 24 L60 32 L40 40 L32 60 L24 40 L4 32 L24 24 Z'/%3E%3Crect x='16' y='16' width='32' height='32' transform='rotate(45 32 32)'/%3E%3Ccircle cx='32' cy='32' r='6' stroke='%239a7418' stroke-opacity='0.05'/%3E%3C/g%3E%3C/svg%3E");
   /* أسماء دلالية (الوضع الفاتح) */
   --color-success: var(--success);
   --color-on-accent: #ffffff;
@@ -617,11 +625,46 @@ body.theme-light .nav-tab.active { color: var(--accent); }
 #clear-search:active { transform: translateY(-50%) scale(0.85); }
 .highlight { color: var(--accent); font-weight: bold; background: var(--accent-dim); padding: 0 2px; border-radius: 4px; }
 
-.surah-row { background: var(--surface); border: 1px solid var(--border); border-right: 3px solid transparent; border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: transform 0.2s, border-color 0.2s; }
-.surah-row:active { transform: scale(0.98); }
+.surah-row {
+  position: relative;
+  background: linear-gradient(165deg, rgba(22, 65, 78, 0.55) 0%, var(--surface) 100%);
+  border: 1px solid var(--border);
+  border-right: 3px solid rgba(212, 175, 55, 0.42);
+  border-radius: var(--radius);
+  padding: 13px 16px;
+  margin-bottom: 9px;
+  display: flex; align-items: center; gap: 14px;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+body.theme-light .surah-row {
+  background: linear-gradient(165deg, #ffffff 0%, var(--surface) 100%);
+  border-right-color: rgba(154, 116, 24, 0.45);
+  box-shadow: 0 2px 10px rgba(20, 51, 58, 0.04);
+}
 .surah-row:hover { border-right-color: var(--accent); }
-.surah-num { width: 36px; height: 36px; background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: calc(var(--font-size) * 0.5); color: var(--accent); flex-shrink: 0; transition: background 0.3s, color 0.3s; }
-body.theme-light .surah-num { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+/* شارة رقم السورة بتصميم النجمة الثمانية الإسلامية (Rub el Hizb) */
+.surah-num {
+  position: relative;
+  width: 38px; height: 38px;
+  background: var(--accent-dim);
+  border: 1px solid rgba(212, 175, 55, 0.40);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-num);
+  font-size: calc(var(--font-size) * 0.48);
+  font-weight: 700;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.surah-num::before {
+  content: ''; position: absolute; inset: 3px;
+  border: 1px solid rgba(62, 207, 158, 0.32);
+  border-radius: 6px;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+body.theme-light .surah-num { background: var(--surface-2); color: var(--accent); border-color: var(--gold-soft); }
 .surah-info { flex: 1; }
 .surah-name { font-size: calc(var(--font-size) * 0.7); font-weight: 700; color: var(--text); transition: font-size 0.3s; }
 .surah-meta { font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); transition: font-size 0.3s; }
@@ -1029,38 +1072,61 @@ body.mushaf-zen #header, body.mushaf-zen #nav, body.mushaf-zen .nav-scrim { disp
 body.mushaf-hud #header { display: none; }
 body.mushaf-zen #reading-progress-container { display: none !important; }
 
-/* ===== شريط ورد الختمة (مرحلة ٥) ===== */
+/* ===== شريط ورد الختمة: يظهر كبطاقة في وضع HUD فقط، وفي وضع القراءة الهادئ (Zen) يندمج بهدوء في الهامش العلوي دون تغطية أي آية ===== */
 .mushaf-wird-banner {
-  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 64px); left: 12px; right: 12px; z-index: 6;
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 96px); left: 12px; right: 12px; z-index: 45;
   display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-  padding: 7px 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.22);
-  font-size: calc(var(--font-size) * 0.38);
-  opacity: 0; pointer-events: none; transform: translateY(-8px);
-  transition: opacity 240ms var(--ease-out-quart), transform 240ms var(--ease-out-quart);
+  background: rgba(16, 44, 54, 0.94); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(62, 207, 158, 0.28); border-radius: 999px;
+  padding: 6px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.32);
+  font-size: 12.5px;
+  opacity: 0; pointer-events: none; transform: translateY(-10px);
+  transition: opacity 240ms var(--ease-premium), transform 240ms var(--ease-premium);
 }
-.mushaf-wird-banner.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+body.theme-light .mushaf-wird-banner {
+  background: rgba(255, 253, 247, 0.96);
+  border-color: rgba(31, 122, 90, 0.24);
+  box-shadow: 0 6px 20px rgba(20, 51, 58, 0.14);
+}
+/* في وضع القراءة الهادئ (mushaf-zen) يختفي الشريط العائم تماماً حتى لا يحجب أول سطرين من المصحف */
+body.mushaf-zen .mushaf-wird-banner,
+body.mushaf-zen .mushaf-wird-banner.visible {
+  opacity: 0 !important; pointer-events: none !important; transform: translateY(-12px) !important;
+}
+/* في وضع HUD (عند لمس الشاشة لمسة واحدة) يظهر الشريط أسفل الشريط العلوي بوضوح */
+body.mushaf-hud .mushaf-wird-banner.visible {
+  opacity: 1; pointer-events: auto; transform: translateY(0);
+}
 .mushaf-wird-banner .mwb-label { font-weight: 700; color: var(--accent); }
-.mushaf-wird-banner .mwb-range { color: var(--text); }
-.mushaf-wird-banner .mwb-remain { color: var(--text-dim); font-size: calc(var(--font-size) * 0.34); }
-/* في وضع الهدوء يقترب شريط الورد من الأعلى، وفي وضع HUD ينزل أسفل الشريط العلوي */
-body.mushaf-zen .mushaf-wird-banner { top: calc(env(safe-area-inset-top, 0px) + 46px); }
-body.mushaf-hud .mushaf-wird-banner { top: calc(env(safe-area-inset-top, 0px) + 68px); }
+.mushaf-wird-banner .mwb-range { color: var(--text); font-weight: 600; }
+.mushaf-wird-banner .mwb-remain { color: var(--text-dim); font-size: 11.5px; }
 
-/* زر إتمام الورد: يظهر عند بلوغ آخر صفحة في النطاق ويرتفع تلقائياً فوق شريط الصفحات السفلي */
+/* شارة الورد الهامسة في الهامش العلوي أثناء القراءة الهادئة (لا تغطي أي نص قرآني) */
+.mushaf-ghost-wird {
+  font-size: 11px; font-weight: 700; color: var(--mushaf-frame);
+  background: rgba(184, 154, 78, 0.12); border: 1px solid var(--mushaf-frame-soft);
+  padding: 1px 8px; border-radius: 999px; white-space: nowrap;
+  display: none;
+}
+.mushaf-ghost-wird.visible { display: inline-flex; align-items: center; gap: 4px; }
+
+/* زر إتمام الورد: في وضع Zen يجلس كشريحة مدمجة في هامش التذييل بجوار رقم الصفحة دون تغطية الآيات، وفي وضع HUD يرتفع كزر واضح */
 .mushaf-wird-fab {
-  position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); right: 16px; z-index: 9;
-  transition: opacity 240ms var(--ease-out-quart), transform 260ms var(--ease-spring-snap), bottom 260ms var(--ease-out-quart);
-  background: var(--accent-deep); color: var(--color-on-accent); border: none;
-  border-radius: 999px; padding: 12px 20px; cursor: pointer;
-  font-size: calc(var(--font-size) * 0.42); font-weight: 700;
-  box-shadow: 0 10px 28px rgba(0,0,0,0.4);
-  opacity: 0; pointer-events: none; transform: translateY(14px) scale(0.95);
-  transition: opacity 240ms var(--ease-out-quart), transform 260ms var(--ease-spring-snap);
+  position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 2px); left: 12px; right: auto; z-index: 9;
+  background: var(--accent-deep); color: var(--color-on-accent); border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 999px; padding: 3px 12px; min-height: 22px; cursor: pointer;
+  font-size: 11.5px; font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  opacity: 0; pointer-events: none; transform: translateY(8px) scale(0.95);
+  transition: opacity 240ms var(--ease-premium), transform 260ms var(--ease-premium), bottom 260ms var(--ease-premium), padding 220ms;
 }
 .mushaf-wird-fab.visible { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
 .mushaf-wird-fab:active { transform: scale(0.95); }
-body.mushaf-hud .mushaf-wird-fab { bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mushaf-bottom-hud-h, 112px) + 14px); }
+body.mushaf-hud .mushaf-wird-fab {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mushaf-bottom-hud-h, 112px) + 14px);
+  right: 16px; left: auto; padding: 10px 20px; min-height: 44px; font-size: 14px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.4);
+}
 body.reader-audio-on.mushaf-hud .mushaf-wird-fab { bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mushaf-bottom-hud-h, 112px) + 70px); }
 
 /* مسار ورد الختمة على شريط التقدم: نطاق مُلوَّن ضمن ٦٠٤ صفحة + نقاط مرجعيات */
@@ -1166,7 +1232,8 @@ body.mushaf-zen #resume-fab, body.mushaf-hud #resume-fab { display: none; }
 body.theme-light .btn-scale { color: var(--color-on-accent); }
 .btn-scale:active { transform: scale(0.96); box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
 
-.k-dash-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.k-dash-card { background-color: var(--surface); background-image: var(--islamic-pattern), linear-gradient(165deg, rgba(22, 65, 78, 0.5) 0%, var(--surface) 100%); border: 1px solid rgba(212, 175, 55, 0.25); border-radius: var(--radius-lg, 18px); padding: 20px; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.06); }
+body.theme-light .k-dash-card { background-image: var(--islamic-pattern), linear-gradient(165deg, #ffffff 0%, var(--surface) 100%); }
 .k-dash-info { flex: 1; display: flex; flex-direction: column; gap: 12px; }
 .k-dash-title { font-size: calc(var(--font-size) * 0.6); color: var(--text-dim); margin-bottom: 6px; transition: font-size 0.3s; }
 
@@ -1181,14 +1248,32 @@ body.theme-light .btn-scale { color: var(--color-on-accent); }
 .k-ctrl-btn.primary { background: var(--success); color: #fff; border-color: var(--success); flex: 2; }
 .k-ctrl-btn:disabled { opacity: 0.4; pointer-events: none; }
 
-/* ================= الأذكار ================= */
-.quick-nav-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
-.quick-nav-card { background: var(--accent-grad); border-radius: var(--radius); padding: 16px 12px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: transform 0.2s; }
-body.theme-light .quick-nav-card { box-shadow: 0 2px 10px rgba(31, 122, 90, 0.10); }
-.quick-nav-card:active { transform: scale(0.95); }
-.quick-nav-icon { font-size: calc(var(--font-size) * 1.1); display: block; margin-bottom: 6px; transition: font-size 0.3s; }
-.quick-nav-label { font-size: calc(var(--font-size) * 0.6); font-weight: 700; color: var(--color-on-accent); display: block; transition: font-size 0.3s, color 0.3s; }
-body.theme-light .quick-nav-label { color: var(--color-on-accent); }
+/* ================= الأذكار (بطاقات وصول سريع معمارية هادئة) ================= */
+.quick-nav-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
+.quick-nav-card {
+  position: relative; overflow: hidden;
+  background-image: var(--islamic-pattern), linear-gradient(160deg, var(--surface-2) 0%, var(--surface) 100%);
+  border: 1px solid rgba(212, 175, 55, 0.24);
+  border-radius: var(--radius);
+  padding: 14px 10px;
+  text-align: center; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+body.theme-light .quick-nav-card {
+  background-image: var(--islamic-pattern), linear-gradient(160deg, #ffffff 0%, var(--surface) 100%);
+  border-color: rgba(154, 116, 24, 0.24);
+  box-shadow: 0 3px 12px rgba(20, 51, 58, 0.06);
+}
+.quick-nav-icon {
+  width: 38px; height: 38px; border-radius: 12px;
+  background: var(--accent-dim); border: 1px solid rgba(62, 207, 158, 0.24);
+  color: var(--accent);
+  font-size: calc(var(--font-size) * 0.85);
+  display: flex; align-items: center; justify-content: center;
+}
+.quick-nav-label { font-size: calc(var(--font-size) * 0.54); font-weight: 700; color: var(--text); display: block; }
+body.theme-light .quick-nav-label { color: var(--text); }
 
 .athkar-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .athkar-cat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 12px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: transform 0.2s, border-color 0.2s, background 0.4s; }
@@ -1412,7 +1497,7 @@ body.theme-light .occasion-card { box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
 #tasbih-circle-wrap { position: relative; width: min(280px, 70vw); height: min(280px, 70vw); margin: 0 auto; }
 .tasbih-bead { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); transform: translate(-50%, -50%); transition: 0.2s; }
 .tasbih-bead.filled { background: var(--accent); border-color: var(--accent); transform: translate(-50%, -50%) scale(1.3); }
-#tasbih-tap-btn { position: absolute; inset: 14%; border-radius: 50%; background: var(--accent-grad); border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: transform 0.1s; }
+#tasbih-tap-btn { position: absolute; inset: 14%; border-radius: 50%; background: radial-gradient(circle at 35% 25%, #1ea87d 0%, #11755a 55%, #0c4f5c 100%); border: 1.5px solid rgba(212, 175, 55, 0.42); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 0 6px rgba(62, 207, 158, 0.08), 0 10px 28px rgba(0,0,0,0.45), inset 0 2px 4px rgba(255,255,255,0.22); transition: transform 0.14s var(--ease-premium); }
 body.theme-light #tasbih-tap-btn { box-shadow: 0 4px 20px rgba(31, 122, 90, 0.2); }
 #tasbih-tap-btn:active { transform: scale(0.92); }
 #tasbih-count-num { font-family: var(--font-num); font-size: calc(var(--font-size) * 1.8); font-weight: 700; line-height: 1.1; color: var(--color-on-accent); transition: font-size 0.3s, color 0.4s; }
@@ -1804,9 +1889,17 @@ body.theme-light .mbh-thumb-page {
 
 /* ===== إضافات مميزات التطبيقات الثلاثة (بلال: مواقيت الصلاة والقبلة، آية: إشراقة التدبر، أذكار: المقترح الذكي وأذكاري) ===== */
 .tadabbur-card, .prayer-widget-card, .smart-suggest-card {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 14px 16px; margin-bottom: 14px; position: relative;
-  box-shadow: 0 4px 18px rgba(0,0,0,0.16); transition: background 0.35s, border-color 0.35s;
+  background-color: var(--surface);
+  background-image: var(--islamic-pattern), linear-gradient(165deg, rgba(22, 65, 78, 0.45) 0%, var(--surface) 100%);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: var(--radius-lg, 18px);
+  padding: 16px; margin-bottom: 14px; position: relative;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.06);
+  transition: background 0.35s, border-color 0.35s;
+}
+body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.theme-light .smart-suggest-card {
+  background-image: var(--islamic-pattern), linear-gradient(165deg, #ffffff 0%, var(--surface) 100%);
+  border-color: rgba(154, 116, 24, 0.22);
 }
 body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.theme-light .smart-suggest-card {
   box-shadow: 0 4px 16px rgba(20, 51, 58, 0.06);
@@ -1824,8 +1917,12 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
   line-height: 1.9; color: var(--text); margin: 6px 0 8px; cursor: pointer; text-align: center;
 }
 .td-reflection {
-  font-size: calc(var(--font-size) * 0.52); line-height: 1.75; color: var(--text-dim);
-  background: var(--surface-2); padding: 8px 12px; border-radius: 8px; margin-bottom: 10px;
+  font-size: calc(var(--font-size) * 0.52); line-height: 1.8; color: var(--text-dim);
+  background: rgba(10, 31, 40, 0.42); border-right: 3px solid var(--gold);
+  padding: 10px 14px; border-radius: 10px; margin-bottom: 12px;
+}
+body.theme-light .td-reflection {
+  background: var(--surface-2); border-right-color: var(--gold);
 }
 .td-actions, .pw-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .pw-chip-btn {
@@ -1892,6 +1989,72 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
 .mbh-step-btn, .mbh-side-btn, .mbh-surah-title, .mbh-audio-trigger { min-height: 44px; min-width: 44px; }
 #ayah-bar button, #ayah-bar button.ayah-close { min-height: 44px; min-width: 44px; }
 
+
+    /* Phase 3 Iteration Refinements: HUD topbar card, Header subtitle fit, Tasbih counter glow */
+    #mushaf-topbar-card {
+      display: flex !important;
+      flex-direction: row-reverse !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      padding: 5px 10px !important;
+      min-width: 0 !important;
+      flex: 1 1 auto !important;
+      max-width: 220px !important;
+    }
+    #mushaf-topbar-card .surah-h-name {
+      font-size: 14.5px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+    #mushaf-topbar-card #btn-bm-surah {
+      position: static !important;
+      transform: none !important;
+      width: 28px !important;
+      height: 28px !important;
+      min-width: 28px !important;
+      min-height: 28px !important;
+      padding: 0 !important;
+      border-radius: 8px !important;
+      background: rgba(255, 255, 255, 0.06) !important;
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      color: var(--gold) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex-shrink: 0 !important;
+    }
+    body.mushaf-hud .mushaf-wird-banner.visible {
+      top: calc(env(safe-area-inset-top, 0px) + 96px) !important;
+      z-index: 45 !important;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(216, 183, 114, 0.28) !important;
+    }
+    #header {
+      padding-inline: 8px !important;
+      gap: 4px !important;
+    }
+    .header-actions {
+      gap: 4px !important;
+    }
+    #header-title-wrap {
+      min-width: 0 !important;
+      flex: 1 1 auto !important;
+    }
+    #header-subtitle {
+      font-size: 10.5px !important;
+      white-space: nowrap !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+    }
+    #tasbih-count-num {
+      font-size: clamp(44px, 11vw, 56px) !important;
+      font-weight: 800 !important;
+      color: var(--text) !important;
+      text-shadow: 0 2px 14px rgba(62, 207, 158, 0.28) !important;
+      line-height: 1.05 !important;
+    }
+
 </style>
 </head>
 <body>
@@ -1911,10 +2074,10 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
       <div id="header-subtitle"></div>
     </div>
     <div id="font-ctrl">
-      <button class="header-btn" id="bookmarks-btn" title="المرجعيات" aria-label="المرجعيات">🔖</button>
-      <button class="header-btn" id="theme-btn" title="تبديل المظهر" aria-label="تبديل المظهر">☀️</button>
+      <button class="header-btn" id="bookmarks-btn" title="المرجعيات" aria-label="المرجعيات"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></button>
+      <button class="header-btn" id="theme-btn" title="تبديل المظهر" aria-label="تبديل المظهر"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></button>
       <button class="header-btn" id="font-size-btn" title="حجم الخط ومشاركة التطبيق" aria-label="حجم الخط" aria-haspopup="true" aria-expanded="false">أ</button>
-      <button class="header-btn" id="settings-btn" title="الإعدادات والإحصائيات" aria-label="الإعدادات">⚙️</button>
+      <button class="header-btn" id="settings-btn" title="الإعدادات والإحصائيات" aria-label="الإعدادات"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
     </div>
     <div id="font-popover" role="dialog" aria-label="حجم الخط" hidden>
       <div class="font-popover-title">حجم الخط</div>
@@ -1947,6 +2110,7 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
       <!-- شبح الوضع الهادئ: اسم السورة يساراً، الجزء/الصفحة يميناً -->
       <div class="mushaf-ghost" id="mushaf-ghost" aria-hidden="true">
         <span id="mushaf-ghost-surah">—</span>
+        <span class="mushaf-ghost-wird" id="mushaf-ghost-wird"></span>
         <span id="mushaf-ghost-juz">—</span>
       </div>
       <!-- شريط الوضع النشط -->
@@ -1954,13 +2118,13 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
         <button class="mt-btn" id="mt-back" aria-label="رجوع">&#8594;</button>
         <button class="mt-btn" id="mt-index" aria-label="فهرس السور">☰</button>
         <div class="surah-header-card" id="mushaf-topbar-card" role="button" tabindex="0" onclick="if(!event.target.closest('button')) openMushafJumpSheet()" aria-label="الانتقال السريع بين السور والأجزاء والصفحات" style="cursor:pointer;">
-          <button class="bookmark-btn" onclick="event.stopPropagation(); toggleBookmark('surah')" id="btn-bm-surah" aria-label="حفظ السورة">🔖</button>
+          <button class="bookmark-btn" onclick="event.stopPropagation(); toggleBookmark('surah')" id="btn-bm-surah" aria-label="حفظ السورة"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>
           <div style="min-width:0; flex:1;">
             <div class="surah-h-name" id="surah-view-name"></div>
             <div class="surah-h-meta" id="surah-view-meta"></div>
           </div>
         </div>
-        <button class="mt-btn" id="mt-search" aria-label="البحث في القرآن">🔍</button>
+        <button class="mt-btn" id="mt-search" aria-label="البحث في القرآن"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
         <button class="mt-btn" id="mt-settings" aria-label="إعدادات القارئ">⚙</button>
         <!-- مسار التقدّم وورد الختمة: كانوا أسفل رأس التطبيق، والآن رأس
              القارئ هو الشريط، فيتدلّون من أسفله. -->
@@ -2062,8 +2226,10 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
           </div>
         </div>
         <button class="btn-scale" onclick="openKhatmahReader()">متابعة القراءة 📖</button>
-        <button class="btn-scale" style="background:var(--surface); color:var(--accent); border:1px solid var(--border); margin-top:10px;" onclick="showKhatmDua()">🤲 دعاء ختم القرآن الكريم</button>
-        <button class="btn-scale" style="background:var(--surface-2); color:var(--text); margin-top:10px;" onclick="resetKhatmah()">إنشاء ختمة جديدة</button>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+          <button class="btn-scale" style="background:var(--surface); color:var(--accent); border:1px solid var(--border); padding:12px 10px; font-size:calc(var(--font-size) * 0.54);" onclick="showKhatmDua()">🤲 دعاء الختم</button>
+          <button class="btn-scale" style="background:var(--surface-2); color:var(--text-dim); border:1px solid var(--border); padding:12px 10px; font-size:calc(var(--font-size) * 0.54);" onclick="resetKhatmah()">ختمة جديدة</button>
+        </div>
       </div>
     </div>
 
@@ -2123,9 +2289,9 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
 
   <nav id="nav" role="tablist" aria-label="التنقل الرئيسي">
     <div class="nav-indicator" id="nav-indicator" aria-hidden="true"></div>
-    <button class="nav-tab active" role="tab" aria-selected="true" data-tab="quran"><span class="nav-icon">📖</span><span class="nav-text">القرآن</span></button>
-    <button class="nav-tab" role="tab" aria-selected="false" data-tab="khatmah"><span class="nav-icon">🕋</span><span class="nav-text">الختمة</span></button>
-    <button class="nav-tab" role="tab" aria-selected="false" data-tab="athkar"><span class="nav-icon">📿</span><span class="nav-text">الأذكار</span></button>
+    <button class="nav-tab active" role="tab" aria-selected="true" data-tab="quran"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"></path><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"></path></svg></span><span class="nav-text">القرآن</span></button>
+    <button class="nav-tab" role="tab" aria-selected="false" data-tab="khatmah"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 14.4 5.6 18.8 5.2 18.4 9.6 22 12 18.4 14.4 18.8 18.8 14.4 18.4 12 22 9.6 18.4 5.2 18.8 5.6 14.4 2 12 5.6 9.6 5.2 5.2 9.6 5.6 12 2"/><polygon points="12 8.2 15.8 12 12 15.8 8.2 12"/></svg></span><span class="nav-text">الختمة</span></button>
+    <button class="nav-tab" role="tab" aria-selected="false" data-tab="athkar"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"></circle><circle cx="17" cy="7.5" r="2"></circle><circle cx="19" cy="13" r="2"></circle><circle cx="15.5" cy="18" r="2"></circle><circle cx="8.5" cy="18" r="2"></circle><circle cx="5" cy="13" r="2"></circle><circle cx="7" cy="7.5" r="2"></circle><path d="M12 20v3"></path></svg></span><span class="nav-text">الأذكار</span></button>
   </nav>
   <!-- طبقة تعتيم أسفل الشريط: تمنع ظهور نص السور المقصوص حول حواف الشريط -->
   <div class="nav-scrim" aria-hidden="true"></div>
@@ -2629,8 +2795,10 @@ function saveState() { try { localStorage.setItem('app_state', JSON.stringify(st
 function applyTheme(th) {
   state.theme = th;
   const themeBtn = document.getElementById('theme-btn');
-  if(th === 'light') { document.body.classList.add('theme-light'); themeBtn.textContent = '☀️'; themeBtn.title = 'الوضع الداكن'; }
-  else { document.body.classList.remove('theme-light'); themeBtn.textContent = '🌙'; themeBtn.title = 'الوضع الفاتح'; }
+  const sunSvg = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
+  const moonSvg = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+  if(th === 'light') { document.body.classList.add('theme-light'); if(themeBtn) { themeBtn.innerHTML = sunSvg; themeBtn.title = 'الوضع الداكن'; } }
+  else { document.body.classList.remove('theme-light'); if(themeBtn) { themeBtn.innerHTML = moonSvg; themeBtn.title = 'الوضع الفاتح'; } }
   try { localStorage.setItem('theme', th); } catch(e) {}
   // ثيم الصفحة التلقائي يتبع ثيم التطبيق — أعد حله فوراً عند التبديل
   if (window.ReaderSettings) ReaderSettings.applyAll();
@@ -4317,17 +4485,28 @@ function renderWirdChrome() {
   const k = state.khatmah;
   const isKhatmah = state.mushafMode === 'khatmah-read' && !!(k && k.active);
   const banner = document.getElementById('mushaf-wird-banner');
+  const ghostWird = document.getElementById('mushaf-ghost-wird');
   const fab = document.getElementById('mushaf-wird-fab');
   if (banner) banner.classList.toggle('visible', isKhatmah);
+  if (ghostWird) ghostWird.classList.toggle('visible', isKhatmah);
   const container = document.getElementById('reading-progress-container');
   if (container) container.classList.toggle('wird-mode', isKhatmah);
-  if (!isKhatmah) { if (fab) fab.classList.remove('visible'); return; }
+  if (!isKhatmah) {
+    if (fab) fab.classList.remove('visible');
+    if (ghostWird) ghostWird.textContent = '';
+    return;
+  }
   const s = k.todayWirdStart || 1, e = k.todayWirdEnd || s, cur = k.currentPage || s;
   const remain = Math.max(0, e - cur);
   const range = document.getElementById('mwb-range');
   if (range) range.textContent = `صفحات ${toArabicNum(s)} – ${toArabicNum(e)}`;
   const rem = document.getElementById('mwb-remain');
   if (rem) rem.textContent = remain > 0 ? `${toArabicNum(remain)} صفحة متبقية` : 'أتممت ورد اليوم ✓';
+  if (ghostWird) {
+    ghostWird.textContent = remain > 0
+      ? `ورد ${toArabicNum(s)}–${toArabicNum(e)} • باقي ${toArabicNum(remain)}`
+      : `ورد ${toArabicNum(s)}–${toArabicNum(e)} ✓`;
+  }
   if (fab) fab.classList.toggle('visible', cur >= e);
   // مسار النطاق: النسبة من ٦٠٤ صفحة
   const r = document.getElementById('wird-range');
@@ -4854,7 +5033,15 @@ function initOccasionSystem() {
     const periodKey = `${todayDateKey(now)}_${getCurrentPeriod(now)}`;
     if (localStorage.getItem('occasion_popup_last_period') !== periodKey) {
       const body = document.getElementById('occasion-modal-body'); document.getElementById('occasion-modal-title').textContent = currentOccasionKeys.length > 1 ? 'مناسبات وتذكيرات اليوم' : (OCCASIONS_DB[currentOccasionKeys[0]]?.title || 'مناسبة اليوم');
-      body.innerHTML = currentOccasionKeys.map(k => { const o = OCCASIONS_DB[k]; return o ? `<div class="occasion-modal-item"><b>${o.icon} ${o.title}</b><br>${o.summary}</div>` : ''; }).join('');
+      body.innerHTML = currentOccasionKeys.map(k => {
+        const o = OCCASIONS_DB[k];
+        if (!o) return '';
+        if (currentOccasionKeys.length === 1) {
+          const sunnahHtml = (o.sunnahs && o.sunnahs.length) ? `<div style="margin-top:8px;font-size:12.5px;color:var(--text-muted);line-height:1.7;">${o.sunnahs.map(s => '• ' + s).join('<br>')}</div>` : '';
+          return `<div class="occasion-modal-item"><div style="font-weight:700;color:var(--text);font-size:15px;margin-bottom:4px;">${o.summary}</div>${sunnahHtml}</div>`;
+        }
+        return `<div class="occasion-modal-item"><b>${o.icon} ${o.title}</b><br>${o.summary}</div>`;
+      }).join('');
       document.getElementById('occasion-overlay').classList.add('active'); localStorage.setItem('occasion_popup_last_period', periodKey);
     }
   }
