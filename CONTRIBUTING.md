@@ -13,8 +13,8 @@ Before contributing, please read:
 
 - **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** — binding for all participation
 - **[README.md](README.md)** — project overview and setup
-- **[01-bugs.md](01-bugs.md)** — the known-defect list, with exact line references
-- **[04-architecture.md](04-architecture.md)** — why the code is shaped the way it is
+- **[01-bugs.md](docs/archive/01-bugs.md)** — the known-defect list, with exact line references
+- **[04-architecture.md](docs/archive/04-architecture.md)** — why the code is shaped the way it is
 
 ---
 
@@ -38,10 +38,10 @@ You don't have to write code to help. All of these are genuinely valuable:
 
 | Contribution | Skill needed |
 |---|---|
-| 🐞 **Fix a confirmed bug** from [`01-bugs.md`](01-bugs.md) | JavaScript |
-| 🎨 **Build an animation** from [`02-uiux.md`](02-uiux.md) | CSS / JS |
-| 💡 **Implement a feature** from [`03-features.md`](03-features.md) | JavaScript |
-| 🏗️ **Refactor** per [`04-architecture.md`](04-architecture.md) | JavaScript architecture |
+| 🐞 **Fix a confirmed bug** from [`01-bugs.md`](docs/archive/01-bugs.md) | JavaScript |
+| 🎨 **Build an animation** from [`02-uiux.md`](docs/archive/02-uiux.md) | CSS / JS |
+| 💡 **Implement a feature** from [`03-features.md`](docs/archive/03-features.md) | JavaScript |
+| 🏗️ **Refactor** per [`04-architecture.md`](docs/archive/04-architecture.md) | JavaScript architecture |
 | ♿ **Improve accessibility** — screen readers, focus, contrast | HTML / ARIA |
 | 📱 **Test on a real device** and report what breaks | Any |
 | 📝 **Fix documentation** or unclear wording | Writing |
@@ -98,13 +98,13 @@ ngrok, or deploy to a preview environment.
 
 ### Recommended starting points
 
-1. **[`01-bugs.md`](01-bugs.md)** — 27 findings, each with a verified
+1. **[`01-bugs.md`](docs/archive/01-bugs.md)** — 27 findings, each with a verified
    `file:line` reference. The 🔴 **Confirmed Bugs** (B-1 through B-7) are the
    highest impact and the safest place to start.
-2. **[`02-uiux.md`](02-uiux.md)** — animation proposals A-1…A-7. One of them
+2. **[`02-uiux.md`](docs/archive/02-uiux.md)** — animation proposals A-1…A-7. One of them
    (A-3) is a **single line**: `Motion.flipAnimate` is fully implemented but
    never called.
-3. **[`03-features.md`](03-features.md)** — 16 features in three tiers, with a
+3. **[`03-features.md`](docs/archive/03-features.md)** — 16 features in three tiers, with a
    recommended build order and dependency chains.
 
 ### Before you start coding
@@ -174,7 +174,7 @@ consistency matters more than personal preference.
 - Reuse the existing easing tokens (`--ease-out-quart`, `--ease-spring`, etc.)
   rather than inventing new curves. The project already has two competing
   easing vocabularies — **do not add a third**. (This inconsistency is logged in
-  [`02-uiux.md`](02-uiux.md).)
+  [`02-uiux.md`](docs/archive/02-uiux.md).)
 - For staggered entrances, use the existing `Motion.staggerIn` helper.
 - For list reordering and removal, use `Motion.flipAnimate` — it exists and works,
   but is currently called from nowhere.
@@ -347,7 +347,7 @@ A good bug report is worth more than most fixes. Please include:
 
 ### Before opening an issue
 
-- **Check [`01-bugs.md`](01-bugs.md) first** — it may already be a known issue.
+- **Check [`01-bugs.md`](docs/archive/01-bugs.md) first** — it may already be a known issue.
   If so, you can add useful detail to that finding rather than filing a duplicate.
 - **Search existing issues** to avoid duplicates.
 
