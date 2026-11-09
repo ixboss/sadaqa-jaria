@@ -340,7 +340,7 @@ That is the finding that matters most. The bugs in `01-bugs.md` are fixable in a
 | [`03-features.md`](03-features.md) | Feature proposals (F-1…F-16) with dependency chains |
 | **`04-architecture.md`** | **This file** — refactoring plan (R-1…R-9), priority matrix, closing assessment |
 | [`IMPROVEMENTS.md`](IMPROVEMENTS.md) | Corrected project status (previously contained false verification claims) |
-| [`README.md`](README.md) | Corrected project documentation |
+| [`README.md`](../README.md) | Corrected project documentation |
 
 ---
 

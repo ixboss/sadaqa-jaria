@@ -111,9 +111,8 @@ sadaqa-jaria/
 ├── .well-known/          # security.txt (RFC 9116)
 ├── icons/                # PNG app icons
 ├── assets/               # Social preview image
-├── docs/                 # Design notes + archived historical reviews (docs/archive/)
+├── docs/                 # Design notes; docs/archive/ holds the historical review series
 ├── tests/                # CDP end-to-end probes and unit tests
-├── VERIFICATION.md       # Evidence-backed record of fixes and verification
 ├── CONTRIBUTING.md · CODE_OF_CONDUCT.md
 └── LICENSE               # MIT
 ```
