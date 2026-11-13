@@ -1,0 +1,285 @@
+/* base.css — resets, الخطوط المدمجة، الحركات، إمكانية الوصول */
+
+/* ── index.html 78–128 ── */
+/* ==================== الخطوط العربية المحلية المدمجة (Offline-First Bundled Fonts) ==================== */
+@font-face {
+  font-family: 'Noto Sans Arabic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Noto Sans Arabic'), url('../assets/fonts/NotoSansArabic-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Sans Arabic';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Noto Sans Arabic Bold'), local('NotoSansArabic-Bold'), url('../assets/fonts/NotoSansArabic-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Naskh Arabic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Noto Naskh Arabic'), url('../assets/fonts/NotoNaskhArabic-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Naskh Arabic';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Noto Naskh Arabic Bold'), local('NotoNaskhArabic-Bold'), url('../assets/fonts/NotoNaskhArabic-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Amiri'), local('Amiri Regular'), url('../assets/fonts/NotoNaskhArabic-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Amiri Bold'), url('../assets/fonts/NotoNaskhArabic-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Amiri Quran';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Amiri Quran'), local('AmiriQuran-Regular'), url('../assets/fonts/NotoNaskhArabic-Regular.woff2') format('woff2');
+}
+
+
+/* ── index.html 214–276 ── */
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+*, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+.ripple, .confetti-piece, .burst-particle { display: none !important; }
+[style*="--reveal-delay"] { transition-delay: 0ms !important; }
+}
+
+/* ==================== Calm & Premium Keyframe Library ==================== */
+@keyframes ripple-anim { to { transform: scale(2.8); opacity: 0; } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideInLeft { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes pulse-green {
+  0% { box-shadow: 0 0 0 0 rgba(62, 207, 158, 0.28); }
+  70% { box-shadow: 0 0 0 10px rgba(62, 207, 158, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(62, 207, 158, 0); }
+}
+
+/* Smooth layered entrance without GPU-heavy blur */
+@keyframes depthIn { from { opacity: 0; transform: scale(0.992) translateY(6px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+/* Refined, gentle pulse for counter & state updates */
+@keyframes countPop { 0% { transform: scale(1); } 45% { transform: scale(1.045); } 100% { transform: scale(1); } }
+@keyframes titleSlideIn { from { opacity: 0.35; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Subtle surge ring */
+@keyframes surgeRing { 0% { transform: scale(0.85); opacity: 0.45; } 100% { transform: scale(1.85); opacity: 0; } }
+
+/* Gentle float up for transient labels */
+@keyframes floatUp { 0% { opacity: 0; transform: translate(-50%, 0) scale(0.88); } 25% { opacity: 0.95; transform: translate(-50%, -8px) scale(1); } 100% { opacity: 0; transform: translate(-50%, -44px) scale(0.96); } }
+
+/* New: shimmer wave for skeleton loading */
+@keyframes shimmerWave { 0% { background-position: -120% 0; } 100% { background-position: 220% 0; } }
+
+/* New: gradient flow for progress bar */
+@keyframes gradientFlow { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+
+/* New: gentle float for empty illustrations */
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+/* New: bounce-down for tap thikr pulse */
+@keyframes tapPulse { 0% { box-shadow: 0 0 0 0 var(--accent-dim); } 100% { box-shadow: 0 0 0 18px transparent; } }
+
+/* New: confetti drop (used via inline styles for variety) */
+@keyframes confettiDrop { 0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 1; } 100% { transform: translate3d(var(--dx, 0), 110vh, 0) rotate(var(--dr, 720deg)); opacity: 0.9; } }
+
+/* New: header glow pulse on theme switch */
+@keyframes themeFlash { 0% { box-shadow: 0 2px 15px rgba(0,0,0,0.3); } 50% { box-shadow: 0 4px 30px var(--accent-dim); } 100% { box-shadow: 0 2px 15px rgba(0,0,0,0.3); } }
+
+/* New: ring fill for tasbih bead active */
+@keyframes beadGlow { 0% { box-shadow: 0 0 0 0 var(--accent-dim); } 100% { box-shadow: 0 0 12px var(--accent); } }
+
+/* Reveal / entrance animations */
+.reveal-hidden { opacity: 0; transform: translateY(8px); will-change: opacity, transform; transition: opacity var(--motion-duration) var(--ease-out-quart), transform var(--motion-duration) var(--ease-out-quart); }
+.reveal-hidden.in { opacity: 1; transform: none; }
+.reveal-hidden[style*="--reveal-delay"] { transition-delay: var(--reveal-delay); }
+
+/* Bookmark microinteraction */
+.bookmark-btn { transition: transform var(--motion-duration-fast) var(--ease-spring-snap), color var(--motion-duration) var(--ease-out-quart), background var(--motion-duration) var(--ease-out-quart); will-change: transform; }
+.bookmark-btn.active { transform: scale(1.12); color: var(--accent); }
+.bookmark-btn.pop { animation: countPop 480ms var(--ease-spring-snap); }
+
+/* ── index.html 331–400 ── */
+body.theme-light #reading-progress-bar { background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 50%, var(--accent) 100%); background-size: 200% 100%; }
+
+/* Theme crossfade: when html.theme-transitioning, all themed colors interpolate.
+   نستثني العناصر التي تعتمد على الحركة حتى لا تتعطّل أثناء تبديل السمة */
+html.theme-transitioning, html.theme-transitioning *:not(.nav-indicator):not(#reading-progress-bar):not(.reveal-hidden):not([data-magnetic]):not([data-stagger] > *):not([data-stagger]) { transition: background-color 480ms var(--ease-out-quart), color 480ms var(--ease-out-quart), border-color 480ms var(--ease-out-quart) !important; }
+
+/* Header parallax root */
+#header { will-change: transform, box-shadow; }
+#header.theme-flash { animation: themeFlash 600ms var(--ease-out-quart); }
+
+/* Modal spring entry */
+@keyframes modalSpringIn { 0% { opacity: 0; transform: translateY(10px) scale(0.97); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+#custom-dialog, #occasion-modal { animation: modalSpringIn 480ms var(--ease-spring-snap) both; transform-origin: center; }
+
+/* Backdrop blur ramp for modals */
+@keyframes backdropIn { from { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); } to { opacity: 1; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); } }
+#custom-dialog-overlay.active, #occasion-overlay.active { animation: backdropIn 320ms var(--ease-out-quart) both; }
+#custom-dialog-overlay, #occasion-overlay { animation-fill-mode: both; }
+
+/* Surge ring used on success */
+.surge-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--accent); animation: surgeRing 720ms var(--ease-out-quart) forwards; pointer-events: none; }
+
+/* Tasbih bead improved glow */
+.tasbih-bead.filled { background: var(--accent); border-color: var(--accent); transform: translate(-50%, -50%) scale(1.3); box-shadow: 0 0 10px var(--accent); transition: transform 280ms var(--ease-spring-snap), background 280ms var(--ease-out-quart), box-shadow 280ms var(--ease-out-quart); }
+
+/* Floating on empty states */
+.occasion-empty { animation: float 3.6s ease-in-out infinite; }
+
+/* Splash screen polish */
+#splash-screen { animation: none; transition: opacity 500ms var(--ease-out-quart), transform 500ms var(--ease-out-quart), background 480ms var(--ease-out-quart); }
+@keyframes splashBreathe { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.04); opacity: 0.92; } }
+.splash-content > * { animation: splashBreathe 1.6s ease-in-out infinite; }
+.splash-content > *:nth-child(2) { animation-delay: 200ms; }
+
+/* Header title pop on screen change */
+#header-title { display: inline-block; }
+#header-title.title-in { animation: titleSlideIn 260ms var(--ease-premium); }
+
+/* Back button spring entry */
+@keyframes btnSpringIn { 0% { opacity: 0; transform: translateX(6px) scale(0.92); } 100% { opacity: 1; transform: translateX(0) scale(1); } }
+.btn-spring-in { animation: btnSpringIn 420ms var(--ease-spring-snap) !important; }
+
+/* Bead flash on tap */
+.tasbih-bead.flash { animation: beadGlow 320ms var(--ease-out-quart); }
+
+/* Lap dot pop on lap complete */
+.tasbih-lap-dot.pop { animation: countPop 480ms var(--ease-spring-snap); }
+
+/* Resume inline card handled below */
+
+/* Pop utility */
+.pop { animation: countPop 480ms var(--ease-spring-snap); }
+
+/* Card hover lift */
+.surah-row, .quick-nav-card, .athkar-cat-card, .dua-card, .occasion-card, .thikr-card, .k-dash-card, .khatmah-setup-box, .sk-card { transition: transform 280ms var(--ease-out-quart), border-color 280ms var(--ease-out-quart), box-shadow 280ms var(--ease-out-quart), background 280ms var(--ease-out-quart); will-change: transform; }
+@media (hover: hover) {
+  .surah-row:hover, .quick-nav-card:hover, .athkar-cat-card:hover, .dua-card:hover, .occasion-card:hover, .thikr-card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 10px 28px rgba(0,0,0,0.25); }
+  body.theme-light .surah-row:hover, body.theme-light .quick-nav-card:hover, body.theme-light .athkar-cat-card:hover, body.theme-light .dua-card:hover, body.theme-light .occasion-card:hover, body.theme-light .thikr-card:hover { box-shadow: 0 10px 28px rgba(0,0,0,0.08); }
+}
+
+/* Thikr done flash */
+.thikr-tap-btn.done { animation: countPop 520ms var(--ease-spring-snap); }
+
+/* Subtle shrink on press for cards */
+.surah-row:active, .athkar-cat-card:active, .quick-nav-card:active { transform: scale(0.985); }
+
+/* Focus indicators for keyboard users */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+
+
+/* ── index.html 1521–1531 ── */
+/* ==================== Universal Liquid Glass Effect ==================== */
+.surah-row, .quick-nav-card, .athkar-cat-card, .thikr-tap-btn, .btn-scale, .bookmark-btn, .k-ctrl-btn, #resume-fab, #tasbih-tap-btn, .header-btn {
+  transition: transform 320ms var(--ease-out-quart), background 320ms var(--ease-out-quart), border-color 320ms var(--ease-out-quart), box-shadow 320ms var(--ease-out-quart), color 320ms var(--ease-out-quart) !important;
+}
+.surah-row:active, .quick-nav-card:active, .athkar-cat-card:active, .thikr-tap-btn:active, .btn-scale:active, .bookmark-btn:active, .k-ctrl-btn:active, #resume-fab:active, #tasbih-tap-btn:active, .header-btn:active {
+  transform: scale(0.97) !important;
+  transition: transform 120ms var(--ease-out-quart) !important;
+}
+/* عناصر التفاعل الجديدة (شريط الآيات) تتّبع نفس سلوك الضغط */
+#ayah-bar button:active, .mushaf-nav-btn:active { transform: scale(0.97); }
+
+
+/* ── index.html 1979–2057 ── */
+/* ==================== Accessibility & 44px Minimum Touch Target Enforcement ==================== */
+#clear-search { width: 44px; height: 44px; min-width: 44px; min-height: 44px; right: 4px; align-items: center; justify-content: center; }
+.mt-btn { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+.bookmark-btn, .mushaf-topbar .bookmark-btn { width: 44px; height: 44px; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.font-step-btn, .settings-chip, .pw-chip-btn, .tasbih-phrase-chip, .ssc-btn, .k-ctrl-btn, .btn-scale { min-height: 44px; min-width: 44px; }
+.settings-toggle { min-width: 52px; min-height: 44px; display: inline-flex; align-items: center; }
+.settings-toggle .settings-toggle-knob { top: 50%; transform: translateY(-50%); }
+.settings-toggle.on .settings-toggle-knob { transform: translate(-22px, -50%); }
+.bm-remove, .audio-play, #audio-bar button { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+.mushaf-audio-pill .map-btn, .mushaf-audio-pill .map-reciter, .mushaf-audio-pill .map-pill-chip { min-height: 44px; min-width: 44px; }
+.mbh-step-btn, .mbh-side-btn, .mbh-surah-title, .mbh-audio-trigger { min-height: 44px; min-width: 44px; }
+#ayah-bar button, #ayah-bar button.ayah-close { min-height: 44px; min-width: 44px; }
+
+
+    /* Phase 3 Iteration Refinements: HUD topbar card, Header subtitle fit, Tasbih counter glow */
+    #mushaf-topbar-card {
+      display: flex !important;
+      flex-direction: row-reverse !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      padding: 5px 10px !important;
+      min-width: 0 !important;
+      flex: 1 1 auto !important;
+      max-width: 220px !important;
+    }
+    #mushaf-topbar-card .surah-h-name {
+      font-size: 14.5px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+    #mushaf-topbar-card #btn-bm-surah {
+      position: static !important;
+      transform: none !important;
+      width: 28px !important;
+      height: 28px !important;
+      min-width: 28px !important;
+      min-height: 28px !important;
+      padding: 0 !important;
+      border-radius: 8px !important;
+      background: rgba(255, 255, 255, 0.06) !important;
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      color: var(--gold) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex-shrink: 0 !important;
+    }
+    body.mushaf-hud .mushaf-wird-banner.visible {
+      top: calc(env(safe-area-inset-top, 0px) + 96px) !important;
+      z-index: 45 !important;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(216, 183, 114, 0.28) !important;
+    }
+    #header {
+      padding-inline: 8px !important;
+      gap: 4px !important;
+    }
+    .header-actions {
+      gap: 4px !important;
+    }
+    #header-title-wrap {
+      min-width: 0 !important;
+      flex: 1 1 auto !important;
+    }
+    #header-subtitle {
+      font-size: 10.5px !important;
+      white-space: nowrap !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+    }
+    #tasbih-count-num {
+      font-size: clamp(44px, 11vw, 56px) !important;
+      font-weight: 800 !important;
+      color: var(--text) !important;
+      text-shadow: 0 2px 14px rgba(62, 207, 158, 0.28) !important;
+      line-height: 1.05 !important;
+    }
+

@@ -183,7 +183,7 @@ async function main() {
     // الذي ينتظر نقرة قبل أن تُطلق إعادة التحميل)
     await evaljs(`window.__confirmMsg = null; window.__confirmIsConfirm = null;
       window.showAppDialog = async function (m, ic) {
-        if (ic === true && !window.__confirmMsg) { window.__confirmMsg = m; window.__confirmIsConfirm = ic; }
+        if (ic === true && !window.__confirmMsg) { window.__confirmNodeType = m ? m.nodeType : 0; window.__confirmMsg = (m && m.nodeType) ? m.textContent : String(m); window.__confirmIsConfirm = ic; }
         return true;
       };`);
 
@@ -204,6 +204,7 @@ async function main() {
     const cf = JSON.parse(confirm);
     ok('(e) confirmation requested', cf.ic === true);
     ok('(e) preview lists the items', typeof cf.msg === 'string' && cf.msg.includes('المرجعيات') && cf.msg.includes('عدّاد التسبيح'), (cf.msg || '').slice(0, 120));
+    ok('(e) preview built as safe DOM (no raw HTML string)', await evaljs(`window.__confirmWasNode === true || (window.__confirmNodeType || 0) === 11`), 'nodeType=' + (await evaljs('window.__confirmNodeType || 0')));
     ok('(e) preview warns about reload', typeof cf.msg === 'string' && cf.msg.includes('يُعاد تحميل'));
 
     // تحقق من الكتابة الفورية قبل إعادة التحميل

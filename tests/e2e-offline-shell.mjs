@@ -83,7 +83,7 @@ async function main() {
     // ── (b) precache contains the whole shell, including backup.js ──
     console.log('(b) precached assets...');
     const precached = await evaljs(`(async () => {
-      const wanted = ['/', '/index.html', '/sw.js', '/manifest.json', '/surah-meta.js', '/features.js', '/config.js', '/app.js', '/backup.js'];
+      const wanted = ['/', '/index.html', '/sw.js', '/manifest.json', '/js/surah-meta.js', '/js/features.js', '/js/config.js', '/js/app.js', '/js/backup.js', '/js/app-core.js', '/js/tafsir.js', '/css/tokens.css', '/css/base.css', '/css/layout.css', '/css/mushaf.css', '/css/adhkar-tasbih.css'];
       const found = [];
       for (const key of await caches.keys()) {
         const cache = await caches.open(key);
@@ -95,7 +95,7 @@ async function main() {
       return { found, missing: wanted.filter(p => !found.includes(p)) };
     })()`);
     ok('(b) every shell asset precached', precached.missing.length === 0, 'missing: ' + precached.missing.join(','));
-    ok('(b) backup.js precached', precached.found.includes('/backup.js'));
+    ok('(b) backup.js precached', precached.found.includes('/js/backup.js'));
 
     // ── (c) hard offline: reload and boot from cache alone ──
     console.log('(c) cold boot with the network cut...');

@@ -1,0 +1,818 @@
+/* mushaf.css — القارئ الموحّد، صفحات المصحف، تمييز الآيات، لوحة التفسير */
+
+/* ── index.html 721–1520 ── */
+/* ==================== القارئ الموحّد: لوحة الصفحة ==================== */
+/* ثيمات الصفحة مستقلّة عن ثيم التطبيق (داكن/فاتح) — لوحة مطبوعة بحجمها
+   الثابت، وصد المخطوطة هو المتغيّر الوحيد. القيم الافتراضية = التراثي. */
+:root {
+  --mushaf-paper: #f6efdc;
+  --mushaf-paper-2: #efe5cc;
+  --mushaf-ink: #2a1f12;
+  --mushaf-frame: #b89a4e;
+  --mushaf-frame-soft: rgba(184, 154, 78, 0.35);
+  /* كلمة التلاوة الفعّالة نص كبير لكن ذهب الإطار فاتح جداً على الورق الكريمي
+     (٢٫٣٥:١) — نفس هويّة الذهب بعد الإعتام بما يكفي للقراءة */
+  --mushaf-recite: #8a6a1f;
+}
+body.mushaf-theme-floral {
+  --mushaf-paper: #eef4ea;
+  --mushaf-paper-2: #e3ecdd;
+  --mushaf-ink: #24382a;
+  --mushaf-frame: #c07a8c;
+  --mushaf-frame-soft: rgba(192, 122, 140, 0.35);
+  --mushaf-recite: #9a4a5f;
+}
+/* الوضع الليلي: ورقة داكنة وحبر فاتح — يتبع ثيم التطبيق تلقائياً في
+   الوضع التلقائي، وإلا يُختار صراحةً من إعدادات القارئ. */
+body.mushaf-theme-night {
+  --mushaf-paper: #17211d;
+  --mushaf-paper-2: #111a17;
+  --mushaf-ink: #ece4cf;
+  --mushaf-frame: #b39a5a;
+  --mushaf-frame-soft: rgba(179, 154, 90, 0.32);
+  --mushaf-recite: #b39a5a;
+}
+
+#screen-mushaf { display: none; position: relative; flex: 1 1 auto; flex-direction: column; width: 100%; max-width: 100%; height: 100%; min-height: 0; padding: 0; margin: 0; overflow: hidden; overflow: clip; }
+#screen-mushaf.active, #screen-mushaf.slide-left, #screen-mushaf.slide-right { display: flex; }
+
+/* المصيدة ١: داخل القارئ يتوقف #content عن التمرير والـ padding-bottom تماماً حتى يملأ #screen-mushaf كامل الارتفاع المرئي في Safari */
+body.mushaf-zen #content,
+body.mushaf-hud #content,
+#content:has(> #screen-mushaf.active),
+#content:has(> #screen-mushaf.slide-left),
+#content:has(> #screen-mushaf.slide-right) { padding-bottom: 0; overflow: hidden; scroll-behavior: auto; }
+
+/* شبح الوضع الهادئ: اسم السورة والجزء في أعلى الصفحة بهدوء مثل تطبيق Ayah */
+.mushaf-ghost {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 6;
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) 14px 4px;
+  color: var(--mushaf-ink); pointer-events: none;
+  opacity: 0.68; transition: opacity 260ms var(--ease-out-quart);
+  font-family: 'Amiri', Tahoma, sans-serif;
+}
+.mushaf-ghost span:first-child { font-size: 13px; font-weight: 700; line-height: 1.2; }
+.mushaf-ghost span:last-child { font-size: 12px; opacity: 0.85; line-height: 1.2; }
+body.mushaf-hud .mushaf-ghost { opacity: 0; }
+
+/* زر الرجوع في الوضع الهادئ: مدمج وأنيق في زاوية البداية دون أكل مساحة الصفحة */
+.mushaf-back {
+  position: absolute; z-index: 8;
+  top: calc(env(safe-area-inset-top, 0px) + 3px); inset-inline-start: 8px;
+  width: 28px; height: 24px; border-radius: 7px;
+  border: 1px solid var(--mushaf-frame-soft); background: transparent;
+  color: var(--mushaf-ink); font-size: 14px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: opacity 260ms var(--ease-out-quart), transform 180ms var(--ease-spring-snap), background 200ms;
+}
+.mushaf-back:active { transform: scale(0.92); }
+body.mushaf-hud .mushaf-back { opacity: 0; pointer-events: none; }
+/* افسح للزر في حافة البداية حتى لا يغطّي اسم السورة */
+body.mushaf-zen .mushaf-ghost { padding-inline-start: 42px; }
+
+/* شريط الوضع النشط: فهرس + عنوان السورة + بحث + إعدادات */
+.mushaf-topbar {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 8;
+  display: flex; align-items: center; gap: 8px;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) calc(env(safe-area-inset-right, 0px) + 12px) 8px calc(env(safe-area-inset-left, 0px) + 12px);
+  background: rgba(10, 26, 33, 0.92);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(62, 207, 158, 0.16);
+  opacity: 0; pointer-events: none; transform: translateY(-100%);
+  transition: opacity 240ms var(--ease-out-quart), transform 280ms var(--ease-out-quart);
+}
+body.theme-light .mushaf-topbar {
+  background: rgba(245, 241, 232, 0.94);
+  border-bottom-color: rgba(31, 122, 90, 0.18);
+}
+body.mushaf-hud .mushaf-topbar { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.mushaf-topbar .surah-header-card {
+  flex: 1; min-width: 0; margin: 0; padding: 6px 12px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px; flex-direction: row; align-items: center; gap: 8px;
+}
+.mushaf-topbar .surah-h-name { font-size: calc(var(--font-size) * 0.48); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mushaf-topbar .surah-h-meta { font-size: calc(var(--font-size) * 0.36); }
+.mushaf-topbar .bookmark-btn { width: 34px; height: 34px; font-size: calc(var(--font-size) * 0.44); flex-shrink: 0; }
+.mt-btn {
+  flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px;
+  border: 1px solid rgba(62, 207, 158, 0.24);
+  background: rgba(62, 207, 158, 0.10); color: var(--accent);
+  font-size: calc(var(--font-size) * 0.5);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: transform 180ms var(--ease-spring-snap), background 200ms;
+}
+.mt-btn:active { transform: scale(0.92); }
+.mt-btn.mt-active { background: var(--accent); color: var(--color-on-accent); border-color: transparent; }
+
+/* ===== قرص التلاوة الطافي (يظهر كـ Overlay فوق الصفحة عند ضغطة واحدة كما في تطبيق Ayah) ===== */
+.mushaf-audio-pill {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mushaf-bottom-hud-h, 86px) + 12px);
+  left: 50%; right: auto; z-index: 9;
+  width: calc(100% - 36px); max-width: 380px;
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(24, 34, 38, 0.94);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(62, 207, 158, 0.35); border-radius: 999px;
+  padding: 6px 10px; box-shadow: 0 10px 28px rgba(0,0,0,0.48);
+  opacity: 0; pointer-events: none;
+  transform: translateX(-50%) translateY(8px) scale(0.97);
+  transition: opacity 220ms var(--ease-out-quart), transform 240ms var(--ease-spring-snap), bottom 260ms var(--ease-out-quart);
+}
+.mushaf-audio-pill.is-idle {
+  max-width: 320px;
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  padding: 6px 14px 6px 8px;
+}
+.mushaf-audio-pill.is-idle .map-info,
+.mushaf-audio-pill.is-idle .map-pill-chip,
+.mushaf-audio-pill.is-idle .map-close {
+  display: none;
+}
+.mushaf-audio-pill.is-idle .map-reciter {
+  flex: 1; justify-content: flex-start; border: none; background: transparent;
+  color: var(--accent); font-size: 13.5px; font-weight: 700; padding: 4px 6px;
+}
+body.theme-light .mushaf-audio-pill {
+  background: rgba(255, 253, 247, 0.96);
+  box-shadow: 0 10px 28px rgba(20, 51, 58, 0.18);
+}
+.mushaf-audio-pill.visible {
+  opacity: 1; pointer-events: auto;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+.mushaf-audio-pill .map-btn {
+  flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--accent); color: var(--color-on-accent);
+  font-size: calc(var(--font-size) * 0.44); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 160ms var(--ease-spring-snap);
+}
+.mushaf-audio-pill .map-btn:active { transform: scale(0.9); }
+.mushaf-audio-pill .map-close { background: transparent; color: var(--text-dim); border-color: transparent; }
+.mushaf-audio-pill .map-info { flex: 1; min-width: 0; }
+.mushaf-audio-pill .map-surah { font-size: calc(var(--font-size) * 0.4); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mushaf-audio-pill .map-ayah { font-size: calc(var(--font-size) * 0.34); color: var(--text-dim); }
+.mushaf-audio-pill .map-reciter {
+  flex-shrink: 0; min-height: 32px; min-width: 64px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: transparent; color: var(--text);
+  border-radius: 999px; padding: 5px 12px; cursor: pointer; font-size: calc(var(--font-size) * 0.34);
+  transition: transform 160ms var(--ease-spring-snap);
+}
+.mushaf-audio-pill .map-reciter:active { transform: scale(0.94); }
+/* الوضع الهادئ: القرص يصبح مشغّلاً مصغّراً بالأسفل — لا كروم للقراءة،
+   لكن يبقى للمستخدم سبيل لإيقاف التلاوة */
+body.mushaf-zen .mushaf-audio-pill { bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); }
+/* داخل القارئ الموحّد، الشريط الصوتي العام يتنحّي لصالح القرص */
+body.reader-audio-on #audio-bar { display: none !important; }
+
+/* ===== ورقة سفلية بسيطة (مرحلة ٤: اختيار القارئ) ===== */
+.sheet-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; transition: opacity 200ms ease-out;
+}
+.sheet-overlay.visible { opacity: 1; }
+.bottom-sheet {
+  width: 100%; max-width: 480px;
+  background: var(--surface); color: var(--text);
+  border-top-left-radius: 20px; border-top-right-radius: 20px;
+  border-top: 1px solid var(--border);
+  padding: 8px 12px calc(env(safe-area-inset-bottom, 0px) + 14px);
+  box-shadow: 0 -12px 40px rgba(0,0,0,0.4);
+  transform: translateY(100%); transition: transform 280ms var(--ease-spring-snap);
+}
+.sheet-overlay.visible .bottom-sheet { transform: translateY(0); }
+.sheet-title {
+  text-align: center; font-size: calc(var(--font-size) * 0.42); font-weight: 700;
+  color: var(--accent); padding: 6px 0 10px;
+}
+.sheet-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 12px 14px; margin-bottom: 6px;
+  background: transparent; border: 1px solid transparent; border-radius: 12px;
+  color: var(--text); font-size: calc(var(--font-size) * 0.42); cursor: pointer;
+  transition: background 160ms, border-color 160ms;
+}
+.sheet-item:hover { background: var(--surface-2, rgba(255,255,255,0.05)); }
+.sheet-item.active { border-color: var(--accent); background: rgba(127,170,255,0.1); }
+.sheet-tick { color: var(--accent); font-weight: 700; }
+/* عنوان كل مجموعة داخل ورقة الإعدادات (مرحلة ٦) */
+.sheet-group-label {
+  text-align: center; font-size: calc(var(--font-size) * 0.36); font-weight: 700;
+  color: var(--text-dim); letter-spacing: 0.5px; padding: 12px 0 4px;
+}
+.sheet-group-label:first-child { padding-top: 2px; }
+
+/* ===== إعدادات القارئ (مرحلة ٦) ===== */
+/* الهامش الكتابي: لوحة أضيق وإطار زخرفي موسّع كالمصحف المطبوع */
+body.mushaf-design-book .mushaf-page { max-width: 560px; }
+body.mushaf-design-book .mushaf-page::before { inset: 14px; }
+body.mushaf-design-book .mushaf-page::after { inset: 21px; }
+
+/* العرض المزدوج: صفحتان جنباً إلى جنب في الوضع الأفقي فقط — في الوضع
+   العمودي يبقى عمود واحد حتى لو اختار المستخدم «صفحتين» */
+.mushaf-page-next { display: none; }
+@media (orientation: landscape) {
+  body.mushaf-layout-double #mushaf-viewport { display: flex; padding-left: 8px; padding-right: 8px; }
+  body.mushaf-layout-double #mushaf-viewport > .mushaf-page { flex: 1 1 0; min-width: 0; max-width: none; }
+  body.mushaf-layout-double .mushaf-page-next { display: block; flex: 1 1 0; min-width: 0; max-width: none; }
+}
+
+/* التظليل الموضوعي: شارة الآية المميَّزة تحمل لون الموضوع (مرحلة ٦) */
+.mushaf-page .ayah.topic .ayah-badge {
+  background: var(--mushaf-frame); color: #fff; border-color: transparent;
+  box-shadow: 0 0 0 2px var(--mushaf-paper), 0 0 0 3.5px var(--mushaf-frame);
+}
+body.mushaf-theme-floral .mushaf-page .ayah.topic .ayah-badge {
+  box-shadow: 0 0 0 2px var(--mushaf-paper), 0 0 0 3.5px var(--mushaf-frame);
+}
+
+/* لوحة الصفحة: تملأ الشاشة بالكامل بدون سكرول في وضع القلب القياسي */
+.mushaf-viewport {
+  flex: 1; min-height: 0; height: 100%; overflow-y: hidden; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; scroll-behavior: auto; touch-action: pan-y;
+  padding: 0;
+  display: flex; flex-direction: column;
+}
+/* في وضع التمرير العمودي فقط يُسمح بالتمرير الرأسي */
+body.mushaf-scroll-vertical .mushaf-viewport {
+  overflow-y: auto;
+  padding-bottom: calc(var(--nav-clearance-safe) + 20px);
+}
+
+/* الصفحة: تملأ ارتفاع الشاشة بالكامل (100% بدون سكرول أو فراغ سفلي) وتوزع السطور بتناسق مثل تطبيق Ayah */
+.mushaf-page {
+  position: relative; height: 100%; min-height: 100%; width: 100%;
+  max-width: 680px; margin: 0 auto;
+  display: flex; flex-direction: column; justify-content: space-between;
+  background: linear-gradient(160deg, var(--mushaf-paper), var(--mushaf-paper-2));
+  color: var(--mushaf-ink);
+  padding: calc(env(safe-area-inset-top, 0px) + 28px) calc(env(safe-area-inset-right, 0px) + 8px) calc(env(safe-area-inset-bottom, 0px) + 4px) calc(env(safe-area-inset-left, 0px) + 8px);
+  border-radius: 0; box-shadow: 0 0 0 1px var(--mushaf-frame-soft), 0 12px 40px rgba(0,0,0,0.35);
+  transition: background 0.4s, color 0.4s;
+  overflow: hidden;
+}
+@media (min-width: 681px) {
+  .mushaf-page { border-radius: 14px; }
+}
+body.mushaf-scroll-vertical .mushaf-page {
+  height: auto; overflow: visible;
+  padding-bottom: 24px;
+}
+.mushaf-page-body {
+  flex: 1 1 auto; display: flex; flex-direction: column; justify-content: space-between; min-height: 0;
+}
+/* إطار خارجي ناعم في الوضع القياسي وموسّع في وضع الهامش الكتابي */
+.mushaf-page::before {
+  content: ''; position: absolute;
+  inset: calc(env(safe-area-inset-top, 0px) + 2px) calc(env(safe-area-inset-right, 0px) + 3px) calc(env(safe-area-inset-bottom, 0px) + 2px) calc(env(safe-area-inset-left, 0px) + 3px);
+  border: 1px solid var(--mushaf-frame-soft);
+  border-radius: 6px; pointer-events: none; opacity: 0.35;
+}
+.mushaf-page::after {
+  content: ''; position: absolute;
+  inset: calc(env(safe-area-inset-top, 0px) + 11px) calc(env(safe-area-inset-right, 0px) + 13px) calc(env(safe-area-inset-bottom, 0px) + 11px) calc(env(safe-area-inset-left, 0px) + 13px);
+  border: 1px solid var(--mushaf-frame);
+  border-radius: 4px; pointer-events: none; opacity: 0.25;
+  display: none;
+}
+body.mushaf-design-book .mushaf-page::after { display: block; }
+.mushaf-page > * { position: relative; z-index: 1; }
+
+/* داخل لوحة الصفحة، كتلة الآيات تصبح شفافة الخلفية فتظهر الورقة تحتها وتملأ المساحة المتاحة */
+.mushaf-page .mushaf-block { background: transparent; border: none; box-shadow: none; padding: 0 1px; margin-bottom: 0; color: var(--mushaf-ink); word-spacing: -0.02em; }
+.mushaf-page .mushaf-block::before { display: none; }
+.mushaf-page .mushaf-page-label { color: var(--mushaf-ink); opacity: 0.7; margin-bottom: 2px; }
+.mushaf-page .mushaf-nav-pos { color: var(--mushaf-ink); opacity: 0.75; }
+/* إطار سورة زخرفي إسلامي مدمج على غرار المصحف المطبوع (مطابق للصورة المرجعية) */
+.mushaf-page .surah-header-card {
+  position: relative;
+  background:
+    radial-gradient(circle at 12% 50%, var(--mushaf-frame-soft) 0%, transparent 55%),
+    radial-gradient(circle at 88% 50%, var(--mushaf-frame-soft) 0%, transparent 55%),
+    linear-gradient(90deg, rgba(184,154,78,0.12), rgba(184,154,78,0.04) 25%, rgba(184,154,78,0.04) 75%, rgba(184,154,78,0.12));
+  border: 1.5px solid var(--mushaf-frame);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 2px var(--mushaf-paper), inset 0 0 0 3px var(--mushaf-frame-soft);
+  padding: 2px 14px;
+  margin: 2px 0 3px;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 32px;
+}
+.mushaf-page .surah-header-card::before,
+.mushaf-page .surah-header-card::after {
+  content: '❁';
+  color: var(--mushaf-frame);
+  font-size: 0.9rem;
+  opacity: 0.85;
+  padding: 0 10px;
+}
+.mushaf-page .surah-h-name {
+  color: var(--mushaf-ink);
+  font-family: 'Amiri Quran', 'Amiri', 'Noto Naskh Arabic', serif;
+  font-size: calc(var(--mushaf-fit-size, var(--mushaf-size)) * 0.84);
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+}
+.mushaf-page .bismillah {
+  color: var(--mushaf-ink); opacity: 0.95;
+  font-family: 'Amiri Quran', 'Amiri', 'Noto Naskh Arabic', serif;
+  font-size: calc(var(--mushaf-fit-size, var(--mushaf-size)) * 0.90);
+  line-height: 1.38;
+  padding: 1px 6px 3px;
+  margin: 0;
+}
+.mushaf-page .ayah-badge { background: rgba(0,0,0,0.06); color: var(--mushaf-ink); border-color: var(--mushaf-frame); }
+/* الوضع الليلي: شارة بخلفية داكنة لا فاتحة فوق الورقة الداكنة */
+body.mushaf-theme-night .mushaf-page .ayah-badge { background: rgba(255,255,255,0.08); }
+.mushaf-page .ayah.bookmarked .ayah-badge { background: var(--mushaf-frame); color: #fff; box-shadow: 0 0 0 2px var(--mushaf-paper); }
+.mushaf-page .w.reciting, .mushaf-page .w.reciting-now { color: var(--mushaf-recite); }
+.mushaf-page .w.reciting-now { background: var(--mushaf-frame-soft); }
+.mushaf-page .ayah.selected { background: var(--mushaf-frame-soft); box-shadow: inset 0 0 0 1px var(--mushaf-frame); }
+.mushaf-page .ayah.reciting { background: var(--mushaf-frame-soft); }
+
+/* رقم الصفحة في منتصف الأسفل كما في تطبيق Ayah (سطر واحد مدمج بدون أكل مساحة) */
+.mushaf-page-foot {
+  margin-top: 2px; padding-top: 0; text-align: center; flex-shrink: 0;
+  font-family: var(--font-num); font-weight: 600;
+  font-size: 13px; line-height: 1.15; color: var(--mushaf-ink); opacity: 0.72;
+}
+.mushaf-page-foot .mpf-juz { display: none !important; }
+
+/* أزرار تنقّل الصفحات المدمجة تأخذ صفر مساحة في وضع الصفحة الكاملة، وتظهر فقط في وضع التمرير العمودي */
+.mushaf-page .mushaf-nav { opacity: 0; height: 0; max-height: 0; overflow: hidden; margin: 0; padding: 0; border: 0; pointer-events: none; }
+body.mushaf-scroll-vertical .mushaf-page .mushaf-nav { opacity: 1; height: auto; max-height: none; margin: 8px 0 14px; pointer-events: auto; }
+
+/* الوضع الهادئ يُخفي كل الكروم الخارجي للتطبيق. شريط ورد الختمة وزرّ الإتمام
+   يبقيان: هما تتبّع الورد، لا كروم قراءة. */
+body.mushaf-zen #header, body.mushaf-zen #nav, body.mushaf-zen .nav-scrim { display: none !important; opacity: 0 !important; }
+/* الوضع النشط يُخفي رأس التطبيق ويعتمد على أشرطة القارئ العائمة العلوية والسفلية (مطابق للصورة الثانية) */
+body.mushaf-hud #header { display: none; }
+body.mushaf-zen #reading-progress-container { display: none !important; }
+
+/* ===== شريط ورد الختمة: يظهر كبطاقة في وضع HUD فقط، وفي وضع القراءة الهادئ (Zen) يندمج بهدوء في الهامش العلوي دون تغطية أي آية ===== */
+.mushaf-wird-banner {
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 96px); left: 12px; right: 12px; z-index: 45;
+  display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+  background: rgba(16, 44, 54, 0.94); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(62, 207, 158, 0.28); border-radius: 999px;
+  padding: 6px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.32);
+  font-size: 12.5px;
+  opacity: 0; pointer-events: none; transform: translateY(-10px);
+  transition: opacity 240ms var(--ease-premium), transform 240ms var(--ease-premium);
+}
+body.theme-light .mushaf-wird-banner {
+  background: rgba(255, 253, 247, 0.96);
+  border-color: rgba(31, 122, 90, 0.24);
+  box-shadow: 0 6px 20px rgba(20, 51, 58, 0.14);
+}
+/* في وضع القراءة الهادئ (mushaf-zen) يختفي الشريط العائم تماماً حتى لا يحجب أول سطرين من المصحف */
+body.mushaf-zen .mushaf-wird-banner,
+body.mushaf-zen .mushaf-wird-banner.visible {
+  opacity: 0 !important; pointer-events: none !important; transform: translateY(-12px) !important;
+}
+/* في وضع HUD (عند لمس الشاشة لمسة واحدة) يظهر الشريط أسفل الشريط العلوي بوضوح */
+body.mushaf-hud .mushaf-wird-banner.visible {
+  opacity: 1; pointer-events: auto; transform: translateY(0);
+}
+.mushaf-wird-banner .mwb-label { font-weight: 700; color: var(--accent); }
+.mushaf-wird-banner .mwb-range { color: var(--text); font-weight: 600; }
+.mushaf-wird-banner .mwb-remain { color: var(--text-dim); font-size: 11.5px; }
+
+/* شارة الورد الهامسة في الهامش العلوي أثناء القراءة الهادئة (لا تغطي أي نص قرآني) */
+.mushaf-ghost-wird {
+  font-size: 11px; font-weight: 700; color: var(--mushaf-frame);
+  background: rgba(184, 154, 78, 0.12); border: 1px solid var(--mushaf-frame-soft);
+  padding: 1px 8px; border-radius: 999px; white-space: nowrap;
+  display: none;
+}
+.mushaf-ghost-wird.visible { display: inline-flex; align-items: center; gap: 4px; }
+
+/* زر إتمام الورد: في وضع Zen يجلس كشريحة مدمجة في هامش التذييل بجوار رقم الصفحة دون تغطية الآيات، وفي وضع HUD يرتفع كزر واضح */
+.mushaf-wird-fab {
+  position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 2px); left: 12px; right: auto; z-index: 9;
+  background: var(--accent-deep); color: var(--color-on-accent); border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 999px; padding: 3px 12px; min-height: 22px; cursor: pointer;
+  font-size: 11.5px; font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  opacity: 0; pointer-events: none; transform: translateY(8px) scale(0.95);
+  transition: opacity 240ms var(--ease-premium), transform 260ms var(--ease-premium), bottom 260ms var(--ease-premium), padding 220ms;
+}
+.mushaf-wird-fab.visible { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
+.mushaf-wird-fab:active { transform: scale(0.95); }
+body.mushaf-hud .mushaf-wird-fab {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mushaf-bottom-hud-h, 112px) + 14px);
+  right: 16px; left: auto; padding: 10px 20px; min-height: 44px; font-size: 14px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.4);
+}
+body.reader-audio-on.mushaf-hud .mushaf-wird-fab { bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mushaf-bottom-hud-h, 112px) + 70px); }
+
+/* مسار ورد الختمة على شريط التقدم: نطاق مُلوَّن ضمن ٦٠٤ صفحة + نقاط مرجعيات */
+#reading-progress-container.wird-mode { height: 16px; }
+#reading-progress-container.wird-mode #reading-progress-bar { display: none; }
+#wird-track {
+  position: absolute; inset: 0; display: none;
+  pointer-events: none;
+}
+#reading-progress-container.wird-mode #wird-track { display: block; }
+#wird-track::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 3px; transform: translateY(-50%);
+  background: rgba(255,255,255,0.16); border-radius: 3px;
+}
+body.theme-light #wird-track::before { background: rgba(0,0,0,0.12); }
+#wird-track .wird-range {
+  position: absolute; top: 50%; height: 6px; transform: translateY(-50%);
+  background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 6px;
+}
+#wird-track .wird-cursor {
+  position: absolute; top: 50%; width: 3px; height: 14px; transform: translate(-50%, -50%);
+  background: var(--color-on-accent, #fff); border-radius: 3px;
+  box-shadow: 0 0 0 2px var(--accent-deep);
+}
+#wird-track .wird-dot {
+  position: absolute; top: 50%; width: 7px; height: 7px; transform: translate(-50%, -50%);
+  background: var(--frame, #d4af37); border-radius: 50%;
+  box-shadow: 0 0 0 1.5px rgba(0,0,0,0.35);
+}
+
+/* ===== شريط إجراءات الآية المحدّدة (قائمة سياقية مدمجة تظهر فوق الآية عند الضغط المطوّل) ===== */
+#ayah-bar { position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); left: 50%; transform: translateX(-50%) translateY(10px) scale(0.96); background: rgba(16, 44, 54, 0.96); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--accent); border-radius: 999px; padding: 5px 8px; box-shadow: 0 10px 28px rgba(0,0,0,0.48); z-index: 120; display: flex; flex-wrap: nowrap; justify-content: center; align-items: center; gap: 4px; width: max-content; max-width: calc(100vw - 16px); overflow-x: auto; scrollbar-width: none; visibility: hidden; opacity: 0; transition: visibility 0s linear 240ms, transform 240ms var(--ease-spring-snap), opacity 200ms var(--ease-out-quart); }
+#ayah-bar::-webkit-scrollbar { display: none; }
+body.theme-light #ayah-bar { background: rgba(255, 253, 247, 0.97); box-shadow: 0 10px 28px rgba(20, 51, 58, 0.22); }
+#ayah-bar.visible { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0) scale(1); transition: visibility 0s linear 0s, transform 240ms var(--ease-spring-snap), opacity 200ms var(--ease-out-quart); }
+#ayah-bar button { background: var(--accent-dim); color: var(--accent); border: none; border-radius: 999px; min-height: 30px; padding: 5px 10px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-family: var(--font-num); font-size: 12px; line-height: 1.2; font-weight: 700; white-space: nowrap; cursor: pointer; flex: 0 0 auto; transition: transform 160ms var(--ease-spring-snap), background 180ms; }
+#ayah-bar button:active { transform: scale(0.92); }
+#ayah-bar button.ayah-close { background: var(--surface-2); color: var(--text-dim); width: 30px; height: 30px; min-height: 30px; flex: 0 0 30px; padding: 0; border-radius: 50%; justify-content: center; }
+
+/* ===== Toast: تنبيه عابر خفيف ===== */
+#app-toast { position: fixed; bottom: calc(var(--nav-clearance-safe) + 76px); left: 50%; transform: translateX(-50%) translateY(16px); background: var(--accent-deep); color: var(--color-on-accent); border-radius: 22px; padding: 10px 20px; font-size: calc(var(--font-size) * 0.52); font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,0.45); z-index: 200; visibility: hidden; opacity: 0; max-width: calc(100vw - 48px); text-align: center; transition: visibility 0s linear 260ms, transform 280ms var(--ease-spring-snap), opacity 220ms var(--ease-out-quart); }
+#app-toast.visible { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); transition: visibility 0s linear 0s, transform 280ms var(--ease-spring-snap), opacity 220ms var(--ease-out-quart); }
+/* تباعد مُحكَم: 8px أعلى + 12px أسفل = 20px بدلاً من 36px للتخفيف من الفراغ الكبير قبل نص الآيات */
+.bismillah { text-align: center; font-family: 'Amiri Quran', 'Amiri', serif; font-size: calc(var(--mushaf-size) * 1.08); color: var(--accent); padding: 8px 10px 12px 10px; line-height: var(--mushaf-lh); transition: font-size 0.3s; }
+
+/* شريط متابعة القراءة المدمج أعلى قائمة السور (بدلاً من الزر العائم المزعج بالأسفل) */
+#resume-fab {
+  position: static;
+  width: 100%;
+  min-height: 46px;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 12px 0;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(62, 207, 158, 0.14), rgba(70, 200, 214, 0.06));
+  border: 1px solid rgba(62, 207, 158, 0.28);
+  border-radius: var(--radius-md, 14px);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: clamp(13px, 3.4vw, 15px);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: transform 220ms var(--ease-premium), background 220ms var(--ease-premium), border-color 220ms var(--ease-premium);
+}
+body.theme-light #resume-fab {
+  background: linear-gradient(135deg, rgba(31, 122, 90, 0.10), rgba(18, 131, 127, 0.05));
+  border-color: rgba(31, 122, 90, 0.24);
+  box-shadow: 0 2px 10px rgba(20, 51, 58, 0.06);
+}
+#resume-fab::before { content: '📖'; font-size: 16px; flex-shrink: 0; }
+#resume-fab span { flex: 1; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#resume-fab::after {
+  content: 'متابعة ←';
+  font-size: 12px;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 4px 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+#resume-fab:active { transform: scale(0.985); }
+#resume-fab.visible { display: flex; visibility: visible; opacity: 1; transform: none; pointer-events: auto; animation: fadeIn 260ms var(--ease-premium) backwards; }
+body.mushaf-zen #resume-fab, body.mushaf-hud #resume-fab { display: none; }
+@keyframes fabSpringIn { 0% { opacity: 0; transform: translateY(24px) scale(0.85); } 60% { opacity: 1; transform: translateY(-3px) scale(1.04); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* ================= الحلقات الدائرية وتأثير النبض ================= */
+.circle-wrap { position: relative; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+.circular-chart { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
+.circle-bg { fill: none; stroke: var(--surface-2); stroke-width: 3.5; transition: stroke 0.4s; }
+.circle-path { fill: none; stroke: var(--accent); stroke-width: 3.5; stroke-linecap: round; transition: stroke-dasharray 1s cubic-bezier(0.5, 1.5, 0.4, 1), stroke 0.4s; }
+.circle-text { position: absolute; font-size: calc(var(--font-size) * 0.45); font-weight: bold; color: var(--text); font-family: var(--font-num); }
+
+.pulse-success { animation: pulse-green 2s infinite; }
+
+/* ================= الختمة ================= */
+.khatmah-setup-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+.k-label { display: block; margin-bottom: 8px; color: var(--text-dim); font-size: calc(var(--font-size) * 0.55); transition: font-size 0.3s; }
+.k-input { width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: calc(var(--font-size) * 0.62); font-family: inherit; transition: background 0.4s, color 0.4s; }
+.btn-scale { width: 100%; background: var(--accent-grad); color: var(--color-on-accent); font-weight: bold; font-size: calc(var(--font-size) * 0.65); padding: 14px; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, font-size 0.3s; }
+body.theme-light .btn-scale { color: var(--color-on-accent); }
+.btn-scale:active { transform: scale(0.96); box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+
+.k-dash-card { background-color: var(--surface); background-image: var(--islamic-pattern), linear-gradient(165deg, rgba(22, 65, 78, 0.5) 0%, var(--surface) 100%); border: 1px solid rgba(212, 175, 55, 0.25); border-radius: var(--radius-lg, 18px); padding: 20px; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.06); }
+body.theme-light .k-dash-card { background-image: var(--islamic-pattern), linear-gradient(165deg, #ffffff 0%, var(--surface) 100%); }
+.k-dash-info { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+.k-dash-title { font-size: calc(var(--font-size) * 0.6); color: var(--text-dim); margin-bottom: 6px; transition: font-size 0.3s; }
+
+.k-wird-container { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface-2); border-radius: 8px; padding: 12px; width: 90%; min-width: 0; transition: background 0.4s; }
+.k-wird-badge { display: flex; flex-direction: column; align-items: center; min-width: 0; flex-shrink: 1; white-space: nowrap; overflow: hidden; }
+.k-wird-badge span { font-size: calc(var(--font-size) * 0.85); font-weight: bold; color: var(--accent); transition: font-size 0.3s; }
+.k-wird-badge small { font-size: calc(var(--font-size) * 0.45); color: var(--text-dim); margin-bottom: 4px; transition: font-size 0.3s; }
+.k-wird-arrow { color: var(--accent); font-size: calc(var(--font-size) * 0.8); font-weight: bold; transition: font-size 0.3s; }
+
+.k-ctrl-btn { flex: 1; background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: calc(var(--font-size) * 0.55); transition: transform 0.2s, font-size 0.3s, background 0.4s, color 0.4s; }
+.k-ctrl-btn:active { transform: scale(0.95); }
+.k-ctrl-btn.primary { background: var(--success); color: #fff; border-color: var(--success); flex: 2; }
+.k-ctrl-btn:disabled { opacity: 0.4; pointer-events: none; }
+
+/* ================= الأذكار (بطاقات وصول سريع معمارية هادئة) ================= */
+.quick-nav-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
+.quick-nav-card {
+  position: relative; overflow: hidden;
+  background-image: var(--islamic-pattern), linear-gradient(160deg, var(--surface-2) 0%, var(--surface) 100%);
+  border: 1px solid rgba(212, 175, 55, 0.24);
+  border-radius: var(--radius);
+  padding: 14px 10px;
+  text-align: center; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+body.theme-light .quick-nav-card {
+  background-image: var(--islamic-pattern), linear-gradient(160deg, #ffffff 0%, var(--surface) 100%);
+  border-color: rgba(154, 116, 24, 0.24);
+  box-shadow: 0 3px 12px rgba(20, 51, 58, 0.06);
+}
+.quick-nav-icon {
+  width: 38px; height: 38px; border-radius: 12px;
+  background: var(--accent-dim); border: 1px solid rgba(62, 207, 158, 0.24);
+  color: var(--accent);
+  font-size: calc(var(--font-size) * 0.85);
+  display: flex; align-items: center; justify-content: center;
+}
+.quick-nav-label { font-size: calc(var(--font-size) * 0.54); font-weight: 700; color: var(--text); display: block; }
+body.theme-light .quick-nav-label { color: var(--text); }
+
+.athkar-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.athkar-cat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 12px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: transform 0.2s, border-color 0.2s, background 0.4s; }
+.athkar-cat-card:active { transform: scale(0.95); }
+.athkar-cat-card.completed { border-color: var(--success); }
+.cat-info { flex: 1; text-align: right; }
+.cat-icon { font-size: calc(var(--font-size) * 1.0); }
+.cat-name { font-size: calc(var(--font-size) * 0.6); color: var(--text); font-weight: bold; transition: font-size 0.3s; }
+
+.thikr-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 46px 20px 20px; margin-bottom: 16px; transition: background 0.4s, border-color 0.4s; position: relative; }
+
+/* زر نسخ نص الذكر/الدعاء */
+.copy-btn { position: absolute; top: 10px; left: 10px; display: inline-flex; align-items: center; gap: 4px; background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border); border-radius: 20px; padding: 5px 10px; font-size: calc(var(--font-size) * 0.45); font-family: inherit; font-weight: bold; cursor: pointer; transition: transform 200ms var(--ease-spring-snap), color 200ms var(--ease-out-quart), background 200ms var(--ease-out-quart), border-color 200ms var(--ease-out-quart); }
+.copy-btn:active { transform: scale(0.92); }
+.copy-btn.copied { color: var(--success); border-color: var(--success); background: rgba(79, 209, 165, 0.12); }
+.thikr-text { font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) * 1.15); line-height: calc(var(--line-height) * 1.1); color: var(--text); text-align: right; margin-bottom: 12px; transition: font-size 0.3s; white-space: pre-line; }
+
+.thikr-tap-btn { width: 100%; min-height: 56px; background: var(--surface-2); border: 2px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: calc(var(--font-size) * 0.7); cursor: pointer; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), font-size 0.3s; }
+.thikr-tap-btn:active { transform: scale(0.96); }
+.thikr-tap-btn.done { background: #0f3a26; border-color: var(--success); color: var(--success); transform: scale(1); }
+body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success); border-color: var(--success); }
+
+/* ================= بطاقة الذكر (تقاليب أفقي — Pager) ================= */
+/* شاشة الذكر تصبح صفحاتٍ أفقية: ذكرٌ واحد في كل مرة، مع التفات يميناً/يساراً.
+   #content نفسه لا يتحرك أبداً على هذه الشاشة (overflow: hidden).
+   padding-bottom هنا ليس فائضاً: البطاقة محصورةٌ بارتفاع الشريحة، فلو امتدت
+   الشريحة إلى أسفل الشاشة لاختبأ زرّ العدّ خلف شريط التنقّل الثابت المعيم.
+   لذلك نحجز له نفس مساحة الشريط التي تحجزها بقية الشاشات + هامش بصري. */
+#content.pager-dhikr { overflow: hidden; touch-action: pan-x; padding-bottom: calc(var(--nav-clearance-safe) + 12px); }
+#screen-thikr-view.active, #screen-thikr-view.slide-left, #screen-thikr-view.slide-right { display: flex; flex-direction: column; height: 100%; }
+#screen-thikr-view .dhikr-filter-row { flex: 0 0 auto; }
+#thikr-list-container {
+  flex: 1 1 auto; min-height: 0;
+  display: flex;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch; touch-action: pan-x;
+  scrollbar-width: none;
+}
+#thikr-list-container::-webkit-scrollbar { display: none; }
+/* كل شريحة تأخذ عرض الحاوية بالضبط = بطاقة واحدة مرئية.
+   اتجاه RTL يُدار تلقائياً عبر dir="rtl" على <html>: السحب لليسار = التالي.
+   الشريحة نفسها لا تمرّر أبداً (overflow: hidden) — أيّ ذكرٍ أطول من الشاشة
+   يتموّر داخل منطقة نصّه الخاصة (انظر .thikr-text) فلا يحدث تمرير عمودي
+   للشاشة أبداً مهما كبر الخط. */
+.dhikr-slide {
+  flex: none; width: 100%;
+  display: flex; flex-direction: column;
+  scroll-snap-align: center;
+  overflow: hidden;
+  /* كلا المحورين: السحب الأفقي يقلّب الصفحات، والعمودي يموّر النص داخل البطاقة */
+  touch-action: pan-x pan-y;
+  /* هوامش جانبية مريحة: البطاقة ليست ملصقةً بحواف الشاشة */
+  padding: 6px 14px;
+}
+.dhikr-card {
+  margin: auto;
+  width: 100%;
+  /* لا تتجاوز ارتفاع الشريحة أبداً: تتمركز في الوسط حين تتّسع،
+     وتتقلّص منطقة النصّ دوناً عن باقي البطاقة حين يطول الذكر. */
+  max-height: 100%;
+  /* صمّام الأمان: إن تجاوزت ثوابت البطاقة (الشارة + النسخ + العدّ + الزرّ)
+     ارتفاع الشريحة — يحدث ذلك على الشاشات القصيرة جداً (أفقي) — يتموّر
+     محتوى البطاقة داخلها بدل أن يُقصّ أو يختفي خلف شريط التنقّل. */
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  /* على الشاشات العريضة (أفقي/تابلت/سطح المكتب) تبقى البطاقة مدمجةً
+     في الوسط بدل أن تتمدّد سطور النصّ عبر الشاشة كلها */
+  max-width: 460px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px 16px;
+  display: flex; flex-direction: column;
+  position: relative;
+  cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
+  transition: background 0.4s, border-color 0.4s, transform 140ms var(--ease-spring-snap);
+}
+.dhikr-card:active { transform: scale(0.99); }
+.dhikr-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex: 0 0 auto; }
+.dhikr-badge {
+  font-size: calc(var(--font-size) * 0.5); font-weight: 700; color: var(--accent);
+  background: var(--accent-dim); border-radius: 999px; padding: 4px 14px;
+  font-family: var(--font-num); white-space: nowrap;
+}
+.dhikr-fav {
+  background: transparent; border: none; font-size: calc(var(--font-size) * 0.7);
+  color: var(--text-dim); cursor: pointer; padding: 6px; border-radius: 50%;
+  transition: transform 180ms var(--ease-spring-snap), color 200ms; flex-shrink: 0;
+}
+.dhikr-fav:active { transform: scale(1.25); }
+.dhikr-fav.active { color: var(--accent); }
+.dhikr-count-line {
+  font-size: calc(var(--font-size) * 0.55); color: var(--text-dim); font-weight: 700;
+  padding-top: 8px; font-family: var(--font-num); flex: 0 0 auto;
+}
+/* منطقة النص: هي الجزء المرن الوحيد في البطاقة. flex: 0 1 auto يجعلها
+   تأخذ ارتفاعها الطبيعي حين تتّسع البطاقة (فتبقى البطاقة متمركزة ومضغوطة)،
+   وتتقلّص مع التمرير الداخلي فقط حين يطول الذكر عن ارتفاع الشاشة. */
+.dhikr-card .thikr-text {
+  display: block; font-size: calc(var(--font-size) * 0.8); text-align: center; line-height: 1.75;
+  margin: 4px 0 12px; padding: 2px 6px 8px;   /* ٨px أسفل تستوعب حروف التشكيل المتدلّية فلا يظهر شريط تمرير وهمي */
+  flex: 0 1 auto; min-height: 0;
+  overflow: hidden auto; -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+}
+.dhikr-progress { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin: 8px 0 10px; flex: 0 0 auto; }
+.dhikr-progress-fill {
+  height: 100%; width: 0%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 320ms var(--ease-spring-snap);
+}
+/* صفّ سفلي واحد: زرّ العدّ يأخذ ما تبقّى، وزرّ المصدر بجانبه (لا التفاف).
+   position: sticky أسفل البطاقة: حين تتموّر البطاقة (شاشة قصيرة) يبقى زرّ
+   العدّ مرئياً قابلاً للضغط في أسفلها بدل أن يختفي مع التمرير. */
+.dhikr-bottom {
+  display: flex; align-items: stretch; gap: 10px; flex: 0 0 auto;
+  position: sticky; bottom: 0;
+  background: var(--surface);
+}
+.dhikr-bottom .thikr-tap-btn { flex: 1 1 auto; width: auto; }
+.dhikr-bottom .dhikr-src-btn { flex: 0 0 auto; align-self: center; }
+.dhikr-bottom .dhikr-src-none { flex: 0 0 auto; align-self: center; }
+.dhikr-card .copy-btn { flex: 0 0 auto; }
+.dhikr-src-btn {
+  background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border);
+  border-radius: 999px; padding: 8px 18px; font-size: calc(var(--font-size) * 0.5);
+  font-weight: 700; cursor: pointer; transition: transform 180ms var(--ease-spring-snap), background 200ms;
+}
+.dhikr-src-btn:active { transform: scale(0.94); }
+.dhikr-src-none { font-size: calc(var(--font-size) * 0.48); color: var(--text-dim); padding: 8px 6px; }
+.dhikr-empty {
+  flex: 0 0 100%;
+  text-align: center; padding: 60px 24px; color: var(--text-dim);
+  font-size: calc(var(--font-size) * 0.6); line-height: 2.2;
+}
+/* صفحة فلتر المفضلة والتقدم التلقائي — صفّ موحّد رفيع لا يلتهم ارتفاع البطاقة ولا يغطي محتواها */
+.dhikr-filter-row { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 2px 0 6px; flex-wrap: nowrap; }
+.dhikr-chip {
+  background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border);
+  border-radius: 999px; padding: 5px 16px; font-size: calc(var(--font-size) * 0.48);
+  font-weight: 700; cursor: pointer; transition: all 200ms var(--ease-spring-snap);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.dhikr-chip[aria-pressed="true"] { background: var(--accent); color: var(--color-on-accent); border-color: var(--accent); }
+.dhikr-chip:active { transform: scale(0.95); }
+
+/* Auto-Advance Chip integrated into the top filter row */
+.dhikr-auto-fab {
+  position: static;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 14px;
+  color: var(--text-dim);
+  font-size: calc(var(--font-size) * 0.48);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 200ms var(--ease-spring-snap), box-shadow 200ms, background 200ms, border-color 200ms, color 200ms;
+}
+.dhikr-auto-fab:active { transform: scale(0.96); }
+.dhikr-auto-fab[aria-pressed="true"] {
+  background: linear-gradient(180deg, rgba(62, 207, 158, 0.35), rgba(62, 207, 158, 0.15)),
+              rgba(12, 42, 52, 0.96);
+  border-color: var(--accent);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.20),
+    inset 0 1px 1px rgba(255, 255, 255, 0.18),
+    0 0 20px rgba(62, 207, 158, 0.35);
+}
+.dhikr-auto-fab .fab-icon {
+  font-size: calc(var(--font-size) * 0.65);
+  line-height: 1;
+}
+.dhikr-auto-fab .fab-label { white-space: nowrap; }
+body.theme-light .dhikr-auto-fab {
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.82)),
+              rgba(255, 253, 247, 0.97);
+  border: 1px solid rgba(31, 122, 90, 0.20);
+  box-shadow:
+    0 8px 24px rgba(20, 51, 58, 0.14),
+    0 2px 6px rgba(20, 51, 58, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 1);
+}
+body.theme-light .dhikr-auto-fab[aria-pressed="true"] {
+  background: linear-gradient(180deg, rgba(62, 207, 158, 0.25), rgba(62, 207, 158, 0.10)),
+              rgba(255, 253, 247, 0.97);
+  border-color: var(--accent);
+  box-shadow:
+    0 8px 24px rgba(20, 51, 58, 0.14),
+    0 2px 6px rgba(20, 51, 58, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 1),
+    0 0 20px rgba(62, 207, 158, 0.25);
+}
+
+/* في البطاقة زر النسخ يجري ضمن السياق بدل absolute كي لا
+   يغطي شارة التقدم — البطاقة flex-column فيكفي محاذاته للنهاية */
+.dhikr-card .copy-btn { position: static; align-self: flex-end; margin: 0 0 4px; }
+
+.dua-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 46px 18px 18px; margin-bottom: 14px; transition: background 0.4s, border-color 0.4s; position: relative; }
+.dua-occasion { font-size: calc(var(--font-size) * 0.6); font-weight: 700; color: var(--accent); margin-bottom: 10px; transition: font-size 0.3s; }
+.dua-text { font-size: calc(var(--font-size) * 0.85); line-height: var(--line-height); color: var(--text); text-align: justify; transition: font-size 0.3s; }
+
+/* ================= ترويسة القسم ================= */
+.section-heading { display: block; color: var(--accent); font-weight: 700; margin: 18px 4px 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+
+/* ================= السنن والمناسبات ================= */
+.occasion-card { background: var(--surface); border: 1px solid var(--border); border-right: 4px solid var(--accent); border-radius: var(--radius); padding: 22px; margin-bottom: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: background 0.4s, border-color 0.4s, box-shadow 0.4s; }
+body.theme-light .occasion-card { box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+.occasion-card-title { font-size: calc(var(--font-size) * 0.8); font-weight: 700; color: var(--accent); margin-bottom: 14px; transition: font-size 0.3s; font-family: inherit; }
+.occasion-sunnah-item { font-size: calc(var(--font-size) * 0.7); line-height: 2; color: var(--text); padding: 10px 0; border-bottom: 1px solid var(--border); transition: font-size 0.3s, color 0.3s; font-family: inherit; }
+.occasion-sunnah-item:last-child { border-bottom: none; }
+.occasion-note { font-size: calc(var(--font-size) * 0.55); color: var(--text-dim); background: var(--surface-2); border-radius: 8px; padding: 12px; margin-top: 16px; line-height: 1.8; transition: font-size 0.3s, background 0.4s; font-family: inherit; }
+.occasion-empty { text-align: center; color: var(--text-dim); padding: 40px 16px; font-size: calc(var(--font-size) * 0.7); line-height: 2; transition: font-size 0.3s; font-family: inherit; }
+
+/* ================= السبحة ================= */
+.tasbih-laps { display: flex; gap: 10px; margin-bottom: 24px; justify-content: center; }
+.tasbih-lap-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); background: transparent; transition: background 0.3s; }
+.tasbih-lap-dot.filled { background: var(--accent); }
+#tasbih-circle-wrap { position: relative; width: min(280px, 70vw); height: min(280px, 70vw); margin: 0 auto; }
+.tasbih-bead { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); transform: translate(-50%, -50%); transition: 0.2s; }
+.tasbih-bead.filled { background: var(--accent); border-color: var(--accent); transform: translate(-50%, -50%) scale(1.3); }
+#tasbih-tap-btn { position: absolute; inset: 14%; border-radius: 50%; background: radial-gradient(circle at 35% 25%, #1ea87d 0%, #11755a 55%, #0c4f5c 100%); border: 1.5px solid rgba(212, 175, 55, 0.42); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 0 6px rgba(62, 207, 158, 0.08), 0 10px 28px rgba(0,0,0,0.45), inset 0 2px 4px rgba(255,255,255,0.22); transition: transform 0.14s var(--ease-premium); }
+body.theme-light #tasbih-tap-btn { box-shadow: 0 4px 20px rgba(31, 122, 90, 0.2); }
+#tasbih-tap-btn:active { transform: scale(0.92); }
+#tasbih-count-num { font-family: var(--font-num); font-size: calc(var(--font-size) * 1.8); font-weight: 700; line-height: 1.1; color: var(--color-on-accent); transition: font-size 0.3s, color 0.4s; }
+body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
+.tasbih-complete-banner { background: linear-gradient(135deg, rgba(62, 207, 158, 0.14), rgba(70, 200, 214, 0.07)); border: 1px solid var(--accent); border-radius: var(--radius); padding: 14px; text-align: center; color: var(--accent); margin-bottom: 20px; display: none; width: 100%; max-width: 320px; }
+.tasbih-complete-banner.active { display: block; }
+
+#occasion-overlay { position: fixed; inset: 0; background: rgba(5,6,10,0.72); z-index: 999; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(5px); }
+#occasion-overlay.active { display: flex; }
+#occasion-modal { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 400px; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 22px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: fadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.occasion-modal-icon { font-size: calc(var(--font-size) * 1.3); text-align: center; margin-bottom: 8px; }
+.occasion-modal-title { font-size: calc(var(--font-size) * 0.73); font-weight: 700; color: var(--accent); text-align: center; margin-bottom: 14px; }
+.occasion-modal-item { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; font-size: calc(var(--font-size) * 0.7); line-height: 1.9; color: var(--text); transition: font-size 0.3s, background 0.4s; font-family: inherit; }
+.occasion-modal-item b { color: var(--accent); }
+
+#splash-screen { position: fixed; inset: 0; background: var(--bg); z-index: 10000; display: flex; align-items: center; justify-content: center; transition: opacity 500ms var(--ease-out-quart), transform 500ms var(--ease-out-quart), background 480ms var(--ease-out-quart); }
+.splash-content { text-align: center; }
+.splash-title { color: var(--accent); font-size: calc(var(--font-size) * 0.92); margin-bottom: 10px; font-weight: bold; }
+.splash-user { color: var(--text-dim); font-size: calc(var(--font-size) * 0.62); }
+
+
+/* ── index.html 1538–1550 ── */
+/* ==================== شريط التلاوة الصوتية ==================== */
+#audio-bar { position: fixed; bottom: calc(var(--nav-clearance-safe) + 10px); right: 20px; z-index: 95; display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--accent); border-radius: 30px; padding: 8px 8px 8px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); transform: translateX(calc(100% + 30px)); opacity: 0; transition: bottom 380ms var(--ease-spring), transform 420ms var(--ease-spring), opacity 320ms; max-width: calc(100vw - 40px); }
+#audio-bar.visible { transform: translateX(0); opacity: 1; }
+/* عندما يكون شريط التنقل مخفياً، ينزل شريط التلاوة لأسفل */
+#audio-bar.nav-lowered { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+#audio-bar #audio-title { font-size: calc(var(--font-size) * 0.5); font-weight: bold; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 38vw; }
+#audio-bar button { background: var(--accent-deep); color: var(--color-on-accent); border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: calc(var(--font-size) * 0.6); cursor: pointer; flex-shrink: 0; }
+#audio-bar #audio-close { background: var(--surface-2); color: var(--text-dim); }
+#audio-bar.playing #audio-play-btn { animation: audioPulse 1.8s ease-in-out infinite; }
+@keyframes audioPulse { 0%, 100% { box-shadow: 0 0 0 0 var(--accent-dim); } 50% { box-shadow: 0 0 0 10px transparent; } }
+.audio-play { position: absolute; top: 10px; right: 10px; left: auto; background: rgba(255,255,255,0.2); border: none; color: var(--color-on-accent); font-size: calc(var(--font-size) * 0.6); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
+.audio-play:active { transform: scale(0.85); }
+
