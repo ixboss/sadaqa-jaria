@@ -9,7 +9,8 @@
 <meta name="theme-color" content="#07161B" id="meta-theme-color">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- apple-mobile-web-app-status-bar-style محذوف: مهمل وغير موثوق على iOS الحديث —
+     يُعوَّض بحاجب الحالة المصمت #status-bar-blockade في layout.css (وضع standalone فقط) -->
 <meta name="apple-mobile-web-app-title" content="إسلامي">
 
 <!-- Open Graph Meta Tags -->
@@ -81,6 +82,10 @@
 <link rel="stylesheet" href="./css/adhkar-tasbih.css">
 </head>
 <body>
+
+<!-- حاجب شريط الحالة (iOS standalone): طبقة مصمتة بارتفاع منطقة الأمان العلوية
+     تجبر iOS على رسم لون صامد بدل ضبابية شريط الحالة. لا تستقبل النقرات أبداً. -->
+<div id="status-bar-blockade" aria-hidden="true"></div>
 
 <div id="splash-screen">
     <div class="splash-content">
