@@ -1527,7 +1527,7 @@ const PrayerEngine = {
     const ss = diffSec % 60;
     const ar = window.toArabicNum || (x => String(x));
     const countdown = `${ar(String(hh).padStart(2, '0'))}:${ar(String(mm).padStart(2, '0'))}:${ar(String(ss).padStart(2, '0'))}`;
-    return { times, order, next, countdown, iqamahActive };
+    return { times, order, next, countdown, diffSec, iqamahActive };
   },
 
   // اقتراح ذكي للعبادة حسب الوقت الحالي ومواقيت الصلاة (مستوحى من الواجهة المبسطة في تطبيق أذكار)
@@ -1538,19 +1538,19 @@ const PrayerEngine = {
 
     if (iqamahActive) {
       return {
-        badge: `⏳ بين أذان وإقامة ${iqamahActive.name}`,
+        badge: `بين أذان وإقامة ${iqamahActive.name}`,
         title: 'الدعاء لا يُرد بين الأذان والإقامة',
         desc: 'اغتنم هذه الدقائق بالدعاء وسؤال الله العافية في الدنيا والآخرة.',
-        actionLabel: 'أذكار بعد الصلاة 🕌',
+        actionLabel: 'أذكار بعد الصلاة',
         action: () => { if (window.openCategory) window.openCategory(6); }
       };
     }
     if (curMin >= times.fajr && curMin <= times.sunrise + 45) {
       return {
-        badge: '🌅 وقت الصباح المبارك',
+        badge: 'وقت الصباح المبارك',
         title: 'أذكار الصباح حصنك اليومي',
         desc: 'ابدأ يومك بذكر الله لتنال الحفظ والبركة والسكينة.',
-        actionLabel: 'قراءة أذكار الصباح 🌅',
+        actionLabel: 'قراءة أذكار الصباح',
         action: () => { if (window.openCategory) window.openCategory(0); }
       };
     }
@@ -1568,33 +1568,33 @@ const PrayerEngine = {
         badge: '☀️ وقت صلاة الضحى',
         title: 'صلاة الأوابين — صدقة عن كل مفصل',
         desc: 'ركعتان في الضحى تجزئان عن ٣٦٠ صدقة في يومك.',
-        actionLabel: 'السبحة الرقمية 📿',
+        actionLabel: 'السبحة الرقمية',
         action: () => { if (window.openTasbih) window.openTasbih(); }
       };
     }
     if (curMin >= times.asr && curMin <= times.maghrib + 45) {
       return {
-        badge: '🌇 وقت المساء',
+        badge: 'وقت المساء',
         title: 'أذكار المساء والسكينة',
         desc: 'حافظ على وردك المسائي من حصن المسلم.',
-        actionLabel: 'قراءة أذكار المساء 🌙',
+        actionLabel: 'قراءة أذكار المساء',
         action: () => { if (window.openCategory) window.openCategory(1); }
       };
     }
     if ((times.lastThird > times.isha && curMin >= times.lastThird) || (times.lastThird < times.fajr && (curMin >= times.lastThird && curMin < times.fajr))) {
       return {
-        badge: '✨ الثلث الأخير من الليل',
+        badge: 'الثلث الأخير من الليل',
         title: 'ساعة التنزّل الإلهي والاستغفار بالأسحار',
         desc: '«هل من سائلٍ فيُعطى؟ هل من مستغفرٍ فيُغفر له؟»',
-        actionLabel: 'جوامع الدعاء 🤲',
+        actionLabel: 'جوامع الدعاء',
         action: () => { if (window.openCategory) window.openCategory(3); }
       };
     }
     return {
-      badge: '🌙 أوراد المساء والنوم',
+      badge: 'أوراد المساء والنوم',
       title: 'أذكار النوم والرقية الشرعية',
       desc: 'اختم يومك بآية الكرسي والمعوذات وأذكار النوم.',
-      actionLabel: 'أذكار النوم 😴',
+      actionLabel: 'أذكار النوم',
       action: () => { if (window.openCategory) window.openCategory(4); }
     };
   },
@@ -1675,25 +1675,43 @@ const PrayerEngine = {
     }
   },
 
+  // كبسولة مدمجة واحدة: الصلاة القادمة + العد التنازلي فقط — والتفاصيل في ورقة زجاجية
   renderWidget() {
-    const box = document.getElementById('prayer-widget-container');
-    if (!box) return;
+    const pill = document.getElementById('prayer-pill');
+    if (!pill) return;
+    const info = this.getNextPrayerInfo();
+    const ar = window.toArabicNum || (x => String(x));
+    const nextEl = pill.querySelector('#pp-next');
+    const cdEl = pill.querySelector('#pp-countdown');
+    if (info.iqamahActive) {
+      if (nextEl) nextEl.textContent = `إقامة ${info.iqamahActive.name}`;
+    } else {
+      const diffMin = Math.max(1, Math.round(info.diffSec / 60));
+      const remain = diffMin >= 60 ? `${ar(Math.floor(diffMin / 60))} س ${ar(diffMin % 60)} د` : `${ar(diffMin)} د`;
+      if (nextEl) nextEl.textContent = info.next.name;
+      if (cdEl) cdEl.textContent = `بعد ${remain}`;
+    }
+  },
+
+  // الورقة الزجاجية الكاملة: المواقيت الخمس + النوافل + القبلة + الاقتراح الذكي
+  openPrayerSheet() {
+    if (!window.BottomSheet) return;
     const cfg = this.getConfig();
     const info = this.getNextPrayerInfo();
     const qibla = this.getQiblaBearing(cfg.lat, cfg.lng);
     const ar = window.toArabicNum || (x => String(x));
     const smart = this.getSmartSuggestion();
 
-    box.innerHTML = `
+    const html = `
       <div class="prayer-widget-card">
         <div class="pw-top">
           <div class="pw-next-wrap">
-            <span class="pw-badge">${info.iqamahActive ? `⏳ إقامة ${info.iqamahActive.name}` : `الصلاة القادمة: ${info.next.icon} ${info.next.name}`}</span>
+            <span class="pw-badge">${info.iqamahActive ? `إقامة ${info.iqamahActive.name}` : `الصلاة القادمة: ${info.next.name}`}</span>
             <div class="pw-countdown" id="pw-live-countdown">${info.countdown}</div>
           </div>
           <div class="pw-actions">
-            <button type="button" class="pw-chip-btn" id="pw-city-btn" title="تغيير المدينة أو طريقة الحساب">📍 ${escapeHtml(cfg.name.split('،')[0])}</button>
-            <button type="button" class="pw-chip-btn" id="pw-share-btn" title="مشاركة مواقيت اليوم كبطاقة">🖼</button>
+            <button type="button" class="pw-chip-btn" id="pw-city-btn" title="تغيير المدينة أو طريقة الحساب">${escapeHtml(cfg.name.split('،')[0])}</button>
+            <button type="button" class="pw-chip-btn" id="pw-share-btn" title="مشاركة مواقيت اليوم كبطاقة">مشاركة</button>
           </div>
         </div>
         <div class="pw-grid">
@@ -1704,9 +1722,9 @@ const PrayerEngine = {
             </div>`).join('')}
         </div>
         <div class="pw-nawafil-row">
-          <span>☀️ الضحى: <b>${this.fmtTime(info.times.duha)}</b></span>
-          <span>✨ الثلث الأخير: <b>${this.fmtTime(info.times.lastThird)}</b></span>
-          <span>🧭 القبلة: <b>${ar(qibla)}°</b></span>
+          <span>الضحى: <b>${this.fmtTime(info.times.duha)}</b></span>
+          <span>الثلث الأخير: <b>${this.fmtTime(info.times.lastThird)}</b></span>
+          <span>القبلة: <b>${ar(qibla)}°</b></span>
         </div>
       </div>
       <div class="smart-suggest-card" id="smart-suggest-card">
@@ -1718,18 +1736,18 @@ const PrayerEngine = {
         <button type="button" class="ssc-btn" id="smart-suggest-btn">${smart.actionLabel}</button>
       </div>`;
 
-    box.querySelector('#pw-city-btn')?.addEventListener('click', () => this.openCitySheet());
-    box.querySelector('#pw-share-btn')?.addEventListener('click', () => this.sharePrayerTimesCard());
-    box.querySelector('#smart-suggest-btn')?.addEventListener('click', () => { if (smart.action) smart.action(); });
+    const sheet = BottomSheet.open({ title: `مواقيت الصلاة — ${cfg.name.split('،')[0]}`, customHTML: html });
+    sheet.querySelector('#pw-city-btn')?.addEventListener('click', () => this.openCitySheet());
+    sheet.querySelector('#pw-share-btn')?.addEventListener('click', () => this.sharePrayerTimesCard());
+    sheet.querySelector('#smart-suggest-btn')?.addEventListener('click', () => { if (smart.action) smart.action(); });
   },
 
   startLiveTicker() {
     if (this._timer) clearInterval(this._timer);
     this._timer = setInterval(() => {
+      this.renderWidget();
       const cdEl = document.getElementById('pw-live-countdown');
-      if (!cdEl) return;
-      const info = this.getNextPrayerInfo();
-      cdEl.textContent = info.countdown;
+      if (cdEl) cdEl.textContent = this.getNextPrayerInfo().countdown;
     }, 1000);
   }
 };
@@ -1987,6 +2005,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ReaderSettings.applyAll();
   PrayerEngine.renderWidget();
   PrayerEngine.startLiveTicker();
+  document.getElementById('prayer-pill')?.addEventListener('click', () => PrayerEngine.openPrayerSheet());
   DailyTadabbur.render();
   const initDeepLinks = () => {
     if (typeof window.showScreen === 'function') {

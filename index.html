@@ -6,7 +6,7 @@
 <meta name="description" content="تطبيق إسلامي شامل: اقرأ القرآن الكريم، أذكار يومية، دعاء، سبحة رقمية، وختمة قرآنية. تطبيق ويب متقدم للعبادة والتعليم الإسلامي.">
 <meta name="keywords" content="قرآن, إسلام, أذكار, دعاء, سبحة, ختمة, تطبيق إسلامي, عبادة">
 <meta name="author" content="ixboss">
-<meta name="theme-color" content="#0a1f28" id="meta-theme-color">
+<meta name="theme-color" content="#07161B" id="meta-theme-color">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -34,7 +34,7 @@
 
 <!-- PWA Manifest -->
 <link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230a1f28'/%3E%3Cpath d='M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z' fill='none' stroke='%233ecf9e' stroke-width='8' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%2307161B'/%3E%3Cpath d='M96 150 C 96 150 70 160 40 140 L 40 60 C 70 80 96 70 96 70 C 96 70 122 80 152 60 L 152 140 C 122 160 96 150 96 150 Z' fill='none' stroke='%233ecf9e' stroke-width='8' stroke-linejoin='round'/%3E%3C/svg%3E">
 <!-- أيقونة الشاشة الرئيسية على iOS: سفاري لا يدعم SVG في apple-touch-icon،
      لذلك نستخدم PNG حقيقية مرسومة من نفس الشعار (مجلد icons/).
      بدونها يظهر التطبيق بأيقونة افتراضية ضبابية على iPhone. -->
@@ -84,7 +84,7 @@
 
 <div id="splash-screen">
     <div class="splash-content">
-        <div class="splash-title">صدقة جارية لي ولكم 🤍</div>
+        <div class="splash-title">صدقة جارية لي ولكم</div>
         <div class="splash-user">ixboss</div>
     </div>
 </div>
@@ -114,11 +114,18 @@
 
   <main id="content">
     <div id="screen-surah-list" class="screen active" role="tabpanel" aria-label="القرآن الكريم">
+      <!-- كبسولة الصلاة القادمة: نظرة واحدة، والتفاصيل في ورقة زجاجية -->
+      <button id="prayer-pill" type="button" aria-label="مواقيت الصلاة" aria-haspopup="dialog">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.2 2.2M16.9 16.9l2.2 2.2M4.9 19.1l2.2-2.2M16.9 7.1l2.2-2.2"/><circle cx="12" cy="12" r="4"/></svg>
+        <span class="pp-next" id="pp-next">—</span>
+        <span class="pp-dot" aria-hidden="true">·</span>
+        <span class="pp-countdown" id="pp-countdown">—</span>
+      </button>
       <div class="search-wrapper">
         <input type="search" id="search-bar" placeholder="ابحث باسم السورة، نص الآية، أو رقمها (مثال 2:255)...">
         <button id="clear-search" aria-label="مسح البحث">&times;</button>
       </div>
-      <button id="resume-fab" onclick="resumeBookmark()" aria-label="متابعة القراءة من آخر موضع"><span>🔖 متابعة القراءة</span></button>
+      <button id="resume-fab" onclick="resumeBookmark()" aria-label="متابعة القراءة من آخر موضع"><span>متابعة القراءة</span></button>
     <div id="daily-tadabbur-container"></div>
     <div id="surah-list-container"></div>
     <div id="ayah-search-container" style="display:none"></div>
@@ -139,7 +146,7 @@
       <!-- شريط الوضع النشط -->
       <div class="mushaf-topbar" id="mushaf-topbar">
         <button class="mt-btn" id="mt-back" aria-label="رجوع">&#8594;</button>
-        <button class="mt-btn" id="mt-index" aria-label="فهرس السور">☰</button>
+        <button class="mt-btn" id="mt-index" aria-label="فهرس السور"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="14" y2="18"/></svg></button>
         <div class="surah-header-card" id="mushaf-topbar-card" role="button" tabindex="0" onclick="if(!event.target.closest('button')) openMushafJumpSheet()" aria-label="الانتقال السريع بين السور والأجزاء والصفحات" style="cursor:pointer;">
           <button class="bookmark-btn" onclick="event.stopPropagation(); toggleBookmark('surah')" id="btn-bm-surah" aria-label="حفظ السورة"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>
           <div style="min-width:0; flex:1;">
@@ -148,7 +155,7 @@
           </div>
         </div>
         <button class="mt-btn" id="mt-search" aria-label="البحث في القرآن"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
-        <button class="mt-btn" id="mt-settings" aria-label="إعدادات القارئ">⚙</button>
+        <button class="mt-btn" id="mt-settings" aria-label="إعدادات القارئ"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
         <!-- مسار التقدّم وورد الختمة: كانوا أسفل رأس التطبيق، والآن رأس
              القارئ هو الشريط، فيتدلّون من أسفله. -->
         <div id="reading-progress-container">
@@ -162,14 +169,14 @@
       </div>
       <!-- قرص التلاوة الطافي: يظهر في الوضع النشط أثناء التشغيل (مرحلة ٤) -->
       <div class="mushaf-audio-pill" id="mushaf-audio-pill">
-        <button class="map-btn" id="map-play" aria-label="تشغيل/إيقاف">⏸</button>
+        <button class="map-btn" id="map-play" aria-label="تشغيل/إيقاف"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
         <div class="map-info">
           <div class="map-surah" id="map-surah"></div>
           <div class="map-ayah" id="map-ayah"></div>
         </div>
-        <button class="map-pill-chip" id="map-repeat" title="تكرار الآية للتحفيظ" aria-label="تكرار الآية">🔁1×</button>
+        <button class="map-pill-chip" id="map-repeat" title="تكرار الآية للتحفيظ" aria-label="تكرار الآية"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>1×</button>
         <button class="map-pill-chip" id="map-speed" title="سرعة التلاوة" aria-label="سرعة التلاوة">1×</button>
-        <button class="map-pill-chip" id="map-sleep" title="مؤقت النوم / نهاية الورد" aria-label="مؤقت النوم">🌙</button>
+        <button class="map-pill-chip" id="map-sleep" title="مؤقت النوم / نهاية الورد" aria-label="مؤقت النوم"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12.6A8 8 0 1 1 11.4 4a6.4 6.4 0 0 0 8.6 8.6z"/></svg></button>
         <button class="map-reciter" id="map-reciter" aria-label="اختيار القارئ"></button>
         <button class="map-btn map-close" id="map-close" aria-label="إيقاف التلاوة">×</button>
       </div>
@@ -195,7 +202,7 @@
       <div class="mushaf-bottom-hud" id="mushaf-bottom-hud" data-no-flip>
         <div class="mbh-top-row">
           <button type="button" class="mbh-surah-title" id="mushaf-strip-surah" onclick="openMushafJumpSheet()" aria-label="فتح فهرس السور والأجزاء والصفحات">القرآن الكريم ▾</button>
-          <button type="button" class="mbh-audio-trigger" id="mbh-audio-btn" onclick="window.ReaderAudioPill && ReaderAudioPill.toggleOrStart()" aria-label="تشغيل أو إيقاف التلاوة">▶ استماع للصفحة</button>
+          <button type="button" class="mbh-audio-trigger" id="mbh-audio-btn" onclick="window.ReaderAudioPill && ReaderAudioPill.toggleOrStart()" aria-label="تشغيل أو إيقاف التلاوة"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20"/></svg> استماع للصفحة</button>
         </div>
         <div class="mbh-row">
           <button type="button" class="mbh-side-btn" id="mushaf-strip-return" title="العودة للموضع السابق" aria-label="العودة للموضع السابق">
@@ -206,7 +213,7 @@
           <div class="mbh-strip" id="mushaf-strip-track" role="region" aria-label="شريط صفحات المصحف"></div>
           <button type="button" class="mbh-step-btn" id="mbh-next-page" onclick="changeMushafPage(1)" title="الصفحة التالية" aria-label="الصفحة التالية">›</button>
           <button type="button" class="mbh-side-btn" id="mushaf-strip-bm" onclick="toggleBookmark('surah')" title="حفظ السورة" aria-label="حفظ السورة">
-            <span>🔖</span>
+            <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span>
             <small id="mushaf-strip-cur-num">١</small>
           </button>
         </div>
@@ -225,7 +232,7 @@
           <input type="number" id="k-start" class="k-input" value="1" min="1" max="604">
           <label class="k-label" for="k-intention">نية الختمة / إهداء الثواب (اختياري):</label>
           <input type="text" id="k-intention" class="k-input" maxlength="80" placeholder="مثال: صدقة جارية عن والديّ، أو بنية تفريج كرب...">
-          <button class="btn-scale" onclick="startKhatmah()">على بركة الله ➔</button>
+          <button class="btn-scale" onclick="startKhatmah()">على بركة الله</button>
         </div>
       </div>
       <div id="khatmah-dash" style="display:none;">
@@ -248,9 +255,9 @@
             <div class="circle-text" id="kd-prog-txt">0%</div>
           </div>
         </div>
-        <button class="btn-scale" onclick="openKhatmahReader()">متابعة القراءة 📖</button>
+        <button class="btn-scale" onclick="openKhatmahReader()">متابعة القراءة</button>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-          <button class="btn-scale" style="background:var(--surface); color:var(--accent); border:1px solid var(--border); padding:12px 10px; font-size:calc(var(--font-size) * 0.54);" onclick="showKhatmDua()">🤲 دعاء الختم</button>
+          <button class="btn-scale" style="background:var(--surface); color:var(--accent); border:1px solid var(--border); padding:12px 10px; font-size:calc(var(--font-size) * 0.54);" onclick="showKhatmDua()">دعاء الختم</button>
           <button class="btn-scale" style="background:var(--surface-2); color:var(--text-dim); border:1px solid var(--border); padding:12px 10px; font-size:calc(var(--font-size) * 0.54);" onclick="resetKhatmah()">ختمة جديدة</button>
         </div>
       </div>
@@ -261,14 +268,13 @@
         <input type="search" id="athkar-search-bar" style="width:100%; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:11px 16px; color:var(--text); font-size:calc(var(--font-size) * 0.6); outline:none;" placeholder="ابحث في الأذكار والأدعية والرقية...">
       </div>
       <div id="athkar-search-results" style="display:none; margin-bottom:16px;"></div>
-      <div id="prayer-widget-container"></div>
       <div class="quick-nav-row" style="grid-template-columns: repeat(3, 1fr);">
-        <div class="quick-nav-card" id="nav-dua-card" role="button" tabindex="0" aria-label="أدعية النبي"><span class="quick-nav-icon">🤲</span><span class="quick-nav-label">أدعية النبي</span></div>
-        <div class="quick-nav-card" id="nav-tasbih-card" role="button" tabindex="0" aria-label="السبحة الرقمية"><span class="quick-nav-icon">📿</span><span class="quick-nav-label">السبحة</span></div>
-        <div class="quick-nav-card" id="nav-custom-athkar-card" role="button" tabindex="0" aria-label="أذكاري وأدعية الأحبة"><span class="quick-nav-icon">🤍</span><span class="quick-nav-label">أذكاري والأحبة</span></div>
+        <div class="quick-nav-card" id="nav-dua-card" role="button" tabindex="0" aria-label="أدعية النبي"><span class="quick-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c-3 3-5 5.6-5 8.4a5 5 0 0 0 10 0C17 8.6 15 6 12 3z"/><path d="M8 21h8"/></svg></span><span class="quick-nav-label">أدعية النبي</span></div>
+        <div class="quick-nav-card" id="nav-tasbih-card" role="button" tabindex="0" aria-label="السبحة الرقمية"><span class="quick-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="2.4"/><circle cx="8.4" cy="15" r="2.4"/><circle cx="15.6" cy="15" r="2.4"/><circle cx="12" cy="19.6" r="1.6"/></svg></span><span class="quick-nav-label">السبحة</span></div>
+        <div class="quick-nav-card" id="nav-custom-athkar-card" role="button" tabindex="0" aria-label="أذكاري وأدعية الأحبة"><span class="quick-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.5C7 16.5 3.5 13.4 3.5 9.6A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8.5 2.6c0 3.8-3.5 6.9-8.5 10.9z"/></svg></span><span class="quick-nav-label">أذكاري والأحبة</span></div>
       </div>
       <div class="quick-nav-row" id="occasion-nav-row" style="display:none;">
-        <div class="quick-nav-card" id="nav-occasion-card" role="button" tabindex="0" aria-label="سنن المناسبة" style="grid-column: span 2;"><span class="quick-nav-icon">🌙</span><span class="quick-nav-label" id="occasion-nav-label">سنن المناسبة</span></div>
+        <div class="quick-nav-card" id="nav-occasion-card" role="button" tabindex="0" aria-label="سنن المناسبة" style="grid-column: span 2;"><span class="quick-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12.6A8 8 0 1 1 11.4 4a6.4 6.4 0 0 0 8.6 8.6z"/></svg></span><span class="quick-nav-label" id="occasion-nav-label">سنن المناسبة</span></div>
       </div>
       <div class="section-heading" style="margin-top:10px; font-size:calc(var(--font-size) * 0.7);">الأذكار اليومية</div>
       <div class="athkar-grid" id="athkar-grid"></div>
@@ -288,7 +294,7 @@
     <div id="screen-occasion-list" class="screen"><div id="occasion-list-container"></div></div>
 
     <div id="screen-tasbih" class="screen">
-      <div class="tasbih-complete-banner" id="tasbih-msg">أتممت سبحة كاملة (٩٩) - تقبل الله 🤲</div>
+      <div class="tasbih-complete-banner" id="tasbih-msg">أتممت سبحة كاملة — تقبل الله</div>
       <div class="tasbih-phrase-box" id="tasbih-phrase-box">
         <div class="tasbih-phrase-chips" id="tasbih-phrase-chips"></div>
         <div class="tasbih-phrase-current" id="tasbih-phrase-current">سُبْحَانَ اللَّهِ وَبِحَمْدِهِ</div>
@@ -313,8 +319,9 @@
   <nav id="nav" role="tablist" aria-label="التنقل الرئيسي">
     <div class="nav-indicator" id="nav-indicator" aria-hidden="true"></div>
     <button class="nav-tab active" role="tab" aria-selected="true" data-tab="quran"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"></path><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"></path></svg></span><span class="nav-text">القرآن</span></button>
-    <button class="nav-tab" role="tab" aria-selected="false" data-tab="khatmah"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 14.4 5.6 18.8 5.2 18.4 9.6 22 12 18.4 14.4 18.8 18.8 14.4 18.4 12 22 9.6 18.4 5.2 18.8 5.6 14.4 2 12 5.6 9.6 5.2 5.2 9.6 5.6 12 2"/><polygon points="12 8.2 15.8 12 12 15.8 8.2 12"/></svg></span><span class="nav-text">الختمة</span></button>
     <button class="nav-tab" role="tab" aria-selected="false" data-tab="athkar"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"></circle><circle cx="17" cy="7.5" r="2"></circle><circle cx="19" cy="13" r="2"></circle><circle cx="15.5" cy="18" r="2"></circle><circle cx="8.5" cy="18" r="2"></circle><circle cx="5" cy="13" r="2"></circle><circle cx="7" cy="7.5" r="2"></circle><path d="M12 20v3"></path></svg></span><span class="nav-text">الأذكار</span></button>
+    <button class="nav-tab" role="tab" aria-selected="false" data-tab="tasbih"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="2.4"></circle><circle cx="8.4" cy="15" r="2.4"></circle><circle cx="15.6" cy="15" r="2.4"></circle><circle cx="12" cy="19.6" r="1.6"></circle></svg></span><span class="nav-text">السبحة</span></button>
+    <button class="nav-tab" role="tab" aria-selected="false" data-tab="khatmah"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 14.4 5.6 18.8 5.2 18.4 9.6 22 12 18.4 14.4 18.8 18.8 14.4 18.4 12 22 9.6 18.4 5.2 18.8 5.6 14.4 2 12 5.6 9.6 5.2 5.2 9.6 5.6 12 2"/><polygon points="12 8.2 15.8 12 12 15.8 8.2 12"/></svg></span><span class="nav-text">الختمة</span></button>
   </nav>
   <!-- طبقة تعتيم أسفل الشريط: تمنع ظهور نص السور المقصوص حول حواف الشريط -->
   <div class="nav-scrim" aria-hidden="true"></div>
@@ -334,7 +341,7 @@
 
   <div id="occasion-overlay">
     <div id="occasion-modal" role="dialog" aria-modal="true" aria-labelledby="occasion-modal-title">
-      <div class="occasion-modal-icon">🌙</div>
+      <div class="occasion-modal-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12.6A8 8 0 1 1 11.4 4a6.4 6.4 0 0 0 8.6 8.6z"/></svg></div>
       <div class="occasion-modal-title" id="occasion-modal-title">مناسبة اليوم</div>
       <div id="occasion-modal-body"></div>
       <div style="display:flex; gap:10px; margin-top:20px;">
