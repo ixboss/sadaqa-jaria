@@ -44,7 +44,7 @@
   --accent-2: #8fc9b0;      /* نعناعي رمادي - لون ثانوي هادئ */
   --accent-dim: rgba(79, 209, 165, 0.13);
   --accent-grad: linear-gradient(135deg, #148266, #0e5e63);
-  --header-grad: linear-gradient(180deg, rgba(7, 22, 27, 0.72) 0%, rgba(7, 22, 27, 0.45) 100%);
+  --header-grad: #07161B;   /* شريط علوي مصمت يطابق الخلفية تماماً */
   --text: #eef2ec;          /* أبيض دافئ */
   --text-dim: #93a8a4;      /* رمادي ناعم مائل للأخضر */
   --success: #4fd1a5;
@@ -80,12 +80,16 @@
   --nav-clearance: calc(var(--nav-h) + var(--nav-bottom) + 14px);
   --nav-clearance-safe: calc(max(var(--nav-h), var(--nav-h-actual, 0px)) + var(--nav-bottom) + 14px);
 
-  /* Calm, Luxurious Premium Motion Tokens */
+  /* Calm, Luxurious Premium Motion Tokens
+     --ease-premium: المنحنى الأساسي للتفاعلات (تباطؤ سلس)
+     --ease-out-expo: دخول الشاشات والعناصر
+     --ease-spring: نبضات العدّ الصغيرة فقط (تجاوز خفيف مقصود)
+     --ease-spring-snap: استجابة الضغط الفورية — بلا تجاوز */
   --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out-quart: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out-quart: cubic-bezier(0.65, 0, 0.35, 1);
-  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.28, 0.64, 1);
   --ease-spring-soft: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-spring-snap: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-duration-fast: 160ms;
@@ -104,7 +108,7 @@ body.theme-light {
   --accent-2: #3e7d74;      /* فيروزي عميق هادئ */
   --accent-dim: rgba(31, 122, 90, 0.11);
   --accent-grad: linear-gradient(135deg, #1f7a5a, #17635b);
-  --header-grad: linear-gradient(180deg, rgba(246, 244, 239, 0.82) 0%, rgba(246, 244, 239, 0.60) 100%);
+  --header-grad: #F6F4EF;
   --text: #1c2b29;          /* حبر داكن مخضرّ للقراءة الطويلة */
   --text-dim: #5f7472;      /* رمادي ناعم */
   --success: #2e8b57;
