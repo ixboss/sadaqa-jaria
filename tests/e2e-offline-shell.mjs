@@ -119,7 +119,7 @@ async function main() {
     ok('(c) app shell renders offline', !!offlineBoot.title && offlineBoot.state, JSON.stringify(offlineBoot));
     ok('(c) all deferred modules loaded offline', offlineBoot.app && offlineBoot.features && offlineBoot.backup, JSON.stringify(offlineBoot));
     ok('(c) bundled surah index available offline', offlineBoot.surahRows > 100, 'rows=' + offlineBoot.surahRows);
-    ok('(c) bottom navigation present offline', offlineBoot.navTabs === 3, 'tabs=' + offlineBoot.navTabs);
+    ok('(c) bottom navigation present offline', offlineBoot.navTabs === 4, 'tabs=' + offlineBoot.navTabs);
 
     // ── (d) the backup UI is reachable while offline ──
     console.log('(d) settings + backup offline...');

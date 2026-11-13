@@ -279,7 +279,7 @@ button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--a
       font-size: clamp(44px, 11vw, 56px) !important;
       font-weight: 800 !important;
       color: var(--text) !important;
-      text-shadow: 0 2px 14px rgba(62, 207, 158, 0.28) !important;
+      font-variant-numeric: tabular-nums;
       line-height: 1.05 !important;
     }
 

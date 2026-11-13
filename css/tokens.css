@@ -24,28 +24,34 @@
   --radius-lg: 20px;
   --radius-pill: 999px;
 
-  /* Design Tokens: Elevation & Shadows */
-  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.22);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.32);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.45);
-  --shadow-glow: 0 0 20px rgba(62, 207, 158, 0.28);
-  /* ===== الهوية اللونية الجديدة: زمردی + فيروزي + أزرق ليلي + كريمي ===== */
-  --bg: #0a1f28;            /* أزرق ليلي عميق مائل للفيروز (ليس أسوداً) */
-  --surface: #10333f;       /* سطح فيروزي عميق */
-  --surface-2: #16414e;     /* سطح أفتح للتباين */
-  --accent: #3ecf9e;        /* أخضر زمردي مضيء - للعناصر الصغيرة على الخلفيات الداكنة */
+  /* Design Tokens: Elevation & Shadows — ظلال محيطية هادئة، بلا توهج */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.14);
+  --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.18), 0 14px 32px rgba(0, 0, 0, 0.24);
+  --shadow-lg: 0 8px 18px rgba(0, 0, 0, 0.22), 0 24px 48px rgba(0, 0, 0, 0.34);
+  --shadow-glow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+  /* ===== مادة الزجاج السائل (Liquid Glass Material) ===== */
+  --glass-blur: blur(24px) saturate(180%);
+  --glass-bg: rgba(16, 38, 46, 0.62);
+  --glass-bg-strong: rgba(12, 31, 38, 0.78);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.16);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  /* ===== الهوية اللونية: أوبسيديان زمردي ليلي + لمسات نعناع-ذهبي ===== */
+  --bg: #07161B;            /* أوبسيديان عميق يميل للزمردي */
+  --surface: #0C1F26;       /* سطح زمردي داكن هادئ */
+  --surface-2: #123039;     /* سطح أفتح للتباين */
+  --accent: #4fd1a5;        /* نعناعي زمردي - للعناصر الصغيرة على الخلفيات الداكنة */
   --accent-deep: #12805e;   /* زمردي عميق - للخلفيات والأزرار (مع نص كريمي) */
-  --accent-2: #46c8d6;      /* فيروزي - لون ثانوي */
-  --accent-dim: rgba(62, 207, 158, 0.14);
-  --accent-grad: linear-gradient(135deg, #16906b, #0f6d7a);
-  --header-grad: linear-gradient(180deg, rgba(10, 31, 40, 0.96) 0%, rgba(16, 51, 63, 0.92) 100%);
-  --text: #f3f0e7;          /* أبيض دافئ */
-  --text-dim: #9fb8b6;      /* رمادي ناعم مائل للأخضر */
+  --accent-2: #8fc9b0;      /* نعناعي رمادي - لون ثانوي هادئ */
+  --accent-dim: rgba(79, 209, 165, 0.13);
+  --accent-grad: linear-gradient(135deg, #148266, #0e5e63);
+  --header-grad: linear-gradient(180deg, rgba(7, 22, 27, 0.72) 0%, rgba(7, 22, 27, 0.45) 100%);
+  --text: #eef2ec;          /* أبيض دافئ */
+  --text-dim: #93a8a4;      /* رمادي ناعم مائل للأخضر */
   --success: #4fd1a5;
-  --border: rgba(62, 207, 158, 0.16);
-  --gold: #d4af37;
-  --gold-soft: rgba(212, 175, 55, 0.26);
-  --gold-dim: rgba(212, 175, 55, 0.10);
+  --border: rgba(255, 255, 255, 0.10);
+  --gold: #d9c28a;          /* ذهبي ناعم مطفأ */
+  --gold-soft: rgba(217, 194, 138, 0.24);
+  --gold-dim: rgba(217, 194, 138, 0.09);
   --islamic-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg fill='none' stroke='%233ecf9e' stroke-width='0.6' stroke-opacity='0.055'%3E%3Cpath d='M32 4 L40 24 L60 32 L40 40 L32 60 L24 40 L4 32 L24 24 Z'/%3E%3Crect x='16' y='16' width='32' height='32' transform='rotate(45 32 32)'/%3E%3Ccircle cx='32' cy='32' r='6' stroke='%23d4af37' stroke-opacity='0.06'/%3E%3C/g%3E%3C/svg%3E");
   /* ===== أسماء دلالية للألوان (لتسهيل التغيير المستقبلي) ===== */
   --color-success: var(--success);
@@ -90,22 +96,25 @@
 /* ── index.html 401–448 ── */
 /* ==================== الوضع الفاتح الاحترافي (Light Mode) ==================== */
 body.theme-light {
-  --bg: #f5f1e8;            /* كريمي دافئ */
-  --surface: #fffdf7;       /* أبيض دافئ */
-  --surface-2: #ece5d6;     /* بيج فاتح */
+  --bg: #F6F4EF;            /* رقّ حريري دافئ — وضع القراءة المريح */
+  --surface: #fffdf8;       /* أبيض دافئ */
+  --surface-2: #ece8dd;     /* بيج فاتح */
   --accent: #1f7a5a;        /* زمردي عميق للنصوص على الخلفيات الفاتحة */
   --accent-deep: #1f7a5a;
-  --accent-2: #12837f;      /* فيروزي عميق */
-  --accent-dim: rgba(31, 122, 90, 0.12);
-  --accent-grad: linear-gradient(135deg, #1f7a5a, #12837f);
-  --header-grad: linear-gradient(135deg, #e8f1eb, #eef3ef);
-  --text: #14333a;          /* أزرق مخضر عميق (ليس أسوداً) */
-  --text-dim: #5c7276;      /* رمادي ناعم */
+  --accent-2: #3e7d74;      /* فيروزي عميق هادئ */
+  --accent-dim: rgba(31, 122, 90, 0.11);
+  --accent-grad: linear-gradient(135deg, #1f7a5a, #17635b);
+  --header-grad: linear-gradient(180deg, rgba(246, 244, 239, 0.82) 0%, rgba(246, 244, 239, 0.60) 100%);
+  --text: #1c2b29;          /* حبر داكن مخضرّ للقراءة الطويلة */
+  --text-dim: #5f7472;      /* رمادي ناعم */
   --success: #2e8b57;
-  --border: rgba(31, 122, 90, 0.18);
+  --border: rgba(28, 43, 41, 0.12);
   --gold: #9a7418;
-  --gold-soft: rgba(154, 116, 24, 0.24);
-  --gold-dim: rgba(154, 116, 24, 0.08);
+  --gold-soft: rgba(154, 116, 24, 0.22);
+  --gold-dim: rgba(154, 116, 24, 0.07);
+  /* مادة الزجاج (فاتح) */
+  --glass-bg: rgba(255, 253, 248, 0.66);
+  --glass-bg-strong: rgba(255, 253, 248, 0.82);
   --islamic-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg fill='none' stroke='%231f7a5a' stroke-width='0.6' stroke-opacity='0.045'%3E%3Cpath d='M32 4 L40 24 L60 32 L40 40 L32 60 L24 40 L4 32 L24 24 Z'/%3E%3Crect x='16' y='16' width='32' height='32' transform='rotate(45 32 32)'/%3E%3Ccircle cx='32' cy='32' r='6' stroke='%239a7418' stroke-opacity='0.05'/%3E%3C/g%3E%3C/svg%3E");
   /* أسماء دلالية (الوضع الفاتح) */
   --color-success: var(--success);
@@ -118,16 +127,12 @@ html, body { width: 100%; height: 100%; height: var(--app-h, 100dvh); max-height
 .dua-text, .occasion-sunnah-item, #custom-dialog-text, .tafsir-sheet-body, .tafsir-sheet-ayah { user-select: text; -webkit-user-select: text; }
 .mushaf-page, .mushaf-block, .ayah, .w { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 
-/* نقش الخلفية — شبكة تدرجات خفيفة بدلاً من مربع SVG متكرر (أخف على GPU) */
+/* إضاءة محيطية واحدة هادئة خلف المحتوى — بلا بقع ألوان متعددة */
 body::before {
-  content: ''; position: fixed; inset: 0; opacity: 0.05; pointer-events: none; z-index: 0; transition: opacity 0.4s;
-  background-image:
-    radial-gradient(circle at 18% 12%, var(--accent) 0, transparent 42%),
-    radial-gradient(circle at 82% 78%, var(--accent-2) 0, transparent 46%),
-    radial-gradient(circle at 68% 8%, var(--accent-2) 0, transparent 38%),
-    radial-gradient(circle at 8% 88%, var(--accent) 0, transparent 40%);
+  content: ''; position: fixed; inset: 0; opacity: 0.045; pointer-events: none; z-index: 0; transition: opacity 0.4s;
+  background-image: radial-gradient(circle at 50% -10%, var(--accent) 0, transparent 46%);
 }
-body.theme-light::before { opacity: 0.04; }
+body.theme-light::before { opacity: 0.035; }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }

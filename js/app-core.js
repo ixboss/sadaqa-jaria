@@ -127,7 +127,7 @@ function stripBismillah(text) {
   if (words.length <= 4) return '';
   return words.slice(4).join(' ').trim();
 }
-const tabsArray = ['quran', 'khatmah', 'athkar'];
+const tabsArray = ['quran', 'athkar', 'tasbih', 'khatmah'];
 let state = { currentTab: 'quran', currentScreen: 'surah-list', previousScreen: null, previousTab: null, currentSurah: null, fontScale: 1.4, currentCatIndex: null, khatmah: null, theme: 'dark', bookmark: null, scrollPositions: {}, mushafPage: 1 };
 // let/const في السكربتات الكلاسيكية لا تنشئ خصائص على window؛
 // features.js يقرأ window.state و window.Motion فلا بد من كشفهما صراحةً
@@ -699,6 +699,7 @@ function switchTab(tabId) {
 
   if (tabId === 'quran') { showScreen('surah-list', anim); }
   else if (tabId === 'khatmah') { checkMissedDays(); showScreen('khatmah-main', anim); updateKhatmahUI(); }
+  else if (tabId === 'tasbih') { showScreen('tasbih', anim); buildTasbih(); updateTasbihUI(); }
   else { showScreen('athkar-list', anim); renderAthkarList(); Motion.staggerIn(document.querySelector('#screen-athkar-list .quick-nav-row')); }
   // تبديل التبويب يبدأ مساراً جديداً من جذر التبويب — تخلّص من أي مسار قديم معفّن.
   // الجذر نفسه لا يُخزّن (المسار يضمّ ما خلف الشاشة الحالية فقط).
@@ -845,9 +846,7 @@ window.showStats = function() {
 
 // مُسهّل فتح السبحة من روابط مباشرة
 window.openTasbih = function() {
-  switchTab('athkar');
-  showScreen('tasbih', 'slide-left');
-  buildTasbih(); updateTasbihUI();
+  switchTab('tasbih');
 };
 
 function getSkeletonHTML() { return `<div style="padding:20px;"><div class="skeleton sk-card"></div><div class="skeleton sk-text"></div><div class="skeleton sk-text"></div><div class="skeleton sk-text short"></div><div class="skeleton sk-card" style="margin-top:20px"></div></div>`; }
@@ -1057,7 +1056,7 @@ function enterZenMode() {
       localStorage.setItem('zen_hint_shown', '1');
       setTimeout(() => {
         if (window.Toast && document.body.classList.contains('mushaf-zen')) {
-          Toast.show('اضغط وسط الصفحة لإظهار الأشرطة أو اسحب لقلب الصفحة 👆');
+          Toast.show('اضغط وسط الصفحة لإظهار الأشرطة أو اسحب لقلب الصفحة');
         }
       }, 450);
     }
