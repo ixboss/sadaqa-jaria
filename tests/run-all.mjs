@@ -16,6 +16,7 @@ const UNIT = ['unit-backup.mjs', 'unit-mushaf.mjs'];
 const E2E = [
   'e2e-offline-shell.mjs',
   'e2e-nav-tabs.mjs',
+  'e2e-sw-update.mjs',
   'e2e-tafsir.mjs',
   'e2e-adhkar-pager.mjs',
   'e2e-mushaf-fit.mjs',
