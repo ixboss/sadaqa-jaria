@@ -428,7 +428,8 @@ function toggleFontPopover(force) {
 const SCREEN_TAB = {
   'surah-list': 'quran', 'surah-view': 'quran', 'bookmarks': 'quran',
   'khatmah-main': 'khatmah', 'khatmah-read': 'khatmah',
-  'athkar-list': 'athkar', 'thikr-view': 'athkar', 'dua-list': 'athkar', 'tasbih': 'athkar', 'occasion-list': 'athkar'
+  'athkar-list': 'athkar', 'thikr-view': 'athkar', 'dua-list': 'athkar', 'occasion-list': 'athkar',
+  'tasbih': 'tasbih'
 };
 // مسار التنقّل الحقيقي (LIFO) — بديل عن خانة previousScreen الواحدة القابلة للتعفّن.
 // يضمّ الشاشات التي *خلف* الشاشة الحالية فقط (الشاشة الحالية نفسها لا تدخله أبداً)،
@@ -558,7 +559,7 @@ function showScreen(screenId, animClass = 'active') {
 }
 
 // الشاشات الجذرية لكل تبويب
-const TAB_ROOT_SCREEN = { quran: 'surah-list', khatmah: 'khatmah-main', athkar: 'athkar-list' };
+const TAB_ROOT_SCREEN = { quran: 'surah-list', khatmah: 'khatmah-main', athkar: 'athkar-list', tasbih: 'tasbih' };
 function rootScreenOf(tab) { return TAB_ROOT_SCREEN[tab] || 'surah-list'; }
 
 function navigateBack() {
@@ -2115,7 +2116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     t.addEventListener('pointerdown', createRipple);
     t.addEventListener('click', () => switchTab(t.dataset.tab));
     t.id = 'nav-tab-' + t.dataset.tab;
-    t.setAttribute('aria-controls', 'screen-' + (t.dataset.tab === 'quran' ? 'surah-list' : t.dataset.tab === 'khatmah' ? 'khatmah-main' : 'athkar-list'));
+    t.setAttribute('aria-controls', 'screen-' + (t.dataset.tab === 'quran' ? 'surah-list' : t.dataset.tab === 'khatmah' ? 'khatmah-main' : t.dataset.tab === 'tasbih' ? 'tasbih' : 'athkar-list'));
   });
   // تنقل بين التبويبات بأسهم لوحة المفاتيح
   // إمكانية الوصول: تفعيل بطاقة رأس المصحف بلوحة المفاتيح (Enter/Space)
@@ -2408,7 +2409,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if(dist < minDistance) { minDistance = dist; closestTab = tab; }
     });
     // تبديل التبويب بالسحب مسموح فقط من الشاشات الجذرية — لا من القارئ أو الشاشات المتداخلة
-    const isTabRoot = ['surah-list', 'khatmah-main', 'athkar-list'].includes(state.currentScreen);
+    const isTabRoot = ['surah-list', 'khatmah-main', 'athkar-list', 'tasbih'].includes(state.currentScreen);
     if (closestTab && closestTab.dataset.tab !== state.currentTab && isTabRoot) switchTab(closestTab.dataset.tab); else setNavIndicator();
   }
 
