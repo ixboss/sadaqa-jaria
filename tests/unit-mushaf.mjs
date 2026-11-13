@@ -21,8 +21,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const src = await readFile(join(__dirname, '..', 'mushaf.js'), 'utf8');
-const metaSrc = await readFile(join(__dirname, '..', 'surah-meta.js'), 'utf8');
+const src = await readFile(join(__dirname, '..', 'js', 'mushaf.js'), 'utf8');
+const metaSrc = await readFile(join(__dirname, '..', 'js', 'surah-meta.js'), 'utf8');
 
 /* ---------- shimmed environment ---------- */
 function makeEnv({ fetchImpl } = {}) {

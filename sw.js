@@ -1,25 +1,42 @@
 // ==================== Service Worker — إسلامي ====================
-// v47: تخزين خطوط المصحف (fonts.googleapis.com / fonts.gstatic.com) للعمل
+// v52: بنية CSS/JS المنظّمة (css/* + js/*)، Stale-While-Revalidate للأصول الثابتة،
+//      وتفعيل سلس للتحديثات دون كسر جلسات القراءة النشطة. سابقاً v47: تخزين خطوط المصحف (fonts.googleapis.com / fonts.gstatic.com) للعمل
 //      أوفلاين بالكامل، التحقق من سلامة استجابات الـ API قبل تخزينها،
 //      وتحديث الكاش لدعم التفسير الميسر وبطاقات المشاركة وتكرار الآيات.
-const CACHE_NAME = 'quran-app-v51';
-const API_CACHE = 'quran-api-v51';
-const STATIC_CACHE = 'static-v51';
+const CACHE_NAME = 'quran-app-v52';
+const API_CACHE = 'quran-api-v52';
+const STATIC_CACHE = 'static-v52';
 
 const PRECACHE_URLS = [
   './',
   './index.html',
   './sw.js',
   './manifest.json',
-  './surah-meta.js',
-  './features.js',
-  './config.js',
-  './app.js',
-  './backup.js',
+  // نظام التصميم: أوراق CSS المنظّمة (tokens → base → layout → mushaf → adhkar)
+  './css/tokens.css',
+  './css/base.css',
+  './css/layout.css',
+  './css/mushaf.css',
+  './css/adhkar-tasbih.css',
+  // الوحدات: البيانات والنواة والميزات
+  './js/surah-meta.js',
+  './js/config.js',
+  './js/khatmah.js',
+  './js/adhkar.js',
+  './js/tasbih.js',
+  './js/app-core.js',
+  './js/haptics.js',
+  './js/celebrate.js',
+  './js/stats.js',
+  './js/app.js',
+  './js/features.js',
+  './js/tafsir.js',
+  './js/backup.js',
   // محرّك المصحف الموحّد (فهرس الـ٦٠٤ صفحة) — يلزم القراءة بلا إنترنت
-  './mushaf.js',
+  './js/mushaf.js',
   // محرّك قلب الصفحات (السحب ثلاثي الأبعاد + بديل الحركة المخفّضة)
-  './pageflip.js',
+  './js/pageflip.js',
+  './js/sw-register.js',
   // أيقونات التثبيت: تُخزَّن مسبقاً حتى تعمل الشاشة الرئيسية دون اتصال
   './icons/icon-120.png',
   './icons/icon-152.png',
@@ -86,9 +103,10 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Static assets: Network first, fall back to cache
+  // Static assets: Stale-While-Revalidate — استجابة فورية من الكاش مع تحديث خلفي،
+  // فلا تتعطل جلسة قراءة نشطة عند توفر نسخة مخزّنة
   if (isStaticAsset(url.pathname)) {
-    event.respondWith(networkFirstWithFallback(event.request, STATIC_CACHE));
+    event.respondWith(cacheFirstWithTimeout(event.request, STATIC_CACHE, 5000));
     return;
   }
 

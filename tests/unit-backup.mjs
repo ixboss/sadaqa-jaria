@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const src = fs.readFileSync(join(__dirname, '..', 'backup.js'), 'utf8');
+const src = fs.readFileSync(join(__dirname, '..', 'js', 'backup.js'), 'utf8');
 
 // ── sandbox: enough of the browser for the module to load ──
 const store = new Map();
