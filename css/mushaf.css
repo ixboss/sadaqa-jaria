@@ -460,6 +460,40 @@ body.theme-light #ayah-bar { background: rgba(255, 253, 247, 0.97); box-shadow: 
 /* ===== Toast: تنبيه عابر خفيف ===== */
 #app-toast { position: fixed; bottom: calc(var(--nav-clearance-safe) + 76px); left: 50%; transform: translateX(-50%) translateY(16px); background: var(--accent-deep); color: var(--color-on-accent); border-radius: var(--radius-lg); padding: 10px 20px; font-size: calc(var(--font-size) * 0.52); font-weight: 700; box-shadow: var(--shadow-md); z-index: 200; visibility: hidden; opacity: 0; max-width: calc(100vw - 48px); text-align: center; transition: visibility 0s linear 260ms, transform 280ms var(--ease-spring-snap), opacity 220ms var(--ease-out-quart); }
 #app-toast.visible { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); transition: visibility 0s linear 0s, transform 280ms var(--ease-spring-snap), opacity 220ms var(--ease-out-quart); }
+
+/* ==================== بطاقة تحديث الـService Worker (Prompt — بلا مقاطعة) ==================== */
+#sw-update-toast {
+  position: fixed; bottom: calc(var(--nav-clearance-safe, 90px) + 16px); left: 50%;
+  transform: translateX(-50%) translateY(16px) scale(0.97);
+  z-index: 250; display: flex; align-items: center; gap: 12px;
+  width: max-content; max-width: calc(100vw - 32px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 100%), var(--glass-bg-strong);
+  backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.16); border-radius: var(--radius-lg);
+  padding: 10px 16px; color: var(--text); font-size: calc(var(--font-size) * 0.5); font-weight: 700;
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  visibility: hidden; opacity: 0;
+  transition: transform 320ms var(--ease-premium), opacity 240ms var(--ease-out-quart), visibility 0s linear 320ms;
+}
+#sw-update-toast.visible { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0) scale(1); transition: transform 320ms var(--ease-premium), opacity 240ms var(--ease-out-quart); }
+body.theme-light #sw-update-toast {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 253, 248, 0.9) 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.8);
+}
+#sw-update-toast .sw-upd-now {
+  background: var(--accent-deep); color: var(--color-on-accent); border: none;
+  border-radius: var(--radius-pill); padding: 8px 16px; min-height: 36px;
+  font-family: inherit; font-size: calc(var(--font-size) * 0.46); font-weight: 700; cursor: pointer;
+  flex-shrink: 0; transition: transform 120ms var(--ease-out-quart);
+}
+#sw-update-toast .sw-upd-now:active { transform: scale(0.97); }
+#sw-update-toast .sw-upd-later {
+  background: none; border: none; color: var(--text-dim); cursor: pointer;
+  padding: 8px 6px; min-height: 36px;
+  font-family: inherit; font-size: calc(var(--font-size) * 0.46); font-weight: 700;
+  flex-shrink: 0; transition: color 180ms var(--ease-out-quart);
+}
+#sw-update-toast .sw-upd-later:hover { color: var(--text); }
 /* تباعد مُحكَم: 8px أعلى + 12px أسفل = 20px بدلاً من 36px للتخفيف من الفراغ الكبير قبل نص الآيات */
 .bismillah { text-align: center; font-family: 'Amiri Quran', 'Amiri', serif; font-size: calc(var(--mushaf-size) * 1.08); color: var(--accent); padding: 8px 10px 12px 10px; line-height: var(--mushaf-lh); transition: font-size 0.3s; }
 

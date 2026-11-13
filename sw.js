@@ -1,11 +1,10 @@
 // ==================== Service Worker — إسلامي ====================
-// v52: بنية CSS/JS المنظّمة (css/* + js/*)، Stale-While-Revalidate للأصول الثابتة،
-//      وتفعيل سلس للتحديثات دون كسر جلسات القراءة النشطة. سابقاً v47: تخزين خطوط المصحف (fonts.googleapis.com / fonts.gstatic.com) للعمل
-//      أوفلاين بالكامل، التحقق من سلامة استجابات الـ API قبل تخزينها،
-//      وتحديث الكاش لدعم التفسير الميسر وبطاقات المشاركة وتكرار الآيات.
-const CACHE_NAME = 'quran-app-v53';
+// v54: استراتيجية التحديث prompt — العامل الجديد ينتظر حتى يوافق المستخدم
+//      (رسالة SKIP_WAITING من sw-register.js)، فلا تنقطع جلسة قراءة نشطة أبداً.
+//      سابقاً v53: بنية CSS/JS المنظّمة (css/* + js/*)، Stale-While-Revalidate للأصول الثابتة.
+const CACHE_NAME = 'quran-app-v54';
 const API_CACHE = 'quran-api-v52';
-const STATIC_CACHE = 'static-v53';
+const STATIC_CACHE = 'static-v54';
 
 const PRECACHE_URLS = [
   './',
@@ -56,6 +55,8 @@ const API_ORIGIN = 'api.alquran.cloud';
 const FONT_ORIGINS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
 // ==================== Installation ====================
+// استراتيجية prompt: لا skipWaiting هنا — العامل الجديد يبقى في حالة waiting
+// حتى يضغط المستخدم "تحديث" فيتسلّم فوراً، أو يغلق كل تبويبات التطبيق لاحقاً.
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
@@ -63,8 +64,12 @@ self.addEventListener('install', event => {
         console.warn('Failed to cache precache URLs:', err);
       });
     })
-    .then(() => self.skipWaiting())
   );
+});
+
+// تفعيل يدوي: يصل من بطاقة التحديث (زر "تحديث") في sw-register.js
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 // ==================== Activation & Cleanup ====================
