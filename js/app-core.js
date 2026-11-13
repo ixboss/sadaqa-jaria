@@ -73,13 +73,13 @@ function getCurrentPeriod(date) {
 
 function updateHeaderSubtitle() {
   const sub = document.getElementById('header-subtitle');
-  if (state.currentScreen === 'khatmah-read' && state.khatmah) {
+   if (state.currentScreen === 'khatmah-read' && state.khatmah) {
     if (state.khatmah.currentPage >= state.khatmah.todayWirdEnd) {
-       sub.textContent = `🎉 أتممت ورد اليوم (صفحة ${toArabicNum(state.khatmah.currentPage)})`;
-       sub.style.color = 'var(--success)';
+       sub.textContent = `أتممت ورد اليوم (صفحة ${toArabicNum(state.khatmah.currentPage)})`;
+       sub.classList.add('subtitle-accent');
     } else {
        sub.textContent = `ورد صفحة ${toArabicNum(state.khatmah.currentPage)}`;
-       sub.style.color = '';
+       sub.classList.remove('subtitle-accent');
     }
     return;
   }
@@ -87,12 +87,12 @@ function updateHeaderSubtitle() {
     const h = getHijriDate(new Date());
     if (h && !isNaN(h.month)) {
         sub.textContent = `${toArabicNum(h.day)} ${HIJRI_MONTHS[h.month-1]} ${toArabicNum(h.year)} هـ`;
-        sub.style.color = '';
+        sub.classList.remove('subtitle-accent');
         return;
     }
   }
   sub.textContent = '';
-  sub.style.color = '';
+  sub.classList.remove('subtitle-accent');
 }
 
 const SURAHS_DATA = Array.from({length: 114}, (_, i) => ({number: i+1, name: `سورة ${i+1}`, numberOfAyahs: 10}));
@@ -226,7 +226,10 @@ const Motion = {
     if (prefersReducedMotion) return;
     // حدود أصغر على الشاشات الصغيرة للأداء
     if (window.innerWidth < 500) count = Math.min(count, 50);
-    const colors = ['#3ecf9e', '#46c8d6', '#f3f0e7', '#4fd1a5', '#2aa8a8', '#8fe3c0'];
+    // ألوان من نظام التصميم مع بدائل عند عدم توفر getComputedStyle
+    const cs = getComputedStyle(document.documentElement);
+    const grab = n => cs.getPropertyValue(n).trim() || undefined;
+    const colors = [grab('--accent'), grab('--accent-2'), grab('--gold'), grab('--text-dim'), grab('--success'), '#4fd1a5'].filter(Boolean);
     for (let i = 0; i < count; i++) {
       const piece = document.createElement('div');
       piece.className = 'confetti-piece';
@@ -292,16 +295,7 @@ const Motion = {
   },
 
   // Header flash on theme switch
-  headerFlash() {
-    const h = document.getElementById('header');
-    if (!h || prefersReducedMotion) return;
-    h.classList.remove('theme-flash');
-    void h.offsetWidth;
-    h.classList.add('theme-flash');
-    setTimeout(() => h.classList.remove('theme-flash'), 650);
-  },
-
-  // Header parallax on scroll
+  // Header parallax on scroll — تحويل خفيف فقط، بلا ظلال سطرية تتغلب على الثيم
   bindHeaderParallax(scrollEl) {
     if (!scrollEl || prefersReducedMotion) return () => {};
     const h = document.getElementById('header');
@@ -313,8 +307,6 @@ const Motion = {
         const sy = scrollEl.scrollTop;
         const offset = Math.max(-10, Math.min(0, -sy * 0.15));
         h.style.transform = `translateY(${offset}px)`;
-        const shadow = Math.min(0.5, sy / 200);
-        h.style.boxShadow = `0 2px 15px rgba(0,0,0,${0.3 + shadow * 0.2})`;
         raf = null;
       });
     };
@@ -350,11 +342,10 @@ function applyTheme(th) {
   if (window.ReaderSettings) ReaderSettings.applyAll();
   // لون شريط الحالة يتطابق مع الوضع الحالي (PWA)
   const metaTheme = document.getElementById('meta-theme-color');
-  if (metaTheme) metaTheme.setAttribute('content', th === 'light' ? '#f5f1e8' : '#0a1f28');
+  if (metaTheme) metaTheme.setAttribute('content', th === 'light' ? '#F6F4EF' : '#07161B');
   saveState();
   // انتقال ناعم بين الوضعين بدل القفزة اللحظية
   Motion.themeCrossfade();
-  Motion.headerFlash();
 }
 
 // نظام تكبير الخط: خمس درجات من ٨٠٪ إلى ٢٠٠٪.
@@ -542,7 +533,7 @@ function showScreen(screenId, animClass = 'active') {
   }, 30);
 
   if(['surah-view', 'khatmah-read'].includes(screenId)) document.getElementById('reading-progress-container').style.display = 'block';
-  else { document.getElementById('reading-progress-container').style.display = 'none'; document.getElementById('reading-progress-bar').style.width = '0%'; }
+  else { document.getElementById('reading-progress-container').style.display = 'none'; document.getElementById('reading-progress-bar').style.setProperty('--progress', 0); }
 
   // شريط تحكم الختمة أُزيل في مرحلة ٥ — القارئ الموحّد يحمل شريط الورد وزرّ الإتمام
   renderWirdChrome();
@@ -744,14 +735,14 @@ function bindGesturesAndScroll() {
       nav.classList.remove('nav-hidden');
     }
     lastScrollY = sy;
-    if (['surah-view', 'khatmah-read'].includes(state.currentScreen)) { document.getElementById('reading-progress-bar').style.width = (maxScroll > 0 ? (sy / maxScroll) * 100 : 0) + '%'; }
+    if (['surah-view', 'khatmah-read'].includes(state.currentScreen)) { document.getElementById('reading-progress-bar').style.setProperty('--progress', maxScroll > 0 ? (sy / maxScroll).toFixed(4) : 0); }
   }, {passive: true});
   // القارئ الموحّد له نافذة تمرير خاصة — شريط التقدّم يتبعها هي
   const _mvp = mushafViewport();
   if (_mvp) _mvp.addEventListener('scroll', () => {
     if (!['surah-view', 'khatmah-read'].includes(state.currentScreen)) return;
     const sy = _mvp.scrollTop; const maxScroll = _mvp.scrollHeight - _mvp.clientHeight;
-    document.getElementById('reading-progress-bar').style.width = (maxScroll > 0 ? Math.min(100, (sy / maxScroll) * 100) : 0) + '%';
+    document.getElementById('reading-progress-bar').style.setProperty('--progress', maxScroll > 0 ? Math.min(1, sy / maxScroll).toFixed(4) : 0);
   }, {passive: true});
 }
 

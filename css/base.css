@@ -102,9 +102,6 @@
 /* New: confetti drop (used via inline styles for variety) */
 @keyframes confettiDrop { 0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 1; } 100% { transform: translate3d(var(--dx, 0), 110vh, 0) rotate(var(--dr, 720deg)); opacity: 0.9; } }
 
-/* New: header glow pulse on theme switch */
-@keyframes themeFlash { 0% { box-shadow: 0 2px 15px rgba(0,0,0,0.3); } 50% { box-shadow: 0 4px 30px var(--accent-dim); } 100% { box-shadow: 0 2px 15px rgba(0,0,0,0.3); } }
-
 /* New: ring fill for tasbih bead active */
 @keyframes beadGlow { 0% { box-shadow: 0 0 0 0 var(--accent-dim); } 100% { box-shadow: 0 0 12px var(--accent); } }
 
@@ -119,17 +116,16 @@
 .bookmark-btn.pop { animation: countPop 480ms var(--ease-spring-snap); }
 
 /* ── index.html 331–400 ── */
-body.theme-light #reading-progress-bar { background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 50%, var(--accent) 100%); background-size: 200% 100%; }
+/* شريط التقدّم يستخدم تدرّجاً موحّداً من متغيرات النظام في الوضعين — لا قواعد إضافية هنا */
 
 /* Theme crossfade: when html.theme-transitioning, all themed colors interpolate.
    نستثني العناصر التي تعتمد على الحركة حتى لا تتعطّل أثناء تبديل السمة */
 html.theme-transitioning, html.theme-transitioning *:not(.nav-indicator):not(#reading-progress-bar):not(.reveal-hidden):not([data-magnetic]):not([data-stagger] > *):not([data-stagger]) { transition: background-color 480ms var(--ease-out-quart), color 480ms var(--ease-out-quart), border-color 480ms var(--ease-out-quart) !important; }
 
 /* Header parallax root */
-#header { will-change: transform, box-shadow; }
-#header.theme-flash { animation: themeFlash 600ms var(--ease-out-quart); }
+#header { will-change: transform; }
 
-/* Modal spring entry */
+/* Modal entry — منحنى الواجهة الموحّد، بلا نوابض خام */
 @keyframes modalSpringIn { 0% { opacity: 0; transform: translateY(10px) scale(0.97); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
 #custom-dialog, #occasion-modal { animation: modalSpringIn 480ms var(--ease-spring-snap) both; transform-origin: center; }
 
@@ -182,8 +178,7 @@ html.theme-transitioning, html.theme-transitioning *:not(.nav-indicator):not(#re
 /* Thikr done flash */
 .thikr-tap-btn.done { animation: countPop 520ms var(--ease-spring-snap); }
 
-/* Subtle shrink on press for cards */
-.surah-row:active, .athkar-cat-card:active, .quick-nav-card:active { transform: scale(0.985); }
+/* Subtle shrink on press for cards — موحّد عبر مجموعة base.css السفلية (scale 0.97) */
 
 /* Focus indicators for keyboard users */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -192,10 +187,10 @@ button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--a
 
 /* ── index.html 1521–1531 ── */
 /* ==================== Universal Liquid Glass Effect ==================== */
-.surah-row, .quick-nav-card, .athkar-cat-card, .thikr-tap-btn, .btn-scale, .bookmark-btn, .k-ctrl-btn, #resume-fab, #tasbih-tap-btn, .header-btn {
+.surah-row, .quick-nav-card, .athkar-cat-card, .thikr-tap-btn, .btn-scale, .bookmark-btn, .k-ctrl-btn, #resume-fab, #tasbih-tap-btn, .header-btn, #back-btn {
   transition: transform 320ms var(--ease-out-quart), background 320ms var(--ease-out-quart), border-color 320ms var(--ease-out-quart), box-shadow 320ms var(--ease-out-quart), color 320ms var(--ease-out-quart) !important;
 }
-.surah-row:active, .quick-nav-card:active, .athkar-cat-card:active, .thikr-tap-btn:active, .btn-scale:active, .bookmark-btn:active, .k-ctrl-btn:active, #resume-fab:active, #tasbih-tap-btn:active, .header-btn:active {
+.surah-row:active, .quick-nav-card:active, .athkar-cat-card:active, .thikr-tap-btn:active, .btn-scale:active, .bookmark-btn:active, .k-ctrl-btn:active, #resume-fab:active, #tasbih-tap-btn:active, .header-btn:active, #back-btn:active {
   transform: scale(0.97) !important;
   transition: transform 120ms var(--ease-out-quart) !important;
 }
@@ -218,7 +213,7 @@ button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--a
 #ayah-bar button, #ayah-bar button.ayah-close { min-height: 44px; min-width: 44px; }
 
 
-    /* Phase 3 Iteration Refinements: HUD topbar card, Header subtitle fit, Tasbih counter glow */
+    /* Phase 3 Iteration Refinements: HUD topbar card, Header subtitle fit */
     #mushaf-topbar-card {
       display: flex !important;
       flex-direction: row-reverse !important;
@@ -257,23 +252,6 @@ button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--a
       top: calc(env(safe-area-inset-top, 0px) + 96px) !important;
       z-index: 45 !important;
       box-shadow: 0 10px 28px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(216, 183, 114, 0.28) !important;
-    }
-    #header {
-      padding-inline: 8px !important;
-      gap: 4px !important;
-    }
-    .header-actions {
-      gap: 4px !important;
-    }
-    #header-title-wrap {
-      min-width: 0 !important;
-      flex: 1 1 auto !important;
-    }
-    #header-subtitle {
-      font-size: 10.5px !important;
-      white-space: nowrap !important;
-      overflow: visible !important;
-      text-overflow: clip !important;
     }
     #tasbih-count-num {
       font-size: clamp(44px, 11vw, 56px) !important;

@@ -19,18 +19,16 @@
 /* Tap pulse on thikr / count buttons */
 .tap-pulse { animation: tapPulse 420ms var(--ease-out-quart); }
 
-/* Button microinteraction */
-.header-btn, .btn-scale, .nav-tab { will-change: transform; transition: transform var(--motion-duration-fast) var(--ease-spring), box-shadow var(--motion-duration) var(--ease-out-quart), background var(--motion-duration) var(--ease-out-quart), color var(--motion-duration) var(--ease-out-quart); }
-.header-btn:active, .btn-scale:active, .nav-tab:active { transform: translateY(2px) scale(0.985); }
+/* Button microinteraction — الضغط موحّد عبر مجموعة base.css (scale 0.97) */
 .btn-scale:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px var(--accent-dim); }
 .btn-scale { position: relative; overflow: hidden; }
 
 /* Magnetic pull: data-magnetic target (subtle, capped) */
 [data-magnetic] { transition: transform 180ms var(--ease-out-quart); }
 
-/* Stagger helper for lists */
+/* Stagger helper for lists — يتّبع تأخير JS (--reveal-delay) أو قاعدة nth-child (--stagger-delay) */
 [data-stagger] > * { opacity: 0; transform: translateY(6px); }
-[data-stagger].mounted > * { opacity: 1; transform: none; transition: opacity 420ms var(--ease-out-quart) var(--stagger-delay), transform 480ms var(--ease-out-quart) var(--stagger-delay), filter 420ms var(--ease-out-quart) var(--stagger-delay); filter: blur(0); }
+[data-stagger].mounted > * { opacity: 1; transform: none; transition: opacity 420ms var(--ease-out-quart) var(--reveal-delay, var(--stagger-delay)), transform 480ms var(--ease-out-quart) var(--reveal-delay, var(--stagger-delay)); }
 
 /* ── index.html 307–330 ── */
 [data-stagger].mounted > *:nth-child(1)  { --stagger-delay: 0ms; }
@@ -54,9 +52,7 @@
 .count-anim { display: inline-block; transition: transform 360ms var(--ease-spring-snap), color 360ms var(--ease-out-quart); will-change: transform; }
 .count-anim.pop { animation: countPop 480ms var(--ease-spring-snap); }
 
-/* Reading progress with gradient flow — تعمل فقط عندما يكون الشريط ظاهراً */
-#reading-progress-bar { background: linear-gradient(90deg, #eafff6 0%, #8fe3c0 50%, #eafff6 100%); background-size: 200% 100%; animation: none; }
-#reading-progress-container[style*="display: block"] #reading-progress-bar { animation: gradientFlow 2.4s linear infinite; }
+/* شريط التقدّم: التدرّج الموحّد معرّف في layout.css — لا قواعد تدرّج مكررة هنا */
 
 /* ── index.html 535–535 ── */
 #nav:not(.nav-hidden) ~ .nav-scrim { opacity: 1; }
