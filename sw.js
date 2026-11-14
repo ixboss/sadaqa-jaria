@@ -2,9 +2,9 @@
 // v54: استراتيجية التحديث prompt — العامل الجديد ينتظر حتى يوافق المستخدم
 //      (رسالة SKIP_WAITING من sw-register.js)، فلا تنقطع جلسة قراءة نشطة أبداً.
 //      سابقاً v53: بنية CSS/JS المنظّمة (css/* + js/*)، Stale-While-Revalidate للأصول الثابتة.
-const CACHE_NAME = 'quran-app-v55';
+const CACHE_NAME = 'quran-app-v56';
 const API_CACHE = 'quran-api-v52';
-const STATIC_CACHE = 'static-v55';
+const STATIC_CACHE = 'static-v56';
 
 const PRECACHE_URLS = [
   './',

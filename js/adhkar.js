@@ -283,7 +283,7 @@ window.openCategory = function(ci, favOnly) {
   if (!state.dhikrEntries.length) {
     // الحالة الفارغة داخل منطقة النص نفسها — عناصر المنصة الثابتة لا تُدمَّر
     const textEl = document.getElementById('focus-text');
-    if (textEl) { textEl.innerHTML = `<div class="dhikr-empty">${favOnly ? 'لا توجد أذكار مفضّلة في هذا القسم بعد.<br>أضف ذكراً للمفضلة من شريط الإجراءات ليظهر هنا.' : 'لا توجد أذكار.'}</div>`; textEl.scrollTop = 0; }
+    if (textEl) { textEl.innerHTML = `<div class="dhikr-empty">${favOnly ? 'لا توجد أذكار مفضّلة في هذا القسم بعد.<br>أضف ذكراً للمفضلة من شريط الإجراءات ليظهر هنا.' : 'لا توجد أذكار.'}</div>`; document.getElementById('focus-stage').scrollTop = 0; }
     const srcBtn = document.getElementById('focus-source-btn');
     if (srcBtn) { srcBtn.hidden = true; srcBtn.textContent = ''; }
     if (footer) footer.style.display = 'none';
@@ -311,8 +311,18 @@ function renderFocusZikr(anim, dir) {
   const apply = () => {
     const { item, i } = entries[state.dhikrPos];
     const textEl = document.getElementById('focus-text');
-    textEl.innerHTML = decorateAyahMarks(escHtml(item.text));
-    textEl.scrollTop = 0;
+    // سطر العنوان الهامس: أول سطر قصير ينتهي بنقطتين («المعوذات (٣ مرات):»)
+    // يُعرض شارة صغيرة فوق النص بدل أن يختلط بحجم النص الكامل
+    const nl = item.text.indexOf('\n');
+    let titleHtml = '';
+    let body = item.text;
+    if (nl > 0 && nl <= 60 && /[:：]\s*$/.test(item.text.slice(0, nl))) {
+      titleHtml = `<div class="focus-text-title">${decorateAyahMarks(escHtml(item.text.slice(0, nl).replace(/[:：]\s*$/, '')))}</div>`;
+      body = item.text.slice(nl + 1);
+    }
+    textEl.innerHTML = titleHtml + decorateAyahMarks(escHtml(body));
+    // منطقة القراءة هي حاوية التمرير الآن (وليس النص نفسه) — أعدها للبداية
+    document.getElementById('focus-stage').scrollTop = 0;
     // سطر المصدر الهامس — يفتح التخريج الكامل بالضغط عليه
     const srcBtn = document.getElementById('focus-source-btn');
     const src = getThikrSource(ci, i);
@@ -346,11 +356,14 @@ function updateFocusCount(item, prog) {
 }
 
 function syncFocusFav(fav) {
-  const btn = document.getElementById('focus-fav-btn');
-  if (!btn) return;
-  btn.classList.toggle('active', fav);
-  btn.setAttribute('aria-pressed', String(fav));
-  btn.setAttribute('aria-label', fav ? 'إزالة من المفضلة' : 'إضافة للمفضلة');
+  // النجمة في الترويسة والنجمة في التذييل تُظهران الحالة نفسها
+  for (const id of ['focus-fav-top-btn', 'focus-fav-btn']) {
+    const btn = document.getElementById(id);
+    if (!btn) continue;
+    btn.classList.toggle('active', fav);
+    btn.setAttribute('aria-pressed', String(fav));
+    btn.setAttribute('aria-label', fav ? 'إزالة من المفضلة' : 'إضافة للمفضلة');
+  }
 }
 
 function syncFocusPlay() {
@@ -444,13 +457,13 @@ window.focusShare = function() {
   ShareCardGenerator.share({ badge: ATHKAR[ci].name, text: item.text, subtext: getThikrSource(ci, i) });
 };
 
-// قائمة الخيارات الهامسة أعلى الشاشة: فلتر المفضلة فقط (التقدم تلقائيٌّ بالإتمام)
+// خيارات القسم: صفّ الفلتر يظهر داخل التدفق تحت الترويسة (بلا popover عائم)
 window.toggleFocusMenu = function(force) {
-  const pop = document.getElementById('focus-menu-pop');
+  const row = document.getElementById('dhikr-filter-row');
   const btn = document.getElementById('focus-menu-btn');
-  if (!pop || !btn) return;
-  const show = force !== undefined ? !!force : pop.hidden;
-  pop.hidden = !show;
+  if (!row || !btn) return;
+  const show = force !== undefined ? !!force : row.hidden;
+  row.hidden = !show;
   btn.setAttribute('aria-expanded', String(show));
 };
 
@@ -496,7 +509,8 @@ window.showThikrSource = function(ci, ii) {
     }
   }, { passive: true });
 
-  // شريط الإجراءات: المفضلة / التشغيل / المشاركة
+  // شريط الإجراءات: المفضلة (الترويسة والتذييل) / التشغيل / المشاركة
+  document.getElementById('focus-fav-top-btn')?.addEventListener('click', () => window.toggleFocusFav());
   document.getElementById('focus-fav-btn')?.addEventListener('click', () => window.toggleFocusFav());
   document.getElementById('focus-play-btn')?.addEventListener('click', () => window.toggleFocusPlay());
   document.getElementById('focus-share-btn')?.addEventListener('click', () => window.focusShare());
@@ -504,10 +518,10 @@ window.showThikrSource = function(ci, ii) {
     if (!state.dhikrEntries || !state.dhikrEntries.length) return;
     window.showThikrSource(state.currentCatIndex, state.dhikrEntries[state.dhikrPos].i);
   });
-  // قائمة الخيارات: تفتح وتغلق، وتُغلق بالنقر خارجها
+  // خيارات القسم: تفتح وتغلق، وتُغلق بالنقر خارجها
   document.getElementById('focus-menu-btn')?.addEventListener('click', (e) => { e.stopPropagation(); window.toggleFocusMenu(); });
   document.addEventListener('click', (e) => {
-    if (e.target.closest('#focus-menu-pop') || e.target.closest('#focus-menu-btn')) return;
+    if (e.target.closest('#dhikr-filter-row') || e.target.closest('#focus-menu-btn')) return;
     window.toggleFocusMenu(false);
   });
 })();
