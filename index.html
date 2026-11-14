@@ -286,23 +286,28 @@
     </div>
 
     <div id="screen-thikr-view" class="screen">
-      <!-- زر قائمة هامس يفتح خيارات القسم: المفضلة والتقدم التلقائي -->
+      <!-- الترويسة الثابتة (سطرٌ عادي في التدفق — بلا تموضع مطلق):
+           نجمة المفضلة في اليمين، خيارات القسم في اليسار -->
       <div class="focus-top">
-        <button class="focus-menu-btn" id="focus-menu-btn" aria-label="خيارات الأذكار" aria-haspopup="true" aria-expanded="false">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="16" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg>
+        <button class="focus-top-btn" id="focus-fav-top-btn" aria-pressed="false" aria-label="إضافة للمفضلة">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
         </button>
-        <div class="focus-menu-pop" id="focus-menu-pop" role="menu" aria-label="خيارات الأذكار" hidden>
-          <button class="dhikr-chip" id="dhikr-fav-chip" aria-pressed="false" aria-label="تصفية الأذكار المفضلة">☆ المفضلة</button>
-        </div>
+        <button class="focus-top-btn" id="focus-menu-btn" aria-label="خيارات الأذكار" aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="16" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg>
+        </button>
       </div>
-      <!-- منصة القراءة: الضغط في أي مكان يُحدِّث العدّ ويُتمّ الذكر → ينطلق التالي -->
+      <!-- صفّ الفلتر داخل التدفق تحت الترويسة — يظهر عند فتح الخيارات ولا يغطي النص أبداً -->
+      <div class="focus-filter-row" id="dhikr-filter-row" hidden>
+        <button class="dhikr-chip" id="dhikr-fav-chip" aria-pressed="false" aria-label="تصفية الأذكار المفضلة">☆ المفضلة</button>
+      </div>
+      <!-- منطقة القراءة: تمركز كامل في المساحة المتبقية، والتمرير هنا فقط حين يطول الذكر -->
       <div class="focus-stage" id="focus-stage" role="button" tabindex="0" aria-label="اضغط لعدّ الذكر والانتقال إلى التالي">
         <div class="focus-anim" id="focus-anim">
           <div class="thikr-text focus-text" id="focus-text" dir="rtl"></div>
           <button class="focus-source" id="focus-source-btn" hidden></button>
         </div>
       </div>
-      <!-- الأسفل: مؤشر التقدّم (١ | ٢٥) + عدّ الذكر + ثلاثة إجراءات -->
+      <!-- التذييل الثابت: مؤشر التقدّم (١ | ٢٥) + الشريط الرفيع + ثلاثة إجراءات -->
       <div class="focus-footer" id="focus-footer">
         <div class="focus-progress-row">
           <span class="focus-progress-text"><span id="focus-pos">١</span><span class="focus-progress-sep" aria-hidden="true">|</span><span id="focus-total">٢٥</span></span>
