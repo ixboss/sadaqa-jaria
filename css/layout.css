@@ -303,6 +303,30 @@ body.theme-light .ayah.reciting { background: rgba(31, 122, 90, 0.10); }
 .ayah.bookmarked .ayah-badge { background: var(--accent); color: var(--color-on-accent); border-color: transparent; box-shadow: 0 0 0 2px var(--surface); }
 body.theme-light .ayah.bookmarked .ayah-badge { box-shadow: 0 0 0 2px var(--surface); }
 
+/* شارة علامة نهاية الآية المرسومة بالـ CSS — بديل محرف ۝ (U+06DD) الذي
+   يتداخل مع الكلمة السابقة لأنه علامة غير مُتقدِّمة (zero-advance) في النص.
+   تُنتَج من decorateAyahMarks() بعد تهريب النص؛ inline-flex + هامش جانبي
+   يضمنان ألا تلامس أي كلمة مهما كان الخط أو حجم النص. */
+.ayah-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: middle; box-sizing: border-box;
+  font-size: 0.5em; font-weight: 700; line-height: 1;
+  font-family: var(--font-num);
+  width: 2.5em; height: 2.5em; margin: 0 0.5em;
+  border: 1.5px solid var(--mushaf-frame, var(--accent));
+  border-radius: 50%;
+  color: var(--mushaf-ink, var(--accent));
+  background: rgba(184, 154, 78, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(184, 154, 78, 0.18);
+}
+/* الفاصل المجرّد (بلا رقم) بين الآيات المقتبسة في الأذكار والانشراحات —
+   دائرة صغيرة هادئة تفصل دون أن تجذب العين */
+.ayah-mark-blank {
+  width: 1.5em; height: 1.5em;
+  color: var(--text-dim); border-color: currentColor;
+  background: transparent; box-shadow: none;
+}
+
 /* ===== تنقّل صفحات المصحف داخل السورة ===== */
 .mushaf-page-label { text-align: center; font-size: calc(var(--font-size) * 0.5); color: var(--text-dim); margin-bottom: 6px; }
 .mushaf-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 4px 0 18px; }
@@ -466,10 +490,6 @@ body.theme-light .settings-chip.danger { color: #a93226; }
 }
 .tafsir-sheet-actions .settings-chip { flex: 1 1 auto; text-align: center; }
 
-.card-actions-row {
-  display: flex; align-items: center; gap: 6px; align-self: flex-end; margin: 0 0 6px;
-}
-.dhikr-card .copy-btn, .dhikr-card .share-card-btn { position: static; margin: 0; }
 .share-card-btn {
   display: inline-flex; align-items: center; gap: 4px; background: var(--surface-2);
   color: var(--text-dim); border: 1px solid var(--border); border-radius: 20px;
@@ -682,7 +702,7 @@ body.theme-light .tadabbur-card, body.theme-light .prayer-widget-card, body.them
 .td-ref { font-size: calc(var(--font-size) * 0.44); color: var(--text-dim); font-weight: 700; }
 .td-ayah {
   font-family: 'Amiri Quran', 'Amiri', serif; font-size: calc(var(--font-size) * 0.78);
-  line-height: 1.9; color: var(--text); margin: 6px 0 8px; cursor: pointer; text-align: center;
+  line-height: 2.2; color: var(--text); margin: 6px 0 8px; cursor: pointer; text-align: center;
 }
 .td-reflection {
   font-size: calc(var(--font-size) * 0.52); line-height: 1.8; color: var(--text-dim);

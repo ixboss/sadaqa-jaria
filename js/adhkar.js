@@ -265,97 +265,195 @@ function toggleFavThikr(ci, ii) {
   return nowFav;
 }
 
-// ─── تقاليب أذكار أفقية (Pager): ذكرٌ واحد لكل شريحة ───
+// ─── نمط التركيز (Focus Mode): ذكرٌ واحد ممركز، والضغط في أي مكان يُعدّ ───
+// كل ضغطة على المنصة = تكرار واحد للذكر الحالي (عدّاد هامس أسفل الشاشة)،
+// وحين يكتمل عدّ الذكر ينزلق التالي بسلاسة — تماماً كما في نمط القراءة المركّزة.
 window.openCategory = function(ci, favOnly) {
-  state.currentCatIndex = ci; showScreen('thikr-view', 'slide-left');
+  state.currentCatIndex = ci;
   state.dhikrFavOnly = !!favOnly;
-  // شريحة فلتر المفضلة تظهر دائماً في الشاشة، وتُضيء حين يكون الفلتر مفعّلاً
-  const filterRow = document.getElementById('dhikr-filter-row');
-  if (filterRow) {
-    filterRow.style.display = 'flex';
-    const chip = document.getElementById('dhikr-fav-chip');
-    if (chip) {
-      chip.setAttribute('aria-pressed', String(state.dhikrFavOnly));
-      chip.textContent = state.dhikrFavOnly ? '★ المفضلة' : '☆ المفضلة';
-    }
-  }
-  // مزامنة زر التقدم التلقائي العائم (FAB)
-  const autoFab = document.getElementById('dhikr-auto-fab');
-  if (autoFab && window.Settings) {
-    const isOn = Settings.getAutoAdvance();
-    autoFab.style.display = 'flex';
-    autoFab.setAttribute('aria-pressed', isOn ? 'true' : 'false');
-    autoFab.querySelector('.fab-icon').textContent = isOn ? '⏭' : '⏹';
-    autoFab.querySelector('.fab-label').textContent = isOn ? 'تقدم تلقائي' : 'إيقاف التقدم';
-  }
+  showScreen('thikr-view', 'slide-left');
+  syncFocusMenu();
   const cat = ATHKAR[ci];
   const favs = getAthkarFavs();
   // فلتر المفضلة: يعرض فقط ما حُفِظ مفضّلاً في هذه الفئة
-  const entries = cat.items.map((item, i) => ({ item, i }))
+  state.dhikrEntries = cat.items.map((item, i) => ({ item, i }))
     .filter(e => !favOnly || favs.has(ci + ':' + e.i));
-  const container = document.getElementById('thikr-list-container');
-  if (!entries.length) {
-    container.innerHTML = `<div class="dhikr-empty">${favOnly ? 'لا توجد أذكار مفضّلة في هذا القسم بعد.<br>اضغط ☆ في أي ذكر لإضافته هنا.' : 'لا توجد أذكار.'}</div>`;
+  state.dhikrPos = 0;
+  const footer = document.getElementById('focus-footer');
+  if (!state.dhikrEntries.length) {
+    // الحالة الفارغة داخل منطقة النص نفسها — عناصر المنصة الثابتة لا تُدمَّر
+    const textEl = document.getElementById('focus-text');
+    if (textEl) { textEl.innerHTML = `<div class="dhikr-empty">${favOnly ? 'لا توجد أذكار مفضّلة في هذا القسم بعد.<br>أضف ذكراً للمفضلة من شريط الإجراءات ليظهر هنا.' : 'لا توجد أذكار.'}</div>`; textEl.scrollTop = 0; }
+    const srcBtn = document.getElementById('focus-source-btn');
+    if (srcBtn) { srcBtn.hidden = true; srcBtn.textContent = ''; }
+    if (footer) footer.style.display = 'none';
     return;
   }
-  container.innerHTML = entries.map(({ item, i }) => {
-    const prog = getProg(ci, i);
-    const done = prog >= item.count;
-    const fav = favs.has(ci + ':' + i);
-    const pct = item.count > 0 ? Math.min(100, Math.round((prog / item.count) * 100)) : 100;
-    const hasSrc = !!ATHKAR_SOURCES[ci + ':' + i];
-    // كل ذكرٍ داخل شريحةٍ بعرض الحاوية: بطاقةٌ واحدة مرئية في كل مرة
-    return `<div class="dhikr-slide"><div class="dhikr-card" data-ci="${ci}" data-i="${i}">
-      <div class="dhikr-top">
-        <div class="dhikr-badge">${toArabicNum(i + 1)} / ${toArabicNum(cat.items.length)}</div>
-        <button class="dhikr-fav ${fav ? 'active' : ''}" onclick="toggleFavFromCard(${ci}, ${i}, this)" aria-label="${fav ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}" aria-pressed="${fav}">☆</button>
-      </div>
-      <div class="thikr-text" dir="rtl">${item.text}</div>
-      <div class="card-actions-row">
-        <button class="copy-btn" data-copy-from=".thikr-text" aria-label="نسخ الذكر" title="نسخ"><span aria-hidden="true">⧉</span> نسخ</button>
-        <button class="share-card-btn" data-share-badge="${escHtml(cat.name)}" data-share-from=".thikr-text" aria-label="مشاركة الذكر كبطاقة" title="مشاركة كصورة"><span aria-hidden="true">🖼</span> بطاقة</button>
-      </div>
-      <div class="dhikr-count-line">${toArabicNum(Math.min(prog, item.count))} من ${toArabicNum(item.count)} ${item.count === 1 ? 'مرة' : 'مرات'}</div>
-      <div class="dhikr-progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="dhikr-progress-fill" style="width:${pct}%"></div></div>
-      <div class="dhikr-bottom">
-        ${hasSrc ? `<button class="dhikr-src-btn" onclick="showThikrSource('${ci}','${i}')" aria-label="المصدر">المصدر</button>` : `<span class="dhikr-src-none">${ATHKAR_SOURCE_GENERIC}</span>`}
-        <button class="thikr-tap-btn ${done ? 'done' : ''}" onclick="tapThikr(${ci}, ${i}, this)">${done ? '✓ اكتمل' : `<span class="count-anim">${toArabicNum(prog)}</span> / ${toArabicNum(item.count)}`}</button>
-      </div>
-    </div></div>`;
-  }).join('');
-  // ابدأ من الذكر الأول دائماً (الاتجاه RTL يجعل الشريحة الأولى في أقصى اليمين)
-  container.scrollLeft = 0;
-  Motion.staggerIn(container);
+  if (footer) footer.style.display = '';
+  renderFocusZikr(false);
 }
 
-// الضغط في أي مكان على البطاقة يزيد العدّاد — بدون أي تنقّل أو تمرير.
-// مفوَّضٌ مرة واحدة على الحاوية فيبقى يعمل بعد كل إعادة بناء،
-// ويتجاهل أي ضغطٍ على الأزرار (المفضلة/المصدر/النسخ/العدّاد) لتبقى تعمل وحدها.
-document.getElementById('thikr-list-container').addEventListener('click', (e) => {
-  if (e.target.closest('button, .copy-btn, .share-card-btn')) return;
-  const card = e.target.closest('.dhikr-card');
-  if (!card) return;
-  const tapBtn = card.querySelector('.thikr-tap-btn');
-  if (tapBtn) window.tapThikr(+card.dataset.ci, +card.dataset.i, tapBtn);
-});
-
-window.toggleFavFromCard = function(ci, ii, btn) {
-  const nowFav = toggleFavThikr(ci, ii);
-  btn.classList.toggle('active', nowFav);
-  btn.textContent = nowFav ? '★' : '☆';
-  btn.setAttribute('aria-pressed', String(nowFav));
-  btn.setAttribute('aria-label', nowFav ? 'إزالة من المفضلة' : 'إضافة للمفضلة');
-  Motion.floater(btn, nowFav ? '★' : '☆', nowFav ? 'var(--accent)' : 'var(--text-dim)');
-  if (window.AccessibilityHelper) AccessibilityHelper.announceMessage(nowFav ? 'أُضيف للمفضلة' : 'أُزيل من المفضلة');
-  // في وضع فلتر المفضلة: أعد بناء القائمة بعد إزالة عنصر (بعد ظهور الحركة)
-  if (state.dhikrFavOnly && !nowFav) {
-    setTimeout(() => {
-      if (state.currentScreen === 'thikr-view') openCategory(state.currentCatIndex, true);
-    }, 450);
+// مزامنة شريحة قائمة الخيارات (الفلتر) مع الحالة الحالية
+function syncFocusMenu() {
+  const favChip = document.getElementById('dhikr-fav-chip');
+  if (favChip) {
+    favChip.textContent = state.dhikrFavOnly ? '★ المفضلة' : '☆ المفضلة';
+    favChip.setAttribute('aria-pressed', String(!!state.dhikrFavOnly));
   }
 }
 
-// شريحة فلتر المفضلة: تعيد فتح القسم مع/بدون الفلتر
+// رسم الذكر الحالي مع حركة مغادرة/دخول سلسة (تلاشٍ + انزلاق خفيف)
+function renderFocusZikr(anim, dir) {
+  const animEl = document.getElementById('focus-anim');
+  const entries = state.dhikrEntries;
+  if (!animEl || !entries || !entries.length) return;
+  const ci = state.currentCatIndex;
+  const apply = () => {
+    const { item, i } = entries[state.dhikrPos];
+    const textEl = document.getElementById('focus-text');
+    textEl.innerHTML = decorateAyahMarks(escHtml(item.text));
+    textEl.scrollTop = 0;
+    // سطر المصدر الهامس — يفتح التخريج الكامل بالضغط عليه
+    const srcBtn = document.getElementById('focus-source-btn');
+    const src = getThikrSource(ci, i);
+    if (src !== ATHKAR_SOURCE_GENERIC) { srcBtn.hidden = false; srcBtn.textContent = 'المصدر: ' + src; }
+    else { srcBtn.hidden = true; srcBtn.textContent = ''; }
+    // مؤشر التقدّم «١ | ٢٥» + الشريط الرفيع
+    document.getElementById('focus-pos').textContent = toArabicNum(state.dhikrPos + 1);
+    document.getElementById('focus-total').textContent = toArabicNum(entries.length);
+    document.getElementById('focus-progress-fill').style.width = ((state.dhikrPos / entries.length) * 100) + '%';
+    updateFocusCount(item, getProg(ci, i));
+    syncFocusFav(isFavThikr(ci, i));
+    syncFocusPlay();
+  };
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!anim || reduced) { apply(); return; }
+  animEl.classList.add(dir === 'back' ? 'focus-leaving-back' : 'focus-leaving');
+  setTimeout(() => {
+    apply();
+    animEl.classList.remove('focus-leaving', 'focus-leaving-back');
+    animEl.classList.add(dir === 'back' ? 'focus-entering-back' : 'focus-entering');
+    setTimeout(() => animEl.classList.remove('focus-entering', 'focus-entering-back'), 340);
+  }, 180);
+}
+
+// عدّاد الذكر الهامس أسفل الشاشة: «٢ / ٣» أو «مرة واحدة» ثم «اكتمل ✓»
+function updateFocusCount(item, prog) {
+  const el = document.getElementById('focus-count');
+  if (!el) return;
+  if (item.count === 1) el.textContent = prog >= 1 ? 'اكتمل ✓' : 'مرة واحدة';
+  else el.textContent = `${toArabicNum(Math.min(prog, item.count))} / ${toArabicNum(item.count)}`;
+}
+
+function syncFocusFav(fav) {
+  const btn = document.getElementById('focus-fav-btn');
+  if (!btn) return;
+  btn.classList.toggle('active', fav);
+  btn.setAttribute('aria-pressed', String(fav));
+  btn.setAttribute('aria-label', fav ? 'إزالة من المفضلة' : 'إضافة للمفضلة');
+}
+
+function syncFocusPlay() {
+  const btn = document.getElementById('focus-play-btn');
+  if (!btn) return;
+  const on = !!window.focusPlayTimer;
+  btn.classList.toggle('active', on);
+  btn.setAttribute('aria-pressed', String(on));
+}
+
+// الضغط في أي مكان على المنصة: تكرار واحد للذكر الحالي، وعند إتمام عدّه
+// يُحتفَل ثم ينتقل التالي بسلاسة (آخر ذكر يبقى عند «اكتمل ✓»).
+window.focusTap = function() {
+  if (!state.dhikrEntries || !state.dhikrEntries.length) return;
+  const { item, i } = state.dhikrEntries[state.dhikrPos];
+  const ci = state.currentCatIndex;
+  const max = item.count;
+  let curr = getProg(ci, i);
+  const justCompleted = curr < max && curr + 1 >= max;
+  if (curr < max) {
+    curr++; setProg(ci, i, curr);
+    const countEl = document.getElementById('focus-count');
+    updateFocusCount(item, curr);
+    if (countEl) { countEl.classList.remove('pop'); void countEl.offsetWidth; countEl.classList.add('pop'); }
+    if (window.Haptics) Haptics.tap();
+    if (max <= 10) Motion.floater(document.getElementById('focus-stage'), '+1', 'var(--accent)');
+  }
+  if (curr >= max) {
+    if (justCompleted) {
+      if (window.StatsManager) StatsManager.recordAthkarDay();
+      if (window.Celebrate) Celebrate(document.getElementById('focus-stage'), { confetti: 0, burst: 10, ring: true, haptic: true });
+    }
+    const isLast = state.dhikrPos >= state.dhikrEntries.length - 1;
+    if (!isLast) focusGo(1);
+  }
+};
+
+// التنقل بين الأذكار (next/back) مع الحركة الاتجاهية
+window.focusGo = function(dir) {
+  const entries = state.dhikrEntries;
+  if (!entries || !entries.length) return;
+  const next = state.dhikrPos + dir;
+  if (next < 0 || next >= entries.length) return;
+  state.dhikrPos = next;
+  renderFocusZikr(true, dir > 0 ? 'next' : 'back');
+};
+
+// زر التشغيل: قراءة متتابعة بلا لمس — ينطلق ذكرٌ كل ٦ ثوانٍ حتى نهاية القسم
+window.toggleFocusPlay = function() {
+  if (window.focusPlayTimer) { stopFocusPlay(); return; }
+  if (!state.dhikrEntries || !state.dhikrEntries.length) return;
+  window.focusPlayTimer = setInterval(() => {
+    if (state.currentScreen !== 'thikr-view' || !state.dhikrEntries || !state.dhikrEntries.length) { stopFocusPlay(); return; }
+    if (state.dhikrPos >= state.dhikrEntries.length - 1) { stopFocusPlay(); return; }
+    focusGo(1);
+  }, 6000);
+  syncFocusPlay();
+};
+
+function stopFocusPlay() {
+  if (window.focusPlayTimer) { clearInterval(window.focusPlayTimer); window.focusPlayTimer = null; }
+  syncFocusPlay();
+}
+
+// المفضلة من شريط الإجراءات
+window.toggleFocusFav = function() {
+  if (!state.dhikrEntries || !state.dhikrEntries.length) return;
+  const { i } = state.dhikrEntries[state.dhikrPos];
+  const ci = state.currentCatIndex;
+  const nowFav = toggleFavThikr(ci, i);
+  syncFocusFav(nowFav);
+  Motion.floater(document.getElementById('focus-fav-btn'), nowFav ? '★' : '☆', nowFav ? 'var(--accent)' : 'var(--text-dim)');
+  if (window.AccessibilityHelper) AccessibilityHelper.announceMessage(nowFav ? 'أُضيف للمفضلة' : 'أُزيل من المفضلة');
+  // في وضع فلتر المفضلة: أخرِج الذكر من القائمة بعد أن تظهر الحركة
+  if (state.dhikrFavOnly && !nowFav) {
+    setTimeout(() => {
+      if (state.currentScreen !== 'thikr-view') return;
+      state.dhikrEntries.splice(state.dhikrPos, 1);
+      if (!state.dhikrEntries.length) { openCategory(ci, true); return; }
+      if (state.dhikrPos >= state.dhikrEntries.length) state.dhikrPos = state.dhikrEntries.length - 1;
+      renderFocusZikr(true, 'next');
+    }, 420);
+  }
+};
+
+// مشاركة الذكر الحالي كبطاقة
+window.focusShare = function() {
+  if (!state.dhikrEntries || !state.dhikrEntries.length || !window.ShareCardGenerator) return;
+  const { item, i } = state.dhikrEntries[state.dhikrPos];
+  const ci = state.currentCatIndex;
+  ShareCardGenerator.share({ badge: ATHKAR[ci].name, text: item.text, subtext: getThikrSource(ci, i) });
+};
+
+// قائمة الخيارات الهامسة أعلى الشاشة: فلتر المفضلة فقط (التقدم تلقائيٌّ بالإتمام)
+window.toggleFocusMenu = function(force) {
+  const pop = document.getElementById('focus-menu-pop');
+  const btn = document.getElementById('focus-menu-btn');
+  if (!pop || !btn) return;
+  const show = force !== undefined ? !!force : pop.hidden;
+  pop.hidden = !show;
+  btn.setAttribute('aria-expanded', String(show));
+};
+
 window.toggleDhikrFavFilter = function() {
   const ci = state.currentCatIndex;
   if (ci === null || ci === undefined || !ATHKAR[ci]) return;
@@ -368,56 +466,48 @@ window.showThikrSource = function(ci, ii) {
   const item = ATHKAR[ci] && ATHKAR[ci].items[ii];
   const text = `<div style="font-size:calc(var(--font-size) * 0.58); color:var(--text-dim); margin-bottom:10px">${escHtml(cat)} — ${escHtml(toArabicNum(+ii + 1))}/${escHtml(toArabicNum(ATHKAR[ci].items.length))}</div><div style="font-size:calc(var(--font-size) * 0.68); line-height:1.9">${escHtml(src)}</div>`;
   if (window.showAppDialog) showAppDialog(text, false, 'المصدر');
-}
+};
+// ⚠️ الفاصلة المنقوطة أعلاه إلزامية: ما يليها تعبير IIFE يبدأ بقوس '(' —
+// بدونها يفسّر المُحلِّل القوسَ استدعاءً لهذه الدالة عند التحميل (ASI hazard).
 
-window.tapThikr = function(ci, i, btn) {
-  const max = ATHKAR[ci].items[i].count; let curr = getProg(ci, i); if (curr >= max) return; curr++; setProg(ci, i, curr);
-  const card = btn.closest('.dhikr-card');
-  if (curr >= max) {
-    btn.classList.add('done');
-    btn.textContent = '✓ اكتمل';
-    if (window.Celebrate) Celebrate(btn, { confetti: 0, burst: 10, ring: true, haptic: true });
-    if (window.StatsManager) StatsManager.recordAthkarDay();
-    Motion.floater(btn, '✓', 'var(--success)');
-    if (window.AccessibilityHelper) AccessibilityHelper.announceMessage('اكتمل هذا الذكر');
-    // التقدم التلقائي: انتقل للذكر التالي فوراً عند إتمام الحالي إذا كانت الميزة مُفعَّلة
-    if (window.Settings && Settings.getAutoAdvance()) {
-      const container = document.getElementById('thikr-list-container');
-      const slides = container ? Array.from(container.querySelectorAll('.dhikr-slide')) : [];
-      const currentSlide = btn.closest('.dhikr-slide');
-      const currentIndex = slides.indexOf(currentSlide);
-      // لا تتقدم إذا كان هذا آخر ذكر في القائمة
-      if (currentIndex >= 0 && currentIndex < slides.length - 1) {
-        const slideWidth = currentSlide.offsetWidth;
-        // RTL: القيمة السالبة تعني التقدم نحو اليسار الفعلي (التالي)
-        container.scrollBy({ left: -slideWidth, behavior: 'smooth' });
-      }
+/* ─── ربط أحداث نمط التركيز (مرة واحدة عند التحميل) ─── */
+(function initFocusDhikr() {
+  const stage = document.getElementById('focus-stage');
+  if (!stage) return;
+  // الضغط في أي مكان على المنصة = عدّ الذكر (زر المصدر مستثنى)
+  stage.addEventListener('click', (e) => {
+    if (e.target.closest('#focus-source-btn')) return;
+    window.focusTap();
+  });
+  // إمكانية الوصول: لوحة المفاتيح تحدّث العدّ كما اللمس
+  stage.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.focusTap(); }
+  });
+  // السحب الأفقي: يساراً = التالي، يميناً = السابق — تنقّلٌ بلا عدّ
+  let fsX = 0, fsY = 0, fsT = 0;
+  stage.addEventListener('touchstart', (e) => {
+    const t = e.changedTouches[0]; fsX = t.clientX; fsY = t.clientY; fsT = Date.now();
+  }, { passive: true });
+  stage.addEventListener('touchend', (e) => {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - fsX, dy = t.clientY - fsY;
+    if (Date.now() - fsT < 600 && Math.abs(dx) > 64 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0) window.focusGo(1); else window.focusGo(-1);
     }
-    // حدّث شريط التقدم والنسبة وخطّ العدّ
-    if (card) {
-      const fill = card.querySelector('.dhikr-progress-fill');
-      if (fill) fill.style.width = '100%';
-      const bar = card.querySelector('.dhikr-progress');
-      if (bar) bar.setAttribute('aria-valuenow', '100');
-      const line = card.querySelector('.dhikr-count-line');
-      if (line) line.textContent = `${toArabicNum(max)} من ${toArabicNum(max)} ${max === 1 ? 'مرة' : 'مرات'}`;
-    }
-  } else {
-        btn.innerHTML = `<span class="count-anim">${toArabicNum(curr)}</span> / ${toArabicNum(max)}`;
-    // Re-trigger pop on the count
-    const counter = btn.querySelector('.count-anim');
-    if (counter) { counter.classList.remove('pop'); void counter.offsetWidth; counter.classList.add('pop'); }
-    Motion.floater(btn, '+1', 'var(--accent)');
-    if (card) {
-      const pct = Math.min(100, Math.round((curr / max) * 100));
-      const fill = card.querySelector('.dhikr-progress-fill');
-      if (fill) fill.style.width = pct + '%';
-      const bar = card.querySelector('.dhikr-progress');
-      if (bar) bar.setAttribute('aria-valuenow', String(pct));
-      const line = card.querySelector('.dhikr-count-line');
-      if (line) line.textContent = `${toArabicNum(curr)} من ${toArabicNum(max)} ${max === 1 ? 'مرة' : 'مرات'}`;
-    }
-  }
-  // Tap pulse on the button
-  btn.classList.remove('tap-pulse'); void btn.offsetWidth; btn.classList.add('tap-pulse');
-}
+  }, { passive: true });
+
+  // شريط الإجراءات: المفضلة / التشغيل / المشاركة
+  document.getElementById('focus-fav-btn')?.addEventListener('click', () => window.toggleFocusFav());
+  document.getElementById('focus-play-btn')?.addEventListener('click', () => window.toggleFocusPlay());
+  document.getElementById('focus-share-btn')?.addEventListener('click', () => window.focusShare());
+  document.getElementById('focus-source-btn')?.addEventListener('click', () => {
+    if (!state.dhikrEntries || !state.dhikrEntries.length) return;
+    window.showThikrSource(state.currentCatIndex, state.dhikrEntries[state.dhikrPos].i);
+  });
+  // قائمة الخيارات: تفتح وتغلق، وتُغلق بالنقر خارجها
+  document.getElementById('focus-menu-btn')?.addEventListener('click', (e) => { e.stopPropagation(); window.toggleFocusMenu(); });
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#focus-menu-pop') || e.target.closest('#focus-menu-btn')) return;
+    window.toggleFocusMenu(false);
+  });
+})();

@@ -622,188 +622,116 @@ body.theme-light .quick-nav-label { color: var(--text); }
 .copy-btn.copied { color: var(--success); border-color: var(--success); background: rgba(79, 209, 165, 0.12); }
 .thikr-text { font-family: 'Amiri Quran', serif; font-size: calc(var(--font-size) * 1.15); line-height: calc(var(--line-height) * 1.1); color: var(--text); text-align: right; margin-bottom: 12px; transition: font-size 0.3s; white-space: pre-line; }
 
-.thikr-tap-btn { width: 100%; min-height: 56px; background: var(--surface-2); border: 2px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: calc(var(--font-size) * 0.7); cursor: pointer; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), font-size 0.3s; }
-.thikr-tap-btn:active { transform: scale(0.96); }
-.thikr-tap-btn.done { background: #0f3a26; border-color: var(--success); color: var(--success); transform: scale(1); }
-body.theme-light .thikr-tap-btn.done { background: #e6f4ea; color: var(--success); border-color: var(--success); }
-
-/* ================= بطاقة الذكر (تقاليب أفقي — Pager) ================= */
-/* شاشة الذكر تصبح صفحاتٍ أفقية: ذكرٌ واحد في كل مرة، مع التفات يميناً/يساراً.
-   #content نفسه لا يتحرك أبداً على هذه الشاشة (overflow: hidden).
-   padding-bottom هنا ليس فائضاً: البطاقة محصورةٌ بارتفاع الشريحة، فلو امتدت
-   الشريحة إلى أسفل الشاشة لاختبأ زرّ العدّ خلف شريط التنقّل الثابت المعيم.
-   لذلك نحجز له نفس مساحة الشريط التي تحجزها بقية الشاشات + هامش بصري. */
-#content.pager-dhikr { overflow: hidden; touch-action: pan-x; padding-bottom: calc(var(--nav-clearance-safe) + 12px); }
+/* ================= نمط التركيز (شاشة الذكر) ================= */
+/* شاشة الذكر = منصة قراءة واحدة هادئة: بلا بطاقات ولا حدود — النص ممركز
+   في وسط الشاشة بخطّ قراءة كبير، الضغط في أي مكان يعدّ الذكر، وعند إتمام
+   عدّه ينزلق التالي بسلاسة. #content نفسه لا يتحرك أبداً على هذه الشاشة. */
+#content.pager-dhikr { overflow: hidden; touch-action: pan-y; padding-bottom: calc(var(--nav-clearance-safe) + 12px); }
 #screen-thikr-view.active, #screen-thikr-view.slide-left, #screen-thikr-view.slide-right { display: flex; flex-direction: column; height: 100%; }
-#screen-thikr-view .dhikr-filter-row { flex: 0 0 auto; }
-#thikr-list-container {
-  flex: 1 1 auto; min-height: 0;
-  display: flex;
-  overflow-x: auto; overflow-y: hidden;
-  scroll-snap-type: x mandatory; scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch; touch-action: pan-x;
-  scrollbar-width: none;
+
+/* ─── الصفّ العلوي: زر قائمة هامس واحد + قائمة خيارات صغيرة ─── */
+.focus-top { flex: 0 0 auto; position: relative; height: 40px; padding: 2px 12px 0; }
+.focus-menu-btn {
+  width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--text-dim); border: none; border-radius: 50%;
+  cursor: pointer; transition: color 200ms var(--ease-out-quart), transform 160ms var(--ease-spring-snap);
 }
-#thikr-list-container::-webkit-scrollbar { display: none; }
-/* كل شريحة تأخذ عرض الحاوية بالضبط = بطاقة واحدة مرئية.
-   اتجاه RTL يُدار تلقائياً عبر dir="rtl" على <html>: السحب لليسار = التالي.
-   الشريحة نفسها لا تمرّر أبداً (overflow: hidden) — أيّ ذكرٍ أطول من الشاشة
-   يتموّر داخل منطقة نصّه الخاصة (انظر .thikr-text) فلا يحدث تمرير عمودي
-   للشاشة أبداً مهما كبر الخط. */
-.dhikr-slide {
-  flex: none; width: 100%;
-  display: flex; flex-direction: column;
-  scroll-snap-align: center;
-  overflow: hidden;
-  /* كلا المحورين: السحب الأفقي يقلّب الصفحات، والعمودي يموّر النص داخل البطاقة */
-  touch-action: pan-x pan-y;
-  /* هوامش جانبية مريحة: البطاقة ليست ملصقةً بحواف الشاشة */
-  padding: 6px 14px;
+.focus-menu-btn:active { transform: scale(0.92); }
+.focus-menu-pop {
+  position: absolute; top: 44px; right: 12px; z-index: 40;
+  display: flex; flex-direction: column; align-items: stretch; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  animation: fadeIn 180ms var(--ease-out-quart);
 }
-.dhikr-card {
-  margin: auto;
-  width: 100%;
-  /* لا تتجاوز ارتفاع الشريحة أبداً: تتمركز في الوسط حين تتّسع،
-     وتتقلّص منطقة النصّ دوناً عن باقي البطاقة حين يطول الذكر. */
-  max-height: 100%;
-  /* صمّام الأمان: إن تجاوزت ثوابت البطاقة (الشارة + النسخ + العدّ + الزرّ)
-     ارتفاع الشريحة — يحدث ذلك على الشاشات القصيرة جداً (أفقي) — يتموّر
-     محتوى البطاقة داخلها بدل أن يُقصّ أو يختفي خلف شريط التنقّل. */
-  overflow-y: auto; -webkit-overflow-scrolling: touch;
-  /* على الشاشات العريضة (أفقي/تابلت/سطح المكتب) تبقى البطاقة مدمجةً
-     في الوسط بدل أن تتمدّد سطور النصّ عبر الشاشة كلها */
-  max-width: 460px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 18px 16px;
-  display: flex; flex-direction: column;
-  position: relative;
-  cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
-  transition: background 0.4s, border-color 0.4s, transform 140ms var(--ease-spring-snap);
-}
-.dhikr-card:active { transform: scale(0.99); }
-.dhikr-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex: 0 0 auto; }
-.dhikr-badge {
-  font-size: calc(var(--font-size) * 0.5); font-weight: 700; color: var(--accent);
-  background: var(--accent-dim); border-radius: 999px; padding: 4px 14px;
-  font-family: var(--font-num); white-space: nowrap;
-}
-.dhikr-fav {
-  background: transparent; border: none; font-size: calc(var(--font-size) * 0.7);
-  color: var(--text-dim); cursor: pointer; padding: 6px; border-radius: 50%;
-  transition: transform 180ms var(--ease-spring-snap), color 200ms; flex-shrink: 0;
-}
-.dhikr-fav:active { transform: scale(1.25); }
-.dhikr-fav.active { color: var(--accent); }
-.dhikr-count-line {
-  font-size: calc(var(--font-size) * 0.55); color: var(--text-dim); font-weight: 700;
-  padding-top: 8px; font-family: var(--font-num); flex: 0 0 auto;
-}
-/* منطقة النص: هي الجزء المرن الوحيد في البطاقة. flex: 0 1 auto يجعلها
-   تأخذ ارتفاعها الطبيعي حين تتّسع البطاقة (فتبقى البطاقة متمركزة ومضغوطة)،
-   وتتقلّص مع التمرير الداخلي فقط حين يطول الذكر عن ارتفاع الشاشة. */
-.dhikr-card .thikr-text {
-  display: block; font-size: calc(var(--font-size) * 0.8); text-align: center; line-height: 1.75;
-  margin: 4px 0 12px; padding: 2px 6px 8px;   /* ٨px أسفل تستوعب حروف التشكيل المتدلّية فلا يظهر شريط تمرير وهمي */
-  flex: 0 1 auto; min-height: 0;
-  overflow: hidden auto; -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
-}
-.dhikr-progress { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin: 8px 0 10px; flex: 0 0 auto; }
-.dhikr-progress-fill {
-  height: 100%; width: 0%; border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  transition: width 320ms var(--ease-spring-snap);
-}
-/* صفّ سفلي واحد: زرّ العدّ يأخذ ما تبقّى، وزرّ المصدر بجانبه (لا التفاف).
-   position: sticky أسفل البطاقة: حين تتموّر البطاقة (شاشة قصيرة) يبقى زرّ
-   العدّ مرئياً قابلاً للضغط في أسفلها بدل أن يختفي مع التمرير. */
-.dhikr-bottom {
-  display: flex; align-items: stretch; gap: 10px; flex: 0 0 auto;
-  position: sticky; bottom: 0;
-  background: var(--surface);
-}
-.dhikr-bottom .thikr-tap-btn { flex: 1 1 auto; width: auto; }
-.dhikr-bottom .dhikr-src-btn { flex: 0 0 auto; align-self: center; }
-.dhikr-bottom .dhikr-src-none { flex: 0 0 auto; align-self: center; }
-.dhikr-card .copy-btn { flex: 0 0 auto; }
-.dhikr-src-btn {
-  background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border);
-  border-radius: 999px; padding: 8px 18px; font-size: calc(var(--font-size) * 0.5);
-  font-weight: 700; cursor: pointer; transition: transform 180ms var(--ease-spring-snap), background 200ms;
-}
-.dhikr-src-btn:active { transform: scale(0.94); }
-.dhikr-src-none { font-size: calc(var(--font-size) * 0.48); color: var(--text-dim); padding: 8px 6px; }
-.dhikr-empty {
-  flex: 0 0 100%;
-  text-align: center; padding: 60px 24px; color: var(--text-dim);
-  font-size: calc(var(--font-size) * 0.6); line-height: 2.2;
-}
-/* صفحة فلتر المفضلة والتقدم التلقائي — صفّ موحّد رفيع لا يلتهم ارتفاع البطاقة ولا يغطي محتواها */
-.dhikr-filter-row { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 2px 0 6px; flex-wrap: nowrap; }
+body.theme-light .focus-menu-pop { box-shadow: 0 12px 32px rgba(20, 51, 58, 0.16); }
+
 .dhikr-chip {
   background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border);
-  border-radius: 999px; padding: 5px 16px; font-size: calc(var(--font-size) * 0.48);
-  font-weight: 700; cursor: pointer; transition: all 200ms var(--ease-spring-snap);
+  border-radius: 999px; padding: 8px 18px; font-size: calc(var(--font-size) * 0.5);
+  font-weight: 700; font-family: inherit; cursor: pointer; white-space: nowrap;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: transform 200ms var(--ease-spring-snap), background 200ms, border-color 200ms, color 200ms;
 }
 .dhikr-chip[aria-pressed="true"] { background: var(--accent); color: var(--color-on-accent); border-color: var(--accent); }
 .dhikr-chip:active { transform: scale(0.95); }
 
-/* Auto-Advance Chip integrated into the top filter row */
-.dhikr-auto-fab {
-  position: static;
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 5px 14px;
-  color: var(--text-dim);
-  font-size: calc(var(--font-size) * 0.48);
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 200ms var(--ease-spring-snap), box-shadow 200ms, background 200ms, border-color 200ms, color 200ms;
+/* ─── منصة القراءة: النص ممركز رأسياً وأفقياً، الضغط في أي مكان يعدّ ─── */
+.focus-stage {
+  flex: 1 1 auto; min-height: 0;
+  display: flex;
+  cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+  touch-action: pan-y;
+  padding: 4px 24px;
+  outline: none;
 }
-.dhikr-auto-fab:active { transform: scale(0.96); }
-.dhikr-auto-fab[aria-pressed="true"] {
-  background: linear-gradient(180deg, rgba(62, 207, 158, 0.35), rgba(62, 207, 158, 0.15)),
-              rgba(12, 42, 52, 0.96);
-  border-color: var(--accent);
-  box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.35),
-    0 2px 6px rgba(0, 0, 0, 0.20),
-    inset 0 1px 1px rgba(255, 255, 255, 0.18),
-    0 0 20px rgba(62, 207, 158, 0.35);
+.focus-stage:focus-visible { outline: 2px solid var(--accent); outline-offset: -10px; border-radius: 16px; }
+/* margin:auto يمركز المحتوى حين يقصر، ويمنع قصّ أعلاه حين يطول عن المنصة */
+.focus-anim {
+  margin: auto; max-height: 100%; max-width: 560px; width: 100%;
+  display: flex; flex-direction: column; min-height: 0;
 }
-.dhikr-auto-fab .fab-icon {
-  font-size: calc(var(--font-size) * 0.65);
-  line-height: 1;
+/* نص الذكر: خطّ النسخ الكبير، تباعد أسطر مريح (٢٫٤)، تمرير داخلي حين يطول */
+.focus-text {
+  flex: 0 1 auto; min-height: 0; max-height: 100%;
+  font-family: 'Amiri Quran', 'Noto Naskh Arabic', serif;
+  font-size: calc(var(--font-size) * 1.1);
+  line-height: 2.4;
+  color: var(--text);
+  text-align: center;
+  margin: 0 0 10px;
+  padding: 4px 2px 12px;   /* ١٢px أسفل تستوعب حروف التشكيل المتدلّية فلا شريط تمرير وهمي */
+  white-space: pre-line;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
 }
-.dhikr-auto-fab .fab-label { white-space: nowrap; }
-body.theme-light .dhikr-auto-fab {
-  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.82)),
-              rgba(255, 253, 247, 0.97);
-  border: 1px solid rgba(31, 122, 90, 0.20);
-  box-shadow:
-    0 8px 24px rgba(20, 51, 58, 0.14),
-    0 2px 6px rgba(20, 51, 58, 0.08),
-    inset 0 1px 1px rgba(255, 255, 255, 1);
+.focus-text::-webkit-scrollbar { display: none; }
+
+/* سطر المصدر الهامس تحت النص — الضغط عليه يفتح التخريج الكامل */
+.focus-source {
+  flex: 0 0 auto; display: block; margin: 0 auto; max-width: 100%;
+  background: transparent; border: none; font-family: inherit; cursor: pointer;
+  font-size: calc(var(--font-size) * 0.5); line-height: 1.9; color: var(--text-dim);
+  padding: 4px 8px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: color 200ms var(--ease-out-quart);
 }
-body.theme-light .dhikr-auto-fab[aria-pressed="true"] {
-  background: linear-gradient(180deg, rgba(62, 207, 158, 0.25), rgba(62, 207, 158, 0.10)),
-              rgba(255, 253, 247, 0.97);
-  border-color: var(--accent);
-  box-shadow:
-    0 8px 24px rgba(20, 51, 58, 0.14),
-    0 2px 6px rgba(20, 51, 58, 0.08),
-    inset 0 1px 1px rgba(255, 255, 255, 1),
-    0 0 20px rgba(62, 207, 158, 0.25);
+.focus-source:hover, .focus-source:focus-visible { color: var(--text); }
+
+.dhikr-empty {
+  text-align: center; padding: 60px 24px; color: var(--text-dim);
+  font-size: calc(var(--font-size) * 0.6); line-height: 2.2;
 }
 
-/* في البطاقة زر النسخ يجري ضمن السياق بدل absolute كي لا
-   يغطي شارة التقدم — البطاقة flex-column فيكفي محاذاته للنهاية */
-.dhikr-card .copy-btn { position: static; align-self: flex-end; margin: 0 0 4px; }
+/* ─── التذييل: مؤشر التقدّم «١ | ٢٥» + شريط رفيع + ثلاثة إجراءات ─── */
+.focus-footer { flex: 0 0 auto; width: 100%; max-width: 560px; margin: 0 auto; padding: 0 24px 10px; }
+.focus-progress-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.focus-progress-text { font-family: var(--font-num); font-size: calc(var(--font-size) * 0.52); color: var(--text-dim); }
+.focus-progress-sep { margin: 0 6px; opacity: 0.45; }
+.focus-count { font-family: var(--font-num); font-size: calc(var(--font-size) * 0.52); font-weight: 700; color: var(--text-dim); }
+.focus-count.pop { animation: focusCountPop 280ms var(--ease-spring-snap); }
+@keyframes focusCountPop { 0% { transform: scale(1); } 40% { transform: scale(1.2); color: var(--accent); } 100% { transform: scale(1); } }
+.focus-progress-bar { height: 2px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
+.focus-progress-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 999px; transition: width 320ms var(--ease-out-quart); }
+
+.focus-actions { display: flex; align-items: center; justify-content: center; gap: 32px; padding: 4px 0 6px; }
+.focus-act {
+  width: 46px; height: 46px; display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: none; border-radius: 50%; color: var(--text-dim); cursor: pointer;
+  transition: transform 160ms var(--ease-spring-snap), color 200ms var(--ease-out-quart);
+}
+.focus-act svg { width: 21px; height: 21px; }
+.focus-act:active { transform: scale(0.9); }
+.focus-act.active { color: var(--accent); }
+.focus-act.active svg { fill: currentColor; }
+
+/* ─── حركة الانتقال بين الأذكار: تلاشٍ + انزلاق خفيف بلا قفزات ─── */
+.focus-leaving { opacity: 0; transform: translateY(-10px); transition: opacity 180ms var(--ease-out-quart), transform 180ms var(--ease-out-quart); }
+.focus-leaving-back { opacity: 0; transform: translateY(10px); transition: opacity 180ms var(--ease-out-quart), transform 180ms var(--ease-out-quart); }
+.focus-entering { animation: focusInNext 320ms var(--ease-out-quart) both; }
+.focus-entering-back { animation: focusInBack 320ms var(--ease-out-quart) both; }
+@keyframes focusInNext { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes focusInBack { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
 
 .dua-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 46px 18px 18px; margin-bottom: 14px; transition: background 0.4s, border-color 0.4s; position: relative; }
 .dua-occasion { font-size: calc(var(--font-size) * 0.6); font-weight: 700; color: var(--accent); margin-bottom: 10px; transition: font-size 0.3s; }

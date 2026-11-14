@@ -538,14 +538,15 @@ function showScreen(screenId, animClass = 'active') {
   // شريط تحكم الختمة أُزيل في مرحلة ٥ — القارئ الموحّد يحمل شريط الورد وزرّ الإتمام
   renderWirdChrome();
 
-  // شاشة الذكر وحدها تستخدم التقاليب الأفقية —
-  // إزالتها عند أي مغادرة حتى لا تتأثر بقية الشاشات.
+  // شاشة الذكر وحدها تحجز كامل ارتفاع المحتوى لنمط التركيز —
+  // إزالة علامتها عند أي مغادرة حتى لا تتأثر بقية الشاشات.
   const isThikr = screenId === 'thikr-view';
   contentArea.classList.toggle('pager-dhikr', isThikr);
   if (!isThikr) {
     state.dhikrFavOnly = false;
-    const autoFab = document.getElementById('dhikr-auto-fab');
-    if (autoFab) autoFab.style.display = 'none';
+    // أوقف القراءة المتتابعة وأغلق قائمة الخيارات عند مغادرة الشاشة
+    if (window.stopFocusPlay) stopFocusPlay();
+    if (window.toggleFocusMenu) toggleFocusMenu(false);
   }
 }
 
@@ -569,11 +570,8 @@ function navigateBack() {
   // أعد بناء الحالات الخاصة للشاشة التي عدنا إليها
   if (target === 'athkar-list' && typeof renderAthkarList === 'function') renderAthkarList();
   if (target === 'khatmah-main' && typeof updateKhatmahUI === 'function') updateKhatmahUI();
-  // إخفاء FAB التقدم التلقائي عند العودة لقائمة الأذكار
-  if (target === 'athkar-list') {
-    const autoFab = document.getElementById('dhikr-auto-fab');
-    if (autoFab) autoFab.style.display = 'none';
-  }
+  // إيقاف القراءة المتتابعة عند العودة لقائمة الأذكار
+  if (target === 'athkar-list' && window.stopFocusPlay) stopFocusPlay();
   saveState();
   setTimeout(() => { _internalNav = false; window._internalNav = false; }, 0);
 }
@@ -696,9 +694,8 @@ function switchTab(tabId) {
   // تبديل التبويب يبدأ مساراً جديداً من جذر التبويب — تخلّص من أي مسار قديم معفّن.
   // الجذر نفسه لا يُخزّن (المسار يضمّ ما خلف الشاشة الحالية فقط).
   screenStack = [];
-  // إخفاء FAB التقدم التلقائي عند التبديل لتبويب الأذكار (جذره athkar-list)
-  const autoFab = document.getElementById('dhikr-auto-fab');
-  if (autoFab) autoFab.style.display = 'none';
+  // إيقاف القراءة المتتابعة عند تبديل التبويب (جذر الأذكار athkar-list)
+  if (window.stopFocusPlay) stopFocusPlay();
   saveState(); setNavIndicator(); checkBookmarkFAB();
 }
 
@@ -861,6 +858,23 @@ async function loadSurahList() {
 // تهريب النصوص القادمة من الشبكة أو localStorage قبل إدراجها في innerHTML (B-5)
 const escHtml = (s) => (window.escapeHtml || String)(s ?? '');
 
+/* علامة نهاية الآية U+06DD (۝) علامة غير مُتقدِّمة (zero-advance): حين تُرسم
+   بلا أرقام تتبعها — كما في نصوص الأذكار وإشراقة الآية — تتداخل مع آخر كلمة
+   قبلها فتتلخبط السطر (لا ينجح رفع line-height هنا إطلاقاً). الحل: نحولها إلى
+   شارة دائرية مرسومة بالـ CSS بأرقامها إن وُجدت، فتضبط المسافة بنفسها ولا
+   تعتمد على خطٍ يدعم الرابط الطباعي للعلامة مع الأرقام.
+   تُستدعى بعد escHtml دائماً (المدخل نص مُهرَّب، والمخرج HTML مُتحكَّم به). */
+const AYAH_MARK_RE = /\u06DD(?:[\u0660-\u0669]+)?/g;
+function decorateAyahMarks(escaped) {
+  return escaped.replace(AYAH_MARK_RE, (m) => {
+    const digits = m.slice(1);
+    return digits
+      ? `<span class="ayah-mark">${digits}</span>`
+      : '<span class="ayah-mark ayah-mark-blank" aria-hidden="true"></span>';
+  });
+}
+window.decorateAyahMarks = decorateAyahMarks;
+
 /* ==================== مولّد صفحة المصحف المشترك ==================== */
 // يبني ترميز الآيات لكل من قارئ السورة وقارئ الختمة من مصدر واحد موثوق
 // (quran-uthmani). النص لا يُعدَّل إطلاقاً — تُضاف الأغلفة فقط حول الكلمات
@@ -884,7 +898,7 @@ function buildMushafHTML(ayahs, opts = {}) {
     // البسملة تُحذف من بداية الآية الأولى لكل سورة عدا الفاتحة (آية مستقلة) والتوبة (لا بسملة)
     if (a.numberInSurah === 1 && sn !== 1 && sn !== 9) text = stripBismillah(text);
     const words = (text || '').trim().split(/\s+/).filter(Boolean);
-    const wordsHtml = words.map(w => `<span class="w">${escHtml(w)}</span>`).join(' ');
+    const wordsHtml = words.map(w => `<span class="w">${decorateAyahMarks(escHtml(w))}</span>`).join(' ');
     const cls = 'ayah' + (bms.has(sn + ':' + a.numberInSurah) ? ' bookmarked' : '');
     return `<span class="${cls}" data-surah="${sn}" data-ayah="${a.numberInSurah}" data-global="${a.number}">${wordsHtml}<span class="ayah-badge" title="آية ${toArabicNum(a.numberInSurah)}">${toArabicNum(a.numberInSurah)}</span></span> `;
   }).join('');
@@ -1984,18 +1998,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('theme-btn').addEventListener('click', () => applyTheme(state.theme === 'dark' ? 'light' : 'dark'));
 
-  // ─── شريحة فلتر المفضلة في شاشة الذكر ───
+  // ─── شريحة فلتر المفضلة في قائمة خيارات نمط التركيز ───
   document.getElementById('dhikr-fav-chip').addEventListener('click', () => window.toggleDhikrFavFilter());
-  
-  // زر التقدم التلقائي العائم (FAB): تبديل الإعداد المحفوظ وعكس الحالة
-  document.getElementById('dhikr-auto-fab')?.addEventListener('click', function() {
-    const current = window.Settings.getAutoAdvance();
-    window.Settings.setAutoAdvance(!current);
-    this.setAttribute('aria-pressed', !current ? 'true' : 'false');
-    this.querySelector('.fab-icon').textContent = !current ? '⏭' : '⏹';
-    this.querySelector('.fab-label').textContent = !current ? 'تقدم تلقائي' : 'إيقاف التقدم';
-    if (window.Toast) Toast.show(!current ? 'تم تفعيل التقدم التلقائي ⏭' : 'تم إلغاء التقدم التلقائي');
-  });
 
   // Reduced-motion: استجب للتغيير أثناء التشغيل وليس مرة واحدة فقط
   const rmMedia = window.matchMedia('(prefers-reduced-motion: reduce)');

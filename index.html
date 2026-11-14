@@ -286,14 +286,41 @@
     </div>
 
     <div id="screen-thikr-view" class="screen">
-      <div class="dhikr-filter-row" id="dhikr-filter-row" style="display:none;">
-        <button class="dhikr-chip" id="dhikr-fav-chip" aria-pressed="false" aria-label="تصفية الأذكار المفضلة">★ المفضلة</button>
-        <button class="dhikr-auto-fab" id="dhikr-auto-fab" aria-label="تقدم تلقائي" aria-pressed="false" style="display:none;">
-          <span class="fab-icon" aria-hidden="true">⏭</span>
-          <span class="fab-label">تقدم تلقائي</span>
+      <!-- زر قائمة هامس يفتح خيارات القسم: المفضلة والتقدم التلقائي -->
+      <div class="focus-top">
+        <button class="focus-menu-btn" id="focus-menu-btn" aria-label="خيارات الأذكار" aria-haspopup="true" aria-expanded="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="16" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg>
         </button>
+        <div class="focus-menu-pop" id="focus-menu-pop" role="menu" aria-label="خيارات الأذكار" hidden>
+          <button class="dhikr-chip" id="dhikr-fav-chip" aria-pressed="false" aria-label="تصفية الأذكار المفضلة">☆ المفضلة</button>
+        </div>
       </div>
-      <div id="thikr-list-container"></div>
+      <!-- منصة القراءة: الضغط في أي مكان يُحدِّث العدّ ويُتمّ الذكر → ينطلق التالي -->
+      <div class="focus-stage" id="focus-stage" role="button" tabindex="0" aria-label="اضغط لعدّ الذكر والانتقال إلى التالي">
+        <div class="focus-anim" id="focus-anim">
+          <div class="thikr-text focus-text" id="focus-text" dir="rtl"></div>
+          <button class="focus-source" id="focus-source-btn" hidden></button>
+        </div>
+      </div>
+      <!-- الأسفل: مؤشر التقدّم (١ | ٢٥) + عدّ الذكر + ثلاثة إجراءات -->
+      <div class="focus-footer" id="focus-footer">
+        <div class="focus-progress-row">
+          <span class="focus-progress-text"><span id="focus-pos">١</span><span class="focus-progress-sep" aria-hidden="true">|</span><span id="focus-total">٢٥</span></span>
+          <span class="focus-count" id="focus-count"></span>
+        </div>
+        <div class="focus-progress-bar" aria-hidden="true"><div class="focus-progress-fill" id="focus-progress-fill"></div></div>
+        <div class="focus-actions">
+          <button class="focus-act" id="focus-fav-btn" aria-label="إضافة للمفضلة" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          </button>
+          <button class="focus-act" id="focus-play-btn" aria-label="التقدم التلقائي" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+          </button>
+          <button class="focus-act" id="focus-share-btn" aria-label="مشاركة الذكر كبطاقة">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+          </button>
+        </div>
+      </div>
     </div>
     <div id="screen-dua-list" class="screen"><div id="dua-list-container"></div></div>
     <div id="screen-occasion-list" class="screen"><div id="occasion-list-container"></div></div>

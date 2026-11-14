@@ -1782,7 +1782,7 @@ const DailyTadabbur = {
           <span class="td-badge">✨ إشراقة آية اليوم</span>
           <span class="td-ref">${item.surahName} — آية ${ar(item.ayah)}</span>
         </div>
-        <div class="td-ayah" onclick="window.openSurah && window.openSurah(${item.surah}, ${item.ayah})">﴿ ${escapeHtml(item.text)} ﴾</div>
+        <div class="td-ayah" onclick="window.openSurah && window.openSurah(${item.surah}, ${item.ayah})">﴿ ${decorateAyahMarks(escapeHtml(item.text))} ﴾</div>
         <div class="td-reflection">${escapeHtml(item.reflection)}</div>
         <div class="td-actions">
           <button type="button" class="pw-chip-btn" id="td-open-btn">📖 فتح في المصحف</button>
