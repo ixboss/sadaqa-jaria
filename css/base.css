@@ -187,10 +187,10 @@ button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--a
 
 /* ── index.html 1521–1531 ── */
 /* ==================== Universal Liquid Glass Effect ==================== */
-.surah-row, .quick-nav-card, .athkar-cat-card, .thikr-tap-btn, .btn-scale, .bookmark-btn, .k-ctrl-btn, #resume-fab, #tasbih-tap-btn, .header-btn, #back-btn {
+.surah-row, .quick-nav-card, .athkar-cat-card, .focus-act, .btn-scale, .bookmark-btn, .k-ctrl-btn, #resume-fab, #tasbih-tap-btn, .header-btn, #back-btn {
   transition: transform 320ms var(--ease-out-quart), background 320ms var(--ease-out-quart), border-color 320ms var(--ease-out-quart), box-shadow 320ms var(--ease-out-quart), color 320ms var(--ease-out-quart) !important;
 }
-.surah-row:active, .quick-nav-card:active, .athkar-cat-card:active, .thikr-tap-btn:active, .btn-scale:active, .bookmark-btn:active, .k-ctrl-btn:active, #resume-fab:active, #tasbih-tap-btn:active, .header-btn:active, #back-btn:active {
+.surah-row:active, .quick-nav-card:active, .athkar-cat-card:active, .focus-act:active, .btn-scale:active, .bookmark-btn:active, .k-ctrl-btn:active, #resume-fab:active, #tasbih-tap-btn:active, .header-btn:active, #back-btn:active {
   transform: scale(0.97) !important;
   transition: transform 120ms var(--ease-out-quart) !important;
 }
