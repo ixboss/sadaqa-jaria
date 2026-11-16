@@ -203,12 +203,15 @@ async function dragPoint() {
 // Real pointer drag: press, move in steps (sampling the live fold once
 // mid-gesture), release. dir 'rtl' = finger travels right→left.
 async function swipe(dir, opts = {}) {
-  for (let i = 0; i < 40; i++) {
-    const flipping = await evaljs(`window.PageFlipEngine ? PageFlipEngine.isFlipping() : false`);
-    if (!flipping) break;
-    await sleep(50);
+  if (!opts.noWait) {
+    for (let i = 0; i < 40; i++) {
+      const busy = await evaljs(`(window.PageFlipEngine && PageFlipEngine.isFlipping()) || !!((document.getElementById('mushaf-page') || {}).style || {}).transform`);
+      if (!busy) break;
+      await sleep(50);
+    }
   }
-  const p = await dragPoint();
+  let p = await dragPoint();
+  if ((!p || p.err) && opts.noWait) p = { x1: 300, x2: 100, y: 400 };
   if (!p || p.err) throw new Error('no clean drag point on .mushaf-page: ' + JSON.stringify(p));
   const from = dir === 'rtl' ? p.x1 : p.x2;
   const to = dir === 'rtl' ? p.x2 : p.x1;
@@ -393,7 +396,7 @@ async function readerPass(step, tag) {
   const startLock = await curPage();
   await swipe(EXPECT.fwd, { steps: 3, stepMs: 30 });
   await sleep(140);                                     // mid-fold
-  await swipe(EXPECT.fwd, { steps: 3, stepMs: 30 });    // must be ignored
+  await swipe(EXPECT.fwd, { steps: 3, stepMs: 30, noWait: true });    // must be ignored
   await waitForSettled();
   now = await curPage();
   ok(`${tag} flip-lock-no-double`, now === startLock + step, `${startLock} → ${now}`);

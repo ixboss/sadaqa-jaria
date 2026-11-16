@@ -193,7 +193,7 @@ async function main() {
     ok('(h) fallback render carries ayahs', fbStruct && fbStruct.ayahs > 0);
   } finally {
     browser.kill('SIGKILL');
-    try { spawn('rm', ['-rf', userDataDir]); } catch (e) {}
+    try { (await import('node:fs')).rmSync(userDataDir, { recursive: true, force: true }); } catch (e) {}
   }
 
   const failed = results.filter(r => !r.pass);
