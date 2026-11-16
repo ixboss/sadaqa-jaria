@@ -121,7 +121,10 @@ async function main() {
   await send('Runtime.enable');
 
   await send('Page.navigate', { url: BASE });
-  await sleep(1800);
+  for (let i = 0; i < 60; i++) {
+    if (await evaljs(`typeof window.openSurah === 'function'`)) break;
+    await sleep(150);
+  }
   await evaljs(`document.getElementById('occasion-modal-ok')?.click()`);
   await sleep(300);
 
