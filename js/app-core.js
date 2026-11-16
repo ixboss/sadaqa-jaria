@@ -1930,7 +1930,7 @@ function initOccasionSystem() {
         }
         return `<div class="occasion-modal-item"><b>${o.icon} ${o.title}</b><br>${o.summary}</div>`;
       }).join('');
-      document.getElementById('occasion-overlay').classList.add('active'); localStorage.setItem('occasion_popup_last_period', periodKey);
+      document.getElementById('occasion-overlay').classList.add('active'); document.body.classList.add('modal-open'); localStorage.setItem('occasion_popup_last_period', periodKey);
     }
   }
 }
@@ -2103,9 +2103,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nav-custom-athkar-card')?.addEventListener('click', () => { if (window.CustomAthkarManager) CustomAthkarManager.openModal(); });
   document.getElementById('nav-occasion-card').addEventListener('click', () => { showScreen('occasion-list', 'slide-left'); renderOccasionPage(currentOccasionKeys); });
 
-  document.getElementById('occasion-modal-ok').addEventListener('click', () => document.getElementById('occasion-overlay').classList.remove('active'));
-  document.getElementById('occasion-overlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('active'); });
-  document.getElementById('occasion-modal-goto').addEventListener('click', () => { document.getElementById('occasion-overlay').classList.remove('active'); switchTab('athkar'); showScreen('occasion-list', 'slide-left'); renderOccasionPage(currentOccasionKeys); });
+  document.getElementById('occasion-modal-ok').addEventListener('click', () => { document.getElementById('occasion-overlay').classList.remove('active'); document.body.classList.remove('modal-open'); });
+  document.getElementById('occasion-overlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) { e.currentTarget.classList.remove('active'); document.body.classList.remove('modal-open'); } });
+  document.getElementById('occasion-modal-goto').addEventListener('click', () => { document.getElementById('occasion-overlay').classList.remove('active'); document.body.classList.remove('modal-open'); switchTab('athkar'); showScreen('occasion-list', 'slide-left'); renderOccasionPage(currentOccasionKeys); });
 
   document.querySelectorAll('.nav-tab').forEach(t => {
     t.addEventListener('pointerdown', createRipple);
