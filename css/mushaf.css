@@ -94,10 +94,12 @@ body.mushaf-hud .mushaf-topbar { opacity: 1; pointer-events: auto; transform: tr
 .mushaf-topbar .surah-h-name { font-size: calc(var(--font-size) * 0.48); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mushaf-topbar .surah-h-meta { font-size: calc(var(--font-size) * 0.36); }
 .mushaf-topbar .bookmark-btn { width: 34px; height: 34px; font-size: calc(var(--font-size) * 0.44); flex-shrink: 0; }
+body.theme-light .mushaf-topbar .bookmark-btn,
+body.theme-light .mushaf-topbar .bookmark-btn.active { color: #7a5a0e; }
 .mt-btn {
   flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px;
-  border: 1px solid rgba(62, 207, 158, 0.24);
-  background: rgba(62, 207, 158, 0.10); color: var(--accent);
+  border: 1px solid var(--border);
+  background: var(--surface); color: var(--accent);
   font-size: calc(var(--font-size) * 0.5);
   display: flex; align-items: center; justify-content: center; cursor: pointer;
   transition: transform 180ms var(--ease-spring-snap), background 200ms;

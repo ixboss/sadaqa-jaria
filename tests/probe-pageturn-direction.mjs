@@ -203,6 +203,11 @@ async function dragPoint() {
 // Real pointer drag: press, move in steps (sampling the live fold once
 // mid-gesture), release. dir 'rtl' = finger travels right→left.
 async function swipe(dir, opts = {}) {
+  for (let i = 0; i < 40; i++) {
+    const flipping = await evaljs(`window.PageFlipEngine ? PageFlipEngine.isFlipping() : false`);
+    if (!flipping) break;
+    await sleep(50);
+  }
   const p = await dragPoint();
   if (!p || p.err) throw new Error('no clean drag point on .mushaf-page: ' + JSON.stringify(p));
   const from = dir === 'rtl' ? p.x1 : p.x2;

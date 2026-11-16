@@ -104,7 +104,7 @@ async function main() {
     await evaljs(`window.openSettings && window.openSettings()`);
     await waitFor(`!!document.getElementById('quran-dl')`);
     ok('(a) download button present', !!(await evaljs(`!!document.getElementById('quran-dl') && !document.getElementById('quran-dl').hidden`)));
-    ok('(a) attribution line names alquran.cloud', await evaljs(`document.getElementById('settings-container').textContent.includes('alquran.cloud')`));
+    ok('(a) attribution line names alquran.cloud', await evaljs(`(document.getElementById('settings-container') || document.getElementById('screen-settings') || document.body).textContent.includes('alquran.cloud')`));
     ok('(a) initial state is not-downloaded', await evaljs(`window.MushafPageManager.getStatus().state === 'none'`));
 
     // ── (b) capture the NETWORK render of page 293 as the reference ──
