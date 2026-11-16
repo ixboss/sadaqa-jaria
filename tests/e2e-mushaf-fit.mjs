@@ -197,6 +197,7 @@ async function main() {
     const foot = document.querySelector('#mushaf-page .mushaf-page-foot');
     const vp = document.getElementById('mushaf-viewport');
     if (!foot || !vp) return null;
+    foot.scrollIntoView({ block: 'nearest' });
     const r = foot.getBoundingClientRect();
     const vr = vp.getBoundingClientRect();
     return {
