@@ -851,6 +851,7 @@ window.AudioPlayer = AudioPlayer;
 /* ==================== 7b) BottomSheet — ورقة سفلية بسيطة ==================== */
 const BottomSheet = {
   overlay: null,
+  _prevBodyOverflow: null,
   open({ title = '', items = [], current = null, sections = null, customHTML = null, onSelect = null } = {}) {
     this.close();
     const ov = document.createElement('div');
@@ -879,7 +880,7 @@ const BottomSheet = {
             <span class="sheet-item-label"></span>${on ? '<span class="sheet-tick">✓</span>' : ''}</button>`;
         }).join('')
       ).join('');
-      sh.innerHTML = '<div class="sheet-title"></div>' + bodyHTML;
+      sh.innerHTML = '<div class="sheet-title"></div><div class="sheet-body">' + bodyHTML + '</div>';
       sh.querySelector('.sheet-title').textContent = title;
       const labels = sh.querySelectorAll('.sheet-group-label');
       let li = 0;
@@ -901,12 +902,18 @@ const BottomSheet = {
     requestAnimationFrame(() => ov.classList.add('visible'));
     ov.addEventListener('click', ev => { if (ev.target === ov) this.close(); });
     this.overlay = ov;
+    if (this._prevBodyOverflow === null) this._prevBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     document.body.classList.add('sheet-open');
     return sh;
   },
   close() {
     if (this.overlay) { this.overlay.remove(); this.overlay = null; }
     document.body.classList.remove('sheet-open');
+    if (this._prevBodyOverflow !== null) {
+      document.body.style.overflow = this._prevBodyOverflow;
+      this._prevBodyOverflow = null;
+    }
   }
 };
 window.BottomSheet = BottomSheet;

@@ -179,7 +179,8 @@ body.reader-audio-on #audio-bar { display: none !important; }
 }
 .sheet-overlay.visible { opacity: 1; }
 .bottom-sheet {
-  width: 100%; max-width: 480px;
+  width: 100%; max-width: 480px; max-height: 80dvh;
+  display: flex; flex-direction: column; overflow: hidden;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 100%), var(--glass-bg-strong);
   backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
   color: var(--text);
@@ -196,9 +197,15 @@ body.theme-light .bottom-sheet {
 }
 .sheet-overlay.visible .bottom-sheet { transform: translateY(0); }
 .sheet-title {
+  flex-shrink: 0;
   text-align: center; font-size: calc(var(--font-size) * 0.42); font-weight: 700;
   color: var(--accent); padding: 6px 0 10px;
 }
+.sheet-body, .sheet-custom-body, #mushaf-jump-body {
+  flex: 1; min-height: 0; overflow-y: auto;
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+}
+.mushaf-jump-tabs, .mushaf-jump-search { flex-shrink: 0; }
 .sheet-item {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   width: 100%; padding: 12px 14px; margin-bottom: 6px;
@@ -777,9 +784,10 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 
 #occasion-overlay { position: fixed; inset: 0; background: rgba(5,6,10,0.72); z-index: 999; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(5px); }
 #occasion-overlay.active { display: flex; }
-#occasion-modal { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 400px; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 22px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: modalSpringIn 420ms var(--ease-out-expo) both; }
-.occasion-modal-icon { font-size: calc(var(--font-size) * 1.3); text-align: center; margin-bottom: 8px; }
-.occasion-modal-title { font-size: calc(var(--font-size) * 0.73); font-weight: 700; color: var(--accent); text-align: center; margin-bottom: 14px; }
+#occasion-modal { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 400px; max-height: 80dvh; display: flex; flex-direction: column; overflow: hidden; padding: 22px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: modalSpringIn 420ms var(--ease-out-expo) both; }
+.occasion-modal-icon { flex-shrink: 0; font-size: calc(var(--font-size) * 1.3); text-align: center; margin-bottom: 8px; }
+.occasion-modal-title { flex-shrink: 0; font-size: calc(var(--font-size) * 0.73); font-weight: 700; color: var(--accent); text-align: center; margin-bottom: 14px; }
+#occasion-modal-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
 .occasion-modal-item { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; font-size: calc(var(--font-size) * 0.7); line-height: 1.9; color: var(--text); transition: font-size 0.3s, background 0.4s; font-family: inherit; }
 .occasion-modal-item b { color: var(--accent); }
 

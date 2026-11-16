@@ -341,10 +341,11 @@ body.theme-light .ayah.bookmarked .ayah-badge { box-shadow: 0 0 0 2px var(--surf
 
 /* ── index.html 1532–1537 ── */
 /* ==================== Custom Dialog Styles ==================== */
+body.sheet-open, body.modal-open { overflow: hidden; }
 #custom-dialog-overlay { position: fixed; inset: 0; background: rgba(5,6,10,0.72); z-index: 99999; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(5px); }
 #custom-dialog-overlay.active { display: flex; }
-#custom-dialog { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 340px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: fadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); text-align: center; }
-#custom-dialog-text { font-size: calc(var(--font-size) * 0.7); font-weight: bold; color: var(--text); line-height: 1.6; }
+#custom-dialog { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); width: 100%; max-width: 340px; max-height: 80dvh; display: flex; flex-direction: column; overflow: hidden; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); animation: fadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); text-align: center; }
+#custom-dialog-text { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; font-size: calc(var(--font-size) * 0.7); font-weight: bold; color: var(--text); line-height: 1.6; }
 
 
 /* ── index.html 1551–1569 ── */
@@ -480,10 +481,12 @@ body.theme-light .settings-chip.danger { color: #a93226; }
   line-height: 2.0; color: var(--accent); background: var(--surface-2);
   border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
   margin-bottom: 12px; text-align: center; max-height: 28vh; overflow-y: auto;
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
 }
 .tafsir-sheet-body {
   font-size: calc(var(--font-size) * 0.62); line-height: 1.95; color: var(--text);
   padding: 6px 4px 14px; max-height: 36vh; overflow-y: auto; text-align: justify;
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
 }
 .tafsir-sheet-actions {
   display: flex; gap: 8px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--border);
