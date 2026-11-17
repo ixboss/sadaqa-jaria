@@ -55,9 +55,9 @@ jobs:
       - name: Sync native assets (sadaqa.db, fonts→ttf, tokens, fixtures)
         run: npm run native:sync
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
+      # ubuntu-latest runners ship a pre-provisioned Android SDK (cmdline-tools,
+      # platform-tools, build-tools) — gradle auto-installs missing components,
+      # and android-actions/setup-android@v3 fails on cmdline-tools 16 ("tools").
       - name: Run JVM parity suite (0 ms drift gates)
         working-directory: apps/android-native
         run: |

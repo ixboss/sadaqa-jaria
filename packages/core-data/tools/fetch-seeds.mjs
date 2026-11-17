@@ -126,7 +126,16 @@ async function fetchCities() {
     if (d.results.length < 100 || rows.length >= d.total_count) break;
     offset += 100;
   }
-  const buf = Buffer.from(JSON.stringify({ source: 'opendatasoft geonames-all-cities-with-a-population-1000', fetchedAt: manifest.generatedAt, rows }, null, 0));
+  // upstream dataset occasionally returns the same geoname_id twice (city variants);
+  // cities.city_id is a PRIMARY KEY, so keep the first occurrence of each id
+  const seen = new Set();
+  const rowsUnique = rows.filter((r) => {
+    if (seen.has(r.geoname_id)) return false;
+    seen.add(r.geoname_id);
+    return true;
+  });
+  if (rowsUnique.length !== rows.length) console.log(`  cities: deduped ${rows.length - rowsUnique.length} duplicate geoname_ids`);
+  const buf = Buffer.from(JSON.stringify({ source: 'opendatasoft geonames-all-cities-with-a-population-1000', fetchedAt: manifest.generatedAt, rows: rowsUnique }, null, 0));
   writeFileSync(join(SEED, 'cities.json'), buf);
   record('cities.json', 'https://public.opendatasoft.com/…/geonames-all-cities-with-a-population-1000 (population>=100000)', buf);
 }
