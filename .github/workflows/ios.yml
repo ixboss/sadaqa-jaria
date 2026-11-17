@@ -61,9 +61,13 @@ jobs:
         working-directory: apps/ios-native
         run: |
           set -o pipefail
+          # don't hard-code a device model — the runner image's installed sims change
+          DEVICE=$(xcrun simctl list devices available | grep -oE 'iPhone [0-9]+(\.[0-9]+)? Pro Max|iPhone [0-9]+(\.[0-9]+)? Pro|iPhone [0-9]+(\.[0-9]+)?' | head -1)
+          [ -n "$DEVICE" ] || { echo "::error::no available iPhone simulator"; exit 1; }
+          echo "Using simulator: $DEVICE"
           xcodebuild test \
             -scheme SadaqaJaria \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination "platform=iOS Simulator,name=$DEVICE,OS=latest" \
             -derivedDataPath DerivedData \
             | xcbeautify || exit 1
 
