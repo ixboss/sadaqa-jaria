@@ -1,0 +1,48 @@
+name: Bug report
+description: Something is broken or behaves incorrectly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug — what you saw vs. what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open …
+        2. Tap …
+        3. See error
+    validations:
+      required: true
+  - type: dropdown
+    id: target
+    attributes:
+      label: Which target?
+      options:
+        - Web PWA (ixboss.github.io/sadaqa-jaria)
+        - Desktop (Electron)
+        - iOS (native)
+        - Android (native)
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS + browser (or device) and app version
+      placeholder: e.g. Windows 11 · Chrome 141 · v1.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots / console output
+      description: Optional but very helpful.
+    validations:
+      required: false

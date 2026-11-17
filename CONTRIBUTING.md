@@ -430,3 +430,42 @@ may Allah reward you for it, and make it beneficial.
 **صدقة جارية · Sadaqah Jariyah**
 
 </div>
+
+<!-- launch-readiness:start:v2-dev-commands -->
+
+---
+
+## Development commands (v2 workspace)
+
+The v2 tree (`apps/`, `packages/`) ships no binaries — fonts, audio and the built database are
+re-fetchable. One-time setup for local development:
+
+```bash
+npm install                # root dev tooling (wawoff2 for font conversion)
+npm run seeds:fetch        # QUL source datasets → packages/core-data/seed/
+npm run db:build           # build the 53-table sadaqa.db
+npm run fonts:fetch        # QPC1 per-page font subsets (605 pages)
+npm run audio:fetch        # audio catalog + starter pack
+```
+
+Verification:
+
+```bash
+npm test                   # v1 PWA unit + E2E suite
+npm run test:core          # v2 engine unit tests (57, zero-dep)
+npm run parity:verify      # 52 cross-target parity checks
+npm run test:v2            # v2 shell E2E
+npm run test:v2:p4         # v2 data/backup E2E
+npm run test:electron      # desktop shell E2E
+```
+
+Native development:
+
+```bash
+npm run native:sync        # regenerate fixture/font/db assets into both native trees
+cd apps/android-native && ./gradlew test assembleDebug   # needs JDK 17 + Android SDK
+```
+iOS: `xcodegen generate` then `xcodebuild test` — needs macOS + Xcode (XcodeGen project in
+`apps/ios-native/project.yml`).
+
+<!-- launch-readiness:end:v2-dev-commands -->

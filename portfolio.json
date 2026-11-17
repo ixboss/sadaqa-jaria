@@ -1,0 +1,24 @@
+{
+  "title": "sadaqa-jaria",
+  "category": "ISLAMIC APP / PWA",
+  "badge": "OPEN SOURCE",
+  "subtitle": "Offline-first Islamic companion — web, desktop and native mobile",
+  "summary": "A sadaqah-jariyah Islamic app built as one offline-first codebase. A shared core of pure engines (prayer times, Hijri, qibla, smart card, backup) drives a web PWA golden reference, an Electron desktop shell, and native SwiftUI and Jetpack Compose ports that must match it byte-for-byte.",
+  "summaryAr": "تطبيق إسلامي صدقة جارية بنيوي واحد يعمل دون اتصال: محرّكات مشتركة تُغذّي نسخة ويب (PWA) مرجعية، وغلاف سطح مكتب Electron، ومنفذين أصليين لـ iOS وAndroid يطابقان المرجع بايت ببايت.",
+  "bullets": [
+    "Shared golden engines in packages/core-data — prayer/Hijri/qibla/backup logic executed identically by all four targets, proven by CI-gated byte-deterministic parity fixtures",
+    "Offline-first data layer: 53-table SQLite schema (FTS5 mushaf search) via SQLite-WASM + OPFS on web, GRDB on iOS, bundled AndroidX SQLite on Android",
+    "Cross-OS .sadaqa backup format (merge + replace) with deterministic legacy-UUID remapping and sha-256 integrity manifests",
+    "Native widgets and services: WidgetKit/Glance prayer countdowns, exact-alarm adhan notifications, CoreHaptics/Compose haptics"
+  ],
+  "bulletsAr": [
+    "محرّكات ذهبية مشتركة تُنفَّذ بتطابق تام في الأهداف الأربعة، مثبتة بجداول اختبار محدَّدة بالبايت تُفحص في CI",
+    "طبقة بيانات تعمل دون اتصال: مخطط SQLite بـ 53 جدولاً مع بحث FTS5، عبر SQLite-WASM في الويب وGRDB في iOS وSQLite المضمّن في Android",
+    "صيغة نسخ احتياطي .sadaqa عابرة للأنظمة (دمج + استبدال) مع إعادة خريطة UUID حتمية وبيانات سلامة sha-256",
+    "ويدجت وخدمات أصلية: عدّاد الصلاة على WidgetKit/Glance، إشعارات أذان بمنبّهات دقيقة، اهتزاز CoreHaptics/Compose"
+ ],
+  "tags": ["JavaScript", "TypeScript-free vanilla JS", "Swift", "Kotlin", "Electron", "SQLite", "PWA"],
+  "liveUrl": "https://ixboss.github.io/sadaqa-jaria/",
+  "repoUrl": "https://github.com/ixboss/sadaqa-jaria",
+  "order": 4
+}

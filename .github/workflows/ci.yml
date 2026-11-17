@@ -37,6 +37,11 @@ jobs:
           sleep 1
           npm test
 
+      - name: v2 engine + parity checks
+        run: |
+          npm run test:core
+          npm run parity:verify
+
   release:
     name: Publish Web/PWA release archive
     needs: test
