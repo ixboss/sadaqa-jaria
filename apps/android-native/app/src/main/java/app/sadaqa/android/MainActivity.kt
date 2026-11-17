@@ -25,7 +25,7 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material.icons.filled.Today
-import androidx.compose.material.icons.filled.Tools
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -118,7 +118,7 @@ fun GlassPillNav(selected: String, onSelect: (String) -> Unit, onSearch: () -> U
             NavItem(Icons.Filled.Today, "اليوم", "today", selected, onSelect)
             NavItem(Icons.Filled.MenuBook, "المصحف", "mushaf", selected, onSelect)
             NavItem(Icons.Filled.Spa, "الأذكار", "athkar", selected, onSelect)
-            NavItem(Icons.Filled.Tools, "الأدوات", "tools", selected, onSelect)
+            NavItem(Icons.Filled.Settings, "الأدوات", "tools", selected, onSelect)
         }
         FloatingActionButton(
             onClick = onSearch,

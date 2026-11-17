@@ -44,10 +44,11 @@ object BackupCodec {
 
         if (m["format"].str != "sadaqa-backup") errors.add("manifest.format: must be \"sadaqa-backup\"")
         val fv = m["formatVersion"]
-        if (fv?.int != null) {
-            if (fv.int > SUPPORTED_FORMAT_VERSION) {
-                errors.add("manifest.formatVersion ${fv.int} is newer than supported $SUPPORTED_FORMAT_VERSION — upgrade the app, then re-import")
-            } else if (fv.int < 1) {
+        val fvInt = fv.int
+        if (fvInt != null) {
+            if (fvInt > SUPPORTED_FORMAT_VERSION) {
+                errors.add("manifest.formatVersion $fvInt is newer than supported $SUPPORTED_FORMAT_VERSION — upgrade the app, then re-import")
+            } else if (fvInt < 1) {
                 errors.add("manifest.formatVersion: must be >= 1")
             }
         } else errors.add("manifest.formatVersion: must be an integer")
@@ -60,14 +61,16 @@ object BackupCodec {
 
         val counts = mutableMapOf<String, Int>()
         for ((group, groupValue) in groups) {
-            val entities = groupValue.arr ?: run { errors.add("payload.$group: must be an array"); continue }
+            val entities = groupValue.arr
+            if (entities == null) { errors.add("payload.$group: must be an array"); continue }
             if (group !in BACKUP_GROUPS) {
                 errors.add("payload.$group: unknown group (allowed: ${BACKUP_GROUPS.joinToString(", ")})")
                 continue
             }
             val allowed = GROUP_ENTITY_TYPES[group]!!
             for (e in entities) {
-                val obj = e.obj ?: run { errors.add("payload.$group: entity must be an object"); continue }
+                if (e.obj == null) { errors.add("payload.$group: entity must be an object"); continue }
+                val obj = e // JsonValue.Obj — index via JsonValue.get (missing key → JSON Null)
                 val uuid = obj["uuid"].str ?: "?"
                 if (!UUID7.isV7Shape(obj["uuid"].str)) {
                     errors.add("payload.$group[$uuid].uuid: must be a UUIDv7")
@@ -105,7 +108,7 @@ object BackupCodec {
     }
 
     /** Type-specific required payload fields (validateEntityBody port). */
-    private fun validateEntityBody(group: String, type: String, e: Map<String, JsonValue>): String? = when ("$group/$type") {
+    private fun validateEntityBody(group: String, type: String, e: JsonValue): String? = when ("$group/$type") {
         "reading/bookmark" -> {
             val page = e["page"]
             if (!isInt(page) || page.int !in 1..604) "page must be 1..604" else null
@@ -137,7 +140,7 @@ object BackupCodec {
         }
         "prefs/setting" -> when {
             e["key"].str.isNullOrEmpty() -> "key required"
-            "value" !in e -> "value required (may be null)"
+            "value" !in (e.obj ?: emptyMap()) -> "value required (may be null)"
             else -> null
         }
         "meta/streakDay" -> when {
@@ -185,7 +188,9 @@ object BackupCodec {
             val localMap = local[group]
             for (e in entities) {
                 val uuid = e["uuid"].str ?: ""
-                val existing = localMap?.get(uuid)
+                // wrap the local map as a JSON object so indexing follows the same
+                // missing-key → JSON Null semantics as the golden engines
+                val existing = localMap?.get(uuid)?.let { JsonValue.Obj(it) }
                 if (existing == null) {
                     mutations.add(Mutation(group, uuid, e, "insert"))
                     report.added++

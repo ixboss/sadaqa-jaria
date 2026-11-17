@@ -27,8 +27,10 @@ sealed interface JsonValue {
     data class Arr(val items: List<JsonValue>) : JsonValue
     data class Obj(val fields: Map<String, JsonValue>) : JsonValue
 
-    operator fun get(key: String): JsonValue? =
-        (this as? Obj)?.fields?.get(key)
+    // Indexing never returns Kotlin-null: a missing key yields JSON Null —
+    // matches the golden engines' "undefined property" semantics (x.k → undefined).
+    operator fun get(key: String): JsonValue =
+        (this as? Obj)?.fields?.get(key) ?: Null
 
     val str: String? get() = (this as? Str)?.value
     val dbl: Double? get() = (this as? Num)?.value
@@ -77,9 +79,10 @@ object CanonicalJson {
      */
     fun sortedKeys(fields: Map<String, JsonValue>): List<String> {
         val priority = mapOf("reading" to 0, "dhikr" to 1, "prefs" to 2, "meta" to 3)
-        return fields.keys.sorted { a, b ->
-            val pa = priority[a]; val pb = priority[b]
-            if (pa != null || pb != null) (pa ?: 99) < (pb ?: 99) else a < b
+        return fields.keys.sortedWith { a, b ->
+            val pa = priority[a] ?: 99
+            val pb = priority[b] ?: 99
+            if (pa != pb) pa - pb else a.compareTo(b)
         }
     }
 
