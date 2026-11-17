@@ -1,0 +1,88 @@
+/* GENERATED from packages/design-tokens/tokens.json — do not hand-edit.
+   Regenerate: node scripts/tools/gen-tokens.mjs
+   All contrast pairs validated (WCAG 2.1) at generation time. */
+:root {
+  --color-bg: #FAF7F0;
+  --color-surface: #FFFFFF;
+  --color-surface-raised: #F1ECE1;
+  --color-text-primary: #1C2833;
+  --color-text-secondary: #56656D;
+  --color-accent: #8A6D1D;
+  --color-accent-contrast: #FFFDF6;
+  --color-border: #DCD3C0;
+  --color-mushaf-text: #1C1812;
+  --color-mushaf-bg: #FAF7F0;
+
+  /* typography */
+  --font-quran: 'QPC Uthmanic HAFS', 'Amiri Quran', serif;
+  --font-ui: 'Noto Naskh Arabic', 'Segoe UI', system-ui, sans-serif;
+  --lh-arabic: 1.9;
+  --lh-count: 1.1;
+  --mushaf-plate-base: clamp(22px, 5.2vw, 40px);
+  --font-feature-count: 'tnum' 1;
+
+  /* radii (concentric: outer = inner + padding) */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 26px;
+  --radius-pill: 999px;
+
+  /* spacing scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 20px;
+  --space-xl: 32px;
+
+  /* glass — CONTROL LAYER ONLY (tabbar, search-pill, miniplayer, toolbar) */
+  --glass-fill: rgba(255, 255, 255, 0.10);
+  --glass-fill-strong: rgba(255, 255, 255, 0.16);
+  --glass-blur: 22px;
+  --glass-saturate: 1.6;
+  --glass-border: rgba(255, 255, 255, 0.22);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+
+  /* motion */
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-tick: 150ms;
+  --dur-complete: 450ms;
+  --dur-chrome-fade: 220ms;
+  --dur-prayer-switch: 320ms;
+}
+[data-theme='sepia'] {
+  --color-bg: #F4E8D0;
+  --color-surface: #FAF1DE;
+  --color-surface-raised: #EBDDBE;
+  --color-text-primary: #3E2E1D;
+  --color-text-secondary: #6B543C;
+  --color-accent: #7A5C10;
+  --color-accent-contrast: #FDF8EA;
+  --color-border: #D3C29C;
+  --color-mushaf-text: #2E2314;
+  --color-mushaf-bg: #F4E8D0;
+}
+[data-theme='dark'] {
+  --color-bg: #07161B;
+  --color-surface: #0E242C;
+  --color-surface-raised: #16323B;
+  --color-text-primary: #E8EEF2;
+  --color-text-secondary: #A7B7BD;
+  --color-accent: #E7C14C;
+  --color-accent-contrast: #1A1206;
+  --color-border: #1E3A44;
+  --color-mushaf-text: #F2EFE6;
+  --color-mushaf-bg: #0A1C22;
+}
+[data-theme='oled'] {
+  --color-bg: #000000;
+  --color-surface: #0A0A0A;
+  --color-surface-raised: #141414;
+  --color-text-primary: #EAEAEA;
+  --color-text-secondary: #9BA3A7;
+  --color-accent: #E7C14C;
+  --color-accent-contrast: #120C03;
+  --color-border: #222222;
+  --color-mushaf-text: #F2EFE6;
+  --color-mushaf-bg: #000000;
+}

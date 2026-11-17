@@ -1,0 +1,1882 @@
+{
+ "meta": {
+  "builtFrom": "packages/core-data/schema.sql via node:sqlite",
+  "note": "contract for native Room/GRDB declarations — native tests compare their DDL/entities against these exact columns"
+ },
+ "tables": {
+  "adhkar_state": {
+   "columns": [
+    {
+     "name": "item_id",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "day_key",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 2
+    },
+    {
+     "name": "count",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    },
+    {
+     "name": "completed_at",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "updated_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "athkar_items",
+     "from": "item_id",
+     "to": "item_id",
+     "onDelete": null
+    }
+   ],
+   "indexes": []
+  },
+  "athkar_categories": {
+   "columns": [
+    {
+     "name": "category_id",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "name_ar",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "name_en",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "icon",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": "'dhikr'",
+     "pk": 0
+    },
+    {
+     "name": "sort_order",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "solar_window",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [],
+   "indexes": []
+  },
+  "athkar_items": {
+   "columns": [
+    {
+     "name": "item_id",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "category_id",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "sort_order",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "text_ar",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "count_target",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "1",
+     "pk": 0
+    },
+    {
+     "name": "source_ar",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "grade",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "fadl_ar",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "audio_key",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "athkar_categories",
+     "from": "category_id",
+     "to": "category_id",
+     "onDelete": null
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_athkar_items_cat",
+     "unique": false,
+     "columns": [
+      "category_id",
+      "sort_order"
+     ]
+    }
+   ]
+  },
+  "audio_ayah_offsets": {
+   "columns": [
+    {
+     "name": "reciter_id",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "surah",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "ayah_number",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 2
+    },
+    {
+     "name": "start_ms",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "end_ms",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "ayahs",
+     "from": "ayah_number",
+     "to": "ayah_number",
+     "onDelete": null
+    },
+    {
+     "table": "surahs",
+     "from": "surah",
+     "to": "number",
+     "onDelete": null
+    },
+    {
+     "table": "reciters",
+     "from": "reciter_id",
+     "to": "reciter_id",
+     "onDelete": null
+    }
+   ],
+   "indexes": []
+  },
+  "audio_packs_state": {
+   "columns": [
+    {
+     "name": "reciter_id",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "scope",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": "'full_quran'",
+     "pk": 2
+    },
+    {
+     "name": "status",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": "'idle'",
+     "pk": 0
+    },
+    {
+     "name": "bytes",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    },
+    {
+     "name": "surahs_json",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": "'[]'",
+     "pk": 0
+    },
+    {
+     "name": "updated_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "reciters",
+     "from": "reciter_id",
+     "to": "reciter_id",
+     "onDelete": null
+    }
+   ],
+   "indexes": []
+  },
+  "audio_word_segments": {
+   "columns": [
+    {
+     "name": "reciter_id",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "surah",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "ayah_number",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 2
+    },
+    {
+     "name": "word_seq",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 3
+    },
+    {
+     "name": "start_ms",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "end_ms",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "mushaf_words",
+     "from": "surah",
+     "to": "surah",
+     "onDelete": "NO ACTION"
+    },
+    {
+     "table": "mushaf_words",
+     "from": "ayah_number",
+     "to": "ayah_number",
+     "onDelete": "NO ACTION"
+    },
+    {
+     "table": "mushaf_words",
+     "from": "word_seq",
+     "to": "word_seq",
+     "onDelete": "NO ACTION"
+    },
+    {
+     "table": "ayahs",
+     "from": "ayah_number",
+     "to": "ayah_number",
+     "onDelete": null
+    },
+    {
+     "table": "surahs",
+     "from": "surah",
+     "to": "number",
+     "onDelete": null
+    },
+    {
+     "table": "reciters",
+     "from": "reciter_id",
+     "to": "reciter_id",
+     "onDelete": null
+    }
+   ],
+   "indexes": []
+  },
+  "ayahs": {
+   "columns": [
+    {
+     "name": "ayah_number",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "surah",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "number_in_surah",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "page",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "juz",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "hizb_quarter",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "text_uthmani",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "text_imlaei",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "sajdah",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": "'none'",
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "mushaf_pages",
+     "from": "page",
+     "to": "page_number",
+     "onDelete": "NO ACTION"
+    },
+    {
+     "table": "surahs",
+     "from": "surah",
+     "to": "number",
+     "onDelete": "NO ACTION"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_ayahs_juz",
+     "unique": false,
+     "columns": [
+      "juz",
+      "ayah_number"
+     ]
+    },
+    {
+     "name": "idx_ayahs_page",
+     "unique": false,
+     "columns": [
+      "page",
+      "ayah_number"
+     ]
+    },
+    {
+     "name": "idx_ayahs_surah",
+     "unique": false,
+     "columns": [
+      "surah",
+      "number_in_surah"
+     ]
+    }
+   ]
+  },
+  "backup_log": {
+   "columns": [
+    {
+     "name": "id",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "direction",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "mode",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "format_version",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "counts_json",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": "'{}'",
+     "pk": 0
+    },
+    {
+     "name": "created_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [],
+   "indexes": []
+  },
+  "bookmarks": {
+   "columns": [
+    {
+     "name": "uuid",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "page",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "line_number",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "ayah_number",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "label_ar",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "created_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "updated_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "deleted",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "ayahs",
+     "from": "ayah_number",
+     "to": "ayah_number",
+     "onDelete": "NO ACTION"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_bookmarks_page",
+     "unique": false,
+     "columns": [
+      "page"
+     ]
+    }
+   ]
+  },
+  "cities": {
+   "columns": [
+    {
+     "name": "city_id",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "name_ar",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "name_en",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "country_ar",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "country_en",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "lat",
+     "type": "REAL",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "lng",
+     "type": "REAL",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "elevation",
+     "type": "REAL",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    },
+    {
+     "name": "timezone",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "population",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "is_preseed",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    }
+   ],
+   "fks": [],
+   "indexes": [
+    {
+     "name": "idx_cities_lookup",
+     "unique": false,
+     "columns": [
+      "country_en",
+      "name_en"
+     ]
+    },
+    {
+     "name": "idx_cities_name",
+     "unique": false,
+     "columns": [
+      "name_ar"
+     ]
+    }
+   ]
+  },
+  "highlights": {
+   "columns": [
+    {
+     "name": "uuid",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "ayah_number",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "word_start",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "word_end",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "color_key",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": "'gold'",
+     "pk": 0
+    },
+    {
+     "name": "updated_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "deleted",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "ayahs",
+     "from": "ayah_number",
+     "to": "ayah_number",
+     "onDelete": null
+    }
+   ],
+   "indexes": []
+  },
+  "khatmah_page_log": {
+   "columns": [
+    {
+     "name": "plan_uuid",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "page",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 2
+    },
+    {
+     "name": "completed_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "khatmah_plans",
+     "from": "plan_uuid",
+     "to": "uuid",
+     "onDelete": null
+    }
+   ],
+   "indexes": []
+  },
+  "khatmah_plans": {
+   "columns": [
+    {
+     "name": "uuid",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "name_ar",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": "'ختمتي'",
+     "pk": 0
+    },
+    {
+     "name": "mode",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "start_date",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "end_date",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "daily_pages",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "active",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "1",
+     "pk": 0
+    },
+    {
+     "name": "created_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "updated_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "deleted",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    }
+   ],
+   "fks": [],
+   "indexes": []
+  },
+  "meta": {
+   "columns": [
+    {
+     "name": "key",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "value",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [],
+   "indexes": []
+  },
+  "mushaf_lines": {
+   "columns": [
+    {
+     "name": "page_number",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "line_number",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 2
+    },
+    {
+     "name": "kind",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "ayah_number",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "surah",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "text_ar",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "glyphs_qpc",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "surahs",
+     "from": "surah",
+     "to": "number",
+     "onDelete": "NO ACTION"
+    },
+    {
+     "table": "ayahs",
+     "from": "ayah_number",
+     "to": "ayah_number",
+     "onDelete": "NO ACTION"
+    },
+    {
+     "table": "mushaf_pages",
+     "from": "page_number",
+     "to": "page_number",
+     "onDelete": "NO ACTION"
+    }
+   ],
+   "indexes": []
+  },
+  "mushaf_pages": {
+   "columns": [
+    {
+     "name": "page_number",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "line_count",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "15",
+     "pk": 0
+    },
+    {
+     "name": "juz_start",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "hizb_start",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "surah_start",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "ayah_start",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "plate_note",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "ayahs",
+     "from": "ayah_start",
+     "to": "ayah_number",
+     "onDelete": "NO ACTION"
+    },
+    {
+     "table": "surahs",
+     "from": "surah_start",
+     "to": "number",
+     "onDelete": "NO ACTION"
+    }
+   ],
+   "indexes": []
+  },
+  "mushaf_words": {
+   "columns": [
+    {
+     "name": "word_id",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "surah",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "ayah_number",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "word_seq",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "page_number",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "line_number",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "line_position",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "x",
+     "type": "REAL",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "y",
+     "type": "REAL",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "width",
+     "type": "REAL",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "height",
+     "type": "REAL",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "text_uthmani",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "glyphs_qpc",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "mushaf_pages",
+     "from": "page_number",
+     "to": "page_number",
+     "onDelete": "NO ACTION"
+    },
+    {
+     "table": "ayahs",
+     "from": "ayah_number",
+     "to": "ayah_number",
+     "onDelete": "NO ACTION"
+    },
+    {
+     "table": "surahs",
+     "from": "surah",
+     "to": "number",
+     "onDelete": "NO ACTION"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_words_page",
+     "unique": false,
+     "columns": [
+      "page_number",
+      "line_number",
+      "line_position"
+     ]
+    },
+    {
+     "name": "idx_words_ayah",
+     "unique": false,
+     "columns": [
+      "surah",
+      "ayah_number",
+      "word_seq"
+     ]
+    }
+   ]
+  },
+  "mutashabihat": {
+   "columns": [
+    {
+     "name": "pair_id",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "ayah_number",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "similar_ayah",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "note_ar",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "similarity",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": "'exact'",
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "ayahs",
+     "from": "similar_ayah",
+     "to": "ayah_number",
+     "onDelete": null
+    },
+    {
+     "table": "ayahs",
+     "from": "ayah_number",
+     "to": "ayah_number",
+     "onDelete": null
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_mutashabihat_sim",
+     "unique": false,
+     "columns": [
+      "similar_ayah"
+     ]
+    },
+    {
+     "name": "idx_mutashabihat_both",
+     "unique": false,
+     "columns": [
+      "ayah_number"
+     ]
+    }
+   ]
+  },
+  "notes": {
+   "columns": [
+    {
+     "name": "uuid",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "ayah_number",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "body",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "created_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "updated_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "deleted",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "ayahs",
+     "from": "ayah_number",
+     "to": "ayah_number",
+     "onDelete": null
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_notes_ayah",
+     "unique": false,
+     "columns": [
+      "ayah_number"
+     ]
+    }
+   ]
+  },
+  "prayer_overrides": {
+   "columns": [
+    {
+     "name": "city_id",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "offsets_json",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": "'{}'",
+     "pk": 0
+    },
+    {
+     "name": "hijri_adjust",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "cities",
+     "from": "city_id",
+     "to": "city_id",
+     "onDelete": null
+    }
+   ],
+   "indexes": []
+  },
+  "reciters": {
+   "columns": [
+    {
+     "name": "reciter_id",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "name_ar",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "name_en",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "style",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "word_segments_available",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    },
+    {
+     "name": "manifest_version",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": "'1'",
+     "pk": 0
+    }
+   ],
+   "fks": [],
+   "indexes": []
+  },
+  "streak_days": {
+   "columns": [
+    {
+     "name": "kind",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "day_key",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 2
+    },
+    {
+     "name": "done_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [],
+   "indexes": []
+  },
+  "surahs": {
+   "columns": [
+    {
+     "name": "number",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "name_ar",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "name_en",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "name_translit",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "revelation_type",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "ayah_count",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "start_page",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "bismillah_rendered",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "1",
+     "pk": 0
+    },
+    {
+     "name": "order_of_revelation",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [],
+   "indexes": []
+  },
+  "tafsir_books": {
+   "columns": [
+    {
+     "name": "book_id",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "name_ar",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "name_en",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "author",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "bundled",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    },
+    {
+     "name": "version",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": "'1'",
+     "pk": 0
+    }
+   ],
+   "fks": [],
+   "indexes": []
+  },
+  "tafsirs": {
+   "columns": [
+    {
+     "name": "book_id",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "ayah_number",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 2
+    },
+    {
+     "name": "body",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "ayahs",
+     "from": "ayah_number",
+     "to": "ayah_number",
+     "onDelete": null
+    },
+    {
+     "table": "tafsir_books",
+     "from": "book_id",
+     "to": "book_id",
+     "onDelete": null
+    }
+   ],
+   "indexes": []
+  },
+  "tasbih_counters": {
+   "columns": [
+    {
+     "name": "uuid",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "label_ar",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "dhikr_text",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "target",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "count",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    },
+    {
+     "name": "total_lifetime",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    },
+    {
+     "name": "sort_order",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    },
+    {
+     "name": "updated_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "deleted",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    }
+   ],
+   "fks": [],
+   "indexes": []
+  },
+  "tasbih_sessions": {
+   "columns": [
+    {
+     "name": "uuid",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "counter_uuid",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "count_delta",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "occurred_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "tasbih_counters",
+     "from": "counter_uuid",
+     "to": "uuid",
+     "onDelete": null
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_tasbih_sessions_counter",
+     "unique": false,
+     "columns": [
+      "counter_uuid",
+      "occurred_at"
+     ]
+    }
+   ]
+  },
+  "translation_books": {
+   "columns": [
+    {
+     "name": "book_id",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "name_ar",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "name_en",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "language",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "bundled",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "0",
+     "pk": 0
+    },
+    {
+     "name": "version",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": "'1'",
+     "pk": 0
+    }
+   ],
+   "fks": [],
+   "indexes": []
+  },
+  "translations": {
+   "columns": [
+    {
+     "name": "book_id",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "ayah_number",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 2
+    },
+    {
+     "name": "body",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "ayahs",
+     "from": "ayah_number",
+     "to": "ayah_number",
+     "onDelete": null
+    },
+    {
+     "table": "translation_books",
+     "from": "book_id",
+     "to": "book_id",
+     "onDelete": null
+    }
+   ],
+   "indexes": []
+  },
+  "user_progress": {
+   "columns": [
+    {
+     "name": "uuid",
+     "type": "TEXT",
+     "notnull": false,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "page",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "line_number",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": "1",
+     "pk": 0
+    },
+    {
+     "name": "surah",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "ayah_number",
+     "type": "INTEGER",
+     "notnull": false,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "updated_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [
+    {
+     "table": "ayahs",
+     "from": "ayah_number",
+     "to": "ayah_number",
+     "onDelete": "NO ACTION"
+    },
+    {
+     "table": "surahs",
+     "from": "surah",
+     "to": "number",
+     "onDelete": "NO ACTION"
+    }
+   ],
+   "indexes": []
+  },
+  "user_settings": {
+   "columns": [
+    {
+     "name": "key",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 1
+    },
+    {
+     "name": "value",
+     "type": "TEXT",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    },
+    {
+     "name": "updated_at",
+     "type": "INTEGER",
+     "notnull": true,
+     "dflt": null,
+     "pk": 0
+    }
+   ],
+   "fks": [],
+   "indexes": []
+  }
+ }
+}

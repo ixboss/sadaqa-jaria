@@ -1,0 +1,888 @@
+{
+ "meta": {
+  "validator": "backup-validate.js formatVersion 1 (assert ok + error COUNT; message text is per-locale/native)"
+ },
+ "cases": [
+  {
+   "name": "valid-full-payload",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "bookmark",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3
+     },
+     {
+      "uuid": "018f3f2e-7abc-7def-9abc-000000000002",
+      "type": "highlight",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "ayahNumber": 7,
+      "wordStart": 1,
+      "wordEnd": 3,
+      "colorKey": "emerald"
+     },
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000003",
+      "type": "note",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "ayahNumber": null,
+      "body": "ملاحظة"
+     },
+     {
+      "uuid": "018f3f2e-7abc-7def-9abc-000000000004",
+      "type": "khatmahPlan",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "mode": "rate",
+      "startDate": "2026-01-01",
+      "dailyPages": 5
+     }
+    ],
+    "dhikr": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000005",
+      "type": "adhkarState",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "dayKey": "2026-11-17",
+      "count": 3,
+      "itemId": "item-1"
+     },
+     {
+      "uuid": "018f3f2e-7abc-7def-9abc-000000000006",
+      "type": "tasbihCounter",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "dhikrText": "سبحان الله",
+      "target": 33,
+      "count": 12,
+      "labelAr": "ورد",
+      "totalLifetime": 99,
+      "sortOrder": 0
+     },
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000007",
+      "type": "tasbihSession",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "counterUuid": "018f3f2e-7abc-7def-9abc-000000000006",
+      "countDelta": 1,
+      "occurredAt": 1764300001000
+     }
+    ],
+    "prefs": [
+     {
+      "uuid": "018f3f2e-7abc-7def-9abc-000000000008",
+      "type": "setting",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "key": "theme",
+      "value": "dark"
+     }
+    ],
+    "meta": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000009",
+      "type": "streakDay",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "kind": "tasbih",
+      "dayKey": "2026-11-17"
+     }
+    ]
+   },
+   "expectOk": true,
+   "expectErrorCount": 0
+  },
+  {
+   "name": "refuse-wrong-format",
+   "manifest": {
+    "format": "json",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "bookmark",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-newer-version",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 2,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "bookmark",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-version-zero",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 0,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "bookmark",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-float-version",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1.5,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "bookmark",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-bad-createdat",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": -1,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "bookmark",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-short-deviceid",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "dev",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "bookmark",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-short-integrity",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "abc"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "bookmark",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-v4-uuid",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
+      "type": "bookmark",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-unknown-type",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": true,
+   "expectErrorCount": 0
+  },
+  {
+   "name": "refuse-type-in-wrong-group",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "tasbihCounter",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "dhikrText": "x"
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-bad-updatedat",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "bookmark",
+      "updatedAt": 0,
+      "deleted": false,
+      "page": 3
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-tombstone-nonbool",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "bookmark",
+      "updatedAt": 1764300000000,
+      "deleted": "yes",
+      "page": 3
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-page-zero",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "bookmark",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 0
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-page-605",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "bookmark",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 605
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-highlight-range",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "highlight",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "ayahNumber": 1,
+      "wordStart": 4,
+      "wordEnd": 2,
+      "colorKey": "gold"
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-highlight-color",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "highlight",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "ayahNumber": 1,
+      "wordStart": 1,
+      "wordEnd": 1,
+      "colorKey": "purple"
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-khatmah-mode",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "khatmahPlan",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "mode": "both",
+      "startDate": "2026-01-01",
+      "dailyPages": 5
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-khatmah-deadline-missing-end",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "khatmahPlan",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "mode": "deadline",
+      "startDate": "2026-01-01"
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-counter-no-text",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [],
+    "dhikr": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "tasbihCounter",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "dhikrText": ""
+     }
+    ],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-counter-bad-target",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [],
+    "dhikr": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "tasbihCounter",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "dhikrText": "سبحان الله",
+      "target": 0
+     }
+    ],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-setting-no-value",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [],
+    "dhikr": [],
+    "prefs": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "setting",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "key": "theme"
+     }
+    ],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-setting-no-key",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [],
+    "dhikr": [],
+    "prefs": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "setting",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "value": "dark"
+     }
+    ],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-streak-kind",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [],
+    "dhikr": [],
+    "prefs": [],
+    "meta": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "streakDay",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "kind": "qiyam",
+      "dayKey": "2026-11-17"
+     }
+    ]
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-adhkar-daykey",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [],
+    "dhikr": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "adhkarState",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "dayKey": "20261117",
+      "count": 0,
+      "itemId": "i"
+     }
+    ],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-session-delta",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [],
+    "dhikr": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "tasbihSession",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "counterUuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "countDelta": 0,
+      "occurredAt": 1764300001000
+     }
+    ],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "refuse-unknown-group",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [],
+    "dhikr": [],
+    "prefs": [],
+    "meta": [],
+    "extra": []
+   },
+   "expectOk": false,
+   "expectErrorCount": 1
+  },
+  {
+   "name": "accept-tombstoned-entity",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "bookmark",
+      "updatedAt": 1764300000000,
+      "deleted": true,
+      "page": 3
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": true,
+   "expectErrorCount": 0
+  },
+  {
+   "name": "accept-note-null-ayah",
+   "manifest": {
+    "format": "sadaqa-backup",
+    "formatVersion": 1,
+    "createdAt": 1764300000000,
+    "deviceId": "device-fixture-0001",
+    "entities": {},
+    "integrity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "note",
+      "updatedAt": 1764300000000,
+      "deleted": false,
+      "page": 3,
+      "ayahNumber": null,
+      "body": ""
+     }
+    ],
+    "dhikr": [],
+    "prefs": [],
+    "meta": []
+   },
+   "expectOk": true,
+   "expectErrorCount": 0
+  }
+ ]
+}

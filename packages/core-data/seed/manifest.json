@@ -1,0 +1,42 @@
+{
+  "generatedAt": "2026-11-17T17:59:42.394Z",
+  "artifacts": [
+    {
+      "name": "quran-uthmani.json",
+      "source": "https://api.alquran.cloud/v1/quran/quran-uthmani",
+      "bytes": 2109200,
+      "sha256": "0df03e1d6da4fc8138208fec1688f2b416f0dd4ebbd514179f3e5e0fbaf4195f"
+    },
+    {
+      "name": "quran-simple.json",
+      "source": "https://api.alquran.cloud/v1/quran/quran-simple",
+      "bytes": 2070157,
+      "sha256": "84889f681086b9d5a94222fbe4358cef77e15183c10baefda24f8f9ab9449402"
+    },
+    {
+      "name": "mushaf-qpc1/",
+      "source": "https://github.com/zonetecde/mushaf-layout (branch v2, mushaf/QPC1)",
+      "bytes": 11809091,
+      "files": 604,
+      "sha256": "49b54d8d294e617318642f1c8aa464a08b498060a2a7125b09d5a1f9a6556ebb"
+    },
+    {
+      "name": "tafsir-ar.muyassar.json",
+      "source": "https://raw.githubusercontent.com/SAFI174/tafsir-json/main/json/ar.muyassar.json",
+      "bytes": 19819418,
+      "sha256": "522cb1c5de9e367115e2c5cea0110632b7d498949ac611fa12e4c7cc3f286a8e"
+    },
+    {
+      "name": "hisn.json",
+      "source": "https://raw.githubusercontent.com/asellam/HisnElMuslim/main/hisn.json",
+      "bytes": 193750,
+      "sha256": "b30a448ef40184b0422c40bd3c372bf2b25bfb5b0539fd3699e6b4fba9459d80"
+    },
+    {
+      "name": "cities.json",
+      "source": "https://public.opendatasoft.com/…/geonames-all-cities-with-a-population-1000 (population>=100000)",
+      "bytes": 3391600,
+      "sha256": "b25bb55675a5a0be1eba45f89cf546758963a20e142981ce3c261679fc38de04"
+    }
+  ]
+}

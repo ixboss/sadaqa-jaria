@@ -1,0 +1,143 @@
+{
+ "generator": "scripts/tools/gen-parity-fixtures.mjs",
+ "generated": "2026-11-17",
+ "counts": {
+  "prayerFiles": 24,
+  "smartCard": 42,
+  "files": 33
+ },
+ "files": [
+  {
+   "path": "tests/parity/fixtures/prayer/makkah_2026-03_default.json",
+   "sha256": "e7a746201ff2c65073532a5d03ce2540388a4b38d1141bdd2bbaabafc620c26b"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/makkah_2026-03_contrast.json",
+   "sha256": "9d18da6606ccccdc0512b235d3a7ed2ededb5bb158647bc778d505865d9bccbf"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/makkah_2026-10_default.json",
+   "sha256": "55e9620e4b802d415d1a41b1c99fb8dce6d8ab09230195dfcfbed18624c83e8e"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/makkah_2026-10_contrast.json",
+   "sha256": "e6aa6a5f0597ffd64eff3bd1ebf75d8d12736629749f2cb4d992317c9a2bdcca"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/london_2026-03_default.json",
+   "sha256": "b0f5b76610cf0197cbb76df8d57da5ac9f87baa448c0bb8b5e41177c8c272c9a"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/london_2026-03_contrast.json",
+   "sha256": "1dc872997061b2072d74eb48a8af60c96f72f21d7481dad02486b8671a4f5f22"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/london_2026-10_default.json",
+   "sha256": "4c7ee2f2cae02ba23baa82c6598d1da596f2a3116aba71393c8e23444f9150a1"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/london_2026-10_contrast.json",
+   "sha256": "07ef66ae96e9f4834ae411cab7cc635fbc725f0625eb13be415170a9a4313771"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/anchorage_2026-03_default.json",
+   "sha256": "81ee2accfcdc0cf00252c12def80ef5989d50354bca44b24d3f1d14cd530c562"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/anchorage_2026-03_contrast.json",
+   "sha256": "b582e862116b4d8f579acce21d9f417342bfa22f932ba9c6e9a4b3b2c7ac4ea0"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/anchorage_2026-10_default.json",
+   "sha256": "75200e4c728eda6fcc997db968127d1392db3369198327f2757f14522f4fd02e"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/anchorage_2026-10_contrast.json",
+   "sha256": "1bd2b214631e1bc226c3d7121ea9982cd6e795a1a6e2db53b5d92c22a01730ef"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/auckland_2026-03_default.json",
+   "sha256": "70672004c9944c10e633e2f1f5b888ec39c4a97a3e0b77b403a7f374de9d3cdc"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/auckland_2026-03_contrast.json",
+   "sha256": "1751b5f1bc3c22c7bee654519f6bedc2bd1d1aa98bd012e3decca3e933ee48cd"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/auckland_2026-10_default.json",
+   "sha256": "8c760ddc4897d52a9028cdf66373fc40c2c5c8d4c3b0d13576ec6d3a1fdde894"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/auckland_2026-10_contrast.json",
+   "sha256": "11c216346145cd44dd719d66307b7b1cbe873a8cedf91de1ac52517f1e5d70e6"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/losangeles_2026-03_default.json",
+   "sha256": "c43c2c4e4f3c5327c136f6fcd1ecde9642341e2eeb6d8f44bc537a766c9ee297"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/losangeles_2026-03_contrast.json",
+   "sha256": "1c6ec5480020388cbdd1648c0a07483cad494f357e0095907a11552a6b1ca77d"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/losangeles_2026-10_default.json",
+   "sha256": "31dd61b294fa02ca21ae72abc50e32049620f3f92f2bc0db6694edaefea2ffd9"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/losangeles_2026-10_contrast.json",
+   "sha256": "6e059d41a87e8595c45b7c9cc5732f5848b1d812d61b12f8e4862e15b6a865ef"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/tokyo_2026-03_default.json",
+   "sha256": "7e6344ece42eccc711080671b540af57bd3b4a90809cd09a008aab3c769badf8"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/tokyo_2026-03_contrast.json",
+   "sha256": "97a0b545faf06ebf99fe65e31508ed50028022d49494cf8ce3acc132a2403538"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/tokyo_2026-10_default.json",
+   "sha256": "f4dcafbc5f490b9d02df2da1e417faee68c0b0495c93dede9419fbd566912d3d"
+  },
+  {
+   "path": "tests/parity/fixtures/prayer/tokyo_2026-10_contrast.json",
+   "sha256": "70159003efb35475e460ae37e1be8ef1b982d071575882b4b53b120ddb951ec8"
+  },
+  {
+   "path": "tests/parity/fixtures/smart-card/cases.json",
+   "sha256": "6c3a61a4d91d871e9175b52f93937b7ac03be5087a78e5cc2e9f12b9e5bbb248"
+  },
+  {
+   "path": "tests/parity/fixtures/backup/validate-cases.json",
+   "sha256": "b71823baa4e086bcc17c6eb978d1413734627734630cf4adae49d926fcac5bfb"
+  },
+  {
+   "path": "tests/parity/fixtures/backup/merge-cases.json",
+   "sha256": "7b59862d24787a3d15b8aca428d4f0673a41fb6c7f5f50a6a1015c2aa768bb16"
+  },
+  {
+   "path": "tests/parity/fixtures/backup/sample-export.json",
+   "sha256": "f9cd279753f185b39c8d5226554c2371330129e3d47d3a403b64e56919126538"
+  },
+  {
+   "path": "tests/parity/fixtures/hijri/roundtrip.json",
+   "sha256": "2fe760d4223d916441b76fbe8ddcfe447a0a9652fdff3fd5a8862bce858cccb1"
+  },
+  {
+   "path": "tests/parity/fixtures/hijri/events.json",
+   "sha256": "01d609e9b74ae72016fd4e06997b4590332fdeea3bd78e1594c1388bd6068e4a"
+  },
+  {
+   "path": "tests/parity/fixtures/uuid7/synth.json",
+   "sha256": "09dbc7e8b6d923e2fb7ae7d571552804382f06839e5f7a360b6a1315e5d2d412"
+  },
+  {
+   "path": "tests/parity/fixtures/qibla/bearings.json",
+   "sha256": "0f9a7d6282aadb23b314fd99abe27bc79ae67a96190c9e6b933faacad7325391"
+  },
+  {
+   "path": "tests/parity/fixtures/schema/tableinfo.json",
+   "sha256": "7af397f940a5ac1e5e73e4c3ce0cc5e7f533d0353fc0d0733a731603f7b4acd1"
+  }
+ ]
+}

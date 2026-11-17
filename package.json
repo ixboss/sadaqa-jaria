@@ -4,10 +4,33 @@
   "description": "إسلامي — تطبيق إسلامي شامل (صدقة جارية): القرآن الكريم، أذكار، دعاء، سبحة، ختمة",
   "author": "ixboss",
   "license": "MIT",
+  "homepage": "https://ixboss.github.io/sadaqa-jaria/",
+  "repository": { "type": "git", "url": "git+https://github.com/ixboss/sadaqa-jaria.git" },
+  "bugs": { "url": "https://github.com/ixboss/sadaqa-jaria/issues" },
+  "keywords": ["quran", "islamic", "islamic-app", "pwa", "offline-first", "adhkar", "prayer-times", "hijri"],
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node tests/run-server.mjs",
-    "test": "node tests/run-all.mjs"
+    "test": "node tests/run-all.mjs",
+    "test:core": "node --test packages/core-data/tests/",
+    "test:v2": "node tests/e2e-v2-shell.mjs",
+    "test:v2:p4": "node tests/e2e-v2-phase4.mjs",
+    "test:electron": "node tests/e2e-electron.mjs",
+    "fonts:fetch": "node scripts/tools/fetch-fonts.mjs",
+    "seeds:fetch": "node packages/core-data/tools/fetch-seeds.mjs",
+    "audio:fetch": "node scripts/tools/fetch-audio.mjs",
+    "db:build": "node packages/core-data/tools/build-db.mjs",
+    "db:verify": "node packages/core-data/tools/verify-db.mjs",
+    "tokens": "node scripts/tools/gen-tokens.mjs",
+    "parity:gen": "node scripts/tools/gen-parity-fixtures.mjs",
+    "parity:verify": "node tests/parity/verify-parity.mjs",
+    "native:sync": "node scripts/tools/gen-parity-fixtures.mjs && node scripts/tools/sync-native-assets.mjs",
+    "desktop:start": "electron apps/electron",
+    "desktop:probe": "electron apps/electron --probe",
+    "desktop:dist": "cd apps/electron && electron-builder"
+  },
+  "devDependencies": {
+    "wawoff2": "^2.0.1"
   }
 }

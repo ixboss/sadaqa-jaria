@@ -1,0 +1,26 @@
+# electron-builder — zero-server production packaging: the UI, sadaqa.db,
+# engines and fonts all ship as local resources; app:// serves them with no
+# dev server, no network.
+appId: app.sadaqa.desktop
+productName: Sadaqa Jaria
+directories:
+  output: dist
+files:
+  - main.cjs
+  - preload.cjs
+  - package.json
+extraResources:
+  - from: ../web-desktop
+    to: web
+  - from: ../../packages/core-data/engines
+    to: packages/core-data/engines
+  - from: ../../packages/core-data/vendor
+    to: packages/core-data/vendor
+  - from: ../../packages/core-data/build/sadaqa.db
+    to: packages/core-data/build/sadaqa.db
+win:
+  target: nsis
+nsis:
+  oneClick: false
+  perMachine: false
+  artifactName: SadaqaJaria-Setup-${version}.${ext}

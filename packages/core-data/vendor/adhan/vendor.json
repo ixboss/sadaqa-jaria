@@ -1,0 +1,9 @@
+{
+  "name": "adhan",
+  "version": "4.4.6",
+  "source": "https://registry.npmjs.org/adhan/-/adhan-4.4.6.tgz",
+  "esm_sha256": "0d5a24f01bc2b576a52e76d9bb76847b3a8d71e4537ca76690b70ee18cdcd596",
+  "esm_sha256_source": "lib/esm/Adhan.js barrel re-export integrity anchor",
+  "license": "MIT",
+  "note": "Vendored, pinned. Do not hand-edit the module files; re-run scripts/tools/vendor-adhan.mjs to refresh."
+}

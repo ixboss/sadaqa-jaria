@@ -1,0 +1,186 @@
+{
+ "meta": {
+  "producer": "apps/web-desktop/js/data/backup.js buildExportPayload (fixed clock 1764300000000)"
+ },
+ "manifest": {
+  "format": "sadaqa-backup",
+  "formatVersion": 1,
+  "createdAt": 1764300000000,
+  "deviceId": "device-fixture-0001",
+  "entities": {
+   "reading": 5,
+   "dhikr": 7,
+   "prefs": 2,
+   "meta": 2
+  },
+  "integrity": "11538ee2b8cf344012d6222f96e1093ec03bc2bdadbcf81f4e7eda67d8ebcfff"
+ },
+ "payloadJson": "{\"reading\":[{\"ayahNumber\":2942,\"createdAt\":1764299999600,\"deleted\":false,\"labelAr\":null,\"lineNumber\":1,\"page\":303,\"type\":\"bookmark\",\"updatedAt\":1764299999700,\"uuid\":\"018f3f2e-7abc-7def-8abc-000000000042\"},{\"ayahNumber\":2,\"colorKey\":\"emerald\",\"deleted\":false,\"type\":\"highlight\",\"updatedAt\":1764299999800,\"uuid\":\"018f3f2e-7abc-7def-8abc-000000000101\",\"wordEnd\":4,\"wordStart\":1},{\"ayahNumber\":null,\"body\":\"دعاء عام\",\"createdAt\":1764299999100,\"deleted\":false,\"type\":\"note\",\"updatedAt\":1764299999900,\"uuid\":\"018f3f2e-7abc-7def-8abc-000000000102\"},{\"active\":true,\"createdAt\":1764299991000,\"dailyPages\":null,\"deleted\":false,\"endDate\":\"2027-01-31\",\"mode\":\"deadline\",\"nameAr\":\"ختمتي\",\"startDate\":\"2026-11-01\",\"type\":\"khatmahPlan\",\"updatedAt\":1764299999950,\"uuid\":\"018f3f2e-7abc-7def-8abc-000000000103\"},{\"ayahNumber\":7,\"createdAt\":1764299995000,\"deleted\":false,\"labelAr\":\"الفاتحة\",\"lineNumber\":5,\"page\":2,\"type\":\"bookmark\",\"updatedAt\":1764299999000,\"uuid\":\"019ac879-8b00-73d2-b5b8-c2e6aa64f80a\"}],\"dhikr\":[{\"count\":0,\"deleted\":false,\"dhikrText\":\"أستغفر الله\",\"labelAr\":\"استغفار\",\"sortOrder\":1,\"target\":null,\"totalLifetime\":5,\"type\":\"tasbihCounter\",\"updatedAt\":1764299999970,\"uuid\":\"018f3f2e-7abc-7def-8abc-000000000104\"},{\"countDelta\":1,\"counterUuid\":\"018f3f2e-7abc-7def-8abc-000000000104\",\"occurredAt\":1764299999900,\"type\":\"tasbihSession\",\"updatedAt\":1764299999900,\"uuid\":\"018f3f2e-7abc-7def-8abc-000000000105\"},{\"countDelta\":1,\"counterUuid\":\"018f3f2e-7abc-7def-8abc-000000000104\",\"occurredAt\":1764299999901,\"type\":\"tasbihSession\",\"updatedAt\":1764299999901,\"uuid\":\"018f3f2e-7abc-7def-8abc-000000000106\"},{\"countDelta\":5,\"counterUuid\":\"018f3f2e-7abc-7def-8abc-000000000104\",\"occurredAt\":1764299999902,\"type\":\"tasbihSession\",\"updatedAt\":1764299999902,\"uuid\":\"018f3f2e-7abc-7def-8abc-000000000107\"},{\"count\":12,\"deleted\":false,\"dhikrText\":\"سبحان الله وبحمده\",\"labelAr\":\"ورد السبحة المُستورد\",\"sortOrder\":0,\"target\":33,\"totalLifetime\":120,\"type\":\"tasbihCounter\",\"updatedAt\":1764299999980,\"uuid\":\"019ac879-8b00-73d2-b5b8-c2e6aa64f80a\"},{\"completedAt\":null,\"count\":1,\"dayKey\":\"2026-11-16\",\"itemId\":\"cat-2-1\",\"type\":\"adhkarState\",\"updatedAt\":1764210000000,\"uuid\":\"019ac879-8b00-741d-be79-fc61ad575a31\"},{\"completedAt\":1764296400000,\"count\":3,\"dayKey\":\"2026-11-17\",\"itemId\":\"cat-1-1\",\"type\":\"adhkarState\",\"updatedAt\":1764296400000,\"uuid\":\"019ac879-8b00-7bfc-b1e9-70a55cb83a25\"}],\"prefs\":[{\"key\":\"theme\",\"type\":\"setting\",\"updatedAt\":1764299999200,\"uuid\":\"019ac879-8b00-74c3-b339-fce01c24c284\",\"value\":\"dark\"},{\"key\":\"calc_method\",\"type\":\"setting\",\"updatedAt\":1764299999300,\"uuid\":\"019ac879-8b00-7605-b472-a64682d68424\",\"value\":\"umm_al_qura\"}],\"meta\":[{\"dayKey\":\"2026-11-17\",\"kind\":\"adhkar_morning\",\"type\":\"streakDay\",\"updatedAt\":1764292800000,\"uuid\":\"019ac879-8b00-7398-b99f-1d95a992c3c3\"},{\"dayKey\":\"2026-11-16\",\"kind\":\"tasbih\",\"type\":\"streakDay\",\"updatedAt\":1764213600000,\"uuid\":\"019ac879-8b00-73d8-b4dd-3bddf5fb0922\"}]}",
+ "payload": {
+  "reading": [
+   {
+    "ayahNumber": 2942,
+    "createdAt": 1764299999600,
+    "deleted": false,
+    "labelAr": null,
+    "lineNumber": 1,
+    "page": 303,
+    "type": "bookmark",
+    "updatedAt": 1764299999700,
+    "uuid": "018f3f2e-7abc-7def-8abc-000000000042"
+   },
+   {
+    "ayahNumber": 2,
+    "colorKey": "emerald",
+    "deleted": false,
+    "type": "highlight",
+    "updatedAt": 1764299999800,
+    "uuid": "018f3f2e-7abc-7def-8abc-000000000101",
+    "wordEnd": 4,
+    "wordStart": 1
+   },
+   {
+    "ayahNumber": null,
+    "body": "دعاء عام",
+    "createdAt": 1764299999100,
+    "deleted": false,
+    "type": "note",
+    "updatedAt": 1764299999900,
+    "uuid": "018f3f2e-7abc-7def-8abc-000000000102"
+   },
+   {
+    "active": true,
+    "createdAt": 1764299991000,
+    "dailyPages": null,
+    "deleted": false,
+    "endDate": "2027-01-31",
+    "mode": "deadline",
+    "nameAr": "ختمتي",
+    "startDate": "2026-11-01",
+    "type": "khatmahPlan",
+    "updatedAt": 1764299999950,
+    "uuid": "018f3f2e-7abc-7def-8abc-000000000103"
+   },
+   {
+    "ayahNumber": 7,
+    "createdAt": 1764299995000,
+    "deleted": false,
+    "labelAr": "الفاتحة",
+    "lineNumber": 5,
+    "page": 2,
+    "type": "bookmark",
+    "updatedAt": 1764299999000,
+    "uuid": "019ac879-8b00-73d2-b5b8-c2e6aa64f80a"
+   }
+  ],
+  "dhikr": [
+   {
+    "count": 0,
+    "deleted": false,
+    "dhikrText": "أستغفر الله",
+    "labelAr": "استغفار",
+    "sortOrder": 1,
+    "target": null,
+    "totalLifetime": 5,
+    "type": "tasbihCounter",
+    "updatedAt": 1764299999970,
+    "uuid": "018f3f2e-7abc-7def-8abc-000000000104"
+   },
+   {
+    "countDelta": 1,
+    "counterUuid": "018f3f2e-7abc-7def-8abc-000000000104",
+    "occurredAt": 1764299999900,
+    "type": "tasbihSession",
+    "updatedAt": 1764299999900,
+    "uuid": "018f3f2e-7abc-7def-8abc-000000000105"
+   },
+   {
+    "countDelta": 1,
+    "counterUuid": "018f3f2e-7abc-7def-8abc-000000000104",
+    "occurredAt": 1764299999901,
+    "type": "tasbihSession",
+    "updatedAt": 1764299999901,
+    "uuid": "018f3f2e-7abc-7def-8abc-000000000106"
+   },
+   {
+    "countDelta": 5,
+    "counterUuid": "018f3f2e-7abc-7def-8abc-000000000104",
+    "occurredAt": 1764299999902,
+    "type": "tasbihSession",
+    "updatedAt": 1764299999902,
+    "uuid": "018f3f2e-7abc-7def-8abc-000000000107"
+   },
+   {
+    "count": 12,
+    "deleted": false,
+    "dhikrText": "سبحان الله وبحمده",
+    "labelAr": "ورد السبحة المُستورد",
+    "sortOrder": 0,
+    "target": 33,
+    "totalLifetime": 120,
+    "type": "tasbihCounter",
+    "updatedAt": 1764299999980,
+    "uuid": "019ac879-8b00-73d2-b5b8-c2e6aa64f80a"
+   },
+   {
+    "completedAt": null,
+    "count": 1,
+    "dayKey": "2026-11-16",
+    "itemId": "cat-2-1",
+    "type": "adhkarState",
+    "updatedAt": 1764210000000,
+    "uuid": "019ac879-8b00-741d-be79-fc61ad575a31"
+   },
+   {
+    "completedAt": 1764296400000,
+    "count": 3,
+    "dayKey": "2026-11-17",
+    "itemId": "cat-1-1",
+    "type": "adhkarState",
+    "updatedAt": 1764296400000,
+    "uuid": "019ac879-8b00-7bfc-b1e9-70a55cb83a25"
+   }
+  ],
+  "prefs": [
+   {
+    "key": "theme",
+    "type": "setting",
+    "updatedAt": 1764299999200,
+    "uuid": "019ac879-8b00-74c3-b339-fce01c24c284",
+    "value": "dark"
+   },
+   {
+    "key": "calc_method",
+    "type": "setting",
+    "updatedAt": 1764299999300,
+    "uuid": "019ac879-8b00-7605-b472-a64682d68424",
+    "value": "umm_al_qura"
+   }
+  ],
+  "meta": [
+   {
+    "dayKey": "2026-11-17",
+    "kind": "adhkar_morning",
+    "type": "streakDay",
+    "updatedAt": 1764292800000,
+    "uuid": "019ac879-8b00-7398-b99f-1d95a992c3c3"
+   },
+   {
+    "dayKey": "2026-11-16",
+    "kind": "tasbih",
+    "type": "streakDay",
+    "updatedAt": 1764213600000,
+    "uuid": "019ac879-8b00-73d8-b4dd-3bddf5fb0922"
+   }
+  ]
+ },
+ "expectValidation": {
+  "ok": true,
+  "counts": {
+   "reading": 5,
+   "dhikr": 7,
+   "prefs": 2,
+   "meta": 2
+  }
+ }
+}
