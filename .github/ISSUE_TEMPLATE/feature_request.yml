@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest an idea or improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What is missing or awkward today? Not the solution — the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What you'd like to happen.
+    validations:
+      required: true
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints
+      description: This project is offline-first and fully static — no backend, no accounts, no tracking.
+      options:
+        - label: My idea works offline and needs no server
+          required: false
+        - label: My idea respects the no-tracking, no-account design
+          required: false

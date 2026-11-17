@@ -4,6 +4,11 @@
 
 **A free Islamic web app for Quran reading, Tafsir, Khatmah tracking, and daily Adhkar — created as Sadaqah Jariyah.**
 
+<!-- launch-readiness:start:badges -->
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/ixboss/sadaqa-jaria/actions/workflows/ci.yml/badge.svg)](https://github.com/ixboss/sadaqa-jaria/actions/workflows/ci.yml)
+<!-- launch-readiness:end:badges -->
+
 [Open the app](https://ixboss.github.io/sadaqa-jaria/) · [Report an issue](https://github.com/ixboss/sadaqa-jaria/issues)
 
 </div>

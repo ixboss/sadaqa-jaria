@@ -95,6 +95,8 @@ reported to the community leaders responsible for enforcement.
 >
 > If your report concerns the maintainer, please state that clearly so an
 > alternative reviewer can be appointed.
+>
+> Direct email: **hossam.m.ghareeb@gmail.com**
 
 All complaints will be reviewed and investigated promptly and fairly.
 
