@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gold crescent moon, centered inside the adaptive-icon safe zone (66/108 inner circle) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- moon body -->
+    <path
+        android:fillColor="#E6C275"
+        android:pathData="M54,54 m-26,0 a26,26 0 1,1 52,0 a26,26 0 1,1 -52,0" />
+    <!-- bite taken out to form the crescent -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M64,44 m-24,0 a24,24 0 1,1 48,0 a24,24 0 1,1 -48,0" />
+    <!-- small star -->
+    <path
+        android:fillColor="#E6C275"
+        android:pathData="M64,44 m-4,0 a4,4 0 1,1 8,0 a4,4 0 1,1 -8,0" />
+</vector>
