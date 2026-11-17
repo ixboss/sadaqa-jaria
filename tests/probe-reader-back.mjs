@@ -13,7 +13,7 @@ import { join } from 'node:path';
 
 const BASE = 'http://127.0.0.1:8123/index.html';
 const CDP_PORT = 9275;
-const BROWSER = join('C:', 'Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe');
+const BROWSER = process.env.E2E_BROWSER || join('C:', 'Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe');
 
 let ws, idSeq = 0;
 const pending = new Map();
