@@ -5,15 +5,29 @@
   "author": "ixboss",
   "license": "MIT",
   "homepage": "https://ixboss.github.io/sadaqa-jaria/",
-  "repository": { "type": "git", "url": "git+https://github.com/ixboss/sadaqa-jaria.git" },
-  "bugs": { "url": "https://github.com/ixboss/sadaqa-jaria/issues" },
-  "keywords": ["quran", "islamic", "islamic-app", "pwa", "offline-first", "adhkar", "prayer-times", "hijri"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ixboss/sadaqa-jaria.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ixboss/sadaqa-jaria/issues"
+  },
+  "keywords": [
+    "quran",
+    "islamic",
+    "islamic-app",
+    "pwa",
+    "offline-first",
+    "adhkar",
+    "prayer-times",
+    "hijri"
+  ],
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node tests/run-server.mjs",
     "test": "node tests/run-all.mjs",
-    "test:core": "node --test packages/core-data/tests/",
+    "test:core": "node --test \"packages/core-data/tests/*.test.js\" tests/parity/verify-parity.mjs",
     "test:v2": "node tests/e2e-v2-shell.mjs",
     "test:v2:p4": "node tests/e2e-v2-phase4.mjs",
     "test:electron": "node tests/e2e-electron.mjs",
