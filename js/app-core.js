@@ -1594,16 +1594,20 @@ async function syncSurahForPage(n) {
 
 // بيانات سورة كاملة (قائمة التلاوة) مع مخبأ ٧ أيام — مُستخدَم من مسارات متعددة
 async function fetchSurahData(number) {
+  // الروابط العميقة قد تحمل نصاً مُصنَّعاً — يُحوَّل الرقم ويُرفض ما خارج
+  // ١–١١٤ قبل أن يصل إلى عنوان الطلب أو مفتاح المخبأ (تحصين نقطة الطلب).
+  const sn = Math.trunc(Number(number));
+  if (!Number.isFinite(sn) || sn < 1 || sn > 114) return null;
   try {
-    const cached = localStorage.getItem(`q_s_u_${number}`);
+    const cached = localStorage.getItem(`q_s_u_${sn}`);
     if (cached) {
       const parsed = JSON.parse(cached);
       if (Date.now() - (parsed._ts || 0) < 7 * 24 * 60 * 60 * 1000) return parsed.data;
-      localStorage.removeItem(`q_s_u_${number}`);
+      localStorage.removeItem(`q_s_u_${sn}`);
     }
-    const res = await fetch(`https://api.alquran.cloud/v1/surah/${number}/quran-uthmani`);
+    const res = await fetch(`https://api.alquran.cloud/v1/surah/${sn}/quran-uthmani`);
     const data = (await res.json()).data;
-    if (data && data.ayahs) localStorage.setItem(`q_s_u_${number}`, JSON.stringify({ data, _ts: Date.now() }));
+    if (data && data.ayahs) localStorage.setItem(`q_s_u_${sn}`, JSON.stringify({ data, _ts: Date.now() }));
     return data;
   } catch (e) { return null; }
 }

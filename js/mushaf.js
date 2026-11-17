@@ -411,6 +411,11 @@
 
   M.ensurePage = function (n) {
     n = M.clampPage(n);
+    // حارس صريح: الرقم فقط من ١ إلى ٦٠٤ يصل إلى عنوان الطلب (تحصين نقطة
+    // الطلب — الروابط العميقة قد تحمل قيماً مُصنَّعة).
+    if (!Number.isInteger(n) || n < 1 || n > TOTAL_PAGES) {
+      return Promise.reject(new Error('صفحة غير صالحة'));
+    }
     if (M.pages[n] && M.pages[n].length) return Promise.resolve(M.pages[n]);
     // مخبأ الصفحة: ينجّي العمل بلا إنترنت لمن تصفّح الصفحة من قبل
     try {
