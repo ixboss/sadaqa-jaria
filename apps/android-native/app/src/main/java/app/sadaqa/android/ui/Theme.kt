@@ -86,11 +86,11 @@ object SadaqaTheme {
     }
 
     private fun parseTokens(text: String): Map<String, TokenPalette> {
-        val root = (kotlinx.serialization.json.Json.parseToJsonElement(text) as? kotlinx.serialization.json.JsonObject)?.content
+        val root = (kotlinx.serialization.json.Json.parseToJsonElement(text) as? kotlinx.serialization.json.JsonObject)
             ?: return emptyMap()
-        val themes = (root["themes"] as? kotlinx.serialization.json.JsonObject)?.content ?: return emptyMap()
+        val themes = (root["themes"] as? kotlinx.serialization.json.JsonObject) ?: return emptyMap()
         return themes.mapValues { (_, v) ->
-            val t = (v as? kotlinx.serialization.json.JsonObject)?.content ?: emptyMap()
+            val t = (v as? kotlinx.serialization.json.JsonObject) ?: kotlinx.serialization.json.JsonObject(emptyMap())
             fun s(k: String, d: String): String =
                 ((t[k] as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content) ?: d
             TokenPalette(
@@ -124,7 +124,7 @@ object QpcFonts {
     fun mushaf(context: Context, page: Int): FontFamily {
         cache[page]?.let { return it }
         val family = ensureExtracted(context, "fonts/p%03d.ttf".format(page))
-            ?.let { FontFamily(Font(android.graphics.Typeface.createFromFile(it))) }
+            ?.let { FontFamily(Font(it)) }
             ?: FontFamily.Default
         cache[page] = family
         return family
@@ -134,7 +134,7 @@ object QpcFonts {
     fun basmala(context: Context): FontFamily {
         basmala?.let { return it }
         val family = ensureExtracted(context, "fonts/QPC1BSML.ttf")
-            ?.let { FontFamily(Font(android.graphics.Typeface.createFromFile(it))) }
+            ?.let { FontFamily(Font(it)) }
             ?: FontFamily.Default
         basmala = family
         return family

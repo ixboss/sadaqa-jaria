@@ -15,7 +15,7 @@ package app.sadaqa.android.engine
 import com.batoulapps.adhan.Coordinates
 import com.batoulapps.adhan.CalculationMethod
 import com.batoulapps.adhan.CalculationParameters
-import com.batoulapps.adhan.DateComponents
+import com.batoulapps.adhan.data.DateComponents
 import com.batoulapps.adhan.HighLatitudeRule
 import com.batoulapps.adhan.Madhab
 import com.batoulapps.adhan.Prayer

@@ -262,7 +262,7 @@ object WidgetStateBridge {
             .putString("location", "%f;%f;%s;%s;%s;%s".format(opts.lat, opts.lng, opts.timeZone, opts.method, opts.madhab, opts.highLatitudeRule))
             .putString("next", next?.let { "${it.name.key};${it.at}" })
             .putLong("publishedAt", now)
-            .putString("day", isoOf(now, opts.timeZone))
+            .putString("day", AdhanScheduler.isoOf(now, opts.timeZone))
             .apply()
     }
 }

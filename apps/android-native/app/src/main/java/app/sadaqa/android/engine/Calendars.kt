@@ -75,7 +75,7 @@ object HijriEngine {
         )
         val out = mutableListOf<IslamicEvent>()
         for ((key, m, d) in targets) {
-            for ((instant, hijri) in scanYear(gregorianYear) { it.y in 1400..1600 && it.m == m && it.d == d }) {
+            for ((instant, hijri) in scanYear(gregorianYear, predicate = { it.y in 1400..1600 && it.m == m && it.d == d })) {
                 out.add(IslamicEvent(key, HijriDate(hijri.y, m, d), isoOf(instant)))
             }
         }

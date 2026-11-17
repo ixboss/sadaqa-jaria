@@ -40,7 +40,8 @@ object BackupCodec {
     // ------------------------------------------------------------------
     fun validateBackup(manifest: JsonValue?, payload: JsonValue?): Verdict {
         val errors = mutableListOf<String>()
-        val m = manifest?.obj ?: return Verdict(false, listOf("manifest: must be an object"), emptyMap())
+        val m = manifest ?: return Verdict(false, listOf("manifest: must be an object"), emptyMap())
+        if (m.obj == null) return Verdict(false, listOf("manifest: must be an object"), emptyMap())
 
         if (m["format"].str != "sadaqa-backup") errors.add("manifest.format: must be \"sadaqa-backup\"")
         val fv = m["formatVersion"]
@@ -188,9 +189,7 @@ object BackupCodec {
             val localMap = local[group]
             for (e in entities) {
                 val uuid = e["uuid"].str ?: ""
-                // wrap the local map as a JSON object so indexing follows the same
-                // missing-key → JSON Null semantics as the golden engines
-                val existing = localMap?.get(uuid)?.let { JsonValue.Obj(it) }
+                val existing = localMap?.get(uuid) // JsonValue? — local entities keyed by uuid
                 if (existing == null) {
                     mutations.add(Mutation(group, uuid, e, "insert"))
                     report.added++

@@ -187,7 +187,7 @@ public enum PrayerEngine {
     // ------------------------------------------------------------------
     // timezone helpers (civilParts / tzOffsetMinutes / wallClockToInstant)
     // ------------------------------------------------------------------
-    struct CivilParts: Equatable {
+    public struct CivilParts: Equatable {
         var y: Int, mo: Int, d: Int, h: Int, mi: Int, s: Int // mo 0-based (JS parity)
     }
 
