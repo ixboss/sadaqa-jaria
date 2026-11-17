@@ -297,8 +297,8 @@ fun ZakatScreen(db: SadaqaDb, onBack: () -> Unit) {
     var inputs by remember { mutableStateOf(Inputs("", "", "", "", "", "", "", "gold")) }
 
     LaunchedEffect(Unit) {
-        val saved = db.setting("zakat_inputs")?.obj
-        if (saved != null) {
+        val saved = db.setting("zakat_inputs") ?: return@LaunchedEffect
+        if (saved.obj != null) {
             inputs = Inputs(
                 saved["cash"].str ?: "", saved["gold"].str ?: "", saved["silver"].str ?: "",
                 saved["goods"].str ?: "", saved["debts"].str ?: "", saved["goldPrice"].str ?: "",
@@ -390,7 +390,7 @@ fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
     val context = LocalContext.current
     val app = context.applicationContext as app.sadaqa.android.SadaqaApp
     val opts = db.engineOptions()
-    var method by remember { mutableStateOf(db.setting("calc_method").str ?: "umm_al_qura") }
+    var method by remember { mutableStateOf(db.setting("calc_method")?.str ?: "umm_al_qura") }
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -567,10 +567,10 @@ fun AudioScreen(db: SadaqaDb, onBack: () -> Unit) {
         withContext(Dispatchers.IO) {
             val text = ContextHolder.app?.assets?.open("audio-catalog.json")?.bufferedReader()?.readText()
             if (text != null) {
-                val root = (kotlinx.serialization.json.Json.parseToJsonElement(text) as? kotlinx.serialization.json.JsonObject)?.content ?: emptyMap()
-                val arr = (root["reciters"] as? kotlinx.serialization.json.JsonArray)?.content ?: emptyList()
+                val root = (kotlinx.serialization.json.Json.parseToJsonElement(text) as? kotlinx.serialization.json.JsonObject) ?: kotlinx.serialization.json.JsonObject(emptyMap())
+                val arr = root["reciters"] as? kotlinx.serialization.json.JsonArray ?: kotlinx.serialization.json.JsonArray(emptyList())
                 reciters = arr.mapNotNull { e ->
-                    val o = (e as? kotlinx.serialization.json.JsonObject)?.content ?: return@mapNotNull null
+                    val o = e as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
                     fun s(k: String) = (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: ""
                     Reciter(s("id"), s("nameAr"), s("style"), s("audio_url_template").replace("{SSSAAA}", ""))
                 }

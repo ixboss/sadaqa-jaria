@@ -10,8 +10,8 @@
 
 package app.sadaqa.android.data
 
-import androidx.sqlite.BundledSQLiteDriver
 import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.SQLiteStatement
 import app.sadaqa.android.backup.BackupCodec
 import app.sadaqa.android.backup.CanonicalJson
@@ -70,9 +70,9 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
                         row.strings[name] = null
                     } else {
                         when (stmt.getColumnType(i)) {
-                            1L -> row.longs[name] = stmt.getLong(i)      // SQLITE_INTEGER
-                            2L -> row.doubles[name] = stmt.getDouble(i)  // SQLITE_FLOAT
-                            3L -> row.strings[name] = stmt.getText(i)    // SQLITE_TEXT
+                            1 -> row.longs[name] = stmt.getLong(i)      // SQLITE_INTEGER
+                            2 -> row.doubles[name] = stmt.getDouble(i)  // SQLITE_FLOAT
+                            3 -> row.strings[name] = stmt.getText(i)    // SQLITE_TEXT
                             else -> row.strings[name] = null
                         }
                     }
@@ -137,14 +137,15 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
 
     fun engineOptions(): EngineOptions {
         val defaults = EngineOptions(21.4225, 39.8262, "Asia/Riyadh")
-        val loc = setting("location")?.obj ?: return defaults
+        val loc = setting("location") ?: return defaults
+        if (loc.obj == null) return defaults
         return EngineOptions(
-            lat = loc["lat"]?.dbl ?: defaults.lat,
-            lng = loc["lng"]?.dbl ?: defaults.lng,
+            lat = loc["lat"].dbl ?: defaults.lat,
+            lng = loc["lng"].dbl ?: defaults.lng,
             timeZone = loc["timeZone"].str ?: defaults.timeZone,
-            method = setting("calc_method").str ?: "umm_al_qura",
-            madhab = setting("madhab").str ?: "shafi",
-            highLatitudeRule = setting("high_latitude_rule").str ?: "middle_of_the_night",
+            method = setting("calc_method")?.str ?: "umm_al_qura",
+            madhab = setting("madhab")?.str ?: "shafi",
+            highLatitudeRule = setting("high_latitude_rule")?.str ?: "middle_of_the_night",
         )
     }
 
@@ -418,15 +419,15 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         val uuid = e["uuid"].str ?: ""
         val updatedAt = e["updatedAt"].long ?: 0L
         when (type) {
-            "bookmark" -> execute("INSERT INTO bookmarks (uuid, page, line_number, ayah_number, label_ar, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET page = excluded.page, line_number = excluded.line_number, ayah_number = excluded.ayah_number, label_ar = excluded.label_ar, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf(uuid, (e["page"].int ?: 1).toLong(), (e["lineNumber"].int ?: 1).toLong(), e["ayahNumber"].long, e["labelAr"].str, e["createdAt"].long ?: updatedAt, updatedAt, del))
-            "highlight" -> execute("INSERT INTO highlights (uuid, ayah_number, word_start, word_end, color_key, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET ayah_number = excluded.ayah_number, word_start = excluded.word_start, word_end = excluded.word_end, color_key = excluded.color_key, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf(uuid, e["ayahNumber"].long, e["wordStart"].long, e["wordEnd"].long, e["colorKey"].str, updatedAt, del))
-            "note" -> execute("INSERT INTO notes (uuid, ayah_number, body, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET ayah_number = excluded.ayah_number, body = excluded.body, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf(uuid, e["ayahNumber"].long, e["body"].str ?: "", e["createdAt"].long ?: updatedAt, updatedAt, del))
-            "khatmahPlan" -> execute("INSERT INTO khatmah_plans (uuid, name_ar, mode, start_date, end_date, daily_pages, active, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET name_ar = excluded.name_ar, mode = excluded.mode, start_date = excluded.start_date, end_date = excluded.end_date, daily_pages = excluded.daily_pages, active = excluded.active, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf(uuid, e["nameAr"].str ?: "ختمتي", e["mode"].str ?: "rate", e["startDate"].str, e["endDate"].str, e["dailyPages"].long, if (e["active"].bool == false) 0L else 1L, e["createdAt"].long ?: updatedAt, updatedAt, del))
-            "tasbihCounter" -> execute("INSERT INTO tasbih_counters (uuid, label_ar, dhikr_text, target, count, total_lifetime, sort_order, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET label_ar = excluded.label_ar, dhikr_text = excluded.dhikr_text, target = excluded.target, count = excluded.count, total_lifetime = excluded.total_lifetime, sort_order = excluded.sort_order, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf(uuid, e["labelAr"].str ?: "ورد", e["dhikrText"].str ?: "", e["target"].long, (e["count"].int ?: 0).toLong(), (e["totalLifetime"].int ?: 0).toLong(), (e["sortOrder"].int ?: 0).toLong(), updatedAt, del))
-            "tasbihSession" -> execute("INSERT INTO tasbih_sessions (uuid, counter_uuid, count_delta, occurred_at) VALUES (?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET count_delta = excluded.count_delta, occurred_at = excluded.occurred_at", listOf(uuid, e["counterUuid"].str ?: "", (e["countDelta"].int ?: 1).toLong(), e["occurredAt"].long ?: 0L))
-            "adhkarState" -> execute("INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(item_id, day_key) DO UPDATE SET count = excluded.count, completed_at = excluded.completed_at, updated_at = excluded.updated_at", listOf(e["itemId"].str ?: "", e["dayKey"].str ?: "", (e["count"].int ?: 0).toLong(), e["completedAt"].long, updatedAt))
-            "streakDay" -> execute("INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)", listOf(e["kind"].str ?: "", e["dayKey"].str ?: "", updatedAt))
-            "setting" -> execute("INSERT INTO user_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", listOf(e["key"].str ?: "", CanonicalJson.serialize(e["value"] ?: Null), updatedAt))
+            "bookmark" -> execute("INSERT INTO bookmarks (uuid, page, line_number, ayah_number, label_ar, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET page = excluded.page, line_number = excluded.line_number, ayah_number = excluded.ayah_number, label_ar = excluded.label_ar, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any>(uuid, (e["page"].int ?: 1).toLong(), (e["lineNumber"].int ?: 1).toLong(), e["ayahNumber"].long, e["labelAr"].str, e["createdAt"].long ?: updatedAt, updatedAt, del))
+            "highlight" -> execute("INSERT INTO highlights (uuid, ayah_number, word_start, word_end, color_key, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET ayah_number = excluded.ayah_number, word_start = excluded.word_start, word_end = excluded.word_end, color_key = excluded.color_key, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any>(uuid, e["ayahNumber"].long, e["wordStart"].long, e["wordEnd"].long, e["colorKey"].str, updatedAt, del))
+            "note" -> execute("INSERT INTO notes (uuid, ayah_number, body, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET ayah_number = excluded.ayah_number, body = excluded.body, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any>(uuid, e["ayahNumber"].long, e["body"].str ?: "", e["createdAt"].long ?: updatedAt, updatedAt, del))
+            "khatmahPlan" -> execute("INSERT INTO khatmah_plans (uuid, name_ar, mode, start_date, end_date, daily_pages, active, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET name_ar = excluded.name_ar, mode = excluded.mode, start_date = excluded.start_date, end_date = excluded.end_date, daily_pages = excluded.daily_pages, active = excluded.active, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any>(uuid, e["nameAr"].str ?: "ختمتي", e["mode"].str ?: "rate", e["startDate"].str, e["endDate"].str, e["dailyPages"].long, if (e["active"].bool == false) 0L else 1L, e["createdAt"].long ?: updatedAt, updatedAt, del))
+            "tasbihCounter" -> execute("INSERT INTO tasbih_counters (uuid, label_ar, dhikr_text, target, count, total_lifetime, sort_order, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET label_ar = excluded.label_ar, dhikr_text = excluded.dhikr_text, target = excluded.target, count = excluded.count, total_lifetime = excluded.total_lifetime, sort_order = excluded.sort_order, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any>(uuid, e["labelAr"].str ?: "ورد", e["dhikrText"].str ?: "", e["target"].long, (e["count"].int ?: 0).toLong(), (e["totalLifetime"].int ?: 0).toLong(), (e["sortOrder"].int ?: 0).toLong(), updatedAt, del))
+            "tasbihSession" -> execute("INSERT INTO tasbih_sessions (uuid, counter_uuid, count_delta, occurred_at) VALUES (?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET count_delta = excluded.count_delta, occurred_at = excluded.occurred_at", listOf<Any>(uuid, e["counterUuid"].str ?: "", (e["countDelta"].int ?: 1).toLong(), e["occurredAt"].long ?: 0L))
+            "adhkarState" -> execute("INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(item_id, day_key) DO UPDATE SET count = excluded.count, completed_at = excluded.completed_at, updated_at = excluded.updated_at", listOf<Any>(e["itemId"].str ?: "", e["dayKey"].str ?: "", (e["count"].int ?: 0).toLong(), e["completedAt"].long, updatedAt))
+            "streakDay" -> execute("INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)", listOf<Any>(e["kind"].str ?: "", e["dayKey"].str ?: "", updatedAt))
+            "setting" -> execute("INSERT INTO user_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", listOf<Any>(e["key"].str ?: "", CanonicalJson.serialize(e["value"] ?: Null), updatedAt))
             else -> throw IllegalArgumentException("unsupported entity type: $type")
         }
     }

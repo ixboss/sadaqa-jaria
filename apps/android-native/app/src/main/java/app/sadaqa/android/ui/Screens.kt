@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +29,7 @@ import app.sadaqa.android.data.SadaqaDb
 import app.sadaqa.android.engine.*
 import app.sadaqa.android.platform.Haptics
 import kotlinx.coroutines.launch
+import java.util.UUID
 import java.time.ZoneId
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -112,7 +114,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit) {
         }
 
         // 6-row daily schedule, next highlighted
-        val sched = remember(opts) { runCatching { engine.daySchedule(isoOf(now, opts.timeZone), opts) }.getOrNull() }
+        val sched = remember(opts) { runCatching { engine.daySchedule(isoOf(now, opts.timeZone)) }.getOrNull() }
         if (sched != null) {
             CardBox {
                 Column {
@@ -128,7 +130,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit) {
         }
 
         // Qiyam windows (the night in progress)
-        val wsNight = remember(opts) { runCatching { engine.sunnahWindows(isoOf(now - 86_400_000, opts.timeZone), opts) }.getOrNull() }
+        val wsNight = remember(opts) { runCatching { engine.sunnahWindows(isoOf(now - 86_400_000, opts.timeZone)) }.getOrNull() }
         if (wsNight != null) {
             CardBox {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -270,10 +272,10 @@ fun AthkarReaderScreen(db: SadaqaDb, categoryId: String, onBack: () -> Unit) {
                         val day = dayKeyOf(now, "UTC")
                         scope.launch {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                db.execute("INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(item_id, day_key) DO UPDATE SET count = excluded.count, completed_at = excluded.completed_at, updated_at = excluded.updated_at", listOf(item.id, day, c.toLong(), if (target > 0 && c >= target) now else null, now))
+                                db.execute("INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(item_id, day_key) DO UPDATE SET count = excluded.count, completed_at = excluded.completed_at, updated_at = excluded.updated_at", listOf<Any>(item.id, day, c.toLong(), if (target > 0 && c >= target) now else null, now))
                                 val kind = db.categoryStreakKind(categoryId)
                                 if (kind != null && target > 0 && c >= target) {
-                                    db.execute("INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)", listOf(kind, day, now))
+                                    db.execute("INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)", listOf<Any>(kind, day, now))
                                 }
                             }
                         }
@@ -339,7 +341,7 @@ fun TasbihScreen(db: SadaqaDb, onClose: () -> Unit) {
         counters = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             if (db.query("SELECT uuid FROM tasbih_counters WHERE deleted = 0").isEmpty()) {
                 db.transaction {
-                    for ((i, preset) in listOf(Triple("سبحان الله", 33), Triple("الحمد لله", 33), Triple("الله أكبر", 34)).withIndex()) {
+                    for ((i, preset) in listOf<Pair<String, Int>>("سبحان الله", 33), Pair("الحمد لله", 33), Pair("الله أكبر", 34)).withIndex()) {
                         db.execute("INSERT INTO tasbih_counters (uuid, label_ar, dhikr_text, target, count, total_lifetime, sort_order, updated_at, deleted) VALUES (?, ?, ?, ?, 0, 0, ?, ?, 0)", listOf(UUID.randomUUID().let { app.sadaqa.android.backup.UUID7.uuid7() }, preset.first, preset.first, preset.second.toLong(), i.toLong(), System.currentTimeMillis()))
                     }
                 }
