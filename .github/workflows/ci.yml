@@ -21,12 +21,13 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install Chromium/Edge for CDP tests
+      - name: Install Google Chrome for CDP tests
         run: |
-          # متصفح Chromium متاح مسبقاً على عدّاءات ubuntu
-          BROWSER=$(command -v chromium-browser || command -v chromium || command -v google-chrome || command -v microsoft-edge)
-          echo "E2E_BROWSER=$BROWSER" >> "$GITHUB_ENV"
-          "$BROWSER" --version
+          # chromium-browser على ubuntu-24.04 هو غلاف snap لا يعمل داخل العدّاءات — ثبّت Chrome الحقيقي
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb
+          sudo dpkg -i /tmp/chrome.deb || sudo apt-get -f install -y
+          echo "E2E_BROWSER=/usr/bin/google-chrome" >> "$GITHUB_ENV"
+          /usr/bin/google-chrome --version
 
       - name: Run unit + E2E suite
         env:
