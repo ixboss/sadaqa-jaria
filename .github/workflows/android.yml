@@ -64,7 +64,7 @@ jobs:
           chmod +x gradlew
           ./gradlew test --no-daemon --stacktrace
 
-      - name: Assemble debug APK (compile gate: Compose + Glance + FGS)
+      - name: "Assemble debug APK (compile gate: Compose + Glance + FGS)"
         working-directory: apps/android-native
         run: ./gradlew assembleDebug --no-daemon
 
