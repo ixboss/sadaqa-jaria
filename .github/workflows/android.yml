@@ -1,0 +1,77 @@
+# ============================================================================
+# android.yml — Android native parity verification (Phase 5).
+# The parity suite is PURE JVM (androidx.sqlite:sqlite-bundled resolves a JVM
+# artifact), so `gradlew test` runs the full fixture replay without a device.
+# assembleDebug is the compile gate for the Compose app + Glance widgets.
+# ============================================================================
+name: android-native
+
+on:
+  push:
+    branches: [main]
+    paths: ["apps/android-native/**", "packages/core-data/**", "apps/web-desktop/js/data/**", "scripts/tools/gen-parity-fixtures.mjs", "scripts/tools/sync-native-assets.mjs", ".github/workflows/android.yml"]
+  pull_request:
+    paths: ["apps/android-native/**", "packages/core-data/**", "apps/web-desktop/js/data/**", "scripts/tools/gen-parity-fixtures.mjs", "scripts/tools/sync-native-assets.mjs", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # pinned to the same major the fixtures were generated with — the
+          # freshness gate requires byte-stable regeneration across toolchains
+          node-version: 26
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install node deps (wawoff2 for woff2→ttf)
+        run: npm install --no-audit --no-fund
+
+      - name: Rebuild offline assets (seeds → db, fonts, audio catalog)
+        run: |
+          npm run seeds:fetch
+          npm run db:build
+          npm run fonts:fetch
+          npm run audio:fetch
+
+      - name: Generate parity fixtures (web golden engines)
+        run: npm run parity:gen
+
+      - name: Fixture freshness gate
+        run: |
+          git diff --exit-code --stat -- tests/parity/fixtures || {
+            echo "::error::parity fixtures are stale — run 'npm run parity:gen' and commit the diff"
+            exit 1
+          }
+
+      - name: Sync native assets (sadaqa.db, fonts→ttf, tokens, fixtures)
+        run: npm run native:sync
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Run JVM parity suite (0 ms drift gates)
+        working-directory: apps/android-native
+        run: |
+          chmod +x gradlew
+          ./gradlew test --no-daemon --stacktrace
+
+      - name: Assemble debug APK (compile gate: Compose + Glance + FGS)
+        working-directory: apps/android-native
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-results
+          path: apps/android-native/app/build/reports/tests
+          if-no-files-found: ignore

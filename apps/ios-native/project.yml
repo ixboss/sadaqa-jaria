@@ -1,0 +1,109 @@
+# XcodeGen project definition — Sadaqa Jaria iOS (Phase 5)
+# Regenerate with: xcodegen generate   (CI installs xcodegen via brew)
+# Dependencies resolve via SwiftPM at first build: GRDB.swift + adhan-swift.
+name: SadaqaJaria
+options:
+  bundleIdPrefix: app.sadaqa
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  xcodeVersion: "16.0"
+
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    exactVersion: 7.9.0
+  Adhan:
+    url: https://github.com/batoulapps/Adhan-Swift
+    exactVersion: 1.3.0   # verified upstream: 1.3.1 tag does not exist; API audited against 1.3.0
+
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    GENERATE_INFOPLIST_FILE: NO
+
+targets:
+  SadaqaJaria:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+      - path: Core
+      - path: Resources
+        buildPhase: resources
+        type: folder-reference
+    dependencies:
+      - package: GRDB
+      - package: Adhan
+      - target: PrayerWidgets
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: صدقة جارية
+        CFBundleShortVersionString: "2.0.0"
+        CFBundleVersion: "2"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        NSMotionUsageDescription: "اتجاه القبلة عبر حساس البوصلة."
+        NSLocationWhenInUseUsageDescription: "حساب اتجاه القبلة من موقعك."
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UIBackgroundModes: [audio]   # athkar hands-free TTS / recitation playback
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.sadaqa.ios
+        CODE_SIGN_ENTITLEMENTS: Support/Sadaqa.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+
+  PrayerWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widgets
+    dependencies:
+      - package: Adhan
+    info:
+      path: Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: مواقيت الصلاة
+        CFBundleShortVersionString: "2.0.0"
+        CFBundleVersion: "2"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.sadaqa.ios.widgets
+        CODE_SIGN_ENTITLEMENTS: Support/Widgets.entitlements
+
+  SadaqaJariaTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+      - path: Fixtures
+        buildPhase: resources
+        type: folder-reference
+    dependencies:
+      - target: SadaqaJaria
+    info:
+      path: Tests/Info.plist
+      properties: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.sadaqa.ios.tests
+
+schemes:
+  SadaqaJaria:
+    build:
+      targets:
+        SadaqaJaria: all
+        PrayerWidgets: [build]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - SadaqaJariaTests

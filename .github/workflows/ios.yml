@@ -1,0 +1,77 @@
+# ============================================================================
+# ios.yml — iOS native parity verification (Phase 5).
+# Regenerates the parity fixtures from the web engines, asserts freshness,
+# syncs assets into the native tree, then compiles + runs the parity suite
+# on a real macOS runner (SwiftPM resolves GRDB.swift + Adhan-Swift).
+# ============================================================================
+name: ios-native
+
+on:
+  push:
+    branches: [main]
+    paths: ["apps/ios-native/**", "packages/core-data/**", "apps/web-desktop/js/data/**", "scripts/tools/gen-parity-fixtures.mjs", "scripts/tools/sync-native-assets.mjs", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["apps/ios-native/**", "packages/core-data/**", "apps/web-desktop/js/data/**", "scripts/tools/gen-parity-fixtures.mjs", "scripts/tools/sync-native-assets.mjs", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+
+jobs:
+  parity:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # pinned to the same major the fixtures were generated with — the
+          # freshness gate requires byte-stable regeneration across toolchains
+          node-version: 26
+
+      - name: Install node deps (wawoff2 for woff2→ttf)
+        run: npm install --no-audit --no-fund
+
+      - name: Rebuild offline assets (seeds → db, fonts, audio catalog)
+        run: |
+          npm run seeds:fetch
+          npm run db:build
+          npm run fonts:fetch
+          npm run audio:fetch
+
+      - name: Generate parity fixtures (web golden engines)
+        run: npm run parity:gen
+
+      - name: Fixture freshness gate (committed fixtures must match the engines)
+        run: |
+          git diff --exit-code --stat -- tests/parity/fixtures || {
+            echo "::error::parity fixtures are stale — run 'npm run parity:gen' and commit the diff"
+            exit 1
+          }
+
+      - name: Sync native assets (sadaqa.db, fonts→ttf, tokens, fixtures)
+        run: npm run native:sync
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: apps/ios-native
+        run: xcodegen generate
+
+      - name: Compile + run parity suite (0 ms drift gates)
+        working-directory: apps/ios-native
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -scheme SadaqaJaria \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -derivedDataPath DerivedData \
+            | xcbeautify || exit 1
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results
+          path: |
+            apps/ios-native/DerivedData/Logs
+          if-no-files-found: ignore
