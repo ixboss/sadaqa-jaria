@@ -1,0 +1,259 @@
+{
+ "meta": {
+  "resolver": "packages/core-data/engines/smart-card.js (§9)"
+ },
+ "cases": [
+  {
+   "name": "makkah:friday-fajr+30",
+   "now": 1793932680000,
+   "note": "rule 1 kahf",
+   "expectedKind": "kahf"
+  },
+  {
+   "name": "makkah:friday-fajr+15",
+   "now": 1793931780000,
+   "note": "rule 2 beats rule 1",
+   "expectedKind": "kahf"
+  },
+  {
+   "name": "makkah:friday-dhuhr+10",
+   "now": 1793956440000,
+   "note": "rule 2",
+   "expectedKind": "after_prayer"
+  },
+  {
+   "name": "makkah:last-third",
+   "now": 1793917480000,
+   "note": "rule 3",
+   "expectedKind": "qiyam"
+  },
+  {
+   "name": "makkah:morning",
+   "now": 1794106440000,
+   "note": "rule 4 (Sunday)",
+   "expectedKind": "morning"
+  },
+  {
+   "name": "makkah:evening",
+   "now": 1794142020000,
+   "note": "rule 5 (Sunday)",
+   "expectedKind": "evening"
+  },
+  {
+   "name": "makkah:next-prayer",
+   "now": 1794129375000,
+   "note": "rule 6 (Sunday)",
+   "expectedKind": "after_prayer"
+  },
+  {
+   "name": "london:friday-fajr+30",
+   "now": 1793943300000,
+   "note": "rule 1 kahf",
+   "expectedKind": "kahf"
+  },
+  {
+   "name": "london:friday-fajr+15",
+   "now": 1793942400000,
+   "note": "rule 2 beats rule 1",
+   "expectedKind": "kahf"
+  },
+  {
+   "name": "london:friday-dhuhr+10",
+   "now": 1793966040000,
+   "note": "rule 2",
+   "expectedKind": "after_prayer"
+  },
+  {
+   "name": "london:last-third",
+   "now": 1793926640000,
+   "note": "rule 3",
+   "expectedKind": "qiyam"
+  },
+  {
+   "name": "london:morning",
+   "now": 1794117180000,
+   "note": "rule 4 (Sunday)",
+   "expectedKind": "morning"
+  },
+  {
+   "name": "london:evening",
+   "now": 1794147960000,
+   "note": "rule 5 (Sunday)",
+   "expectedKind": "evening"
+  },
+  {
+   "name": "london:next-prayer",
+   "now": 1794138030000,
+   "note": "rule 6 (Sunday)",
+   "expectedKind": "next_prayer"
+  },
+  {
+   "name": "anchorage:friday-fajr+30",
+   "now": 1793979360000,
+   "note": "rule 1 kahf",
+   "expectedKind": "kahf"
+  },
+  {
+   "name": "anchorage:friday-fajr+15",
+   "now": 1793978460000,
+   "note": "rule 2 beats rule 1",
+   "expectedKind": "kahf"
+  },
+  {
+   "name": "anchorage:friday-dhuhr+10",
+   "now": 1794001980000,
+   "note": "rule 2",
+   "expectedKind": "after_prayer"
+  },
+  {
+   "name": "anchorage:last-third",
+   "now": 1793961860000,
+   "note": "rule 3",
+   "expectedKind": "qiyam"
+  },
+  {
+   "name": "anchorage:morning",
+   "now": 1794153360000,
+   "note": "rule 4 (Sunday)",
+   "expectedKind": "morning"
+  },
+  {
+   "name": "anchorage:evening",
+   "now": 1794181140000,
+   "note": "rule 5 (Sunday)",
+   "expectedKind": "evening"
+  },
+  {
+   "name": "anchorage:next-prayer",
+   "now": 1794173212500,
+   "note": "rule 6 (Sunday)",
+   "expectedKind": "next_prayer"
+  },
+  {
+   "name": "auckland:friday-fajr+30",
+   "now": 1793894400000,
+   "note": "rule 1 kahf",
+   "expectedKind": "kahf"
+  },
+  {
+   "name": "auckland:friday-fajr+15",
+   "now": 1793893500000,
+   "note": "rule 2 beats rule 1",
+   "expectedKind": "kahf"
+  },
+  {
+   "name": "auckland:friday-dhuhr+10",
+   "now": 1793924100000,
+   "note": "rule 2",
+   "expectedKind": "after_prayer"
+  },
+  {
+   "name": "auckland:last-third",
+   "now": 1793882660000,
+   "note": "rule 3",
+   "expectedKind": "qiyam"
+  },
+  {
+   "name": "auckland:morning",
+   "now": 1794067920000,
+   "note": "rule 4 (Sunday)",
+   "expectedKind": "morning"
+  },
+  {
+   "name": "auckland:evening",
+   "now": 1794111720000,
+   "note": "rule 5 (Sunday)",
+   "expectedKind": "evening"
+  },
+  {
+   "name": "auckland:next-prayer",
+   "now": 1794096870000,
+   "note": "rule 6 (Sunday)",
+   "expectedKind": "after_prayer"
+  },
+  {
+   "name": "losangeles:friday-fajr+30",
+   "now": 1793971200000,
+   "note": "rule 1 kahf",
+   "expectedKind": "kahf"
+  },
+  {
+   "name": "losangeles:friday-fajr+15",
+   "now": 1793970300000,
+   "note": "rule 2 beats rule 1",
+   "expectedKind": "kahf"
+  },
+  {
+   "name": "losangeles:friday-dhuhr+10",
+   "now": 1793994420000,
+   "note": "rule 2",
+   "expectedKind": "after_prayer"
+  },
+  {
+   "name": "losangeles:last-third",
+   "now": 1793955420000,
+   "note": "rule 3",
+   "expectedKind": "qiyam"
+  },
+  {
+   "name": "losangeles:morning",
+   "now": 1794144960000,
+   "note": "rule 4 (Sunday)",
+   "expectedKind": "morning"
+  },
+  {
+   "name": "losangeles:evening",
+   "now": 1794178920000,
+   "note": "rule 5 (Sunday)",
+   "expectedKind": "evening"
+  },
+  {
+   "name": "losangeles:next-prayer",
+   "now": 1794167092500,
+   "note": "rule 6 (Sunday)",
+   "expectedKind": "after_prayer"
+  },
+  {
+   "name": "tokyo:friday-fajr+30",
+   "now": 1793909280000,
+   "note": "rule 1 kahf",
+   "expectedKind": "kahf"
+  },
+  {
+   "name": "tokyo:friday-fajr+15",
+   "now": 1793908380000,
+   "note": "rule 2 beats rule 1",
+   "expectedKind": "kahf"
+  },
+  {
+   "name": "tokyo:friday-dhuhr+10",
+   "now": 1793932500000,
+   "note": "rule 2",
+   "expectedKind": "after_prayer"
+  },
+  {
+   "name": "tokyo:last-third",
+   "now": 1793893480000,
+   "note": "rule 3",
+   "expectedKind": "qiyam"
+  },
+  {
+   "name": "tokyo:morning",
+   "now": 1794083100000,
+   "note": "rule 4 (Sunday)",
+   "expectedKind": "morning"
+  },
+  {
+   "name": "tokyo:evening",
+   "now": 1794116880000,
+   "note": "rule 5 (Sunday)",
+   "expectedKind": "evening"
+  },
+  {
+   "name": "tokyo:next-prayer",
+   "now": 1794105165000,
+   "note": "rule 6 (Sunday)",
+   "expectedKind": "after_prayer"
+  }
+ ]
+}

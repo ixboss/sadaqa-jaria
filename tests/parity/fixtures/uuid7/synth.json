@@ -1,0 +1,42 @@
+{
+ "meta": {
+  "pinnedNow": 1764300000000,
+  "algorithm": "FNV-1a ×4 seeds [811c9dc5, 0193dc47, 9e3779b9, 85ebca6b] over ASCII key, shaped to UUIDv7 with pinned 48-bit ms timestamp",
+  "shapeRegex": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+ },
+ "synth": [
+  {
+   "key": "setting:theme",
+   "uuid": "019ac879-8b00-74c3-b339-fce01c24c284"
+  },
+  {
+   "key": "setting:calc_method",
+   "uuid": "019ac879-8b00-7605-b472-a64682d68424"
+  },
+  {
+   "key": "setting:font_scale",
+   "uuid": "019ac879-8b00-7385-b885-4fc9b040b972"
+  },
+  {
+   "key": "adhkar:item-14:2026-11-17",
+   "uuid": "019ac879-8b00-7db4-b0e6-818ab3a73f51"
+  },
+  {
+   "key": "adhkar:cat-3-9:2026-11-16",
+   "uuid": "019ac879-8b00-7606-bf8b-9d0456184317"
+  },
+  {
+   "key": "streak:tasbih:2026-11-16",
+   "uuid": "019ac879-8b00-73d8-b4dd-3bddf5fb0922"
+  },
+  {
+   "key": "streak:adhkar_morning:2026-11-17",
+   "uuid": "019ac879-8b00-7398-b99f-1d95a992c3c3"
+  },
+  {
+   "key": "row:3f2504e0-4f89-11d3-9a0c-0305e82c3301",
+   "uuid": "019ac879-8b00-73d2-b5b8-c2e6aa64f80a"
+  }
+ ],
+ "freshAllSameTimestampPrefix": true
+}

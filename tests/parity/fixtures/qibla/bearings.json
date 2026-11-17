@@ -1,0 +1,79 @@
+{
+ "meta": {
+  "engine": "qibla.js (Kaaba 21.4225, 39.8262)"
+ },
+ "points": [
+  {
+   "name": "makkah",
+   "lat": 21.4225,
+   "lng": 39.8262,
+   "timeZone": "Asia/Riyadh",
+   "bearing": 0,
+   "distanceKm": 0
+  },
+  {
+   "name": "london",
+   "lat": 51.5074,
+   "lng": -0.1278,
+   "timeZone": "Europe/London",
+   "bearing": 118.98721949633443,
+   "distanceKm": 4793.781762338425
+  },
+  {
+   "name": "anchorage",
+   "lat": 61.2181,
+   "lng": -149.9003,
+   "timeZone": "America/Anchorage",
+   "bearing": 350.8830571142069,
+   "distanceKm": 10784.514861940694
+  },
+  {
+   "name": "auckland",
+   "lat": -36.8485,
+   "lng": 174.7633,
+   "timeZone": "Pacific/Auckland",
+   "bearing": 261.19730910755646,
+   "distanceKm": 15364.606370140775
+  },
+  {
+   "name": "losangeles",
+   "lat": 34.0522,
+   "lng": -118.2437,
+   "timeZone": "America/Los_Angeles",
+   "bearing": 23.85707595967068,
+   "distanceKm": 13424.336324286387
+  },
+  {
+   "name": "tokyo",
+   "lat": 35.6762,
+   "lng": 139.6503,
+   "timeZone": "Asia/Tokyo",
+   "bearing": 292.9986801861639,
+   "distanceKm": 9471.862248741261
+  },
+  {
+   "name": "newyork",
+   "lat": 40.7128,
+   "lng": -74.006,
+   "timeZone": "America/New_York",
+   "bearing": 58.48170103788368,
+   "distanceKm": 10306.32062427432
+  },
+  {
+   "name": "capetown",
+   "lat": -33.9249,
+   "lng": 18.4241,
+   "timeZone": "Africa/Johannesburg",
+   "bearing": 23.352542268995705,
+   "distanceKm": 6558.314515071523
+  },
+  {
+   "name": "jakarta",
+   "lat": -6.2088,
+   "lng": 106.8456,
+   "timeZone": "Asia/Jakarta",
+   "bearing": 295.15173626224407,
+   "distanceKm": 7920.137774584166
+  }
+ ]
+}

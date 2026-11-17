@@ -1,0 +1,683 @@
+{
+ "meta": {
+  "merger": "backup-merge.js §8.3"
+ },
+ "cases": [
+  {
+   "name": "merge-adds-new",
+   "mode": "merge",
+   "now": 1764300900000,
+   "local": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 100,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ]
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000002",
+      "updatedAt": 200,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ]
+   },
+   "expected": {
+    "report": {
+     "added": 1,
+     "updated": 0,
+     "conflicts": 0,
+     "skipped": 0,
+     "deleted": 0
+    },
+    "mutations": [
+     {
+      "group": "reading",
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000002",
+      "entity": {
+       "uuid": "018f3f2e-7abc-7def-8abc-000000000002",
+       "updatedAt": 200,
+       "type": "bookmark",
+       "page": 3,
+       "deleted": false
+      },
+      "action": "insert"
+     }
+    ]
+   }
+  },
+  {
+   "name": "merge-skips-identical",
+   "mode": "merge",
+   "now": 1764300900000,
+   "local": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 100,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ]
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 100,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ]
+   },
+   "expected": {
+    "report": {
+     "added": 0,
+     "updated": 0,
+     "conflicts": 0,
+     "skipped": 1,
+     "deleted": 0
+    },
+    "mutations": []
+   }
+  },
+  {
+   "name": "merge-keyorder-identical",
+   "mode": "merge",
+   "now": 1764300900000,
+   "local": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "type": "bookmark",
+      "updatedAt": 100,
+      "deleted": false,
+      "page": 3
+     }
+    ]
+   },
+   "payload": {
+    "reading": [
+     {
+      "page": 3,
+      "deleted": false,
+      "updatedAt": 100,
+      "type": "bookmark",
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001"
+     }
+    ]
+   },
+   "expected": {
+    "report": {
+     "added": 0,
+     "updated": 0,
+     "conflicts": 0,
+     "skipped": 1,
+     "deleted": 0
+    },
+    "mutations": []
+   }
+  },
+  {
+   "name": "merge-incoming-newer-applies",
+   "mode": "merge",
+   "now": 1764300900000,
+   "local": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 100,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ]
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 200,
+      "type": "bookmark",
+      "page": 7,
+      "deleted": false
+     }
+    ]
+   },
+   "expected": {
+    "report": {
+     "added": 0,
+     "updated": 1,
+     "conflicts": 0,
+     "skipped": 0,
+     "deleted": 0
+    },
+    "mutations": [
+     {
+      "group": "reading",
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "entity": {
+       "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+       "updatedAt": 200,
+       "type": "bookmark",
+       "page": 7,
+       "deleted": false
+      },
+      "action": "apply"
+     }
+    ]
+   }
+  },
+  {
+   "name": "merge-local-newer-conflict",
+   "mode": "merge",
+   "now": 1764300900000,
+   "local": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 300,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ]
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 200,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ]
+   },
+   "expected": {
+    "report": {
+     "added": 0,
+     "updated": 0,
+     "conflicts": 1,
+     "skipped": 0,
+     "deleted": 0
+    },
+    "mutations": []
+   }
+  },
+  {
+   "name": "merge-tombstone-wins",
+   "mode": "merge",
+   "now": 1764300900000,
+   "local": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 300,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": true
+     }
+    ]
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 200,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ]
+   },
+   "expected": {
+    "report": {
+     "added": 0,
+     "updated": 0,
+     "conflicts": 0,
+     "skipped": 1,
+     "deleted": 0
+    },
+    "mutations": []
+   }
+  },
+  {
+   "name": "merge-resurrection",
+   "mode": "merge",
+   "now": 1764300900000,
+   "local": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 100,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": true
+     }
+    ]
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 200,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ]
+   },
+   "expected": {
+    "report": {
+     "added": 0,
+     "updated": 1,
+     "conflicts": 0,
+     "skipped": 0,
+     "deleted": 0
+    },
+    "mutations": [
+     {
+      "group": "reading",
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "entity": {
+       "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+       "updatedAt": 200,
+       "type": "bookmark",
+       "page": 3,
+       "deleted": false
+      },
+      "action": "restore"
+     }
+    ]
+   }
+  },
+  {
+   "name": "merge-same-time-conflict",
+   "mode": "merge",
+   "now": 1764300900000,
+   "local": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 200,
+      "type": "bookmark",
+      "page": 5,
+      "deleted": false
+     }
+    ]
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 200,
+      "type": "bookmark",
+      "page": 9,
+      "deleted": false
+     }
+    ]
+   },
+   "expected": {
+    "report": {
+     "added": 0,
+     "updated": 0,
+     "conflicts": 1,
+     "skipped": 0,
+     "deleted": 0
+    },
+    "mutations": []
+   }
+  },
+  {
+   "name": "merge-group-absent",
+   "mode": "merge",
+   "now": 1764300900000,
+   "local": {},
+   "payload": {
+    "meta": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000003",
+      "updatedAt": 50,
+      "type": "streakDay",
+      "kind": "tasbih",
+      "dayKey": "2026-11-16"
+     }
+    ]
+   },
+   "expected": {
+    "report": {
+     "added": 1,
+     "updated": 0,
+     "conflicts": 0,
+     "skipped": 0,
+     "deleted": 0
+    },
+    "mutations": [
+     {
+      "group": "meta",
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000003",
+      "entity": {
+       "uuid": "018f3f2e-7abc-7def-8abc-000000000003",
+       "updatedAt": 50,
+       "type": "streakDay",
+       "kind": "tasbih",
+       "dayKey": "2026-11-16"
+      },
+      "action": "insert"
+     }
+    ]
+   }
+  },
+  {
+   "name": "merge-empty-payload",
+   "mode": "merge",
+   "now": 1764300900000,
+   "local": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 100,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ]
+   },
+   "payload": {},
+   "expected": {
+    "report": {
+     "added": 0,
+     "updated": 0,
+     "conflicts": 0,
+     "skipped": 0,
+     "deleted": 0
+    },
+    "mutations": []
+   }
+  },
+  {
+   "name": "replace-inserts-all",
+   "mode": "replace",
+   "now": 1764300900000,
+   "local": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 100,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ]
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000002",
+      "updatedAt": 200,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     },
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000003",
+      "updatedAt": 300,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ]
+   },
+   "expected": {
+    "report": {
+     "added": 2,
+     "updated": 0,
+     "conflicts": 0,
+     "skipped": 0,
+     "deleted": 0
+    },
+    "mutations": [
+     {
+      "group": "reading",
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000002",
+      "entity": {
+       "uuid": "018f3f2e-7abc-7def-8abc-000000000002",
+       "updatedAt": 200,
+       "type": "bookmark",
+       "page": 3,
+       "deleted": false
+      },
+      "action": "insert"
+     },
+     {
+      "group": "reading",
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000003",
+      "entity": {
+       "uuid": "018f3f2e-7abc-7def-8abc-000000000003",
+       "updatedAt": 300,
+       "type": "bookmark",
+       "page": 3,
+       "deleted": false
+      },
+      "action": "insert"
+     }
+    ]
+   }
+  },
+  {
+   "name": "replace-ignores-local",
+   "mode": "replace",
+   "now": 1764300900000,
+   "local": {
+    "dhikr": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 100,
+      "type": "tasbihCounter",
+      "page": 3,
+      "deleted": false,
+      "dhikrText": "x"
+     }
+    ]
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000002",
+      "updatedAt": 200,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ]
+   },
+   "expected": {
+    "report": {
+     "added": 1,
+     "updated": 0,
+     "conflicts": 0,
+     "skipped": 0,
+     "deleted": 0
+    },
+    "mutations": [
+     {
+      "group": "reading",
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000002",
+      "entity": {
+       "uuid": "018f3f2e-7abc-7def-8abc-000000000002",
+       "updatedAt": 200,
+       "type": "bookmark",
+       "page": 3,
+       "deleted": false
+      },
+      "action": "insert"
+     }
+    ]
+   }
+  },
+  {
+   "name": "merge-multi-group",
+   "mode": "merge",
+   "now": 1764300900000,
+   "local": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 100,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ],
+    "prefs": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000010",
+      "updatedAt": 10,
+      "type": "setting",
+      "key": "theme",
+      "value": "dark"
+     }
+    ]
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 200,
+      "type": "bookmark",
+      "page": 12,
+      "deleted": false
+     }
+    ],
+    "prefs": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000011",
+      "updatedAt": 20,
+      "type": "setting",
+      "key": "font_scale",
+      "value": 1.5
+     }
+    ]
+   },
+   "expected": {
+    "report": {
+     "added": 1,
+     "updated": 1,
+     "conflicts": 0,
+     "skipped": 0,
+     "deleted": 0
+    },
+    "mutations": [
+     {
+      "group": "reading",
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "entity": {
+       "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+       "updatedAt": 200,
+       "type": "bookmark",
+       "page": 12,
+       "deleted": false
+      },
+      "action": "apply"
+     },
+     {
+      "group": "prefs",
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000011",
+      "entity": {
+       "uuid": "018f3f2e-7abc-7def-8abc-000000000011",
+       "updatedAt": 20,
+       "type": "setting",
+       "key": "font_scale",
+       "value": 1.5
+      },
+      "action": "insert"
+     }
+    ]
+   }
+  },
+  {
+   "name": "merge-incoming-older-than-tombstone",
+   "mode": "merge",
+   "now": 1764300900000,
+   "local": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 500,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": true
+     }
+    ]
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 400,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": false
+     }
+    ]
+   },
+   "expected": {
+    "report": {
+     "added": 0,
+     "updated": 0,
+     "conflicts": 0,
+     "skipped": 1,
+     "deleted": 0
+    },
+    "mutations": []
+   }
+  },
+  {
+   "name": "merge-tombstone-both-same-time",
+   "mode": "merge",
+   "now": 1764300900000,
+   "local": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 300,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": true
+     }
+    ]
+   },
+   "payload": {
+    "reading": [
+     {
+      "uuid": "018f3f2e-7abc-7def-8abc-000000000001",
+      "updatedAt": 300,
+      "type": "bookmark",
+      "page": 3,
+      "deleted": true
+     }
+    ]
+   },
+   "expected": {
+    "report": {
+     "added": 0,
+     "updated": 0,
+     "conflicts": 0,
+     "skipped": 1,
+     "deleted": 0
+    },
+    "mutations": []
+   }
+  }
+ ]
+}

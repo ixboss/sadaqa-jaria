@@ -1,0 +1,23 @@
+{
+  "name": "sadaqa-desktop",
+  "version": "2.0.0",
+  "description": "صدقة جارية — سطح المكتب (Electron shell فوق الـGolden Reference)",
+  "main": "main.cjs",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "probe": "electron . --probe",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.4.1"
+  },
+  "devDependencies": {
+    "electron": "^38.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "electron@38.8.6": true
+  }
+}
