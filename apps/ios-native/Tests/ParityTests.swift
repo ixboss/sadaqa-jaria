@@ -10,11 +10,22 @@ import GRDB
 @testable import SadaqaJaria
 
 final class FixtureLoader {
-    /// Fixtures are a folder-reference named "Fixtures" in the test bundle.
+    /// Fixtures live in `apps/ios-native/Fixtures` and are copied into the test
+    /// bundle (either as a `Fixtures` folder reference or flat by XcodeGen).
     static func read(_ rel: String) throws -> JSONValue {
         let bundle = Bundle(for: FixtureLoader.self)
-        guard let url = bundle.url(forResource: "Fixtures", withExtension: nil)?
-            .appendingPathComponent(rel) else {
+        let leaf = (rel as NSString).lastPathComponent
+        let candidates: [URL?] = [
+            bundle.url(forResource: "Fixtures", withExtension: nil)?.appendingPathComponent(rel),
+            bundle.resourceURL?.appendingPathComponent(rel),
+            bundle.resourceURL?.appendingPathComponent(leaf),
+            URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("Fixtures")
+                .appendingPathComponent(rel),
+        ]
+        guard let url = candidates.compactMap({ $0 }).first(where: { FileManager.default.fileExists(atPath: $0.path) }) else {
             XCTFail("missing fixture: \(rel)")
             throw NSError(domain: "fixtures", code: 1)
         }
@@ -290,11 +301,13 @@ final class SchemaContractTests: XCTestCase {
         let contract = try FixtureLoader.read("schema/tableinfo.json")
         let tables = try XCTUnwrap(contract["tables"]?.objectValue)
         let bundle = Bundle(for: FixtureLoader.self)
-        let url = try XCTUnwrap(bundle.url(forResource: "Fixtures", withExtension: nil)?.deletingLastPathComponent()
-            .deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("Resources/sadaqa.db"))
+        let repoDb = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Resources/sadaqa.db")
+        let bundledDb = bundle.url(forResource: "sadaqa", withExtension: "db")
         // Prefer the app bundle resource when running via the host app target
-        let dbUrl = Bundle.main.url(forResource: "sadaqa", withExtension: "db") ?? url
+        let dbUrl = Bundle.main.url(forResource: "sadaqa", withExtension: "db") ?? bundledDb ?? repoDb
         let db = try DatabaseQueue(path: dbUrl.path)
         try db.read { db in
             for (name, spec) in tables {
@@ -328,10 +341,12 @@ final class ExportImportRoundTripTests: XCTestCase {
     func makeDb() throws -> SadaqaDatabase {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("p5-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let seed = Bundle(for: FixtureLoader.self).url(forResource: "Fixtures", withExtension: nil)!
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let repoDb = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
             .appendingPathComponent("Resources/sadaqa.db")
-        let src = Bundle.main.url(forResource: "sadaqa", withExtension: "db") ?? seed
+        let testDb = Bundle(for: FixtureLoader.self).url(forResource: "sadaqa", withExtension: "db")
+        let src = Bundle.main.url(forResource: "sadaqa", withExtension: "db") ?? testDb ?? repoDb
         let dst = dir.appendingPathComponent("sadaqa.db")
         try FileManager.default.copyItem(at: src, to: dst)
         let q = try DatabaseQueue(path: dst.path)
