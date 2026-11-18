@@ -3,6 +3,7 @@
 # dev server, no network.
 appId: app.sadaqa.desktop
 productName: Sadaqa Jaria
+icon: ../../icons/icon-512.png
 directories:
   output: dist
 files:
@@ -18,9 +19,23 @@ extraResources:
     to: packages/core-data/vendor
   - from: ../../packages/core-data/build/sadaqa.db
     to: packages/core-data/build/sadaqa.db
+  - from: ../../packages/design-tokens
+    to: packages/design-tokens
 win:
   target: nsis
 nsis:
   oneClick: false
   perMachine: false
   artifactName: SadaqaJaria-Setup-${version}.${ext}
+mac:
+  target:
+    - dmg
+    - zip
+  identity: null
+  artifactName: SadaqaJaria-${version}-${arch}.${ext}
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Utility
+  artifactName: SadaqaJaria-${version}-${arch}.${ext}

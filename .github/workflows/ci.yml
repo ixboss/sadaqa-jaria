@@ -43,9 +43,149 @@ jobs:
           npm run test:core
           npm run parity:verify
 
-  release:
-    name: Publish Web/PWA release archive
+  build-android:
+    name: Build Android APK
     needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install node deps & rebuild offline assets
+        run: |
+          npm install --no-audit --no-fund
+          npm run seeds:fetch
+          npm run db:build
+          npm run fonts:fetch
+          npm run audio:fetch
+          npm run native:sync
+
+      - name: Assemble Android APK
+        working-directory: apps/android-native
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/sadaqa-jaria-${{ github.ref_name }}-android.apk"
+
+      - name: Upload Android APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-android
+          path: sadaqa-jaria-*-android.apk
+          if-no-files-found: error
+
+  build-ios:
+    name: Build iOS unsigned IPA
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
+      - name: Install node deps & rebuild offline assets
+        run: |
+          npm install --no-audit --no-fund
+          npm run seeds:fetch
+          npm run db:build
+          npm run fonts:fetch
+          npm run audio:fetch
+          npm run native:sync
+
+      - name: Install XcodeGen & generate project
+        working-directory: apps/ios-native
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build unsigned iOS app & package IPA
+        working-directory: apps/ios-native
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -scheme SadaqaJaria \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify
+          APP_PATH="build/DerivedData/Build/Products/Release-iphoneos/SadaqaJaria.app"
+          test -d "$APP_PATH"
+          mkdir -p build/ipa/Payload
+          cp -R "$APP_PATH" build/ipa/Payload/
+          (cd build/ipa && zip -qry "$GITHUB_WORKSPACE/SadaqaJaria-${{ github.ref_name }}-unsigned.ipa" Payload)
+
+      - name: Upload iOS IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ios
+          path: SadaqaJaria-*-unsigned.ipa
+          if-no-files-found: error
+
+  build-desktop:
+    name: Build Desktop (${{ matrix.os }})
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install root deps & rebuild offline assets
+        run: |
+          npm install --no-audit --no-fund
+          npm run seeds:fetch
+          npm run db:build
+          npm run fonts:fetch
+          npm run audio:fetch
+
+      - name: Install Electron deps & package installer
+        working-directory: apps/electron
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npm install --no-audit --no-fund
+          npx electron-builder --publish never
+
+      - name: Upload Desktop installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-desktop-${{ matrix.os }}
+          path: |
+            apps/electron/dist/*.exe
+            apps/electron/dist/*.dmg
+            apps/electron/dist/*.zip
+            apps/electron/dist/*.AppImage
+            apps/electron/dist/*.deb
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: [test, build-android, build-ios, build-desktop]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
@@ -57,8 +197,19 @@ jobs:
           cp -r index.html manifest.json sw.js robots.txt sitemap.xml icons assets css js .nojekyll dist/sadaqa-jaria/
           cd dist && zip -r "../sadaqa-jaria-${{ github.ref_name }}-web.zip" sadaqa-jaria
 
+      - name: Download native & desktop release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: List release assets
+        run: ls -lh sadaqa-jaria-*-web.zip release-artifacts/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: sadaqa-jaria-*-web.zip
+          files: |
+            sadaqa-jaria-*-web.zip
+            release-artifacts/*
           generate_release_notes: true
