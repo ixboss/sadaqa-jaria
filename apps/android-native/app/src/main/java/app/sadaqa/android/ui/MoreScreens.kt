@@ -666,7 +666,7 @@ private fun MushafPagePlate(
             val tf = if (verifiedPageFont != null) (verifiedTypeface ?: uthmanicTypeface) else uthmanicTypeface
             val paint = android.graphics.Paint().apply {
                 typeface = tf
-                textSize = 20f * density.scaledDensity
+                textSize = with(density) { 20f.sp.toPx() }
             }
             var maxLineW = 1f
             for (item in lines) {
