@@ -298,10 +298,11 @@ async function launch(viewport) {
     `--remote-debugging-port=${CDP_PORT}`, `--user-data-dir=${profile}`,
     '--headless=new', '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--hide-scrollbars',
-    `--window-size=${viewport.w},${viewport.h}`
+    `--window-size=${viewport.w},${viewport.h}`,
+    '--disable-gpu', '--disable-dev-shm-usage'
   ], { stdio: 'ignore' });
-  let targets;
-  for (let i = 0; i < 40; i++) {
+  let targets = null;
+  for (let i = 0; i < 80; i++) {
     try {
       const r = await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`);
       targets = await r.json();
@@ -309,6 +310,7 @@ async function launch(viewport) {
     } catch (e) {}
     await sleep(300);
   }
+  if (!targets) throw new Error('browser CDP endpoint never came up on port ' + CDP_PORT);
   const page = targets.find(t => t.type === 'page');
   await connect(page.webSocketDebuggerUrl);
   await send('Page.enable');
