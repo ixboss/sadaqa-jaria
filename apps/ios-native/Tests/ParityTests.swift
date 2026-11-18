@@ -344,6 +344,7 @@ final class ExportImportRoundTripTests: XCTestCase {
             "manifest": fx["manifest"]!, "payload": try JSONValue.parse(fx["payloadJson"]!.stringValue!),
         ]))
         let db = try makeDb()
+        _ = try db.deviceId()
 
         // 1. Merge into the empty seed → all inserts
         let merge = try db.importBackup(text: text, mode: "merge")

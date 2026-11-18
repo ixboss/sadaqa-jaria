@@ -324,9 +324,9 @@ class SchemaContractTest {
     fun bundledDatabaseMatchesSchemaContract() {
         val contract = Fixtures.read("schema/tableinfo.json")
         val tables = contract["tables"]!!.obj!!
-        val dbFile = File("build/tmp-p5/sadaqa.db").also { f ->
+        val dbFile = File("build/tmp-p5/schema-${System.nanoTime()}.db").also { f ->
             f.parentFile?.mkdirs()
-            if (!f.exists()) f.writeBytes(seedBytes())
+            f.writeBytes(seedBytes())
         }
         val db = SadaqaDb.open(dbFile, ::seedBytes)
         try {
@@ -342,7 +342,7 @@ class SchemaContractTest {
                     assertEquals("table $name col $col pk", if ((w["pk"]!!.int!!) > 0) 1L else 0L, if ((c.longs["pk"] ?: 0L) > 0) 1L else 0L)
                     // defaults: compare normalized (both sides null OR equal text)
                     val wantDflt = w["dflt"]?.str
-                    val gotDflt = c.strings["dflt"]
+                    val gotDflt = c.strings["dflt_value"]
                     if (wantDflt != null || gotDflt != null) {
                         assertEquals("table $name col $col default", wantDflt, gotDflt)
                     }
@@ -396,6 +396,7 @@ class DbRoundTripTest {
             )),
         )
         val db = makeDb()
+        db.deviceId()
         try {
             // 1. Merge into the empty seed → all inserts
             val merge = db.importBackup(text, "merge")
