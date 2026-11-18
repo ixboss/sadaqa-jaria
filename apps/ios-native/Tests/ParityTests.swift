@@ -6,6 +6,7 @@
 // ============================================================================
 
 import XCTest
+import GRDB
 @testable import SadaqaJaria
 
 final class FixtureLoader {

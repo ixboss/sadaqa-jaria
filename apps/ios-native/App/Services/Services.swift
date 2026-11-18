@@ -8,6 +8,7 @@
 import Foundation
 import UIKit
 import CoreHaptics
+import GRDB
 import AVFoundation
 import UserNotifications
 
@@ -45,8 +46,8 @@ final class HapticsEngine {
                     ], relativeTime: t))
                     t += TimeInterval(ms) / 1000
                 }
-                let pattern = try CHHapticPattern(events: events, parameters: [CHHapticParameter]())
-                try engine?.playPattern(pattern)
+                let pattern = try CHHapticPattern(events: events, parameters: [])
+                try engine?.makePlayer(with: pattern).start(atTime: CHHapticTimeImmediate)
                 return
             } catch { /* fall through to generator */ }
         }
