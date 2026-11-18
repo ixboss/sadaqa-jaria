@@ -141,10 +141,10 @@ struct MushafPageView: View {
                         // swipe left-to-right (positive width) goes back — support both intuitively.
                         if g.translation.width < -40 && page < 604 {
                             page += 1
-                            HapticsEngine.shared.play(appState.theme.all.haptics?.pageFlipSettle ?? [10])
+                            HapticsEngine.shared.play(pattern: appState.theme.all.haptics?.pageFlipSettle ?? [10])
                         } else if g.translation.width > 40 && page > 1 {
                             page -= 1
-                            HapticsEngine.shared.play(appState.theme.all.haptics?.pageFlipSettle ?? [10])
+                            HapticsEngine.shared.play(pattern: appState.theme.all.haptics?.pageFlipSettle ?? [10])
                         }
                     }
                 )
@@ -375,9 +375,9 @@ struct MushafPageView: View {
 
     private func togglePageBookmark() {
         let label = meta.surahName.isEmpty ? "صفحة \(page)" : "\(meta.surahName) · ص \(page)"
-        if let added = try? appState.db.toggleBookmark(page: page, lineNumber: nil, ayahNumber: nil, labelAr: label, now: Date.nowMs) {
+        if let added = try? appState.db.toggleBookmark(page: page, lineNumber: 1, ayahNumber: nil, labelAr: label, now: Date.nowMs) {
             isBookmarked = added
-            HapticsEngine.shared.play(appState.theme.all.haptics?.bookmarkSaved ?? [15, 40])
+            HapticsEngine.shared.play(pattern: appState.theme.all.haptics?.bookmarkSaved ?? [15, 40])
             loadHubData()
         }
     }
@@ -385,7 +385,7 @@ struct MushafPageView: View {
     private func playAyah(surah: Int, ayah: Int) {
         if let url = AudioStore.shared.localURL(reciter: "alafasy", surah: surah, ayah: ayah) {
             activeRecitation = (surah, ayah)
-            player.play(urls: [url])
+            player.play(url: url) { activeRecitation = nil }
         } else {
             showAudioSheet = true
         }
@@ -730,14 +730,115 @@ struct AyahActionSheet: View {
     }
 
     private func toggleBookmark() {
-        if let added = try? appState.db.toggleBookmark(page: page, lineNumber: nil, ayahNumber: ayahNumber, labelAr: "\(surahName) \(ayahInSurah)", now: Date.nowMs) {
+        if let added = try? appState.db.toggleBookmark(page: page, lineNumber: 1, ayahNumber: ayahNumber, labelAr: "\(surahName) \(ayahInSurah)", now: Date.nowMs) {
             bookmarked = added
-            HapticsEngine.shared.play(appState.theme.all.haptics?.bookmarkSaved ?? [15, 40])
+            HapticsEngine.shared.play(pattern: appState.theme.all.haptics?.bookmarkSaved ?? [15, 40])
         }
     }
 
     private func copyAyah() {
         UIPasteboard.general.string = "\(textUthmani)\n— \(surahName) · الآية \(ayahInSurah)"
         copied = true
+    }
+}
+
+struct KhatmahView: View {
+    @EnvironmentObject var appState: AppState
+    @State private var planName: String = "ختمتي"
+    @State private var planUuid: String?
+    @State private var completedPages: Int = 0
+    @State private var dailyPages: Int = 20
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(planUuid == nil ? "ابدأ ختمة جديدة" : planName)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(appState.theme.textPrimary)
+                    Text(planUuid == nil
+                         ? "اختر ورداً يومياً وتابع تقدمك من ٦٠٤ صفحات."
+                         : "أُنجز \(completedPages) من ٦٠٤ صفحة (\(Int((Double(completedPages) / 604.0 * 100.0).rounded()))٪)")
+                        .font(.system(size: 12))
+                        .foregroundStyle(appState.theme.textSecondary)
+                }
+                Spacer()
+                Text("📖")
+                    .font(.system(size: 24))
+            }
+
+            if planUuid != nil {
+                ProgressView(value: Double(completedPages), total: 604.0)
+                    .tint(appState.theme.accent)
+                Button("تسجيل قراءة الصفحة الحالية") {
+                    logCurrentPage()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(appState.theme.accent)
+                .foregroundStyle(appState.theme.accentContrast)
+            } else {
+                HStack(spacing: 8) {
+                    ForEach([10, 20, 40], id: \.self) { rate in
+                        Button("\(rate) صفحة/يوم") {
+                            dailyPages = rate
+                        }
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(dailyPages == rate ? appState.theme.accent : appState.theme.surfaceRaised)
+                        .foregroundStyle(dailyPages == rate ? appState.theme.accentContrast : appState.theme.textPrimary)
+                        .clipShape(Capsule())
+                    }
+                }
+                Button("إنشاء خطة الختمة") {
+                    createPlan()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(appState.theme.accent)
+                .foregroundStyle(appState.theme.accentContrast)
+            }
+        }
+        .padding(16)
+        .background(appState.theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal, 16)
+        .onAppear { reload() }
+    }
+
+    private func reload() {
+        try? appState.db.queue.read { q in
+            if let r = try Row.fetchOne(q, sql: "SELECT p.uuid, p.name_ar, (SELECT COUNT(*) FROM khatmah_page_log l WHERE l.plan_uuid = p.uuid) AS done FROM khatmah_plans p WHERE p.deleted = 0 AND p.active = 1 LIMIT 1") {
+                planUuid = r["uuid"] as String?
+                planName = r["name_ar"] as String? ?? "ختمتي"
+                completedPages = r["done"] as Int? ?? 0
+            } else {
+                planUuid = nil
+                completedPages = 0
+            }
+        }
+    }
+
+    private func createPlan() {
+        let now = Date.nowMs
+        let uuid = UUIDv7.uuid7(now: now)
+        let iso = TodayView.iso(now, tz: appState.engineOptions.timeZone)
+        try? appState.db.queue.write { db in
+            try db.execute(sql: """
+                INSERT INTO khatmah_plans (uuid, name_ar, mode, start_date, daily_pages, active, created_at, updated_at, deleted)
+                VALUES (?, 'ختمتي', 'rate', ?, ?, 1, ?, ?, 0)
+                """, arguments: [uuid, iso, dailyPages, now, now])
+        }
+        reload()
+    }
+
+    private func logCurrentPage() {
+        guard let uuid = planUuid else { return }
+        let page = min(max(appState.db.setting("mushaf_page")?.intValue ?? 1, 1), 604)
+        let now = Date.nowMs
+        try? appState.db.queue.write { db in
+            try db.execute(sql: "INSERT OR REPLACE INTO khatmah_page_log (plan_uuid, page, completed_at) VALUES (?, ?, ?)",
+                           arguments: [uuid, page, now])
+        }
+        reload()
     }
 }
