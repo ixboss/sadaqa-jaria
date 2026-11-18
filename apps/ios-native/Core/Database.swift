@@ -38,7 +38,7 @@ public final class SadaqaDatabase: @unchecked Sendable {
             try fm.copyItem(at: src, to: dbUrl)
         }
         let queue = try DatabaseQueue(path: dbUrl.path)
-        try queue.write { db in
+        try queue.writeWithoutTransaction { db in
             try db.execute(sql: "PRAGMA journal_mode = WAL") // FK enforcement is per-connection: GRDB enables it via configuration
         }
         return SadaqaDatabase(queue: queue)
