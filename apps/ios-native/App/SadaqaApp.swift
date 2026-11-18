@@ -114,6 +114,14 @@ final class AppState: ObservableObject {
         if key == "hijri_adjust" { hijriAdjust = value.intValue ?? hijriAdjust }
         if key == "location" || key == "calc_method" || key == "madhab" || key == "high_latitude_rule" {
             engineOptions = db.engineOptions()
+            WidgetStateBridge.publishWidgetState(db: db)
+            AdhanScheduler.shared.reschedule(db: db)
+        }
+    }
+
+    func selectCity(_ city: SadaqaDatabase.CityRow) {
+        if let loc = try? db.selectCity(city) {
+            setSetting("location", loc)
         }
     }
 }

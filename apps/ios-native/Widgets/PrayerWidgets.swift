@@ -94,19 +94,24 @@ struct PrayerProvider: TimelineProvider {
         // one entry per future prayer instant across the scan window
         if let state {
             let opts = state.options()
-            if let sched = try? PrayerEngine.daySchedule(isoToday(now, tz: opts.timeZone), opts) {
-                let all: [(name: PrayerName, at: Int64)] = PrayerName.allCases.map { name in
-                    (name: name, at: sched.prayers[name] ?? 0)
+            let todayIso = isoToday(now, tz: opts.timeZone)
+            let tomorrowIso = isoToday(now + 86_400_000, tz: opts.timeZone)
+            var upcoming: [(name: PrayerName, at: Int64)] = []
+            for dayIso in [todayIso, tomorrowIso] {
+                if let sched = try? PrayerEngine.daySchedule(dayIso, opts) {
+                    for name in PrayerName.allCases {
+                        if let at = sched.prayers[name], at > now {
+                            upcoming.append((name: name, at: at))
+                        }
+                    }
                 }
-                let upcoming = all
-                    .filter { $0.at > now }
-                    .sorted { $0.at < $1.at }
-                for p in upcoming {
-                    entries.append(PrayerEntry(date: Date(ms: max(p.at - 1, now)),
-                                               state: state,
-                                               next: NextPrayer(name: p.name, at: p.at, previousName: nil, previousAt: nil),
-                                               dhikr: state.dailyDhikr ?? ""))
-                }
+            }
+            upcoming.sort { $0.at < $1.at }
+            for p in upcoming {
+                entries.append(PrayerEntry(date: Date(ms: max(p.at - 1, now)),
+                                           state: state,
+                                           next: NextPrayer(name: p.name, at: p.at, previousName: nil, previousAt: nil),
+                                           dhikr: state.dailyDhikr ?? ""))
             }
         }
         if entries.isEmpty {

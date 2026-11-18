@@ -3,7 +3,7 @@
    surfaces; glass stays on the control layer (Pillar A). */
 
 /* ---- Today Hub ------------------------------------------------------------ */
-.screen { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+.screen { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
 .hub-grid { display: grid; gap: 0; }
 .today-toprow {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -133,7 +133,7 @@
 .zkr-verify .src { font-size: 13px; color: var(--color-text-secondary); line-height: var(--lh-arabic); margin-top: 6px; }
 .zkr-verify .grade { font-size: 11px; border: 1px solid var(--color-border); border-radius: var(--radius-pill); padding: 1px 8px; color: var(--color-text-primary); }
 .reader-progress {
-  position: sticky; top: calc(56px + env(safe-area-inset-top)); z-index: 9;
+  position: relative;
   margin: 10px 16px 0; padding: 10px 14px;
   background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius-md); font-size: 13px;

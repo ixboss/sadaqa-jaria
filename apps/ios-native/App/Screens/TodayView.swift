@@ -25,7 +25,7 @@ struct TodayView: View {
                     khatmahCard
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 24)
+                .padding(.bottom, 100)
             }
             .background(appState.theme.bg)
             .navigationTitle("اليوم")
@@ -87,11 +87,12 @@ struct TodayView: View {
     private var hero: some View {
         let tz = appState.engineOptions.timeZone
         let next = try? engine.next(now)
+        let isTomorrow = next.map { Self.iso($0.at, tz: tz) != Self.iso(now, tz: tz) } ?? false
         return VStack(spacing: 4) {
             Text("الصلاة القادمة")
                 .font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary)
             if let n = next {
-                Text(n.name.labelAr).font(.system(size: 32, weight: .bold))
+                Text("\(n.name.labelAr)\(isTomorrow ? " (غداً)" : "")").font(.system(size: 32, weight: .bold))
                     .foregroundStyle(appState.theme.accent)
                 Text(Self.hms(n.at - now)).monospacedDigit()
                     .font(.system(size: 28, weight: .bold)).foregroundStyle(appState.theme.textPrimary)

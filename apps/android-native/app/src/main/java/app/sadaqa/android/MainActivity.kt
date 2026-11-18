@@ -43,6 +43,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.sadaqa.android.data.SadaqaDb
@@ -70,7 +73,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun CompositionLocalRoot(db: SadaqaDb, themeKey: String) {
     val colors = SadaqaTheme.colors(themeKey)
-    androidx.compose.runtime.CompositionLocalProvider(LocalSadaqaTheme provides colors) {
+    CompositionLocalProvider(
+        LocalSadaqaTheme provides colors,
+        LocalLayoutDirection provides LayoutDirection.Rtl,
+    ) {
         RootScaffold(db)
     }
 }
@@ -78,18 +84,29 @@ private fun CompositionLocalRoot(db: SadaqaDb, themeKey: String) {
 @Composable
 fun RootScaffold(db: SadaqaDb) {
     var tab by rememberSaveable { mutableStateOf("today") }
+    var pendingTool by rememberSaveable { mutableStateOf<String?>(null) }
     var searchOpen by rememberSaveable { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().background(LocalSadaqaTheme.current.bg)) {
+    val navigate: (String) -> Unit = { target ->
+        if (target.startsWith("tools-")) {
+            pendingTool = target.removePrefix("tools-")
+            tab = "tools"
+        } else {
+            if (target == "tools") pendingTool = null
+            tab = target
+        }
+    }
+
+    Column(Modifier.fillMaxSize().background(LocalSadaqaTheme.current.bg).safeDrawingPadding()) {
         Box(Modifier.weight(1f)) {
             when (tab) {
-                "today" -> TodayScreen(db, onOpenTool = { tab = "tools" }, onNavigate = { tab = it })
+                "today" -> TodayScreen(db, onOpenTool = { navigate("tools") }, onNavigate = navigate)
                 "mushaf" -> MushafScreen(db)
                 "athkar" -> AthkarScreen(db)
-                "tools" -> ToolsScreen(db)
+                "tools" -> ToolsScreen(db, initialSub = pendingTool, onClearInitial = { pendingTool = null })
             }
         }
-        GlassPillNav(selected = tab, onSelect = { tab = it }, onSearch = { searchOpen = true })
+        GlassPillNav(selected = tab, onSelect = { pendingTool = null; tab = it }, onSearch = { searchOpen = true })
     }
     if (searchOpen) SearchSheet(db) { searchOpen = false }
 }

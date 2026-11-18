@@ -48,6 +48,45 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
             conn.prepare("PRAGMA foreign_keys = ON").use { it.step() }
             return SadaqaDb(conn)
         }
+
+        fun normalizeArabicForSearch(input: String): String {
+            val nfc = java.text.Normalizer.normalize(input, java.text.Normalizer.Form.NFC)
+            val sb = StringBuilder(nfc.length)
+            var i = 0
+            while (i < nfc.length) {
+                val cp = nfc.codePointAt(i)
+                val skip = cp == 0x0640 || cp == 0x0670 || cp in 0x0610..0x061A || cp in 0x064B..0x065F || cp in 0x06D6..0x06ED
+                if (!skip) {
+                    when (cp) {
+                        'أ'.code, 'إ'.code, 'آ'.code, 'ٱ'.code -> sb.append('ا')
+                        'ؤ'.code -> sb.append('و')
+                        'ئ'.code -> sb.append('ي')
+                        'ة'.code -> sb.append('ه')
+                        'ى'.code -> sb.append('ي')
+                        else -> sb.appendCodePoint(cp)
+                    }
+                }
+                i += Character.charCount(cp)
+            }
+            val folded = StringBuilder(sb.length)
+            for (idx in sb.indices) {
+                val ch = sb[idx]
+                if (ch == 'ء' && idx > 0 && !sb[idx - 1].isWhitespace()) continue
+                if (ch in ".,;:!?«»\"'()-—–[]{}…•*/\\|+_=~<>،؛۔﴿﴾؟") folded.append(' ') else folded.append(ch)
+            }
+            return folded.toString().lowercase().trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.joinToString(" ")
+        }
+
+        fun ftsQuery(userInput: String): String? {
+            val norm = normalizeArabicForSearch(userInput)
+            if (norm.isEmpty()) return null
+            val terms = norm.split(' ').filter { it.isNotEmpty() }
+            if (terms.isEmpty()) return null
+            return terms.mapIndexed { idx, t ->
+                val q = "\"${t.replace("\"", "\"\"")}\""
+                if (idx == terms.lastIndex) "$q*" else q
+            }.joinToString(" ")
+        }
     }
 
     // ------------------------------------------------------------------
@@ -267,6 +306,108 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
     }
 
     fun hijriAdjust(): Int = setting("hijri_adjust")?.int ?: 0
+
+    // ------------------------------------------------------------------
+    // Cities & Arabic FTS normalization (mirrors packages/core-data/engines/search.js)
+    // ------------------------------------------------------------------
+    data class CityRow(
+        val id: Int,
+        val nameAr: String,
+        val nameEn: String,
+        val countryAr: String,
+        val lat: Double,
+        val lng: Double,
+        val timeZone: String,
+    )
+
+    fun searchCities(query: String, limit: Int = 20): List<CityRow> {
+        val trimmed = query.trim()
+        if (trimmed.length < 2) {
+            return query(
+                "SELECT city_id, name_ar, name_en, country_ar, lat, lng, timezone FROM cities WHERE is_preseed = 1 ORDER BY COALESCE(population, 0) DESC LIMIT ?",
+                listOf(limit.toLong()),
+            ).map(::mapCity)
+        }
+        val out = mutableListOf<CityRow>()
+        val seen = mutableSetOf<Int>()
+        ftsQuery(trimmed)?.let { term ->
+            val ftsRows = runCatching {
+                query(
+                    "SELECT c.city_id, c.name_ar, c.name_en, c.country_ar, c.lat, c.lng, c.timezone FROM cities c WHERE c.rowid IN (SELECT rowid FROM fts_cities WHERE fts_cities MATCH ?) ORDER BY COALESCE(c.population, 0) DESC LIMIT ?",
+                    listOf(term, limit.toLong()),
+                )
+            }.getOrDefault(emptyList())
+            for (r in ftsRows) {
+                val c = mapCity(r)
+                if (seen.add(c.id)) out.add(c)
+            }
+        }
+        if (out.size < limit) {
+            val likePat = "%$trimmed%"
+            val normPat = "%${trimmed.replace('ة', 'ه').replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')}%"
+            val likeRows = runCatching {
+                query(
+                    "SELECT city_id, name_ar, name_en, country_ar, lat, lng, timezone FROM cities " +
+                        "WHERE name_ar LIKE ? OR name_en LIKE ? OR country_ar LIKE ? " +
+                        "OR REPLACE(REPLACE(REPLACE(REPLACE(name_ar, 'ة', 'ه'), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ? " +
+                        "ORDER BY COALESCE(population, 0) DESC LIMIT ?",
+                    listOf(likePat, likePat, likePat, normPat, limit.toLong()),
+                )
+            }.getOrDefault(emptyList())
+            for (r in likeRows) {
+                val c = mapCity(r)
+                if (seen.add(c.id)) {
+                    out.add(c)
+                    if (out.size >= limit) break
+                }
+            }
+        }
+        return out
+    }
+
+    fun findNearestCity(lat: Double, lng: Double): CityRow? {
+        val cosLat = kotlin.math.cos(Math.toRadians(lat))
+        var best: CityRow? = null
+        var bestScore = Double.MAX_VALUE
+        for (r in query("SELECT city_id, name_ar, name_en, country_ar, lat, lng, timezone FROM cities")) {
+            val c = mapCity(r)
+            val dLat = c.lat - lat
+            val dLng = (c.lng - lng) * cosLat
+            val score = dLat * dLat + dLng * dLng
+            if (score < bestScore) {
+                bestScore = score
+                best = c
+            }
+        }
+        return best
+    }
+
+    fun selectCity(city: CityRow, now: Long = System.currentTimeMillis()) {
+        setSetting(
+            "location",
+            Obj(
+                mapOf(
+                    "lat" to Num(city.lat),
+                    "lng" to Num(city.lng),
+                    "timeZone" to Str(city.timeZone),
+                    "cityId" to Num(city.id.toDouble()),
+                    "name_ar" to Str(city.nameAr),
+                    "name_en" to Str(city.nameEn),
+                ),
+            ),
+            now,
+        )
+    }
+
+    private fun mapCity(r: Row) = CityRow(
+        id = r.longs["city_id"]?.toInt() ?: 0,
+        nameAr = r.strings["name_ar"] ?: "",
+        nameEn = r.strings["name_en"] ?: "",
+        countryAr = r.strings["country_ar"] ?: "",
+        lat = r.doubles["lat"] ?: 0.0,
+        lng = r.doubles["lng"] ?: 0.0,
+        timeZone = r.strings["timezone"] ?: "UTC",
+    )
 
     fun close() {
         connection.close()

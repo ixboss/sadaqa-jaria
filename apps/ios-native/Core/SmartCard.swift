@@ -75,7 +75,7 @@ public enum SmartCardResolver {
             return SmartCard(kind: .next_prayer, icon: "🕌", badge: "الوقت الحالي",
                              title: "مواقيت الصلاة",
                              sub: "افتح جدول المواقيت والمدينة",
-                             actionLabel: "جدول الشهر", actionScreen: "tools-hijri")
+                             actionLabel: "التقويم الهجري", actionScreen: "tools-hijri")
         }
         let dow = weekdayShort(now, tz: tz)
 
@@ -114,6 +114,6 @@ public enum SmartCardResolver {
         return SmartCard(kind: .next_prayer, icon: "🕌", badge: "الوقت الحالي",
                          title: "\(nxt.name.labelAr) \(clock(nxt.at, tz: tz))",
                          sub: "الصلاة القادمة بعد \(hms(nxt.at - now))",
-                         actionLabel: "جدول الشهر", actionScreen: "tools-hijri")
+                         actionLabel: "التقويم الهجري", actionScreen: "tools-hijri")
     }
 }

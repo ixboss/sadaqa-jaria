@@ -133,6 +133,172 @@ public final class SadaqaDatabase: @unchecked Sendable {
     public func hijriAdjust() -> Int { setting("hijri_adjust")?.intValue ?? 0 }
 
     // ------------------------------------------------------------------
+    // Cities & Arabic FTS normalization (mirrors packages/core-data/engines/search.js)
+    // ------------------------------------------------------------------
+    public struct CityRow: Identifiable, Sendable, Equatable {
+        public let id: Int
+        public let nameAr: String
+        public let nameEn: String
+        public let countryAr: String
+        public let lat: Double
+        public let lng: Double
+        public let timeZone: String
+    }
+
+    public static func normalizeArabicForSearch(_ input: String) -> String {
+        var s = input.precomposedStringWithCanonicalMapping
+        // Remove tashkeel + Quranic annotation marks + tatweel
+        let stripped = s.unicodeScalars.filter { sc in
+            let v = sc.value
+            if v == 0x0640 { return false }
+            if (0x0610...0x061A).contains(v) { return false }
+            if (0x064B...0x065F).contains(v) { return false }
+            if v == 0x0670 { return false }
+            if (0x06D6...0x06ED).contains(v) { return false }
+            return true
+        }
+        s = String(String.UnicodeScalarView(stripped))
+        s = s
+            .replacingOccurrences(of: "أ", with: "ا")
+            .replacingOccurrences(of: "إ", with: "ا")
+            .replacingOccurrences(of: "آ", with: "ا")
+            .replacingOccurrences(of: "ٱ", with: "ا")
+            .replacingOccurrences(of: "ؤ", with: "و")
+            .replacingOccurrences(of: "ئ", with: "ي")
+            .replacingOccurrences(of: "ة", with: "ه")
+            .replacingOccurrences(of: "ى", with: "ي")
+        // Fold non-initial hamza
+        let chars = Array(s)
+        var out = ""
+        for (i, ch) in chars.enumerated() {
+            if ch == "ء" && i > 0 && !chars[i - 1].isWhitespace { continue }
+            out.append(ch)
+        }
+        let punct = CharacterSet(charactersIn: ".,;:!?«»\"'()-—–[]{}…•*/\\|+_=~<>،؛۔﴿﴾؟")
+        out = out.components(separatedBy: punct).joined(separator: " ")
+        return out.lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
+
+    public static func ftsQuery(_ userInput: String) -> String? {
+        let norm = normalizeArabicForSearch(userInput)
+        guard !norm.isEmpty else { return nil }
+        let terms = norm.split(separator: " ").map(String.init)
+        guard !terms.isEmpty else { return nil }
+        var quoted = terms.map { "\"\($0.replacingOccurrences(of: "\"", with: "\"\""))\"" }
+        quoted[quoted.count - 1] += "*"
+        return quoted.joined(separator: " ")
+    }
+
+    private static func mapCityRow(_ r: Row) -> CityRow {
+        CityRow(
+            id: r["city_id"] as Int? ?? 0,
+            nameAr: r["name_ar"] as String? ?? "",
+            nameEn: r["name_en"] as String? ?? "",
+            countryAr: r["country_ar"] as String? ?? "",
+            lat: r["lat"] as Double? ?? 0,
+            lng: r["lng"] as Double? ?? 0,
+            timeZone: r["timezone"] as String? ?? "UTC"
+        )
+    }
+
+    public func searchCities(query: String, limit: Int = 20) -> [CityRow] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        var rows: [CityRow] = []
+        try? queue.read { db in
+            if trimmed.count < 2 {
+                rows = try Row.fetchAll(db, sql: """
+                    SELECT city_id, name_ar, name_en, country_ar, lat, lng, timezone
+                    FROM cities WHERE is_preseed = 1
+                    ORDER BY COALESCE(population, 0) DESC LIMIT ?
+                    """, arguments: [limit]).map(Self.mapCityRow)
+                return
+            }
+            var seen = Set<Int>()
+            if let term = Self.ftsQuery(trimmed) {
+                let ftsRows = (try? Row.fetchAll(db, sql: """
+                    SELECT c.city_id, c.name_ar, c.name_en, c.country_ar, c.lat, c.lng, c.timezone
+                    FROM cities c WHERE c.rowid IN (SELECT rowid FROM fts_cities WHERE fts_cities MATCH ?)
+                    ORDER BY COALESCE(c.population, 0) DESC LIMIT ?
+                    """, arguments: [term, limit])) ?? []
+                for r in ftsRows {
+                    let c = Self.mapCityRow(r)
+                    if seen.insert(c.id).inserted { rows.append(c) }
+                }
+            }
+            if rows.count < limit {
+                let likePattern = "%\(trimmed)%"
+                let normPattern = "%\(trimmed.replacingOccurrences(of: "ة", with: "ه").replacingOccurrences(of: "أ", with: "ا").replacingOccurrences(of: "إ", with: "ا").replacingOccurrences(of: "آ", with: "ا"))%"
+                let likeRows = (try? Row.fetchAll(db, sql: """
+                    SELECT city_id, name_ar, name_en, country_ar, lat, lng, timezone
+                    FROM cities
+                    WHERE name_ar LIKE ? OR name_en LIKE ? OR country_ar LIKE ?
+                       OR REPLACE(REPLACE(REPLACE(REPLACE(name_ar, 'ة', 'ه'), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?
+                    ORDER BY COALESCE(population, 0) DESC LIMIT ?
+                    """, arguments: [likePattern, likePattern, likePattern, normPattern, limit])) ?? []
+                for r in likeRows {
+                    let c = Self.mapCityRow(r)
+                    if seen.insert(c.id).inserted {
+                        rows.append(c)
+                        if rows.count >= limit { break }
+                    }
+                }
+            }
+        }
+        return rows
+    }
+
+    public func findNearestCity(lat: Double, lng: Double) -> CityRow? {
+        var best: CityRow?
+        var bestScore = Double.greatestFiniteMagnitude
+        let cosLat = cos(lat * .pi / 180.0)
+        try? queue.read { db in
+            let cursor = try Row.fetchCursor(db, sql: """
+                SELECT city_id, name_ar, name_en, country_ar, lat, lng, timezone FROM cities
+                """)
+            while let r = try cursor.next() {
+                let cLat = r["lat"] as Double? ?? 0
+                let cLng = r["lng"] as Double? ?? 0
+                let dLat = cLat - lat
+                let dLng = (cLng - lng) * cosLat
+                let score = dLat * dLat + dLng * dLng
+                if score < bestScore {
+                    bestScore = score
+                    best = Self.mapCityRow(r)
+                }
+            }
+        }
+        return best
+    }
+
+    @discardableResult
+    public func selectCity(_ city: CityRow, now: Int64 = Date.nowMs) throws -> JSONValue {
+        let loc = JSONValue.object([
+            "lat": .number(city.lat),
+            "lng": .number(city.lng),
+            "timeZone": .string(city.timeZone),
+            "cityId": .number(Double(city.id)),
+            "name_ar": .string(city.nameAr),
+            "name_en": .string(city.nameEn),
+        ])
+        try setSetting("location", loc, now: now)
+        return loc
+    }
+
+    @discardableResult
+    public func selectCity(cityId: Int, now: Int64 = Date.nowMs) throws -> CityRow? {
+        let city: CityRow? = try queue.read { db in
+            guard let r = try Row.fetchOne(db, sql: """
+                SELECT city_id, name_ar, name_en, country_ar, lat, lng, timezone
+                FROM cities WHERE city_id = ?
+                """, arguments: [cityId]) else { return nil }
+            return Self.mapCityRow(r)
+        }
+        guard let city else { return nil }
+        try selectCity(city, now: now)
+        return city
+    }
+
+    // ------------------------------------------------------------------
     // Safe atomic UI write paths (no nested queue.read inside queue.write!)
     // ------------------------------------------------------------------
     public struct TasbihRowData: Sendable {

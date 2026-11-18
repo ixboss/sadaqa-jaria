@@ -18,15 +18,28 @@ function call(op, { sql, params } = {}) {
 export async function openDatabase() {
   if (worker) return api;
   worker = new Worker(new URL('./db-worker.js', import.meta.url), { type: 'module' });
-  worker.onmessage = ({ data: { id, ok, result, error } }) => {
+  worker.onmessage = ({ data }) => {
+    if (data?.type === 'boot-progress') {
+      window.dispatchEvent(new CustomEvent('sadaqa:boot-progress', { detail: data }));
+      return;
+    }
+    const { id, ok, result, error } = data ?? {};
     const p = pending.get(id);
     if (!p) return;
     pending.delete(id);
     ok ? p.resolve(result) : p.reject(new Error(error));
   };
-  worker.onerror = (e) => { console.error('[db-worker]', e.message); };
+  worker.onerror = (e) => {
+    const msg = e?.message || 'Worker failed to load';
+    console.error('[db-worker]', msg);
+    for (const [id, p] of pending.entries()) {
+      pending.delete(id);
+      p.reject(new Error(msg));
+    }
+    worker = null;
+  };
   const info = await call('init');
-  console.info(`[db] ready (sqlite ${info.version}, opfs-sahpool capacity ${info.capacity}, existed=${info.existed})`);
+  console.info(`[db] ready (sqlite ${info.version}, mode=${info.mode ?? 'opfs-sahpool'}, capacity=${info.capacity}, existed=${info.existed})`);
   return api;
 }
 

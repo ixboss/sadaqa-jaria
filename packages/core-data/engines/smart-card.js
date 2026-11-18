@@ -65,7 +65,7 @@ export function resolveSmartCard(now, engine) {
   }
   // 6. else → next-prayer details
   const next = engine.next(now);
-  return { kind: 'next_prayer', icon: '🕌', badge: 'الوقت الحالي', title: `${PRAYER_LABELS[next.name]} ${fmtClock(next.at, tz)}`, sub: `الصلاة القادمة بعد ${fmtHMS(next.at - now)}`, action: { label: 'جدول الشهر', screen: 'tools-hijri', args: {} } };
+  return { kind: 'next_prayer', icon: '🕌', badge: 'الوقت الحالي', title: `${PRAYER_LABELS[next.name]} ${fmtClock(next.at, tz)}`, sub: `الصلاة القادمة بعد ${fmtHMS(next.at - now)}`, action: { label: 'التقويم الهجري', screen: 'tools-hijri', args: {} } };
 }
 
 export { PRAYER_LABELS };

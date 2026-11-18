@@ -22,7 +22,7 @@ struct MushafPageView: View {
     @EnvironmentObject var appState: AppState
     @State private var hubTab: MushafHubTab = .reader
     @State private var page: Int = 1
-    @State private var lines: [MushafRepository.MushafLine] = []
+    @State private var hudVisible = false
     @State private var meta = MushafRepository.PageMeta(surahName: "", juz: 1, hizb: 1)
     @State private var isBookmarked = false
     @State private var selectedAyahNumber: Int?
@@ -33,19 +33,22 @@ struct MushafPageView: View {
     @State private var bookmarks: [MushafRepository.BookmarkItem] = []
     @State private var showAudioSheet = false
     @State private var activeRecitation: (surah: Int, ayah: Int)?
+    @StateObject private var pageCache = MushafPageCache()
     private let player = AudioPlayerChain()
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker("وضع المصحف", selection: $hubTab) {
-                    ForEach(MushafHubTab.allCases) { t in
-                        Text(t.rawValue).tag(t)
+                if hubTab != .reader {
+                    Picker("وضع المصحف", selection: $hubTab) {
+                        ForEach(MushafHubTab.allCases) { t in
+                            Text(t.rawValue).tag(t)
+                        }
                     }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
                 }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
 
                 switch hubTab {
                 case .reader:
@@ -56,7 +59,7 @@ struct MushafPageView: View {
                     indexBody
                 }
             }
-            .background(appState.theme.bg)
+            .background(hubTab == .reader ? appState.theme.mushafBg : appState.theme.bg)
             .onAppear {
                 if page == 1, let saved = appState.db.setting("mushaf_page")?.intValue, (1...604).contains(saved) {
                     page = saved
@@ -64,7 +67,10 @@ struct MushafPageView: View {
                 reloadPage()
                 loadHubData()
             }
-            .onChange(of: page) { _ in reloadPage() }
+            .onChange(of: page) { _ in
+                reloadPage()
+                HapticsEngine.shared.play(pattern: appState.theme.all.haptics?.pageFlipSettle ?? [10])
+            }
             .sheet(isPresented: $showAyahSheet) {
                 if let ayahNum = selectedAyahNumber {
                     AyahActionSheet(ayahNumber: ayahNum, onPlay: { surah, ayah in
@@ -84,125 +90,236 @@ struct MushafPageView: View {
     }
 
     // -----------------------------------------------------------------------
-    // 1. Reader surface
+    // 1. Reader surface — Full-screen immersive RTL Mushaf + tap-to-toggle HUD
     // -----------------------------------------------------------------------
     private var readerBody: some View {
-        VStack(spacing: 0) {
-            // Top bar: Surah + Juz/Hizb + Page + Bookmark + Font scale
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
+        ZStack {
+            VStack(spacing: 0) {
+                // Minimal unobtrusive top metadata strip
+                HStack {
                     Text(meta.surahName.isEmpty ? "المصحف الشريف" : meta.surahName)
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(appState.theme.textPrimary)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(appState.theme.textSecondary)
+                    Spacer()
                     Text("ص \(page) · الجزء \(meta.juz) · الحزب \(meta.hizb)")
                         .font(.system(size: 11))
+                        .monospacedDigit()
                         .foregroundStyle(appState.theme.textSecondary)
                 }
-                Spacer()
-                Button {
-                    let nextScale = appState.fontScale >= 1.6 ? 1.0 : appState.fontScale + 0.15
-                    appState.setSetting("font_scale", .number(nextScale))
-                } label: {
-                    Image(systemName: "textformat.size")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(appState.theme.textSecondary)
-                        .padding(7)
-                }
-                Button {
-                    togglePageBookmark()
-                } label: {
-                    Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(isBookmarked ? appState.theme.accent : appState.theme.textSecondary)
-                        .padding(7)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(appState.theme.surface)
-
-            ScrollView(.vertical) {
-                MushafPlate(
-                    page: page,
-                    lines: lines,
-                    theme: appState.theme,
-                    fontScale: appState.fontScale,
-                    selectedAyah: selectedAyahNumber,
-                    onSelectAyah: { ayahNumber in
-                        selectedAyahNumber = ayahNumber
-                        showAyahSheet = true
-                    }
-                )
-                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 18)
+                .padding(.top, 6)
+                .padding(.bottom, 2)
                 .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 36).onEnded { g in
-                        // In RTL Arabic layout: swipe right-to-left (negative width) advances page;
-                        // swipe left-to-right (positive width) goes back — support both intuitively.
-                        if g.translation.width < -40 && page < 604 {
-                            page += 1
-                            HapticsEngine.shared.play(pattern: appState.theme.all.haptics?.pageFlipSettle ?? [10])
-                        } else if g.translation.width > 40 && page > 1 {
-                            page -= 1
-                            HapticsEngine.shared.play(pattern: appState.theme.all.haptics?.pageFlipSettle ?? [10])
-                        }
+                .onTapGesture {
+                    withAnimation(.easeOut(duration: 0.22)) { hudVisible.toggle() }
+                }
+
+                // True RTL horizontal paged Mushaf (RootView enforces .rightToLeft,
+                // so page 1 sits on the right and swiping left-to-right advances 1 -> 2).
+                TabView(selection: $page) {
+                    ForEach(1...604, id: \.self) { p in
+                        MushafLazyPageSlot(
+                            slotPage: p,
+                            currentPage: page,
+                            cache: pageCache,
+                            db: appState.db,
+                            theme: appState.theme,
+                            fontScale: appState.fontScale,
+                            selectedAyah: selectedAyahNumber,
+                            onSelectAyah: { ayahNumber in
+                                selectedAyahNumber = ayahNumber
+                                showAyahSheet = true
+                            },
+                            onToggleHud: {
+                                withAnimation(.easeOut(duration: 0.22)) { hudVisible.toggle() }
+                            }
+                        )
+                        .tag(p)
                     }
-                )
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                // Compact bottom page pill when HUD is hidden
+                if !hudVisible {
+                    HStack(spacing: 14) {
+                        Button {
+                            if page > 1 { page -= 1 }
+                        } label: {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .padding(6)
+                        }
+                        .disabled(page <= 1)
+
+                        Button {
+                            withAnimation(.easeOut(duration: 0.22)) { hudVisible = true }
+                        } label: {
+                            Text("صفحة \(page) / ٦٠٤")
+                                .font(.system(size: 12, weight: .semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(appState.theme.textSecondary)
+                        }
+
+                        Button {
+                            if page < 604 { page += 1 }
+                        } label: {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 13, weight: .semibold))
+                                .padding(6)
+                        }
+                        .disabled(page >= 604)
+                    }
+                    .foregroundStyle(appState.theme.accent)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 3)
+                    .background(appState.theme.surface.opacity(0.88))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().strokeBorder(appState.theme.border))
+                    .padding(.bottom, 6)
+                }
             }
             .background(appState.theme.mushafBg)
 
-            // Mini audio bar when reciting + page step footer
-            VStack(spacing: 6) {
-                if let active = activeRecitation {
-                    HStack {
-                        Image(systemName: "waveform").foregroundStyle(appState.theme.accent)
-                        Text("تلاوة سورة \(active.surah) · آية \(active.ayah)")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(appState.theme.textPrimary)
-                        Spacer()
-                        Button("إيقاف") {
-                            player.stop()
-                            activeRecitation = nil
-                        }
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(appState.theme.accent)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(appState.theme.surfaceRaised)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .padding(.horizontal, 14)
-                }
-
-                HStack {
-                    Button {
-                        if page > 1 { page -= 1 }
-                    } label: {
-                        Label("السابقة", systemImage: "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .disabled(page <= 1)
-
+            // Floating Liquid Glass HUD overlay (revealed on tap)
+            if hudVisible {
+                VStack(spacing: 0) {
+                    readerTopHudBar
                     Spacer()
-                    Text("صفحة \(page) من ٦٠٤")
-                        .font(.system(size: 12))
-                        .monospacedDigit()
-                        .foregroundStyle(appState.theme.textSecondary)
-                    Spacer()
-
-                    Button {
-                        if page < 604 { page += 1 }
-                    } label: {
-                        Label("التالية", systemImage: "chevron.left")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .disabled(page >= 604)
+                    readerBottomHudCard
                 }
-                .foregroundStyle(appState.theme.accent)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 8)
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
-            .background(appState.theme.surface)
+        }
+    }
+
+    private var readerTopHudBar: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(meta.surahName.isEmpty ? "المصحف الشريف" : meta.surahName)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(appState.theme.textPrimary)
+                Text("ص \(page) · الجزء \(meta.juz) · الحزب \(meta.hizb)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(appState.theme.textSecondary)
+            }
+            Spacer()
+            Button {
+                let nextScale = appState.fontScale >= 1.6 ? 1.0 : appState.fontScale + 0.15
+                appState.setSetting("font_scale", .number(nextScale))
+            } label: {
+                Image(systemName: "textformat.size")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(appState.theme.textSecondary)
+                    .padding(7)
+            }
+            Button {
+                togglePageBookmark()
+            } label: {
+                Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(isBookmarked ? appState.theme.accent : appState.theme.textSecondary)
+                    .padding(7)
+            }
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) { hudVisible = false }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(appState.theme.textSecondary)
+                    .padding(7)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial)
+        .clipShape(Capsule())
+        .overlay(Capsule().strokeBorder(appState.theme.border))
+        .shadow(color: .black.opacity(0.22), radius: 12, y: 4)
+        .padding(.horizontal, 14)
+        .padding(.top, 8)
+    }
+
+    private var readerBottomHudCard: some View {
+        VStack(spacing: 10) {
+            if let active = activeRecitation {
+                HStack {
+                    Image(systemName: "waveform").foregroundStyle(appState.theme.accent)
+                    Text("تلاوة سورة \(active.surah) · آية \(active.ayah)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(appState.theme.textPrimary)
+                    Spacer()
+                    Button("إيقاف") {
+                        player.stop()
+                        activeRecitation = nil
+                    }
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(appState.theme.accent)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(appState.theme.surfaceRaised)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+
+            HStack(spacing: 10) {
+                Text("ص \(page)")
+                    .font(.system(size: 12, weight: .bold)).monospacedDigit()
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .background(appState.theme.accent.opacity(0.16))
+                    .foregroundStyle(appState.theme.accent)
+                    .clipShape(Capsule())
+
+                Slider(
+                    value: Binding(
+                        get: { Double(page) },
+                        set: { page = min(max(Int($0.rounded()), 1), 604) }
+                    ),
+                    in: 1...604,
+                    step: 1
+                )
+                .tint(appState.theme.accent)
+
+                Text("٦٠٤")
+                    .font(.system(size: 11)).monospacedDigit()
+                    .foregroundStyle(appState.theme.textSecondary)
+            }
+
+            HStack(spacing: 8) {
+                hudButton("الفهرس", icon: "list.bullet") {
+                    hudVisible = false
+                    hubTab = .index
+                }
+                hudButton("الختمة والتلاوة", icon: "book.pages") {
+                    hudVisible = false
+                    hubTab = .reading
+                }
+                hudButton("إخفاء", icon: "eye.slash") {
+                    withAnimation(.easeOut(duration: 0.2)) { hudVisible = false }
+                }
+            }
+        }
+        .padding(12)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(appState.theme.border))
+        .shadow(color: .black.opacity(0.24), radius: 14, y: 4)
+        .padding(.horizontal, 14)
+        .padding(.bottom, 14)
+    }
+
+    private func hudButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: icon).font(.system(size: 12))
+                Text(title).font(.system(size: 12, weight: .semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(appState.theme.surface.opacity(0.85))
+            .foregroundStyle(appState.theme.textPrimary)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(appState.theme.border))
         }
     }
 
@@ -269,7 +386,7 @@ struct MushafPageView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal, 16)
             }
-            .padding(.bottom, 24)
+            .padding(.bottom, 100)
         }
         .onAppear { loadHubData() }
     }
@@ -333,7 +450,7 @@ struct MushafPageView: View {
                                     Text(s.nameAr)
                                         .font(.system(size: 16, weight: .bold))
                                         .foregroundStyle(appState.theme.textPrimary)
-                                    Text("\(s.revelationType == "Meccan" ? "مكية" : "مدنية") · \(s.ayahCount) آية")
+                                    Text("\(s.revelationType == "makkah" ? "مكية" : "مدنية") · \(s.ayahCount) آية")
                                         .font(.system(size: 12))
                                         .foregroundStyle(appState.theme.textSecondary)
                                 }
@@ -351,7 +468,7 @@ struct MushafPageView: View {
                     }
                 }
             }
-            .padding(.bottom, 24)
+            .padding(.bottom, 100)
         }
     }
 
@@ -359,8 +476,10 @@ struct MushafPageView: View {
     // Helpers
     // -----------------------------------------------------------------------
     private func reloadPage() {
-        FontRegistry.registerPage(page)
-        lines = MushafRepository.lines(page: page, db: appState.db)
+        for p in max(1, page - 1)...min(604, page + 1) {
+            FontRegistry.registerPage(p)
+        }
+        _ = pageCache.lines(for: page, db: appState.db)
         meta = MushafRepository.meta(page: page, db: appState.db)
         isBookmarked = MushafRepository.isBookmarked(page: page, db: appState.db)
         try? appState.db.setSetting("mushaf_page", .number(Double(page)))
@@ -489,7 +608,7 @@ enum MushafRepository {
                     number: $0["number"] as Int? ?? 1,
                     nameAr: $0["name_ar"] as String? ?? "",
                     nameTranslit: $0["name_translit"] as String? ?? "",
-                    revelationType: $0["revelation_type"] as String? ?? "Meccan",
+                    revelationType: $0["revelation_type"] as String? ?? "makkah",
                     ayahCount: $0["ayah_count"] as Int? ?? 0,
                     startPage: $0["start_page"] as Int? ?? 1
                 )
@@ -519,8 +638,55 @@ enum MushafRepository {
 }
 
 // ---------------------------------------------------------------------------
-// Mushaf Plate — runtime glyph-verified QPC1 or safe UthmanicHafs fallback
+// Mushaf Plate — runtime glyph-verified QPC1 or safe UthmanicHafs fallback,
+// dynamically fitted to a 15-line full-screen frame with zero vertical scroll.
 // ---------------------------------------------------------------------------
+
+@MainActor
+final class MushafPageCache: ObservableObject {
+    private var cache: [Int: [MushafRepository.MushafLine]] = [:]
+
+    func lines(for page: Int, db: SadaqaDatabase) -> [MushafRepository.MushafLine] {
+        if let hit = cache[page] { return hit }
+        FontRegistry.registerPage(page)
+        let loaded = MushafRepository.lines(page: page, db: db)
+        if cache.count > 12 {
+            cache.removeAll(keepingCapacity: true)
+        }
+        cache[page] = loaded
+        return loaded
+    }
+}
+
+struct MushafLazyPageSlot: View {
+    let slotPage: Int
+    let currentPage: Int
+    @ObservedObject var cache: MushafPageCache
+    let db: SadaqaDatabase
+    let theme: SadaqaThemeColors
+    let fontScale: Double
+    let selectedAyah: Int?
+    let onSelectAyah: (Int) -> Void
+    let onToggleHud: () -> Void
+
+    var body: some View {
+        if abs(slotPage - currentPage) <= 1 {
+            let pageLines = cache.lines(for: slotPage, db: db)
+            MushafPlate(
+                page: slotPage,
+                lines: pageLines,
+                theme: theme,
+                fontScale: fontScale,
+                selectedAyah: selectedAyah,
+                onSelectAyah: onSelectAyah,
+                onToggleHud: onToggleHud
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            Color.clear
+        }
+    }
+}
 
 struct MushafPlate: View {
     let page: Int
@@ -529,75 +695,136 @@ struct MushafPlate: View {
     let fontScale: Double
     let selectedAyah: Int?
     let onSelectAyah: (Int) -> Void
+    let onToggleHud: () -> Void
+
+    private struct AyahSegment: Identifiable {
+        let id: Int
+        let ayah: Int
+        let text: String
+    }
 
     var body: some View {
-        let sample = lines.first(where: { !$0.words.isEmpty })?.words.map(\.glyphs).joined() ?? ""
-        let verifiedPageFont = sample.isEmpty
-            ? nil
-            : FontRegistry.verifiedMushafFont(page: page, size: 20 * CGFloat(fontScale), sample: sample)
+        GeometryReader { geo in
+            let horizPad: CGFloat = 14
+            let availW = max(200, geo.size.width - horizPad * 2)
+            let availH = max(260, geo.size.height - 12)
+            let slotCount = (page <= 2) ? max(lines.count, 8) : 15
+            let slotH = (page <= 2) ? min(availH / CGFloat(slotCount), 48) : (availH / 15.0)
+            let sample = lines.first(where: { !$0.words.isEmpty })?.words.map(\.glyphs).joined() ?? ""
+            let isQpc = !sample.isEmpty && FontRegistry.verifiedMushafFont(page: page, size: 20, sample: sample) != nil
+            let fontSize = computeUniformFontSize(availW: availW, slotH: slotH, isQpc: isQpc)
+            let pageFont: UIFont = isQpc
+                ? (FontRegistry.verifiedMushafFont(page: page, size: fontSize, sample: sample) ?? FontRegistry.uthmanicFont(size: fontSize))
+                : FontRegistry.uthmanicFont(size: fontSize)
 
-        VStack(spacing: 4) {
-            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                lineView(line, verifiedPageFont: verifiedPageFont)
+            VStack(spacing: 0) {
+                if page <= 2 { Spacer(minLength: 0) }
+                ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                    lineView(line, pageFont: pageFont, fontSize: fontSize, isQpc: isQpc, slotH: slotH)
+                }
+                if page <= 2 { Spacer(minLength: 0) }
+            }
+            .frame(width: availW, height: availH, alignment: .center)
+            .padding(.horizontal, horizPad)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+            .onTapGesture { onToggleHud() }
+        }
+    }
+
+    private func computeUniformFontSize(availW: CGFloat, slotH: CGFloat, isQpc: Bool) -> CGFloat {
+        let prefFactor = CGFloat(min(max(fontScale / 1.3, 0.82), 1.15))
+        var size = min(slotH * 0.74, 28) * prefFactor
+        let probeFont = isQpc
+            ? (FontRegistry.verifiedMushafFont(page: page, size: size, sample: lines.first(where: { !$0.words.isEmpty })?.words.map(\.glyphs).joined() ?? "") ?? FontRegistry.uthmanicFont(size: size))
+            : FontRegistry.uthmanicFont(size: size)
+
+        var maxLineW: CGFloat = 0
+        for line in lines where line.kind == "text" {
+            let txt = isQpc
+                ? line.words.map(\.glyphs).joined(separator: " ")
+                : (line.textAr ?? line.words.map(\.wordText).joined(separator: " "))
+            let w = (txt as NSString).size(withAttributes: [.font: probeFont]).width
+            if w > maxLineW { maxLineW = w }
+        }
+        if maxLineW > availW && maxLineW > 0 {
+            size *= (availW / maxLineW) * 0.94
+        }
+        return max(12, size)
+    }
+
+    private func ayahSegments(for line: MushafRepository.MushafLine, isQpc: Bool) -> [AyahSegment] {
+        var segments: [AyahSegment] = []
+        var curAyah: Int?
+        var curWords: [String] = []
+        var idx = 0
+        for w in line.words {
+            let token = isQpc ? w.glyphs : w.wordText
+            if curAyah == w.ayah {
+                curWords.append(token)
+            } else {
+                if let a = curAyah, !curWords.isEmpty {
+                    segments.append(AyahSegment(id: idx, ayah: a, text: curWords.joined(separator: " ")))
+                    idx += 1
+                }
+                curAyah = w.ayah
+                curWords = [token]
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        if let a = curAyah, !curWords.isEmpty {
+            segments.append(AyahSegment(id: idx, ayah: a, text: curWords.joined(separator: " ")))
+        }
+        return segments
     }
 
     @ViewBuilder
-    private func lineView(_ line: MushafRepository.MushafLine, verifiedPageFont: UIFont?) -> some View {
+    private func lineView(_ line: MushafRepository.MushafLine, pageFont: UIFont, fontSize: CGFloat, isQpc: Bool, slotH: CGFloat) -> some View {
         if line.kind == "bismillah" {
-            if let bsmlFont = FontRegistry.verifiedBasmalaFont(size: 22 * CGFloat(fontScale), sample: line.glyphs) {
+            if let bsmlFont = FontRegistry.verifiedBasmalaFont(size: min(fontSize * 1.04, slotH * 0.82), sample: line.glyphs) {
                 Text(line.glyphs)
                     .font(Font(bsmlFont))
                     .foregroundStyle(theme.mushafText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                     .environment(\.layoutDirection, .leftToRight)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 2)
+                    .frame(maxWidth: .infinity, height: slotH, alignment: .center)
             } else {
                 Text(line.textAr ?? "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ")
-                    .font(Font(FontRegistry.uthmanicFont(size: 20 * CGFloat(fontScale))))
+                    .font(Font(FontRegistry.uthmanicFont(size: min(fontSize * 0.94, slotH * 0.78))))
                     .foregroundStyle(theme.mushafText)
-                    .frame(maxWidth: .infinity)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .frame(maxWidth: .infinity, height: slotH, alignment: .center)
                     .multilineTextAlignment(.center)
-                    .padding(.vertical, 2)
             }
         } else if line.kind == "surah_name" {
             Text(line.textAr ?? "")
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: min(15, max(12, slotH * 0.46)), weight: .bold))
                 .foregroundStyle(theme.accent)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
+                .frame(height: max(20, slotH - 4))
                 .background(theme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.accent.opacity(0.35), lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(theme.accent.opacity(0.35), lineWidth: 1))
                 .padding(.vertical, 2)
         } else {
-            let lineText = verifiedPageFont != nil
-                ? line.words.map(\.glyphs).joined(separator: " ")
-                : (line.textAr ?? line.words.map(\.wordText).joined(separator: " "))
-            let useFont = verifiedPageFont ?? FontRegistry.uthmanicFont(size: 19 * CGFloat(fontScale))
-            let primaryAyah = line.words.first?.ayah
-
-            Text(lineText)
-                .font(Font(useFont))
-                .foregroundStyle(theme.mushafText)
-                .lineSpacing(verifiedPageFont == nil ? 6 : 2)
-                .frame(maxWidth: .infinity)
-                .multilineTextAlignment(.center)
-                .padding(.vertical, 1)
-                .background(
-                    (primaryAyah != nil && selectedAyah == primaryAyah)
-                        ? theme.accent.opacity(0.16)
-                        : Color.clear
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .onTapGesture {
-                    if let ayah = primaryAyah {
-                        onSelectAyah(ayah)
-                    }
+            let segments = ayahSegments(for: line, isQpc: isQpc)
+            HStack(spacing: 4) {
+                ForEach(segments) { seg in
+                    Text(seg.text)
+                        .font(Font(pageFont))
+                        .foregroundStyle(theme.mushafText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .padding(.horizontal, 1)
+                        .background(selectedAyah == seg.ayah ? theme.accent.opacity(0.22) : Color.clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .onTapGesture { onSelectAyah(seg.ayah) }
                 }
+            }
+            .frame(maxWidth: .infinity, height: slotH, alignment: .center)
         }
     }
 }

@@ -24,7 +24,7 @@ struct ToolsView: View {
                     toolTile("الإعدادات", "المظهر والموقع وطريقة الحساب", "gearshape") { SettingsView() }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 24)
+                .padding(.bottom, 100)
             }
             .background(appState.theme.bg)
             .navigationTitle("الأدوات")
@@ -61,80 +61,168 @@ struct ToolsView: View {
 
 struct QiblaView: View {
     @EnvironmentObject var appState: AppState
-    @State private var heading: Double?
     @State private var manualOffset: Double = 0
     @StateObject private var locator = CompassLocator()
+
+    private static let compassLabels = ["ش", "ش.شر", "شر", "ج.شر", "ج", "ج.غ", "غ", "ش.غ"]
 
     var body: some View {
         let opts = appState.engineOptions
         let bearing = QiblaEngine.qiblaBearing(lat: opts.lat, lng: opts.lng)
         let northDeg = locator.heading ?? manualOffset
-        VStack(spacing: 14) {
-            ZStack {
-                Circle().stroke(appState.theme.border, lineWidth: 1).frame(maxWidth: 280, maxHeight: 280)
-                // north group rotates -northDeg; Kaaba marker at (bearing - northDeg)
-                ForEach(0..<8, id: \.self) { i in
-                    Text(["ش", "شر", "ج", "غرب", "ش", "شرق", "ج", "غ"][i])
-                        .font(.system(size: 11)).foregroundStyle(appState.theme.textSecondary)
-                        .offset(y: -124)
-                        .rotationEffect(.degrees(Double(i) * 45 - northDeg))
+        let relativeDeg = (bearing - northDeg + 360).truncatingRemainder(dividingBy: 360)
+        let signedDelta = abs(((relativeDeg + 180).truncatingRemainder(dividingBy: 360)) - 180)
+        let isAligned = signedDelta <= 5.0
+
+        ScrollView {
+            VStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .stroke(isAligned ? appState.theme.accent : appState.theme.border, lineWidth: isAligned ? 2.5 : 1)
+                        .frame(maxWidth: 280, maxHeight: 280)
+                    // Fixed top reference pointer (phone heading)
+                    Capsule()
+                        .fill(isAligned ? appState.theme.accent : appState.theme.textSecondary.opacity(0.6))
+                        .frame(width: 4, height: 18)
+                        .offset(y: -140)
+                    // North group rotates -northDeg; Kaaba orbits dial at (bearing - northDeg)
+                    ForEach(0..<8, id: \.self) { i in
+                        Text(Self.compassLabels[i])
+                            .font(.system(size: 11, weight: i == 0 ? .bold : .regular))
+                            .foregroundStyle(i == 0 ? appState.theme.accent : appState.theme.textSecondary)
+                            .offset(y: -120)
+                            .rotationEffect(.degrees(Double(i) * 45 - northDeg))
+                    }
+                    Image(systemName: "location.north.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(appState.theme.textSecondary)
+                        .rotationEffect(.degrees(-northDeg))
+                    Image(systemName: "building.2.fill") // الكعبة — offset BEFORE rotation so it orbits
+                        .font(.system(size: 26))
+                        .foregroundStyle(appState.theme.accent)
+                        .offset(y: -90)
+                        .rotationEffect(.degrees(bearing - northDeg))
                 }
-                Image(systemName: "location.north.fill")
-                    .rotationEffect(.degrees(-northDeg))
-                    .font(.system(size: 18)).foregroundStyle(appState.theme.textSecondary)
-                Image(systemName: "building.2.fill") // الكعبة
-                    .font(.system(size: 26)).foregroundStyle(appState.theme.accent)
-                    .rotationEffect(.degrees(bearing - northDeg))
-                    .offset(y: -92)
-            }
-            .frame(width: 280, height: 280)
-            Text("\(Int((bearing - northDeg + 360).truncatingRemainder(dividingBy: 360)))°")
-                .font(.system(size: 22, weight: .bold)).monospacedDigit()
-            HStack(spacing: 10) {
-                Button("−1°") { manualOffset -= 1; locator.stop() }
+                .frame(width: 280, height: 280)
+                .padding(.top, 8)
+
+                Text("\(Int(relativeDeg.rounded()))°")
+                    .font(.system(size: 26, weight: .bold)).monospacedDigit()
+                    .foregroundStyle(isAligned ? appState.theme.accent : appState.theme.textPrimary)
+
+                if isAligned {
+                    Text("✓ باتجاه القبلة")
+                        .font(.system(size: 13, weight: .bold))
+                        .padding(.horizontal, 14).padding(.vertical, 6)
+                        .background(appState.theme.accent.opacity(0.18))
+                        .foregroundStyle(appState.theme.accent)
+                        .clipShape(Capsule())
+                }
+
+                HStack(spacing: 12) {
+                    Button("−1°") {
+                        manualOffset = (manualOffset - 1 + 360).truncatingRemainder(dividingBy: 360)
+                        locator.stop()
+                    }
+                    .buttonStyle(.bordered)
                     .monospacedDigit()
-                Text(locator.heading == nil ? "يدوي" : "بواصلة").font(.system(size: 12))
-                    .foregroundStyle(appState.theme.textSecondary)
-                Button("+1°") { manualOffset += 1; locator.stop() }
+
+                    Button(locator.heading == nil ? "تفعيل البوصلة" : "بوصلة مباشرة") {
+                        locator.start()
+                    }
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(locator.heading == nil ? appState.theme.accent : appState.theme.textSecondary)
+
+                    Button("+1°") {
+                        manualOffset = (manualOffset + 1).truncatingRemainder(dividingBy: 360)
+                        locator.stop()
+                    }
+                    .buttonStyle(.bordered)
                     .monospacedDigit()
+                }
+
+                if let statusNote = locator.statusNote, locator.heading == nil {
+                    Text(statusNote)
+                        .font(.system(size: 12))
+                        .foregroundStyle(appState.theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+
+                Text("الاتجاه من موقعك إلى الكعبة: \(String(format: "%.1f", bearing))°")
+                    .font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary)
             }
-            Text("الاتجاه من موقعك إلى الكعبة: \(String(format: "%.1f", bearing))°")
-                .font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 20)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 100)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
         .background(appState.theme.bg)
         .navigationTitle("القبلة")
-        .onAppear { locator.start() }
+        .onAppear {
+            HapticsEngine.shared.prepare()
+            locator.start()
+        }
         .onDisappear { locator.stop() }
+        .onChange(of: isAligned) { aligned in
+            if aligned { HapticsEngine.shared.tick() }
+        }
     }
 }
 
 @MainActor
 final class CompassLocator: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var heading: Double?
+    @Published var statusNote: String?
     private let manager = CLLocationManager()
 
     override init() {
         super.init()
         manager.delegate = self
-        manager.headingFilter = 3
+        manager.headingFilter = 2
+        manager.desiredAccuracy = kCLLocationAccuracyBest
     }
 
     func start() {
+        guard CLLocationManager.headingAvailable() else {
+            heading = nil
+            statusNote = "حساس البوصلة غير متاح — استخدم الضبط اليدوي"
+            return
+        }
+        statusNote = nil
         manager.requestWhenInUseAuthorization()
+        manager.startUpdatingLocation()
         manager.startUpdatingHeading()
     }
 
-    func stop() { manager.stopUpdatingHeading() }
-
-    func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
-        // trueHeading preferred (magnetic declination corrected); webkitCompassHeading parity
-        heading = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
+    func stop() {
+        manager.stopUpdatingHeading()
+        manager.stopUpdatingLocation()
     }
 
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        heading = nil
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+        let deg = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
+        guard deg >= 0 else { return }
+        Task { @MainActor in
+            self.heading = deg
+            self.statusNote = nil
+        }
+    }
+
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        Task { @MainActor in
+            if status == .denied || status == .restricted {
+                self.statusNote = "الإذن مرفوض — البوصلة المغناطيسية أو الضبط اليدوي نشط"
+            }
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        Task { @MainActor in
+            if self.heading == nil {
+                self.statusNote = "تعذر قراءة البوصلة — استخدم الضبط اليدوي"
+            }
+        }
     }
 }
 
@@ -434,7 +522,17 @@ struct SettingsView: View {
                 .onChange(of: appState.fontScale) { v in appState.setSetting("font_scale", .number(v)) }
             }
             Section("الموقع والحساب") {
-                NavigationLink("اختيار المدينة") { CityPickerView() }
+                NavigationLink {
+                    CityPickerView()
+                } label: {
+                    HStack {
+                        Text("اختيار المدينة")
+                        Spacer()
+                        Text(appState.db.setting("location")?.objectValue?["name_ar"]?.stringValue ?? "مكة المكرمة")
+                            .font(.system(size: 13))
+                            .foregroundStyle(appState.theme.textSecondary)
+                    }
+                }
                 Picker("طريقة الحساب", selection: $calcMethod) {
                     ForEach(PrayerEngine.calcMethods, id: \.self) { m in Text(calcName(m)).tag(m) }
                 }
@@ -484,68 +582,145 @@ struct SettingsView: View {
     }
 }
 
-/// Offline FTS city picker over the seeded 6,289 cities (vocalized input OK —
-/// the index is normalized with remove_diacritics).
+/// Offline FTS city picker over the seeded 6,289 cities + one-tap GPS nearest
+/// city detection (atomic GRDB write, zero reentrant read/write nesting).
 struct CityPickerView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
     @State private var query = ""
-    @State private var results: [(id: Int, name: String, country: String)] = []
+    @State private var results: [SadaqaDatabase.CityRow] = []
+    @StateObject private var gps = CityLocationDetector()
 
     var body: some View {
         List {
             Section {
-                TextField("ابحث عن مدينة…", text: $query)
-                    .autocorrectionDisabled()
-                    .onChange(of: query) { q in search(q) }
-            }
-            ForEach(results, id: \.id) { r in
                 Button {
-                    appState.setSetting("location", .object([
-                        "lat": .number(0), // filled below from the row
-                        "lng": .number(0),
-                        "timeZone": .string(""),
-                        "cityId": .number(Double(r.id)),
-                    ]))
-                    select(cityId: r.id)
+                    gps.detectNearest(in: appState.db) { city in
+                        appState.selectCity(city)
+                        dismiss()
+                    }
                 } label: {
-                    VStack(alignment: .leading) {
-                        Text(r.name).font(.system(size: 15))
-                        Text(r.country).font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary)
+                    HStack(spacing: 8) {
+                        if gps.isLocating {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "location.fill")
+                        }
+                        Text(gps.isLocating ? "جاري تحديد موقعك…" : "تحديد موقعي الحالي تلقائياً (GPS)")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundStyle(appState.theme.accent)
+                }
+                .disabled(gps.isLocating)
+
+                if let error = gps.errorMessage {
+                    Text(error)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.red)
+                }
+
+                TextField("ابحث عن مدينة… (مثال: الزقازيق، القاهرة، الرياض)", text: $query)
+                    .autocorrectionDisabled()
+                    .onChange(of: query) { q in
+                        results = appState.db.searchCities(query: q, limit: 25)
+                    }
+            }
+
+            Section(query.trimmingCharacters(in: .whitespacesAndNewlines).count < 2 ? "مدن مختارة" : "النتائج") {
+                ForEach(results) { city in
+                    Button {
+                        appState.selectCity(city)
+                        dismiss()
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(city.nameAr).font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(appState.theme.textPrimary)
+                                Text(city.countryAr).font(.system(size: 12))
+                                    .foregroundStyle(appState.theme.textSecondary)
+                            }
+                            Spacer()
+                            Text(city.timeZone).font(.system(size: 11))
+                                .foregroundStyle(appState.theme.textSecondary)
+                        }
                     }
                 }
             }
         }
         .navigationTitle("المدينة")
+        .onAppear {
+            if results.isEmpty {
+                results = appState.db.searchCities(query: "", limit: 25)
+            }
+        }
+    }
+}
+
+@MainActor
+final class CityLocationDetector: NSObject, ObservableObject, CLLocationManagerDelegate {
+    @Published var isLocating = false
+    @Published var errorMessage: String?
+    private let manager = CLLocationManager()
+    private var db: SadaqaDatabase?
+    private var onFound: ((SadaqaDatabase.CityRow) -> Void)?
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyKilometer
     }
 
-    /// FTS5 MATCH — parameter-bound query; the ftsQuery escape port lives in
-    /// the engine (search.js ftsQuery wraps tokens in double quotes).
-    private func search(_ q: String) {
-        guard q.count >= 2 else { results = []; return }
-        let term = q.split(separator: " ").map { "\"\($0)\"" }.joined(separator: " ")
-        try? appState.db.queue.read { db in
-            results = try Row.fetchAll(db, sql: """
-                SELECT c.city_id, c.name_ar, c.country_ar, c.lat, c.lng, c.timezone
-                FROM cities c WHERE c.rowid IN (SELECT rowid FROM fts_cities WHERE fts_cities MATCH ?) LIMIT 12
-                """, arguments: [term]).map { r in
-                (id: r["city_id"] as Int? ?? 0,
-                 name: r["name_ar"] as String? ?? "",
-                 country: r["country_ar"] as String? ?? "")
+    func detectNearest(in db: SadaqaDatabase, onFound: @escaping (SadaqaDatabase.CityRow) -> Void) {
+        self.db = db
+        self.onFound = onFound
+        errorMessage = nil
+        isLocating = true
+        let status = manager.authorizationStatus
+        if status == .denied || status == .restricted {
+            isLocating = false
+            errorMessage = "تم رفض إذن الموقع من إعدادات الجهاز — يمكنك البحث عن مدينتك يدوياً."
+            return
+        }
+        if status == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+        } else {
+            manager.requestLocation()
+        }
+    }
+
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        Task { @MainActor in
+            guard self.isLocating else { return }
+            if status == .authorizedWhenInUse || status == .authorizedAlways {
+                manager.requestLocation()
+            } else if status == .denied || status == .restricted {
+                self.isLocating = false
+                self.errorMessage = "تم رفض إذن الموقع — اختر مدينتك من البحث."
             }
         }
     }
 
-    private func select(cityId: Int) {
-        try? appState.db.queue.read { db in
-            if let r = try Row.fetchOne(db, sql: "SELECT * FROM cities WHERE city_id = ?", arguments: [cityId]) {
-                appState.setSetting("location", .object([
-                    "lat": .number(r["lat"] as Double? ?? 0),
-                    "lng": .number(r["lng"] as Double? ?? 0),
-                    "timeZone": .string(r["timezone"] as String? ?? "UTC"),
-                    "cityId": .number(Double(cityId)),
-                ]))
-                AdhanScheduler.shared.reschedule(db: appState.db)
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let loc = locations.last else { return }
+        let lat = loc.coordinate.latitude
+        let lng = loc.coordinate.longitude
+        Task { @MainActor in
+            self.isLocating = false
+            if let city = self.db?.findNearestCity(lat: lat, lng: lng) {
+                let cb = self.onFound
+                self.onFound = nil
+                cb?(city)
+            } else {
+                self.errorMessage = "تعذر العثور على مدينة قريبة في القاعدة المحلية."
             }
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        Task { @MainActor in
+            self.isLocating = false
+            self.errorMessage = "تعذر تحديد الموقع الحالي — تأكد من تفعيل GPS أو ابحث بالاسم."
         }
     }
 }
@@ -579,12 +754,14 @@ struct UniversalSearchView: View {
     }
 
     private func search(_ q: String) {
-        guard q.count >= 2 else { ayahs = []; return }
-        let term = q.split(separator: " ").map { "\"\($0)\"" }.joined(separator: " ")
+        let trimmed = q.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2, let term = SadaqaDatabase.ftsQuery(trimmed) else { ayahs = []; return }
         try? appState.db.queue.read { db in
             ayahs = try Row.fetchAll(db, sql: """
                 SELECT a.ayah_number, a.text_uthmani, s.name_ar
-                FROM ayahs a WHERE a.ayah_number IN (SELECT rowid FROM fts_ayahs WHERE fts_ayahs MATCH ?) LIMIT 25
+                FROM ayahs a
+                JOIN surahs s ON s.number = a.surah
+                WHERE a.ayah_number IN (SELECT rowid FROM fts_ayahs WHERE fts_ayahs MATCH ?) LIMIT 25
                 """, arguments: [term]).map { r in
                 (n: r["ayah_number"] as Int? ?? 0,
                  surah: r["name_ar"] as String? ?? "",

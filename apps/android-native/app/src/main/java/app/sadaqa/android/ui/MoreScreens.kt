@@ -7,30 +7,39 @@
 
 package app.sadaqa.android.ui
 
+import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.LayoutDirection
@@ -40,11 +49,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
 import app.sadaqa.android.backup.CanonicalJson
 import app.sadaqa.android.backup.JsonValue
 import app.sadaqa.android.data.SadaqaDb
@@ -92,8 +105,10 @@ fun MushafScreen(db: SadaqaDb) {
 
     var hubTab by remember { mutableStateOf("reader") } // reader | reading | index
     var page by remember { mutableIntStateOf((db.setting("mushaf_page")?.dbl?.toInt() ?: 1).coerceIn(1, 604)) }
-    var fontScale by remember { mutableStateOf((db.setting("font_scale")?.dbl ?: 1.3).toFloat()) }
-    var lines by remember { mutableStateOf(listOf<MushafLineItem>()) }
+    var fontScale by remember { mutableStateOf((db.setting("font_scale")?.dbl ?: 1.15).toFloat().coerceIn(0.85f, 1.6f)) }
+    var hudVisible by remember { mutableStateOf(false) }
+    val pageCache = remember { mutableStateMapOf<Int, List<MushafLineItem>>() }
+    val pageMeta = remember { mutableStateMapOf<Int, Triple<String, Int, Int>>() }
     var surahTitle by remember { mutableStateOf("المصحف الشريف") }
     var juzNum by remember { mutableIntStateOf(1) }
     var hizbNum by remember { mutableIntStateOf(1) }
@@ -138,10 +153,11 @@ fun MushafScreen(db: SadaqaDb) {
         refreshBookmarks()
     }
 
-    LaunchedEffect(page) {
-        withContext(Dispatchers.IO) {
-            val rows = db.query("SELECT line_number, kind, glyphs_qpc, text_ar FROM mushaf_lines WHERE page_number = ? ORDER BY line_number", listOf(page.toLong()))
-            val words = db.query("SELECT line_number, glyphs_qpc, word_text, surah, ayah_number, number_in_surah FROM v_page_words WHERE page_number = ? ORDER BY line_number, line_position", listOf(page.toLong()))
+    suspend fun loadPageData(p: Int) {
+        if (pageCache.containsKey(p) && pageMeta.containsKey(p)) return
+        val loaded = withContext(Dispatchers.IO) {
+            val rows = db.query("SELECT line_number, kind, glyphs_qpc, text_ar FROM mushaf_lines WHERE page_number = ? ORDER BY line_number", listOf(p.toLong()))
+            val words = db.query("SELECT line_number, glyphs_qpc, word_text, surah, ayah_number, number_in_surah FROM v_page_words WHERE page_number = ? ORDER BY line_number, line_position", listOf(p.toLong()))
             val byLine = words.groupBy { it.longs["line_number"]?.toInt() ?: 0 }.mapValues { (_, list) ->
                 list.map {
                     MushafWordRow(
@@ -153,7 +169,7 @@ fun MushafScreen(db: SadaqaDb) {
                     )
                 }
             }
-            lines = (1..15).mapNotNull { line ->
+            val builtLines = (1..15).mapNotNull { line ->
                 val deco = rows.firstOrNull { (it.longs["line_number"]?.toInt() ?: 0) == line }
                 val plates = byLine[line] ?: emptyList()
                 val kind = deco?.strings?.get("kind") ?: ""
@@ -164,11 +180,25 @@ fun MushafScreen(db: SadaqaDb) {
                     else -> null
                 }
             }
-            surahTitle = db.queryOne("SELECT s.name_ar FROM ayahs a JOIN surahs s ON s.number = a.surah WHERE a.page = ? ORDER BY a.ayah_number LIMIT 1", listOf(page.toLong()))
+            val title = db.queryOne("SELECT s.name_ar FROM ayahs a JOIN surahs s ON s.number = a.surah WHERE a.page = ? ORDER BY a.ayah_number LIMIT 1", listOf(p.toLong()))
                 ?.strings?.get("name_ar") ?: "المصحف الشريف"
-            val pMeta = db.queryOne("SELECT juz_start, hizb_start FROM mushaf_pages WHERE page_number = ?", listOf(page.toLong()))
-            juzNum = pMeta?.longs?.get("juz_start")?.toInt() ?: 1
-            hizbNum = pMeta?.longs?.get("hizb_start")?.toInt() ?: 1
+            val pMeta = db.queryOne("SELECT juz_start, hizb_start FROM mushaf_pages WHERE page_number = ?", listOf(p.toLong()))
+            val juz = pMeta?.longs?.get("juz_start")?.toInt() ?: 1
+            val hizb = pMeta?.longs?.get("hizb_start")?.toInt() ?: 1
+            builtLines to Triple(title, juz, hizb)
+        }
+        pageCache[p] = loaded.first
+        pageMeta[p] = loaded.second
+    }
+
+    LaunchedEffect(page) {
+        loadPageData(page)
+        pageMeta[page]?.let { (title, juz, hizb) ->
+            surahTitle = title
+            juzNum = juz
+            hizbNum = hizb
+        }
+        withContext(Dispatchers.IO) {
             isBookmarked = (db.queryOne("SELECT COUNT(*) AS n FROM bookmarks WHERE page = ? AND deleted = 0", listOf(page.toLong()))?.longs?.get("n") ?: 0L) > 0L
             db.setSetting("mushaf_page", JsonValue.Num(page.toDouble()))
         }
@@ -193,173 +223,199 @@ fun MushafScreen(db: SadaqaDb) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(theme.bg)) {
-        // Segmented Mushaf Hub bar
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            for ((k, label) in listOf("reader" to "المصحف", "reading" to "قراءاتي وختمتي", "index" to "الفهرس")) {
-                val active = hubTab == k
-                Text(
-                    label,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (active) theme.accentContrast else theme.textSecondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(50))
-                        .background(if (active) theme.accent else theme.surface)
-                        .border(1.dp, if (active) theme.accent else theme.border, RoundedCornerShape(50))
-                        .clickable { hubTab = k }
-                        .padding(vertical = 8.dp),
-                )
+    Column(Modifier.fillMaxSize().background(theme.mushafBg)) {
+        // Segmented Mushaf Hub bar only shown outside full-screen reader mode
+        if (hubTab != "reader") {
+            Row(
+                Modifier.fillMaxWidth().background(theme.bg).padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                for ((k, label) in listOf("reader" to "المصحف", "reading" to "قراءاتي وختمتي", "index" to "الفهرس")) {
+                    val active = hubTab == k
+                    Text(
+                        label,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (active) theme.accentContrast else theme.textSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(50))
+                            .background(if (active) theme.accent else theme.surface)
+                            .border(1.dp, if (active) theme.accent else theme.border, RoundedCornerShape(50))
+                            .clickable { hubTab = k }
+                            .padding(vertical = 8.dp),
+                    )
+                }
             }
         }
 
         when (hubTab) {
             "reader" -> {
-                val sample = lines.firstOrNull { it.words.isNotEmpty() }?.words?.joinToString("") { it.glyphs } ?: ""
-                val verifiedPageFont = remember(page, sample) {
-                    if (sample.isEmpty()) null else QpcFonts.verifiedMushaf(context, page, sample)
+                val pagerState = rememberPagerState(initialPage = page - 1, pageCount = { 604 })
+                LaunchedEffect(page) {
+                    if (pagerState.currentPage != page - 1) pagerState.scrollToPage(page - 1)
+                }
+                LaunchedEffect(pagerState) {
+                    snapshotFlow { pagerState.settledPage + 1 }
+                        .distinctUntilChanged()
+                        .collect { settled -> if (settled != page) page = settled }
                 }
 
-                // Header bar
-                Row(
-                    Modifier.fillMaxWidth().background(theme.surface).padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(surahTitle, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
-                        Text("ص $page · الجزء $juzNum · الحزب $hizbNum", fontSize = 11.sp, color = theme.textSecondary)
-                    }
-                    Text(
-                        "أ±",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = theme.textSecondary,
-                        modifier = Modifier.clickable {
-                            fontScale = if (fontScale >= 1.6f) 1.0f else fontScale + 0.15f
-                            scope.launch { withContext(Dispatchers.IO) { db.setSetting("font_scale", JsonValue.Num(fontScale.toDouble())) } }
-                        }.padding(horizontal = 10.dp, vertical = 6.dp),
-                    )
-                    Text(
-                        if (isBookmarked) "★" else "🔖",
-                        fontSize = 16.sp,
-                        color = if (isBookmarked) theme.accent else theme.textSecondary,
-                        modifier = Modifier.clickable {
-                            scope.launch {
-                                val added = withContext(Dispatchers.IO) {
-                                    db.toggleBookmark(page, 1, null, "$surahTitle · ص $page", System.currentTimeMillis())
-                                }
-                                isBookmarked = added
-                                Haptics.complete(context)
-                                refreshBookmarks()
-                            }
-                        }.padding(horizontal = 8.dp, vertical = 6.dp),
-                    )
-                }
-
-                // Page plate with horizontal swipe navigation
-                var dragAccum by remember { mutableFloatStateOf(0f) }
-                Column(
-                    Modifier.weight(1f).fillMaxWidth().background(theme.mushafBg)
-                        .pointerInput(page) {
-                            detectHorizontalDragGestures(
-                                onHorizontalDrag = { _, dragAmount -> dragAccum += dragAmount },
-                                onDragEnd = {
-                                    if (dragAccum < -90f && page < 604) page += 1
-                                    else if (dragAccum > 90f && page > 1) page -= 1
-                                    dragAccum = 0f
-                                },
-                                onDragCancel = { dragAccum = 0f },
-                            )
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    Column(Modifier.fillMaxSize()) {
+                        // Subtle top metadata strip
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(surahTitle, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.textSecondary, modifier = Modifier.weight(1f))
+                            Text("الجزء $juzNum · الحزب $hizbNum", fontSize = 11.sp, color = theme.textSecondary)
                         }
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    for (item in lines) {
-                        when (item.kind) {
-                            "bismillah" -> {
-                                val bsmlFont = QpcFonts.verifiedBasmala(context, item.glyphs)
-                                if (bsmlFont != null) {
-                                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                                        Text(
-                                            item.glyphs,
-                                            fontFamily = bsmlFont,
-                                            fontSize = (20f * fontScale).sp,
-                                            color = theme.mushafText,
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                                        )
-                                    }
-                                } else {
-                                    Text(
-                                        item.textAr.ifEmpty { "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ" },
-                                        fontFamily = QpcFonts.uthmanic(context),
-                                        fontSize = (18f * fontScale).sp,
-                                        color = theme.mushafText,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                                    )
-                                }
-                            }
-                            "surah_name" -> Box(
-                                Modifier.fillMaxWidth().padding(vertical = 3.dp)
-                                    .clip(RoundedCornerShape(10.dp)).background(theme.surface)
-                                    .border(1.dp, theme.accent.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
-                                    .padding(vertical = 6.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(item.textAr, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = theme.accent)
-                            }
-                            "text" -> {
-                                val lineText = if (verifiedPageFont != null) {
-                                    item.words.joinToString(" ") { it.glyphs }
-                                } else {
-                                    item.textAr.ifEmpty { item.words.joinToString(" ") { it.wordText } }
-                                }
-                                val firstAyah = item.words.firstOrNull()?.ayahNumber
-                                Text(
-                                    lineText,
-                                    fontFamily = verifiedPageFont ?: QpcFonts.uthmanic(context),
-                                    fontSize = (18f * fontScale).sp,
-                                    lineHeight = (28f * fontScale).sp,
-                                    color = theme.mushafText,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(if (firstAyah != null && selectedAyah == firstAyah) theme.accent.copy(alpha = 0.16f) else Color.Transparent)
-                                        .clickable(enabled = firstAyah != null) { selectedAyah = firstAyah }
-                                        .padding(vertical = 1.dp),
+
+                        // RTL HorizontalPager: page 1 on right, swipe left->right advances to next page
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                            HorizontalPager(
+                                state = pagerState,
+                                beyondViewportPageCount = 1,
+                                modifier = Modifier.weight(1f).fillMaxWidth(),
+                            ) { slotIdx ->
+                                val slotPage = slotIdx + 1
+                                LaunchedEffect(slotPage) { loadPageData(slotPage) }
+                                val slotLines = pageCache[slotPage] ?: emptyList()
+                                MushafPagePlate(
+                                    page = slotPage,
+                                    lines = slotLines,
+                                    fontScale = fontScale,
+                                    selectedAyah = selectedAyah,
+                                    onSelectAyah = { selectedAyah = it },
+                                    onToggleHud = { hudVisible = !hudVisible },
                                 )
                             }
                         }
-                    }
-                }
 
-                // Bottom page switcher
-                Row(
-                    Modifier.fillMaxWidth().background(theme.surface).padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        "السابقة",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (page > 1) theme.accent else theme.textSecondary,
-                        modifier = Modifier.clickable(enabled = page > 1) { page -= 1 }.padding(6.dp),
-                    )
-                    Text("صفحة $page من 604", fontSize = 12.sp, color = theme.textSecondary)
-                    Text(
-                        "التالية",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (page < 604) theme.accent else theme.textSecondary,
-                        modifier = Modifier.clickable(enabled = page < 604) { page += 1 }.padding(6.dp),
-                    )
+                        // Compact bottom page pill
+                        Box(
+                            Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                "ص $page / 604",
+                                fontSize = 11.sp,
+                                color = theme.textSecondary,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(theme.surface.copy(alpha = 0.72f))
+                                    .clickable { hudVisible = !hudVisible }
+                                    .padding(horizontal = 12.dp, vertical = 3.dp),
+                            )
+                        }
+                    }
+
+                    // Tap-to-toggle Floating Liquid Glass HUD
+                    if (hudVisible) {
+                        Column(
+                            Modifier.fillMaxSize().padding(12.dp),
+                            verticalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            // Top HUD capsule
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                                    .background(theme.surface.copy(alpha = 0.94f))
+                                    .border(1.dp, theme.border, RoundedCornerShape(18.dp))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(surahTitle, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
+                                    Text("ص $page · الجزء $juzNum · الحزب $hizbNum", fontSize = 11.sp, color = theme.textSecondary)
+                                }
+                                Text(
+                                    "أ±",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = theme.accent,
+                                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
+                                        .clickable {
+                                            fontScale = if (fontScale >= 1.45f) 0.9f else fontScale + 0.1f
+                                            scope.launch { withContext(Dispatchers.IO) { db.setSetting("font_scale", JsonValue.Num(fontScale.toDouble())) } }
+                                        }.padding(horizontal = 10.dp, vertical = 6.dp),
+                                )
+                                Text(
+                                    if (isBookmarked) "★" else "🔖",
+                                    fontSize = 15.sp,
+                                    color = if (isBookmarked) theme.accent else theme.textSecondary,
+                                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
+                                        .clickable {
+                                            scope.launch {
+                                                val added = withContext(Dispatchers.IO) {
+                                                    db.toggleBookmark(page, 1, null, "$surahTitle · ص $page", System.currentTimeMillis())
+                                                }
+                                                isBookmarked = added
+                                                Haptics.complete(context)
+                                                refreshBookmarks()
+                                            }
+                                        }.padding(horizontal = 10.dp, vertical = 6.dp),
+                                )
+                                Text(
+                                    "الفهرس",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = theme.textPrimary,
+                                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
+                                        .clickable { hudVisible = false; hubTab = "index" }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                )
+                                Text(
+                                    "الختمة",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = theme.textPrimary,
+                                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
+                                        .clickable { hudVisible = false; hubTab = "reading" }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                )
+                            }
+
+                            // Bottom HUD capsule with RTL page slider
+                            Column(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                                    .background(theme.surface.copy(alpha = 0.94f))
+                                    .border(1.dp, theme.border, RoundedCornerShape(18.dp))
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                                    Slider(
+                                        value = page.toFloat(),
+                                        onValueChange = { page = it.roundToInt().coerceIn(1, 604) },
+                                        valueRange = 1f..604f,
+                                        colors = SliderDefaults.colors(thumbColor = theme.accent, activeTrackColor = theme.accent),
+                                    )
+                                }
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "السابقة",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (page > 1) theme.accent else theme.textSecondary,
+                                        modifier = Modifier.clickable(enabled = page > 1) { page -= 1 }.padding(6.dp),
+                                    )
+                                    Text("صفحة $page من 604", fontSize = 12.sp, color = theme.textSecondary)
+                                    Text(
+                                        "التالية",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (page < 604) theme.accent else theme.textSecondary,
+                                        modifier = Modifier.clickable(enabled = page < 604) { page += 1 }.padding(6.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
             "reading" -> {
@@ -447,7 +503,7 @@ fun MushafScreen(db: SadaqaDb) {
                             val num = s["number"] as? Int ?: 1
                             val sName = s["nameAr"] as? String ?: ""
                             val sPage = s["page"] as? Int ?: 1
-                            val rev = if (s["rev"] == "Meccan") "مكية" else "مدنية"
+                            val rev = if (s["rev"] == "makkah" || s["rev"] == "Meccan") "مكية" else "مدنية"
                             val aCount = s["ayahs"] as? Int ?: 0
                             Row(
                                 Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(theme.surface)
@@ -573,14 +629,172 @@ fun MushafScreen(db: SadaqaDb) {
     }
 }
 
+@Composable
+private fun MushafPagePlate(
+    page: Int,
+    lines: List<MushafLineItem>,
+    fontScale: Float,
+    selectedAyah: Int?,
+    onSelectAyah: (Int) -> Unit,
+    onToggleHud: () -> Unit,
+) {
+    val theme = LocalSadaqaTheme.current
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val sample = remember(page, lines) {
+        lines.firstOrNull { it.words.isNotEmpty() }?.words?.joinToString("") { it.glyphs } ?: ""
+    }
+    val verifiedPageFont = remember(page, sample) {
+        if (sample.isEmpty()) null else QpcFonts.verifiedMushaf(context, page, sample)
+    }
+    val verifiedTypeface = remember(page, sample) {
+        if (sample.isEmpty()) null else QpcFonts.verifiedMushafTypeface(context, page, sample)
+    }
+    val uthmanicFont = remember(context) { QpcFonts.uthmanic(context) }
+    val uthmanicTypeface = remember(context) { QpcFonts.uthmanicTypeface(context) }
+
+    BoxWithConstraints(
+        Modifier.fillMaxSize()
+            .pointerInput(Unit) { detectTapGestures { onToggleHud() } }
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        val availWidthPx = with(density) { (maxWidth - 8.dp).toPx() }.coerceAtLeast(100f)
+        val slotCount = maxOf(lines.size, 15)
+        val slotHeightDp = maxHeight / slotCount
+        val uniformSp = remember(page, lines, maxWidth, maxHeight, fontScale, verifiedPageFont) {
+            val tf = if (verifiedPageFont != null) (verifiedTypeface ?: uthmanicTypeface) else uthmanicTypeface
+            val paint = android.graphics.Paint().apply {
+                typeface = tf
+                textSize = 20f * density.scaledDensity
+            }
+            var maxLineW = 1f
+            for (item in lines) {
+                if (item.kind != "text") continue
+                val txt = if (verifiedPageFont != null) item.words.joinToString(" ") { it.glyphs }
+                else item.textAr.ifEmpty { item.words.joinToString(" ") { it.wordText } }
+                val w = paint.measureText(txt)
+                if (w > maxLineW) maxLineW = w
+            }
+            val widthFitSp = (20f * (availWidthPx * 0.90f) / maxLineW).coerceIn(11f, 34f)
+            val heightFitSp = (slotHeightDp.value * 0.64f * fontScale).coerceIn(11f, 34f)
+            minOf(widthFitSp, heightFitSp)
+        }
+
+        Column(
+            Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = if (page <= 2) Arrangement.Center else Arrangement.SpaceEvenly,
+        ) {
+            for (item in lines) {
+                val rowMod = if (page <= 2) Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                else Modifier.weight(1f).fillMaxWidth()
+                Box(rowMod, contentAlignment = Alignment.Center) {
+                    when (item.kind) {
+                        "bismillah" -> {
+                            val bsmlFont = QpcFonts.verifiedBasmala(context, item.glyphs)
+                            if (bsmlFont != null) {
+                                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                                    Text(
+                                        item.glyphs,
+                                        fontFamily = bsmlFont,
+                                        fontSize = (uniformSp * 1.05f).sp,
+                                        color = theme.mushafText,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1,
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    item.textAr.ifEmpty { "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ" },
+                                    fontFamily = uthmanicFont,
+                                    fontSize = uniformSp.sp,
+                                    color = theme.mushafText,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                        "surah_name" -> Box(
+                            Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                                .clip(RoundedCornerShape(10.dp)).background(theme.surface)
+                                .border(1.dp, theme.accent.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                .padding(vertical = 3.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(item.textAr, fontSize = minOf(uniformSp * 0.85f, 16f).sp, fontWeight = FontWeight.Bold, color = theme.accent, maxLines = 1)
+                        }
+                        "text" -> {
+                            if (verifiedPageFont != null) {
+                                val segments = remember(item.words) {
+                                    val segs = mutableListOf<Pair<Int, MutableList<MushafWordRow>>>()
+                                    for (w in item.words) {
+                                        if (segs.isEmpty() || segs.last().first != w.ayahNumber) {
+                                            segs.add(w.ayahNumber to mutableListOf(w))
+                                        } else {
+                                            segs.last().second.add(w)
+                                        }
+                                    }
+                                    segs
+                                }
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    for ((ayahNum, words) in segments) {
+                                        Text(
+                                            words.joinToString(" ") { it.glyphs },
+                                            fontFamily = verifiedPageFont,
+                                            fontSize = uniformSp.sp,
+                                            color = theme.mushafText,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(if (selectedAyah == ayahNum) theme.accent.copy(alpha = 0.20f) else Color.Transparent)
+                                                .clickable { onSelectAyah(ayahNum) },
+                                        )
+                                    }
+                                }
+                            } else {
+                                val firstAyah = item.words.firstOrNull()?.ayahNumber
+                                Text(
+                                    item.textAr.ifEmpty { item.words.joinToString(" ") { it.wordText } },
+                                    fontFamily = uthmanicFont,
+                                    fontSize = uniformSp.sp,
+                                    color = theme.mushafText,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    modifier = Modifier.fillMaxWidth()
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(if (firstAyah != null && selectedAyah == firstAyah) theme.accent.copy(alpha = 0.20f) else Color.Transparent)
+                                        .clickable(enabled = firstAyah != null) { firstAyah?.let(onSelectAyah) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Tools hub + Qibla + Hijri + Zakat + Qiyam + Settings + Backup + Audio
 // ---------------------------------------------------------------------------
 
 @Composable
-fun ToolsScreen(db: SadaqaDb) {
+fun ToolsScreen(db: SadaqaDb, initialSub: String? = null, onClearInitial: () -> Unit = {}) {
     val theme = LocalSadaqaTheme.current
     var sub by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(initialSub) {
+        if (initialSub != null) {
+            sub = initialSub
+            onClearInitial()
+        }
+    }
 
     if (sub == "qibla") return QiblaScreen(db) { sub = null }
     if (sub == "hijri") return HijriScreen(db) { sub = null }
@@ -642,28 +856,113 @@ fun SubHeader(title: String, onBack: () -> Unit) {
     }
 }
 
-// Qibla — engine bearing + manual dial fallback (sensor compass behind a
-// capability check; emulator/desktop CI runs never have one).
+// Qibla — engine bearing + live SensorManager compass + manual dial fallback.
 @Composable
 fun QiblaScreen(db: SadaqaDb, onBack: () -> Unit) {
     val theme = LocalSadaqaTheme.current
-    val opts = db.engineOptions()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var opts by remember { mutableStateOf(db.engineOptions()) }
     val bearing = remember(opts) { QiblaEngine.qiblaBearing(opts.lat, opts.lng) }
-    var offset by remember { mutableDoubleStateOf(0.0) }
+    val distKm = remember(opts) { QiblaEngine.distanceKm(opts.lat, opts.lng) }
+    var northDeg by remember { mutableDoubleStateOf(0.0) }
+    var hasSensor by remember { mutableStateOf(false) }
+    var gpsMsg by remember { mutableStateOf<String?>(null) }
+    var cityLabel by remember { mutableStateOf(db.setting("location")?.get("name_ar")?.str ?: "مكة المكرمة") }
+
+    DisposableEffect(context) {
+        val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        val rot = sm?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+        val listener = object : SensorEventListener {
+            private val rMat = FloatArray(9)
+            private val ori = FloatArray(3)
+            override fun onSensorChanged(event: SensorEvent) {
+                SensorManager.getRotationMatrixFromVector(rMat, event.values)
+                SensorManager.getOrientation(rMat, ori)
+                val deg = (Math.toDegrees(ori[0].toDouble()) + 360.0) % 360.0
+                northDeg = deg
+            }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+        if (sm != null && rot != null) {
+            hasSensor = sm.registerListener(listener, rot, SensorManager.SENSOR_DELAY_UI)
+        }
+        onDispose { sm?.unregisterListener(listener) }
+    }
+
+    val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+        if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true || grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
+            val loc = lastKnownLocationOrNull(context)
+            if (loc != null) {
+                scope.launch {
+                    val city = withContext(Dispatchers.IO) { db.findNearestCity(loc.latitude, loc.longitude)?.also { db.selectCity(it) } }
+                    if (city != null) { opts = db.engineOptions(); cityLabel = city.nameAr; gpsMsg = null }
+                }
+            } else gpsMsg = "تعذر تحديد الإحداثيات الحالية."
+        } else gpsMsg = "يلزم السماح بالموقع لتحديث إحداثيات القبلة."
+    }
+
+    val dialAngle = (((bearing - northDeg) % 360.0) + 360.0) % 360.0
+    val diff = abs(((dialAngle + 540.0) % 360.0) - 180.0)
+    val aligned = diff <= 5.0
+    LaunchedEffect(aligned) { if (aligned && hasSensor) Haptics.tick(context) }
+
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         SubHeader("القبلة", onBack)
-        Box(Modifier.size(280.dp).clip(CircleShape).border(1.dp, theme.border, CircleShape), contentAlignment = Alignment.Center) {
-            Text("🕋", fontSize = 26.sp, color = theme.accent, modifier = Modifier.offset(y = (-92).dp).rotate((bearing - offset).toFloat()))
+        Text(cityLabel, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = theme.accent)
+        Box(
+            Modifier.size(280.dp).clip(CircleShape)
+                .background(theme.surface)
+                .border(2.dp, if (aligned) theme.accent else theme.border, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            val dirs = listOf("ش", "ش.شر", "شر", "ج.شر", "ج", "ج.غ", "غ", "ش.غ")
+            dirs.forEachIndexed { idx, label ->
+                val rad = Math.toRadians(idx * 45.0 - northDeg)
+                val xDp = (sin(rad) * 114.0).dp
+                val yDp = (-cos(rad) * 114.0).dp
+                Text(label, fontSize = 11.sp, fontWeight = if (idx == 0) FontWeight.Bold else FontWeight.Normal,
+                    color = if (idx == 0) theme.accent else theme.textSecondary,
+                    modifier = Modifier.offset(x = xDp, y = yDp))
+            }
+            // Rotate around center FIRST, then offset outward so the Kaaba icon orbits the compass ring
+            Text("🕋", fontSize = 28.sp, modifier = Modifier.rotate(dialAngle.toFloat()).offset(y = (-78).dp))
+            Text(if (aligned) "✓" else "▲", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (aligned) theme.accent else theme.textPrimary)
         }
-        Text("${(((bearing - offset) % 360 + 360) % 360).toInt()}°", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = { offset -= 1.0 }) { Text("−1°") }
-            Button(onClick = { offset += 1.0 }) { Text("+1°") }
+        Text("${dialAngle.roundToInt()}°", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
+        if (aligned) Text("✓ باتجاه القبلة", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = theme.accent)
+        Text(
+            if (hasSensor) "البوصلة الحية نشطة — أدر الهاتف نحو 🕋"
+            else "وضع المعايرة اليدوي (لا يتوفر مستشعر اتجاه على هذا الجهاز)",
+            fontSize = 12.sp,
+            color = theme.textSecondary,
+            textAlign = TextAlign.Center,
+        )
+        if (!hasSensor) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = { northDeg = (northDeg - 5.0 + 360.0) % 360.0 }) { Text("−5°") }
+                Button(onClick = { northDeg = (northDeg + 5.0) % 360.0 }) { Text("+5°") }
+            }
         }
-        Text("الاتجاه من موقعك إلى الكعبة: %.1f°".format(bearing), fontSize = 12.sp, color = theme.textSecondary)
+        Button(onClick = {
+            if (hasLocationPermission(context)) {
+                val loc = lastKnownLocationOrNull(context)
+                if (loc != null) {
+                    scope.launch {
+                        val city = withContext(Dispatchers.IO) { db.findNearestCity(loc.latitude, loc.longitude)?.also { db.selectCity(it) } }
+                        if (city != null) { opts = db.engineOptions(); cityLabel = city.nameAr; gpsMsg = null }
+                    }
+                } else gpsMsg = "تعذر الحصول على الموقع الحالي."
+            } else {
+                permLauncher.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
+            }
+        }) { Text("📍 تحديث موقعي (GPS)") }
+        gpsMsg?.let { Text(it, fontSize = 12.sp, color = Color(0xFFE5636F)) }
+        Text("الاتجاه من موقعك إلى الكعبة: %.1f° · المسافة %.0f كم".format(bearing, distKm), fontSize = 12.sp, color = theme.textSecondary)
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -672,7 +971,8 @@ fun QiblaScreen(db: SadaqaDb, onBack: () -> Unit) {
 @Composable
 fun HijriScreen(db: SadaqaDb, onBack: () -> Unit) {
     val theme = LocalSadaqaTheme.current
-    var month by remember { mutableStateOf(HijriEngine.toHijri(isoOf(System.currentTimeMillis(), "UTC"))) }
+    val tzId = remember { db.engineOptions().timeZone }
+    var month by remember { mutableStateOf(HijriEngine.toHijri(isoOf(System.currentTimeMillis(), tzId))) }
     val adjust = db.hijriAdjust()
 
     Column(
@@ -844,13 +1144,15 @@ fun QiyamScreen(db: SadaqaDb, onBack: () -> Unit) {
     }
 }
 
-// Settings — 4 themes, font scale, 13 calc methods, madhab, HLR, hijri adjust.
+// Settings — 4 themes, city/GPS, font scale, 13 calc methods, madhab, HLR, hijri adjust.
 @Composable
 fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
     val theme = LocalSadaqaTheme.current
     val context = LocalContext.current
     val app = context.applicationContext as app.sadaqa.android.SadaqaApp
-    val opts = db.engineOptions()
+    var opts by remember { mutableStateOf(db.engineOptions()) }
+    var cityName by remember { mutableStateOf(db.setting("location")?.get("name_ar")?.str ?: "مكة المكرمة") }
+    var showCityPicker by remember { mutableStateOf(false) }
     var method by remember { mutableStateOf(db.setting("calc_method")?.str ?: "umm_al_qura") }
 
     Column(
@@ -858,6 +1160,19 @@ fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         SubHeader("الإعدادات", onBack)
+        Text("المدينة والموقع", fontSize = 13.sp, color = theme.textSecondary)
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(theme.surface)
+                .border(1.dp, theme.border, RoundedCornerShape(12.dp))
+                .clickable { showCityPicker = true }.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(cityName, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
+                Text("${opts.timeZone} · ${"%.2f".format(opts.lat)}, ${"%.2f".format(opts.lng)}", fontSize = 11.sp, color = theme.textSecondary)
+            }
+            Text("تغيير / GPS", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.accent)
+        }
         Text("السمة", fontSize = 13.sp, color = theme.textSecondary)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (t in OFFERED_THEMES) {
@@ -891,6 +1206,17 @@ fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
         Text("المذهب (العصر): ${if (opts.madhab == "hanafi") "الحنفي" else "الشافعي"} — بدّلها من ملف الإعدادات المتقدم", fontSize = 12.sp, color = theme.textSecondary)
         Text("تعديل الهجري: ${db.hijriAdjust()} (±٣) — يُطبَّق على العرض فقط", fontSize = 12.sp, color = theme.textSecondary)
         Spacer(Modifier.height(24.dp))
+    }
+    if (showCityPicker) {
+        CityPickerDialog(
+            db = db,
+            onSelected = { city ->
+                opts = db.engineOptions()
+                cityName = city.nameAr
+                showCityPicker = false
+            },
+            onDismiss = { showCityPicker = false },
+        )
     }
 }
 
@@ -1089,13 +1415,19 @@ fun SearchSheet(db: SadaqaDb, onClose: () -> Unit) {
     var results by remember { mutableStateOf(listOf<Triple<Int, String, String>>()) }
 
     LaunchedEffect(query) {
-        if (query.length < 2) { results = emptyList(); return@LaunchedEffect }
+        if (query.trim().length < 2) { results = emptyList(); return@LaunchedEffect }
         withContext(Dispatchers.IO) {
-            val term = query.split(" ").joinToString(" ") { "\"$it\"" }
-            results = db.query(
-                "SELECT a.ayah_number AS n, a.text_uthmani AS t, s.name_ar AS sn FROM ayahs a JOIN surahs s ON s.number = a.surah WHERE a.ayah_number IN (SELECT rowid FROM fts_ayahs WHERE fts_ayahs MATCH ?) LIMIT 25",
-                listOf(term),
-            ).map { Triple((it.longs["n"] ?: 0).toInt(), it.strings["sn"] ?: "", it.strings["t"] ?: "") }
+            val term = SadaqaDb.ftsQuery(query)
+            if (term == null) {
+                results = emptyList()
+                return@withContext
+            }
+            results = runCatching {
+                db.query(
+                    "SELECT a.ayah_number AS n, a.text_uthmani AS t, s.name_ar AS sn FROM ayahs a JOIN surahs s ON s.number = a.surah WHERE a.ayah_number IN (SELECT rowid FROM fts_ayahs WHERE fts_ayahs MATCH ?) LIMIT 25",
+                    listOf(term),
+                ).map { Triple((it.longs["n"] ?: 0).toInt(), it.strings["sn"] ?: "", it.strings["t"] ?: "") }
+            }.getOrDefault(emptyList())
         }
     }
 

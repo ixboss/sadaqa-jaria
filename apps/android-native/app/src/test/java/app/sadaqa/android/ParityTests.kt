@@ -497,4 +497,43 @@ class DatabaseWritePathTest {
             db.close()
         }
     }
+
+    @Test
+    fun selectCityZagazigAndComputePrayers() {
+        val f = File("build/tmp-p5/city-${System.nanoTime()}.db")
+        f.parentFile?.mkdirs()
+        val db = SadaqaDb.open(f, ::seedBytesOf)
+        try {
+            val matches = db.searchCities("الزقازيق")
+            val zagazig = matches.firstOrNull {
+                it.nameAr.contains("الزقازيق") || it.nameEn.contains("zagazig", ignoreCase = true)
+            } ?: throw AssertionError("expected الزقازيق in cities search")
+            assertEquals("Africa/Cairo", zagazig.timeZone)
+
+            db.selectCity(zagazig, 1_794_988_800_000L)
+            val opts = db.engineOptions()
+            assertEquals("Africa/Cairo", opts.timeZone)
+            assertEquals(zagazig.lat, opts.lat, 1e-4)
+            assertEquals(zagazig.lng, opts.lng, 1e-4)
+
+            val sched = PrayerEngine.daySchedule("2026-11-18", opts)
+            assertTrue(sched.prayers.getValue(PrayerName.FAJR) < sched.prayers.getValue(PrayerName.DHUHR))
+            assertTrue(sched.prayers.getValue(PrayerName.DHUHR) < sched.prayers.getValue(PrayerName.ISHA))
+
+            val next = PrayerEngine.next(sched.prayers.getValue(PrayerName.ISHA) + 60_000L, opts)
+            assertEquals(PrayerName.FAJR, next.name)
+
+            val card = SmartCardResolver.resolve(
+                sched.prayers.getValue(PrayerName.DHUHR) + 2 * 60 * 60_000L,
+                PrayerEngine.bind(opts),
+            )
+            if (card.kind == app.sadaqa.android.engine.SmartCardKind.NEXT_PRAYER) {
+                assertEquals("التقويم الهجري", card.actionLabel)
+                assertEquals("tools-hijri", card.actionScreen)
+            }
+            assertEquals("\"الصلاه\"*", SadaqaDb.ftsQuery("الصلاة"))
+        } finally {
+            db.close()
+        }
+    }
 }

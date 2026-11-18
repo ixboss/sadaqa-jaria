@@ -478,4 +478,33 @@ final class DatabaseWritePathTests: XCTestCase {
         let removed = try db.toggleBookmark(page: 1, lineNumber: 1, ayahNumber: nil, labelAr: "الفاتحة", now: now + 30)
         XCTAssertFalse(removed)
     }
+
+    func testSelectCityZagazigAndComputePrayers() throws {
+        let db = try makeDb()
+        let matches = db.searchCities(query: "الزقازيق")
+        let zagazig = try XCTUnwrap(matches.first { $0.nameAr.contains("الزقازيق") || $0.nameEn.localizedCaseInsensitiveContains("zagazig") },
+                                    "expected الزقازيق in cities FTS/LIKE search")
+        XCTAssertEqual(zagazig.timeZone, "Africa/Cairo")
+
+        // Must commit location setting atomically without GRDB reentrancy
+        try db.selectCity(zagazig, now: 1_794_988_800_000)
+        let opts = db.engineOptions()
+        XCTAssertEqual(opts.timeZone, "Africa/Cairo")
+        XCTAssertEqual(opts.lat, zagazig.lat, accuracy: 1e-4)
+        XCTAssertEqual(opts.lng, zagazig.lng, accuracy: 1e-4)
+
+        let sched = try PrayerEngine.daySchedule("2026-11-18", opts)
+        XCTAssertLessThan(sched.times[.fajr]!, sched.times[.dhuhr]!)
+        XCTAssertLessThan(sched.times[.dhuhr]!, sched.times[.isha]!)
+
+        let next = try PrayerEngine.next(sched.times[.isha]! + 60_000, opts)
+        XCTAssertEqual(next.name, .fajr)
+
+        let engine = PrayerEngine.bind(opts)
+        let card = SmartCardResolver.resolve(now: sched.times[.dhuhr]! + 2 * 60 * 60_000, engine: engine)
+        if card.kind == .nextPrayer {
+            XCTAssertEqual(card.actionLabel, "التقويم الهجري")
+            XCTAssertEqual(card.actionScreen, "tools-hijri")
+        }
+    }
 }

@@ -95,7 +95,7 @@ object SmartCardResolver {
             SmartCardKind.NEXT_PRAYER, "🕌", "الوقت الحالي",
             "${nxt.name.labelAr} ${clock(nxt.at, tz)}",
             "الصلاة القادمة بعد ${hms(nxt.at - now)}",
-            "جدول الشهر", "tools-hijri",
+            "التقويم الهجري", "tools-hijri",
         )
     }
 

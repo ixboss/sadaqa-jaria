@@ -11,6 +11,7 @@ import { toHijri, fromHijri, monthNameAr, events, withAdjust } from '../../../..
 import { CALC_METHODS, MADHABS, HIGH_LATITUDE_RULES } from '../../../../../packages/core-data/engines/prayer.js';
 import { navigate } from '../router.js';
 import { renderBackup } from './backup.js';
+import { findNearestCity, searchCitiesOffline } from './today.js';
 
 const fmtClock = (ms, tz) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
 
@@ -76,44 +77,55 @@ export function renderQibla(root) {
   const dialEl = root.querySelector('#q-dial');
   let northDeg = 0; // live heading offset (compass) or manual offset
   let live = false;
+  let alignedPulse = false;
+
+  // Build SVG once and update only group transforms on 60Hz sensor events
+  dialEl.innerHTML = '';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 200 200');
+  const mk = (tag, attrs) => { const el = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v); return el; };
+  const outerRing = mk('circle', { cx: 100, cy: 100, r: 96, fill: 'var(--color-surface-raised)', stroke: 'var(--color-border)', 'stroke-width': 2 });
+  svg.appendChild(outerRing);
+  for (let d = 0; d < 360; d += 15) {
+    const a = (d * Math.PI) / 180;
+    const major = d % 45 === 0;
+    const r1 = major ? 84 : 90;
+    svg.appendChild(mk('line', {
+      x1: 100 + r1 * Math.sin(a), y1: 100 - r1 * Math.cos(a),
+      x2: 100 + 96 * Math.sin(a), y2: 100 - 96 * Math.cos(a),
+      stroke: 'var(--color-border)', 'stroke-width': major ? 2 : 1,
+    }));
+  }
+  const northG = mk('g', { id: 'q-north-g' });
+  northG.appendChild(mk('polygon', { points: '100,8 94,22 106,22', fill: 'var(--color-text-primary)' }));
+  northG.appendChild(mk('text', { x: 100, y: 36, 'text-anchor': 'middle', 'font-size': 13, fill: 'var(--color-text-primary)' })).textContent = 'ش';
+  svg.appendChild(northG);
+  const kabG = mk('g', { id: 'q-kaaba-g' });
+  kabG.appendChild(mk('path', {
+    d: 'M100 44 l10 6 v12 l-10 6 -10 -6 v-12 z',
+    fill: 'var(--color-accent)', stroke: 'var(--color-accent-contrast)', 'stroke-width': 1.5,
+  }));
+  svg.appendChild(kabG);
+  svg.appendChild(mk('circle', { cx: 100, cy: 100, r: 5, fill: 'var(--color-text-secondary)' }));
+  dialEl.appendChild(svg);
 
   function paint() {
-    dialEl.innerHTML = '';
-    const svg = document.createElementNS(NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 200 200');
-    const mk = (tag, attrs) => { const el = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v); return el; };
-    svg.appendChild(mk('circle', { cx: 100, cy: 100, r: 96, fill: 'var(--color-surface-raised)', stroke: 'var(--color-border)' }));
-    for (let d = 0; d < 360; d += 15) {
-      const a = (d * Math.PI) / 180;
-      const major = d % 45 === 0;
-      const r1 = major ? 84 : 90;
-      svg.appendChild(mk('line', {
-        x1: 100 + r1 * Math.sin(a), y1: 100 - r1 * Math.cos(a),
-        x2: 100 + 96 * Math.sin(a), y2: 100 - 96 * Math.cos(a),
-        stroke: 'var(--color-border)', 'stroke-width': major ? 2 : 1,
-      }));
+    northG.setAttribute('transform', `rotate(${-northDeg} 100 100)`);
+    kabG.setAttribute('transform', `rotate(${bearing - northDeg} 100 100)`);
+    const rel = ((bearing - northDeg + 360) % 360);
+    const delta = ((bearing - northDeg + 540) % 360) - 180;
+    const isAligned = live && Math.abs(delta) <= 5;
+    outerRing.setAttribute('stroke', isAligned ? 'var(--color-accent)' : 'var(--color-border)');
+    if (isAligned && !alignedPulse) {
+      alignedPulse = true;
+      haptic([15, 30, 15]);
+    } else if (!isAligned) {
+      alignedPulse = false;
     }
-    // north marker + N label rotate with the dial
-    const northG = mk('g', { id: 'q-north-g' });
-    northG.appendChild(mk('polygon', { points: '100,8 94,22 106,22', fill: 'var(--color-text-primary)' }));
-    northG.appendChild(mk('text', { x: 100, y: 36, 'text-anchor': 'middle', 'font-size': 13, fill: 'var(--color-text-primary)' })).textContent = 'ش';
-    svg.appendChild(northG);
-    // Kaaba marker at bearing (rotates with the dial)
-    const kabG = mk('g', { id: 'q-kaaba-g', transform: `rotate(${bearing} 100 100)` });
-    kabG.appendChild(mk('path', {
-      d: 'M100 44 l10 6 v12 l-10 6 -10 -6 v-12 z',
-      fill: 'var(--color-accent)', stroke: 'var(--color-accent-contrast)', 'stroke-width': 1.5,
-    }));
-    svg.appendChild(kabG);
-    svg.appendChild(mk('circle', { cx: 100, cy: 100, r: 5, fill: 'var(--color-text-secondary)' }));
-    dialEl.appendChild(svg);
-    const g = dialEl.querySelector('#q-north-g');
-    g.setAttribute('transform', `rotate(${-northDeg} 100 100)`);
-    const kab = dialEl.querySelector('#q-kaaba-g');
-    kab.setAttribute('transform', `rotate(${bearing - northDeg} 100 100)`);
     const reading = root.querySelector('#q-reading');
-    reading.textContent = `${((bearing - northDeg + 360) % 360).toFixed(1)}°`;
-    root.querySelector('#q-north').textContent = `الشمال: ${Math.round(northDeg)}°`;
+    if (reading) reading.textContent = `${rel.toFixed(1)}°`;
+    const northEl = root.querySelector('#q-north');
+    if (northEl) northEl.textContent = `الشمال: ${Math.round(northDeg)}°`;
   }
   paint();
 
@@ -122,11 +134,19 @@ export function renderQibla(root) {
     paint();
   }
 
+  let headingHandler = null;
+  function stopCompassListeners() {
+    if (headingHandler) {
+      window.removeEventListener('deviceorientationabsolute', headingHandler, true);
+      window.removeEventListener('deviceorientation', headingHandler, true);
+      headingHandler = null;
+    }
+  }
+
   const manualBox = root.querySelector('#q-manual');
   root.querySelector('#q-dial-mode').addEventListener('click', () => {
     live = false;
-    if (headingHandler) window.removeEventListener('deviceorientationabsolute', headingHandler, true);
-    headingHandler = null;
+    stopCompassListeners();
     manualBox.hidden = false;
     root.querySelector('#q-note').textContent = 'الوضع اليدوي: ضع الهاتف موازياً للأرض وأدر القرص حتى تتحاذى علامة الشمال مع الشمال الحقيقي.';
     haptic([10]);
@@ -135,31 +155,38 @@ export function renderQibla(root) {
   root.querySelector('#q-minus').addEventListener('click', () => setHeading(northDeg - 1));
   root.querySelector('#q-plus').addEventListener('click', () => setHeading(northDeg + 1));
 
-  let headingHandler = null;
   root.querySelector('#q-compass').addEventListener('click', async () => {
     try {
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
         const res = await DeviceOrientationEvent.requestPermission();
         if (res !== 'granted') throw new Error('permission denied');
       }
-      if (headingHandler) window.removeEventListener('deviceorientationabsolute', headingHandler, true);
+      stopCompassListeners();
       headingHandler = (e) => {
-        const abs = e.absolute === true ? e.alpha : null;
+        const abs = e.absolute === true && typeof e.alpha === 'number' ? e.alpha : null;
         const webkit = typeof e.webkitCompassHeading === 'number' ? e.webkitCompassHeading : null;
         const heading = webkit ?? (abs !== null ? 360 - abs : null);
         if (heading === null) return;
         live = true;
         manualBox.hidden = true;
-        root.querySelector('#q-note').textContent = 'البوصلة الحيّة تعمل — أبقِ الجهاز مستوياً.';
+        const delta = ((bearing - heading + 540) % 360) - 180;
+        root.querySelector('#q-note').textContent = Math.abs(delta) <= 5
+          ? 'أنت الآن باتجاه القبلة الصحيح ✓'
+          : 'البوصلة الحيّة تعمل — أبقِ الجهاز مستوياً.';
         setHeading(heading);
       };
       window.addEventListener('deviceorientationabsolute', headingHandler, true);
+      window.addEventListener('deviceorientation', headingHandler, true);
       root.querySelector('#q-note').textContent = 'حرّك الجهاز بحركة ٨ لمعايرة البوصلة…';
     } catch {
       manualBox.hidden = false;
       root.querySelector('#q-note').textContent = 'لا يوجد مستشعر بوصلة على هذا الجهاز — استخدم القرص اليدوي.';
     }
   });
+
+  new MutationObserver(() => {
+    if (!document.getElementById('q-dial')) stopCompassListeners();
+  }).observe(root, { childList: true, subtree: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -353,6 +380,7 @@ export async function renderSettings(root) {
     <div class="card">
       <h3 style="margin:0 0 8px;font-size:15px">الموقع</h3>
       <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:8px" id="s-loc-current">الحالي: ${loc.name_ar ?? 'مكة المكرمة'} (${loc.lat?.toFixed(3) ?? '21.423'}, ${loc.lng?.toFixed(3) ?? '39.826'})</div>
+      <button class="btn primary" id="s-gps-btn" style="width:100%;margin-bottom:10px">📍 تحديد موقعي الحالي تلقائياً (GPS)</button>
       <div class="field"><label>ابحث في مدن التطبيق (تعمل دون اتصال — ٦,٢٨٩ مدينة)</label>
         <input id="s-city" class="search-input" placeholder="اكتب اسم المدينة…" autocomplete="off"></div>
       <div id="s-city-results"></div>
@@ -375,31 +403,38 @@ export async function renderSettings(root) {
 
   const input = root.querySelector('#s-city');
   const results = root.querySelector('#s-city-results');
+  const applyCity = async (row) => {
+    await saveSetting('location', { cityId: row.city_id, lat: row.lat, lng: row.lng, tz: row.timezone, name_ar: row.name_ar });
+    root.querySelector('#s-loc-current').textContent = `الحالي: ${row.name_ar} (${row.lat.toFixed(3)}, ${row.lng.toFixed(3)})`;
+    haptic([15, 40, 15]);
+  };
+  root.querySelector('#s-gps-btn')?.addEventListener('click', () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const nearest = await findNearestCity(state.db, pos.coords.latitude, pos.coords.longitude);
+      if (nearest) await applyCity(nearest);
+    });
+  });
+
   let seq = 0;
-  input.addEventListener('input', async () => {
+  const renderCityRows = async (q) => {
     const my = ++seq;
-    const q = input.value.trim();
-    if (q.length < 2) { results.innerHTML = ''; return; }
-    const { ftsQuery, normalizeArabic } = await import('../../../../../packages/core-data/engines/search.js');
-    const rows = await state.db.query(
-      `SELECT c.city_id, c.name_ar, c.country_ar, c.lat, c.lng, c.timezone FROM cities c
-       WHERE c.rowid IN (SELECT rowid FROM fts_cities WHERE fts_cities MATCH ?) LIMIT 8`,
-      [ftsQuery(q)]);
+    const rows = await searchCitiesOffline(state.db, q);
     if (my !== seq) return;
     results.innerHTML = rows.length === 0
       ? `<div class="mode-note">لا نتائج — جرّب بدون "ال" أو بصيغة أقصر.</div>`
-      : rows.map((r) => `<div class="result-item" data-city="${r.city_id}" role="button" tabindex="0">
+      : rows.slice(0, 12).map((r) => `<div class="result-item" data-city="${r.city_id}" role="button" tabindex="0">
           <div style="font-weight:600">${r.name_ar}</div><div class="meta">${r.country_ar} · ${r.lat.toFixed(2)}, ${r.lng.toFixed(2)} · ${r.timezone}</div>
         </div>`).join('');
     for (const el of results.querySelectorAll('[data-city]')) {
-      const pick = async () => {
+      const pick = () => {
         const row = rows.find((r) => String(r.city_id) === el.dataset.city);
-        await saveSetting('location', { lat: row.lat, lng: row.lng, tz: row.timezone, name_ar: row.name_ar });
-        root.querySelector('#s-loc-current').textContent = `الحالي: ${row.name_ar} (${row.lat.toFixed(3)}, ${row.lng.toFixed(3)})`;
-        haptic([15, 40, 15]);
+        if (row) applyCity(row);
       };
       el.addEventListener('click', pick);
       el.addEventListener('keydown', (e) => { if (e.key === 'Enter') pick(); });
     }
-  });
+  };
+  renderCityRows('');
+  input.addEventListener('input', () => renderCityRows(input.value));
 }

@@ -95,8 +95,9 @@ struct AthkarView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 24)
+                .padding(.bottom, 100)
             }
+            .scrollDismissesKeyboard(.interactively)
             .background(appState.theme.bg)
             .navigationTitle("الأذكار")
             .navigationDestination(for: String.self) { categoryId in
@@ -224,7 +225,7 @@ struct AthkarReaderView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 24)
+            .padding(.bottom, 100)
         }
         .background(appState.theme.bg)
         .navigationTitle(categoryName)
@@ -356,6 +357,7 @@ struct TasbihView: View {
                     if let c = counters[safe: selected] { stats(c) }
                 }
                 .padding(.horizontal, 16)
+                .padding(.bottom, 100)
             }
             .background(appState.theme.bg)
             .navigationTitle("السبحة")
