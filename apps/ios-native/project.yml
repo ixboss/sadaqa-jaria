@@ -42,8 +42,8 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: صدقة جارية
-        CFBundleShortVersionString: "2.0.2"
-        CFBundleVersion: "3"
+        CFBundleShortVersionString: "2.0.3"
+        CFBundleVersion: "4"
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         NSMotionUsageDescription: "اتجاه القبلة عبر حساس البوصلة."
@@ -75,8 +75,8 @@ targets:
       path: Widgets/Info.plist
       properties:
         CFBundleDisplayName: مواقيت الصلاة
-        CFBundleShortVersionString: "2.0.2"
-        CFBundleVersion: "3"
+        CFBundleShortVersionString: "2.0.3"
+        CFBundleVersion: "4"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:

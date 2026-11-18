@@ -23,9 +23,22 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.Adjust
+import androidx.compose.material.icons.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.NightsStay
+import androidx.compose.material.icons.outlined.Spa
+import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material.icons.outlined.WbTwilight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -35,7 +48,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -109,18 +124,19 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                 Text("اليوم", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
                 Text("${hijri.d} ${HijriEngine.monthNameAr(hijri.m)} ${hijri.y} هـ · ${isoOf(now, opts.timeZone)}", fontSize = 12.sp, color = theme.textSecondary)
             }
-            Text(
-                "📍 $cityName",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = theme.accent,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
                     .background(theme.surface)
                     .border(1.dp, theme.border, RoundedCornerShape(50))
                     .clickable { showCityPicker = true }
                     .padding(horizontal = 12.dp, vertical = 6.dp),
-            )
+            ) {
+                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = theme.accent, modifier = Modifier.size(14.dp))
+                Text(cityName, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.accent)
+            }
         }
 
         // hero — next prayer
@@ -128,8 +144,8 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
         val next = remember(opts, todayIso) { runCatching { engine.next(now) }.getOrNull() }
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
-                .background(Brush.verticalGradient(listOf(theme.accent.copy(alpha = 0.14f), theme.surface)))
-                .border(1.dp, theme.accent.copy(alpha = 0.32f), RoundedCornerShape(18.dp))
+                .background(Brush.verticalGradient(listOf(theme.accent.copy(alpha = 0.12f), theme.surface)))
+                .border(1.dp, theme.accent.copy(alpha = 0.30f), RoundedCornerShape(18.dp))
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -137,32 +153,59 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
             if (next != null) {
                 val isTomorrow = isoOf(next.at, opts.timeZone) != todayIso
                 Text(next.name.labelAr, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = theme.accent)
-                Text(hmsOf(next.at - now), fontSize = 28.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
+                Text(
+                    hmsOf(next.at - now),
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = theme.textPrimary,
+                    style = TextStyle(fontFeatureSettings = "tnum"),
+                )
                 Text(
                     "الأذان ${clockOf(next.at, opts.timeZone)}${if (isTomorrow) " (غداً)" else ""}",
                     fontSize = 13.sp,
                     color = theme.textSecondary,
+                    style = TextStyle(fontFeatureSettings = "tnum"),
                 )
             }
         }
 
         // Smart Context-Aware Card — the shared §9 resolver's verdict
         val card = remember(now / 60000, opts) { SmartCardResolver.resolve(now, engine) }
+        val cardIcon = when (card.kind) {
+            SmartCardKind.KAHF -> Icons.Outlined.MenuBook
+            SmartCardKind.AFTER_PRAYER -> Icons.Outlined.Adjust
+            SmartCardKind.QIYAM -> Icons.Outlined.NightsStay
+            SmartCardKind.MORNING -> Icons.Outlined.WbTwilight
+            SmartCardKind.EVENING -> Icons.Outlined.WbSunny
+            SmartCardKind.NEXT_PRAYER -> Icons.Outlined.AccountBalance
+        }
         CardBox {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(card.badge, fontSize = 11.sp, color = theme.accent)
-                    Text(card.title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
-                    Text(card.sub, fontSize = 13.sp, color = theme.textSecondary, lineHeight = 20.sp)
-                    Button(colors = ButtonDefaults.buttonColors(containerColor = theme.accent, contentColor = theme.accentContrast), onClick = {
-                        when (card.actionScreen) {
-                            "mushaf-page" -> onNavigate("mushaf")
-                            "tools-qiyam", "tools-hijri" -> onNavigate(card.actionScreen)
-                            else -> scope.launch { AthkarNav.openCategory(db, card.kind.key); onNavigate("athkar") }
-                        }
-                    }) { Text(card.actionLabel) }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(theme.accent.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(cardIcon, contentDescription = null, tint = theme.accent, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        card.badge,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = theme.accent,
+                        modifier = Modifier.border(1.dp, theme.accent.copy(alpha = 0.36f), RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp),
+                    )
                 }
-                Text(card.icon, fontSize = 26.sp)
+                Text(card.title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
+                Text(card.sub, fontSize = 13.sp, color = theme.textSecondary, lineHeight = 20.sp)
+                Button(colors = ButtonDefaults.buttonColors(containerColor = theme.accent, contentColor = theme.accentContrast), onClick = {
+                    when (card.actionScreen) {
+                        "mushaf-page" -> onNavigate("mushaf")
+                        "tools-qiyam", "tools-hijri" -> onNavigate(card.actionScreen)
+                        else -> scope.launch { AthkarNav.openCategory(db, card.kind.key); onNavigate("athkar") }
+                    }
+                }) { Text(card.actionLabel) }
             }
         }
 
@@ -183,8 +226,12 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                         )
                     }
                     val icons = mapOf(
-                        PrayerName.FAJR to "🌅", PrayerName.SUNRISE to "☀️", PrayerName.DHUHR to "🌤️",
-                        PrayerName.ASR to "🌇", PrayerName.MAGHRIB to "🌆", PrayerName.ISHA to "🌙",
+                        PrayerName.FAJR to Icons.Outlined.WbTwilight,
+                        PrayerName.SUNRISE to Icons.Outlined.WbSunny,
+                        PrayerName.DHUHR to Icons.Outlined.WbSunny,
+                        PrayerName.ASR to Icons.Outlined.WbTwilight,
+                        PrayerName.MAGHRIB to Icons.Outlined.NightsStay,
+                        PrayerName.ISHA to Icons.Outlined.NightsStay,
                     )
                     for (chunk in PrayerName.entries.chunked(3)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -198,9 +245,15 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
-                                    Text(icons[name] ?: "🕌", fontSize = 15.sp)
+                                    Icon(icons[name] ?: Icons.Outlined.AccountBalance, contentDescription = null, tint = if (isNext) theme.accent else theme.textSecondary, modifier = Modifier.size(16.dp))
                                     Text(name.labelAr, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (isNext) theme.accent else theme.textSecondary)
-                                    Text(clockOf(sched.prayers.getValue(name), opts.timeZone), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (isNext) theme.accent else theme.textPrimary)
+                                    Text(
+                                        clockOf(sched.prayers.getValue(name), opts.timeZone),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isNext) theme.accent else theme.textPrimary,
+                                        style = TextStyle(fontFeatureSettings = "tnum"),
+                                    )
                                 }
                             }
                         }
@@ -215,18 +268,18 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                 Text("تطبيقاتك اليومية", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for ((ico, label, targetTab) in listOf(
-                        Triple("📿", "السبحة", "tools-tasbih"),
-                        Triple("🤲", "الأذكار", "athkar"),
-                        Triple("📖", "المصحف", "mushaf"),
-                        Triple("🧭", "القبلة", "tools-qibla"),
+                        Triple(Icons.Outlined.Adjust, "السبحة", "tools-tasbih"),
+                        Triple(Icons.Outlined.Spa, "الأذكار", "athkar"),
+                        Triple(Icons.Outlined.MenuBook, "المصحف", "mushaf"),
+                        Triple(Icons.Outlined.Explore, "القبلة", "tools-qibla"),
                     )) {
                         Column(
                             Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(theme.surfaceRaised)
-                                .clickable { onNavigate(targetTab) }.padding(vertical = 10.dp),
+                                .clickable { onNavigate(targetTab) }.padding(vertical = 12.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            Text(ico, fontSize = 20.sp)
+                            Icon(ico, contentDescription = null, tint = theme.accent, modifier = Modifier.size(20.dp))
                             Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.textPrimary)
                         }
                     }
@@ -234,8 +287,11 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
             }
         }
 
-        // Qiyam windows (the night in progress)
-        val wsNight = remember(opts) { runCatching { engine.sunnahWindows(isoOf(now - 86_400_000, opts.timeZone)) }.getOrNull() }
+        // Qiyam windows (the night whose Fajr has not passed yet)
+        val qiyamIso = if (sched != null && now < sched.prayers.getValue(PrayerName.FAJR)) {
+            isoOf(now - 86_400_000, opts.timeZone)
+        } else todayIso
+        val wsNight = remember(opts, qiyamIso) { runCatching { engine.sunnahWindows(qiyamIso) }.getOrNull() }
         if (wsNight != null) {
             CardBox {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -367,7 +423,10 @@ fun AthkarScreen(db: SadaqaDb) {
         // smart-card deep link
         AthkarNav.pendingCategory?.let { openReader = it; AthkarNav.pendingCategory = null }
         Navigator.current?.let { route ->
-            if (route.startsWith("athkar-reader/")) openReader = route.substringAfter("athkar-reader/")
+            if (route.startsWith("athkar-reader/")) {
+                openReader = route.substringAfter("athkar-reader/")
+                Navigator.current = null
+            }
         }
     }
 
@@ -376,13 +435,13 @@ fun AthkarScreen(db: SadaqaDb) {
         return
     }
 
-    fun iconForWindow(w: String): String = when (w) {
-        "fajr" -> "🌅"
-        "asr" -> "🌇"
-        "night" -> "🌙"
-        "duha" -> "☀️"
-        "after_prayer" -> "🕌"
-        else -> "📿"
+    fun iconForWindow(w: String): ImageVector = when (w) {
+        "fajr" -> Icons.Outlined.WbTwilight
+        "asr" -> Icons.Outlined.WbSunny
+        "night" -> Icons.Outlined.NightsStay
+        "duha" -> Icons.Outlined.WbSunny
+        "after_prayer" -> Icons.Outlined.AccountBalance
+        else -> Icons.Outlined.Spa
     }
 
     val morning = categories.firstOrNull { it.window == "fajr" }
@@ -403,22 +462,32 @@ fun AthkarScreen(db: SadaqaDb) {
 
         // Featured 2-column dashboard
         val featured = listOfNotNull(
-            morning?.let { Triple(it.id, "🌅 أذكار الصباح", "${it.count} ذكراً") },
-            evening?.let { Triple(it.id, "🌇 أذكار المساء", "${it.count} ذكراً") },
-            afterPrayer?.let { Triple(it.id, "🕌 أذكار بعد الصلاة", "${it.count} ذكراً") },
-            sleep?.let { Triple(it.id, "🌙 أذكار النوم", "${it.count} ذكراً") },
+            morning?.let { listOf(it.id, Icons.Outlined.WbTwilight, "أذكار الصباح", "${it.count} ذكراً") },
+            evening?.let { listOf(it.id, Icons.Outlined.WbSunny, "أذكار المساء", "${it.count} ذكراً") },
+            afterPrayer?.let { listOf(it.id, Icons.Outlined.AccountBalance, "أذكار بعد الصلاة", "${it.count} ذكراً") },
+            sleep?.let { listOf(it.id, Icons.Outlined.NightsStay, "أذكار النوم", "${it.count} ذكراً") },
         )
         for (pair in featured.chunked(2)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                for ((id, title, sub) in pair) {
+                for (item in pair) {
+                    val id = item[0] as String
+                    val ico = item[1] as ImageVector
+                    val title = item[2] as String
+                    val sub = item[3] as String
                     Column(
                         Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(theme.surface)
                             .border(1.dp, theme.border, RoundedCornerShape(16.dp))
                             .clickable { openReader = id }.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        Box(
+                            Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(theme.accent.copy(alpha = 0.14f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(ico, contentDescription = null, tint = theme.accent, modifier = Modifier.size(18.dp))
+                        }
                         Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
-                        Text(sub, fontSize = 11.sp, color = theme.textSecondary)
+                        Text(sub, fontSize = 11.sp, color = theme.textSecondary, style = TextStyle(fontFeatureSettings = "tnum"))
                     }
                 }
             }
@@ -427,7 +496,7 @@ fun AthkarScreen(db: SadaqaDb) {
         TextField(
             value = query,
             onValueChange = { query = it },
-            placeholder = { Text("ابحث في أقسام حصن المسلم…") },
+            placeholder = { Text("بحث في الأذكار") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -457,12 +526,17 @@ fun AthkarScreen(db: SadaqaDb) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(iconForWindow(c.window), fontSize = 20.sp)
+                Box(
+                    Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(iconForWindow(c.window), contentDescription = null, tint = theme.accent, modifier = Modifier.size(17.dp))
+                }
                 Column(Modifier.weight(1f)) {
                     Text(c.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = theme.textPrimary, lineHeight = 22.sp)
-                    Text("${c.count} ${if (c.count == 1) "ذكر" else "أذكار"}", fontSize = 11.sp, color = theme.textSecondary)
+                    Text("${c.count} ${if (c.count == 1) "ذكر" else "أذكار"}", fontSize = 11.sp, color = theme.textSecondary, style = TextStyle(fontFeatureSettings = "tnum"))
                 }
-                Text("←", fontSize = 12.sp, color = theme.textSecondary)
+                Icon(Icons.Outlined.ChevronLeft, contentDescription = null, tint = theme.textSecondary, modifier = Modifier.size(16.dp))
             }
         }
         Spacer(Modifier.height(24.dp))
@@ -500,10 +574,10 @@ fun AthkarReaderScreen(db: SadaqaDb, categoryId: String, onBack: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("→", fontSize = 18.sp, color = theme.textSecondary, modifier = Modifier.clickable { onBack() }.padding(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(Icons.Outlined.ArrowForward, contentDescription = "رجوع", tint = theme.textSecondary, modifier = Modifier.clickable { onBack() }.padding(6.dp).size(20.dp))
             Text(categoryName, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary, modifier = Modifier.weight(1f))
-            Text("$doneTotal / ${items.size}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = theme.accent)
+            Text("$doneTotal / ${items.size}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = theme.accent, style = TextStyle(fontFeatureSettings = "tnum"))
         }
         LinearProgressIndicator(
             progress = { if (items.isEmpty()) 0f else doneTotal.toFloat() / items.size },
@@ -570,14 +644,6 @@ fun AthkarReaderScreen(db: SadaqaDb, categoryId: String, onBack: () -> Unit) {
     }
 }
 
-private suspend fun SadaqaDb.categoryStreakKind(categoryId: String): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-    when (queryOne("SELECT solar_window FROM athkar_categories WHERE category_id = ?", listOf(categoryId))?.strings?.get("solar_window")) {
-        "fajr" -> "adhkar_morning"
-        "asr" -> "adhkar_evening"
-        else -> null
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Tasbih — dial with ring-to-target; LOCAL increment first (rapid taps),
 // DB write behind it with count = count + 1 (never a stale absolute).
@@ -606,8 +672,8 @@ fun TasbihScreen(db: SadaqaDb, onClose: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("→", fontSize = 18.sp, color = theme.textSecondary, modifier = Modifier.clickable { onClose() }.padding(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(Icons.Outlined.ArrowForward, contentDescription = "رجوع", tint = theme.textSecondary, modifier = Modifier.clickable { onClose() }.padding(6.dp).size(20.dp))
             Text("السبحة", fontSize = 22.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = theme.textPrimary)
         }
         val counter = counters.getOrNull(selected)
@@ -741,7 +807,7 @@ fun CityPickerDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = theme.surface,
-        title = { Text("تحديد المدينة (٦,٢٨٩ مدينة)", color = theme.textPrimary) },
+        title = { Text("تحديد المدينة", color = theme.textPrimary) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
@@ -751,7 +817,11 @@ fun CityPickerDialog(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = theme.accent, contentColor = theme.accentContrast),
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("📍 تحديد موقعي الحالي تلقائياً (GPS)") }
+                ) {
+                    Icon(Icons.Outlined.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("تحديد الموقع تلقائياً (GPS)")
+                }
                 gpsStatus?.let { Text(it, fontSize = 11.sp, color = Color(0xFFE5636F)) }
                 TextField(
                     value = q,

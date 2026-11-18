@@ -8,6 +8,7 @@ import { state, loadState, registerWrite } from './app-state.js';
 import { maybeMigrateV1 } from './data/migrate-v1.js';
 import { syncReciters } from './data/audio-catalog.js';
 import { bootRouter, onNavigate, SCREEN_TAB, navigate } from './ui/router.js';
+import { iconSvg } from './ui/icons.js';
 import { renderToday } from './ui/screens/today.js';
 import { renderMushaf } from './ui/screens/mushaf.js';
 import { renderKhatmah } from './ui/screens/khatmah.js';
@@ -20,10 +21,22 @@ import { renderBackup } from './ui/screens/backup.js';
 import { renderSurahIndex } from './ui/screens/surah-index.js';
 
 const root = document.getElementById('screen-root');
+let routeSeq = 0;
 
-function mountTheme() {
-  document.body.dataset.theme = state.settings.theme ?? 'dark';
+export function mountTheme() {
+  const raw = state.settings.theme ?? 'dark';
+  const theme = raw === 'night' ? 'oled' : raw;
+  document.body.dataset.theme = theme;
   document.body.style.setProperty('--font-scale', String(state.settings.font_scale ?? 1.3));
+  const bgMap = { dark: '#07110F', oled: '#000000', light: '#FAF7F0', sepia: '#F4E8D0' };
+  const color = bgMap[theme] ?? '#07110F';
+  for (const m of document.querySelectorAll('meta[name="theme-color"]')) {
+    m.setAttribute('content', color);
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 const SCREENS = {
@@ -45,14 +58,27 @@ const SCREENS = {
 };
 
 function renderRoute({ screen, args }) {
+  const seq = ++routeSeq;
   document.body.classList.toggle('reading', screen.startsWith('mushaf'));
   if (screen !== 'mushaf-page') document.body.classList.remove('chrome-hidden');
-  const fn = SCREENS[screen] ?? renderToday;
-  fn(root, args ?? {});
   const tab = SCREEN_TAB[screen] ?? 'today';
   for (const btn of document.querySelectorAll('.glass-tabbar .tab-btn')) {
     btn.getAttribute('data-tab') === tab ? btn.setAttribute('aria-current', 'page') : btn.removeAttribute('aria-current');
   }
+  const fn = SCREENS[screen] ?? renderToday;
+  Promise.resolve()
+    .then(() => fn(root, args ?? {}))
+    .catch((err) => {
+      if (seq !== routeSeq) return;
+      console.error('[route]', screen, err);
+      root.innerHTML = `<div class="screen"><div class="empty-state">
+        <div class="icon">${iconSvg('alert', 24)}</div>
+        <h2>تعذر تحميل هذه الشاشة</h2>
+        <p style="margin-bottom:16px">${escapeHtml(err?.message ?? err)}</p>
+        <button class="btn primary" id="route-retry-btn">إعادة المحاولة</button>
+      </div></div>`;
+      document.getElementById('route-retry-btn')?.addEventListener('click', () => renderRoute({ screen, args }));
+    });
 }
 
 function wireNav() {
@@ -77,17 +103,17 @@ function renderBootProgress(loaded = 0, total = 0, phase = 'wasm') {
   if (window.__sadaqaReady) return;
   const pct = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
   const label = phase === 'downloading'
-    ? `جاري تجهيز قاعدة البيانات القرآنية للعمل بدون إنترنت… ${total > 0 ? `${pct}٪` : ''}`
+    ? `تجهيز قاعدة البيانات للعمل دون اتصال${total > 0 ? ` — ${pct}٪` : ''}`
     : phase === 'importing'
-      ? 'جاري تهيئة الفهرس والمصحف…'
-      : 'جاري تشغيل صدقة جارية…';
+      ? 'تهيئة الفهرس والمصحف'
+      : 'تشغيل صدقة جارية';
   let box = document.getElementById('boot-progress-box');
   if (!box) {
     root.innerHTML = `<div class="screen"><div class="empty-state" id="boot-progress-box">
-      <div class="icon">📖</div>
+      <div class="icon">${iconSvg('mushaf', 24)}</div>
       <h2>صدقة جارية</h2>
       <p id="boot-progress-label">${label}</p>
-      <div style="margin:16px auto 0;width:min(280px,80%);height:8px;border-radius:999px;background:var(--color-surface-raised);overflow:hidden;border:1px solid var(--color-border)">
+      <div style="margin:16px auto 0;width:min(280px,80%);height:6px;border-radius:999px;background:var(--color-surface-raised);overflow:hidden;border:1px solid var(--color-border)">
         <div id="boot-progress-bar" style="height:100%;width:${pct}%;background:var(--color-accent);transition:width 120ms ease-out"></div>
       </div>
     </div></div>`;
@@ -154,8 +180,8 @@ async function boot() {
 
 boot().catch((e) => {
   console.error('[boot]', e);
-  root.innerHTML = `<div class="screen"><div class="empty-state"><div class="icon">⚠️</div>
-    <h2>تعذر تشغيل التطبيق</h2><p style="margin-bottom:16px">${String(e.message ?? e)}</p>
+  root.innerHTML = `<div class="screen"><div class="empty-state"><div class="icon">${iconSvg('alert', 24)}</div>
+    <h2>تعذر تشغيل التطبيق</h2><p style="margin-bottom:16px">${escapeHtml(e.message ?? e)}</p>
     <button class="btn primary" id="boot-retry-btn">إعادة تهيئة التطبيق</button></div></div>`;
   document.getElementById('boot-retry-btn')?.addEventListener('click', resetAppStorageAndReload);
 });

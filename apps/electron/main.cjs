@@ -123,7 +123,10 @@ function registerIpc() {
     });
     return { ok: true, count: runAll() };
   });
-  ipcMain.handle('db:export', () => fs.readFileSync(path.join(app.getPath('userData'), 'sadaqa.db')));
+  ipcMain.handle('db:export', () => {
+    db.pragma('wal_checkpoint(TRUNCATE)');
+    return fs.readFileSync(path.join(app.getPath('userData'), 'sadaqa.db'));
+  });
 
   // audio store → userData/audio/<reciter>/<key>.mp3 (local filesystem pack cache)
   const audioDirFor = (reciter, key) => {
@@ -298,7 +301,7 @@ function createWindow() {
     width: 1180, height: 800, minWidth: 380, minHeight: 560,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#07161B',
+    backgroundColor: '#07110F',
     icon: trayIcon(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),

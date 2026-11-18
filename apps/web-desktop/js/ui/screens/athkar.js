@@ -8,8 +8,9 @@
 // ============================================================================
 import { state, haptic, HAPTICS, nowMs } from '../../app-state.js';
 import { navigate } from '../router.js';
+import { iconSvg, athkarWindowIconName } from '../icons.js';
 
-const WINDOW_BADGE = { fajr: '🌅 الصباح', duha: '☀️ الضحى', asr: '🌇 المساء', night: '🌙 الليل', after_prayer: '🕌 بعد الصلاة' };
+const WINDOW_BADGE = { fajr: 'الصباح', duha: 'الضحى', asr: 'المساء', night: 'الليل', after_prayer: 'بعد الصلاة' };
 
 const dayKeyOf = (ms) => new Intl.DateTimeFormat('en-CA').format(ms);
 /** Estimated per-repetition seconds for hands-free pacing (length-scaled). */
@@ -25,15 +26,6 @@ function streakKindFor(category) {
 // ---------------------------------------------------------------------------
 // Screen 1: Featured 2-column Dashboard + Search + 133 Hisn al-Muslim categories
 // ---------------------------------------------------------------------------
-function iconForCategory(c) {
-  if (c.solar_window === 'fajr') return '🌅';
-  if (c.solar_window === 'asr') return '🌇';
-  if (c.solar_window === 'night') return '🌙';
-  if (c.solar_window === 'duha') return '☀️';
-  if (c.solar_window === 'after_prayer') return '🕌';
-  return '📿';
-}
-
 export async function renderAthkar(root) {
   const cats = await state.db.query(`SELECT c.*, (SELECT COUNT(*) FROM athkar_items i WHERE i.category_id = c.category_id) items FROM athkar_categories c ORDER BY c.sort_order`);
   const morningCat = cats.find((c) => c.solar_window === 'fajr');
@@ -42,17 +34,17 @@ export async function renderAthkar(root) {
   const afterPrayerCat = cats.find((c) => c.solar_window === 'after_prayer');
 
   const featured = [
-    morningCat ? { type: 'cat', id: morningCat.category_id, ico: '🌅', title: 'أذكار الصباح', sub: `${morningCat.items} ذكراً` } : null,
-    eveningCat ? { type: 'cat', id: eveningCat.category_id, ico: '🌇', title: 'أذكار المساء', sub: `${eveningCat.items} ذكراً` } : null,
-    afterPrayerCat ? { type: 'cat', id: afterPrayerCat.category_id, ico: '🕌', title: 'أذكار بعد الصلاة', sub: `${afterPrayerCat.items} ذكراً` } : null,
-    sleepCat ? { type: 'cat', id: sleepCat.category_id, ico: '🌙', title: 'أذكار النوم', sub: `${sleepCat.items} ذكراً` } : null,
-    { type: 'screen', id: 'tasbih-screen', ico: '📿', title: 'السبحة الإلكترونية', sub: 'عدّاد التسبيح والأوراد' },
-    { type: 'screen', id: 'mushaf-audio', ico: '🎧', title: 'التلاوة الصوتية', sub: 'استماع دون اتصال' },
+    morningCat ? { type: 'cat', id: morningCat.category_id, ico: iconSvg('sunrise', 18), title: 'أذكار الصباح', sub: `${morningCat.items} ذكراً` } : null,
+    eveningCat ? { type: 'cat', id: eveningCat.category_id, ico: iconSvg('sunset', 18), title: 'أذكار المساء', sub: `${eveningCat.items} ذكراً` } : null,
+    afterPrayerCat ? { type: 'cat', id: afterPrayerCat.category_id, ico: iconSvg('mosque', 18), title: 'أذكار بعد الصلاة', sub: `${afterPrayerCat.items} ذكراً` } : null,
+    sleepCat ? { type: 'cat', id: sleepCat.category_id, ico: iconSvg('moon', 18), title: 'أذكار النوم', sub: `${sleepCat.items} ذكراً` } : null,
+    { type: 'screen', id: 'tasbih-screen', ico: iconSvg('tasbih', 18), title: 'السبحة الإلكترونية', sub: 'التسبيح والأوراد' },
+    { type: 'screen', id: 'mushaf-audio', ico: iconSvg('headphones', 18), title: 'التلاوة الصوتية', sub: 'استماع دون اتصال' },
   ].filter(Boolean);
 
   root.innerHTML = `
   <div class="screen">
-    <div class="screen-header"><h1>الأذكار</h1><div class="sub">حصن المسلم — ${cats.length} قسماً · العدّ بالحلقات الدائرية والانتقال التلقائي</div></div>
+    <div class="screen-header"><h1>الأذكار</h1><div class="sub">حصن المسلم · ${cats.length} قسماً</div></div>
     <div class="athkar-featured">
       ${featured.map((f) => `<div class="feat-tile" data-ftype="${f.type}" data-fid="${f.id}" role="button" tabindex="0">
         <span class="f-ico">${f.ico}</span>
@@ -61,7 +53,7 @@ export async function renderAthkar(root) {
       </div>`).join('')}
     </div>
     <div style="padding:10px 16px 2px">
-      <input class="search-input" id="athkar-search" type="search" placeholder="ابحث في أقسام حصن المسلم…" autocomplete="off">
+      <input class="search-input" id="athkar-search" type="search" placeholder="بحث في الأذكار" autocomplete="off">
     </div>
     <div class="athkar-filters">
       <button class="af-pill on" data-win="all">الكل (${cats.length})</button>
@@ -73,7 +65,7 @@ export async function renderAthkar(root) {
     <div id="cat-list">${cats.map((c) => {
       const n = Number(c.items);
       return `<div class="cat-tile" data-cat="${c.category_id}" data-win="${c.solar_window ?? 'general'}" data-name="${c.name_ar}" role="button" tabindex="0" aria-label="${c.name_ar}">
-        <span class="c-icon">${iconForCategory(c)}</span>
+        <span class="c-icon">${iconSvg(athkarWindowIconName(c.solar_window), 17)}</span>
         <span class="c-name">${c.name_ar}</span>
         <span class="c-meta">${WINDOW_BADGE[c.solar_window] ? WINDOW_BADGE[c.solar_window] + ' · ' : ''}${n} ${n === 1 ? 'ذكر' : 'أذكار'}</span>
       </div>`;
@@ -168,10 +160,10 @@ export async function renderAthkarReader(root, args) {
       ${target > 0 ? `
       <div class="z-count-row">
         <div class="z-ring" style="--p:${pct}"><div class="inner">${st.count}</div></div>
-        <div class="z-target">الهدف: ${target} ${isDone ? '· أُتمّ ✓' : `· تبقّى ${Math.max(0, target - st.count)}`}</div>
+        <div class="z-target">الهدف: ${target} ${isDone ? '· أُتمّ' : `· تبقّى ${Math.max(0, target - st.count)}`}</div>
         <div class="z-count" style="flex:1;text-align:end">${st.count} / ${target}</div>
       </div>` : `
-      <div class="z-count-row"><div class="z-target">${isDone ? 'أُقرأ ✓' : 'ذكر يُقرأ مرة واحدة — انقر للمتابعة'}</div></div>`}
+      <div class="z-count-row"><div class="z-target">${isDone ? 'أُقرأ' : 'ذكر يُقرأ مرة واحدة — انقر للمتابعة'}</div></div>`}
       ${it.source_ar || it.fadl_ar ? `
       <details class="zkr-verify">
         <summary>▸ التحقق والحكم ${it.grade ? `<span class="grade">${gradeAr(it.grade)}</span>` : ''}</summary>
@@ -204,8 +196,6 @@ export async function renderAthkarReader(root, args) {
   function scheduleAuto() {
     if (!auto.on) return;
     const it = items[current];
-    const st = stateMap.get(it.item_id) ?? { count: 0 };
-    const remain = it.count_target > 0 ? Math.max(1, it.count_target - st.count) : 1;
     auto.timer = setTimeout(() => tick(true), repSeconds(it.text_ar) * 1000);
   }
 

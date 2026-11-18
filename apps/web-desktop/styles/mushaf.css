@@ -1,5 +1,5 @@
-/* mushaf.css — the 604-page reader: word plates on a fixed 15-slot grid.
-   Content layer = matte/solid (zero glass-on-glass, Pillar A). */
+/* mushaf.css — 604-page 15-line Madani Mushaf reader.
+   Content layer = matte/solid (zero glass-on-glass); HUD & topbar = Liquid Glass. */
 #screen-root:has(.mushaf-screen) { background: var(--color-mushaf-bg); }
 
 .mushaf-screen {
@@ -12,14 +12,15 @@
   background: var(--color-mushaf-bg);
 }
 
-/* minimal top metadata strip (always visible, unobtrusive) */
+/* minimal top metadata strip (always visible, quiet) */
 .mushaf-meta-strip {
   width: min(100%, 760px);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: calc(10px + env(safe-area-inset-top)) 16px 4px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 4px;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
   flex: none;
   z-index: 5;
@@ -32,7 +33,7 @@
   min-height: 0;
   display: grid;
   place-items: stretch;
-  padding: 4px 12px calc(16px + env(safe-area-inset-bottom));
+  padding: 4px 12px calc(12px + env(safe-area-inset-bottom, 0px));
   touch-action: pan-y;
 }
 
@@ -48,19 +49,35 @@
   height: 100%;
   min-height: 0;
 }
-.mushaf-plate[data-page="1"],
-.mushaf-plate[data-page="2"] {
+.mushaf-plate[data-page='1'],
+.mushaf-plate[data-page='2'] {
   align-content: center;
+}
+
+/* calm 15-line skeleton while page data/font settles */
+.mushaf-skeleton {
+  display: grid;
+  grid-template-rows: repeat(15, minmax(0, 1fr));
+  gap: 8px;
+  padding: 16px 20px;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+}
+.mushaf-skeleton i {
+  display: block;
+  height: 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-text-secondary) 14%, transparent);
+  margin-inline: auto;
 }
 
 /* spread mode (desktop/tablet landscape): two facing plates */
 @media (orientation: landscape) and (min-width: 1024px) {
   .mushaf-meta-strip { width: min(100%, 1280px); }
   .mushaf-stage { width: min(100%, 1280px); grid-template-columns: 1fr 1fr; gap: 18px; padding-bottom: 18px; }
-  /* keep the right plate clear of the glass sidebar (RTL: inline-start = right) */
   .mushaf-screen { padding-inline-start: 92px; }
   .mushaf-plate { height: 100%; }
-  .mushaf-plate .plate-edge { display: block; }
 }
 
 .mushaf-line {
@@ -83,7 +100,7 @@
   cursor: pointer;
   padding: 0 1px;
   border-radius: 4px;
-  transition: background-color 160ms var(--ease-standard);
+  transition: background-color 140ms var(--ease-standard);
   -webkit-user-select: none;
   user-select: none;
 }
@@ -93,11 +110,11 @@
 .mushaf-line.kind-surah_name {
   color: var(--color-accent);
   font-family: var(--font-ui);
-  font-weight: 700;
-  font-size: clamp(14px, 2.2vh, 18px);
+  font-weight: 600;
+  font-size: clamp(13px, 2.1vh, 17px);
   text-align: center;
-  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
-  border: 1px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
   border-radius: var(--radius-sm);
   width: calc(100% - 16px);
   box-sizing: border-box;
@@ -108,7 +125,7 @@
 .mushaf-line.kind-bismillah .mw.bsml {
   font-family: 'QPC1-BSML', var(--font-quran);
   font-size: calc(var(--plate-font-size, 24px) * 1.02);
-  direction: ltr;            /* BSML codepoints are visual-order — never let RTL bidi reorder them */
+  direction: ltr;
   unicode-bidi: isolate;
 }
 .mushaf-line.kind-bismillah .mw.bsml-uthmani {
@@ -118,7 +135,7 @@
 }
 .mushaf-line .mw.uthmani-fallback {
   font-family: var(--font-quran);
-  font-size: calc(var(--plate-font-size, 24px) * 0.9);
+  font-size: calc(var(--plate-font-size, 24px) * 0.88);
   padding: 0 2px;
 }
 
@@ -126,80 +143,110 @@
 .plate-foot {
   flex: none;
   width: min(100%, 760px);
-  padding: 4px 16px calc(10px + env(safe-area-inset-bottom));
+  padding: 4px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 12px;
   color: var(--color-text-secondary);
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   pointer-events: auto;
   transition: opacity 200ms var(--ease-standard);
 }
 .plate-foot .pf-nav {
-  display: inline-flex; align-items: center; gap: 8px;
-  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
-  padding: 3px 10px;
+  padding: 4px 10px;
 }
 .plate-foot .pf-btn {
-  appearance: none; border: 0;
-  background: transparent; color: var(--color-text-primary);
-  border-radius: var(--radius-pill); width: 24px; height: 24px;
-  display: grid; place-items: center; cursor: pointer; font-size: 14px;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  border-radius: var(--radius-pill);
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
 }
+.plate-foot .pf-btn:active { transform: scale(0.92); }
 body:not(.chrome-hidden) .plate-foot { opacity: 0; pointer-events: none; }
 
 /* reader top bar (revealed when HUD is open) */
 .reader-topbar {
   position: absolute;
-  top: calc(8px + env(safe-area-inset-top));
+  top: calc(8px + env(safe-area-inset-top, 0px));
   inset-inline: 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  background: var(--glass-fill);
+  background: var(--glass-surface);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  border: 1px solid var(--glass-rim);
+  box-shadow: inset 0 1px 0 var(--glass-specular), var(--glass-shadow);
   border-radius: var(--radius-pill);
-  padding: 6px 12px;
+  padding: 6px 10px;
   z-index: 25;
-  transition: transform 280ms var(--ease-out), opacity 200ms var(--ease-out);
+  transition: transform 280ms var(--ease-standard), opacity 200ms var(--ease-standard);
 }
 body.chrome-hidden .reader-topbar { transform: translateY(-160%); opacity: 0; pointer-events: none; }
 .reader-topbar .rbtn {
-  appearance: none; border: 0; background: transparent; color: var(--color-text-primary);
-  font-size: 16px; cursor: pointer; padding: 6px 8px; border-radius: var(--radius-sm);
-  transition: transform 160ms var(--ease-standard), color 160ms var(--ease-standard);
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  transition: transform 140ms var(--ease-standard), color 140ms var(--ease-standard), background-color 140ms var(--ease-standard);
 }
-.reader-topbar .rbtn.active { color: var(--color-accent); }
-.reader-topbar .rbtn:active { transform: scale(0.94); }
+.reader-topbar .rbtn.active {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+.reader-topbar .rbtn:active { transform: scale(0.92); }
 .reader-topbar .r-actions { display: flex; align-items: center; gap: 2px; }
-.reader-topbar .title { font-size: 13px; font-weight: 600; color: var(--color-text-primary); text-align: center; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reader-topbar .title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-align: center;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* Thumb-zone Floating Liquid Glass HUD (revealed on tap) */
 .mushaf-hud {
   position: fixed;
-  inset-inline: 14px;
-  bottom: calc(82px + env(safe-area-inset-bottom));
+  inset-inline: 16px;
+  bottom: calc(82px + env(safe-area-inset-bottom, 0px));
   z-index: 38;
   max-width: 560px;
   margin-inline: auto;
-  background: var(--glass-fill);
+  background: var(--glass-surface);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  border: 1px solid var(--glass-rim);
+  box-shadow: inset 0 1px 0 var(--glass-specular), var(--glass-shadow);
   border-radius: var(--radius-lg);
-  padding: 10px 14px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  transition: transform 280ms var(--ease-out), opacity 200ms var(--ease-out);
+  gap: 10px;
+  transition: transform 280ms var(--ease-standard), opacity 200ms var(--ease-standard);
 }
 body.chrome-hidden .mushaf-hud {
   transform: translateY(150%);
@@ -211,7 +258,7 @@ body.chrome-hidden .mushaf-hud {
   align-items: center;
   gap: 10px;
 }
-.hud-scrubber-row input[type="range"] {
+.hud-scrubber-row input[type='range'] {
   flex: 1;
   accent-color: var(--color-accent);
   direction: rtl;
@@ -219,39 +266,39 @@ body.chrome-hidden .mushaf-hud {
 }
 .hud-page-pill {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  padding: 3px 10px;
+  color: var(--glass-active-fg, var(--color-accent));
+  background: var(--glass-active-bg, color-mix(in srgb, var(--color-accent) 14%, transparent));
+  padding: 4px 10px;
   border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 .hud-actions-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
 .hud-btn {
-  flex: 1;
   appearance: none;
-  border: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  border: 1px solid var(--glass-rim);
+  background: color-mix(in srgb, var(--color-surface) 76%, transparent);
   color: var(--color-text-primary);
   font-family: var(--font-ui);
   font-size: 12px;
   font-weight: 600;
-  padding: 7px 6px;
+  padding: 8px 6px;
   border-radius: var(--radius-md);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  transition: transform 120ms var(--ease-out);
+  gap: 5px;
+  white-space: nowrap;
+  transition: transform 120ms var(--ease-standard);
 }
 .hud-btn:active { transform: scale(0.96); }
+.hud-btn[disabled] { opacity: 0.42; cursor: default; }
 @media (min-width: 1024px) {
   .mushaf-hud { bottom: 20px; }
 }
@@ -279,12 +326,13 @@ body.chrome-hidden .mushaf-hud {
   background: var(--color-surface); color: var(--color-text-primary);
   font-family: var(--font-ui); font-size: 12px; font-weight: 600;
   padding: 6px 12px; border-radius: var(--radius-pill); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
 }
 .juz-pill:active { transform: scale(0.96); }
 
 /* flip transition (page swap) — compositor-only */
-.mushaf-plate.flipping { transition: transform 380ms var(--ease-standard), opacity 380ms var(--ease-standard); }
+.mushaf-plate.flipping { transition: transform 340ms var(--ease-standard), opacity 340ms var(--ease-standard); }
 
 @media (prefers-reduced-motion: reduce) {
-  .mushaf-plate.flipping { transition-duration: 1ms; }
+  .mushaf-plate.flipping, .reader-topbar, .mushaf-hud { transition-duration: 1ms; }
 }

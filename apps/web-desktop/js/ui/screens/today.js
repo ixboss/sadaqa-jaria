@@ -11,6 +11,7 @@ import { state, nowMs, haptic, saveSetting, prayerEngineForSettings, HAPTICS } f
 import { monthNameAr, withAdjust } from '../../../../../packages/core-data/engines/hijri.js';
 import { resolveSmartCard } from '../../../../../packages/core-data/engines/smart-card.js';
 import { navigate } from '../router.js';
+import { iconSvg, prayerIconName, smartCardIconName } from '../icons.js';
 
 const fmtClock = (ms, tz) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
 const fmtHMS = (msLeft) => {
@@ -19,7 +20,6 @@ const fmtHMS = (msLeft) => {
   return `${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`;
 };
 const PRAYER_LABELS = { fajr: 'الفجر', sunrise: 'الشروق', dhuhr: 'الظهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء' };
-const PRAYER_ICONS = { fajr: '🌅', sunrise: '☀️', dhuhr: '🌤️', asr: '🌇', maghrib: '🌆', isha: '🌙' };
 const DAY_LABELS = { Sunday: 'الأحد', Monday: 'الإثنين', Tuesday: 'الثلاثاء', Wednesday: 'الأربعاء', Thursday: 'الخميس', Friday: 'الجمعة', Saturday: 'السبت' };
 
 // The resolver itself lives in the shared engines dir (Phase 5 parity): all
@@ -114,7 +114,7 @@ export function renderToday(root) {
           <h1>اليوم</h1>
           <div class="sub">${DAY_LABELS[dowEn]} · ${hijri.d} ${monthNameAr(hijri.m)} ${hijri.y} هـ · ${gregText}</div>
         </div>
-        <button class="city-pill" id="today-city-btn" aria-label="تغيير المدينة">📍 ${locName}</button>
+        <button class="city-pill" id="today-city-btn" aria-label="تغيير المدينة">${iconSvg('location', 14)}<span>${locName}</span></button>
       </div>
     </div>
 
@@ -126,8 +126,10 @@ export function renderToday(root) {
     </div>
 
     <div class="card smart-card" id="smart-card" data-kind="${card.kind}">
-      <span class="sc-badge">${card.badge}</span>
-      <div class="sc-icon">${card.icon}</div>
+      <div class="sc-head">
+        <div class="sc-icon">${iconSvg(smartCardIconName(card.kind), 18)}</div>
+        <span class="sc-badge">${card.badge}</span>
+      </div>
       <h3 class="sc-title">${card.title}</h3>
       <p class="sc-sub">${card.sub}</p>
       <button class="btn primary" id="sc-action">${card.action.label}</button>
@@ -141,7 +143,7 @@ export function renderToday(root) {
       <div class="prayer-grid">
         ${['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'].map((n) => `
           <div class="prayer-row ${next.name === n ? 'next' : ''}" data-prayer="${n}">
-            <span class="p-icon" aria-hidden="true">${PRAYER_ICONS[n]}</span>
+            <span class="p-icon" aria-hidden="true">${iconSvg(prayerIconName(n), 17)}</span>
             <span class="p-name">${PRAYER_LABELS[n]}</span>
             <span class="p-time">${fmtClock(day.prayers[n], tz)}</span>
           </div>`).join('')}
@@ -151,10 +153,10 @@ export function renderToday(root) {
     <div class="card">
       <h3 style="margin:0 0 10px;font-size:15px">تطبيقاتك اليومية</h3>
       <div class="quick-apps-grid">
-        <button class="qa-btn" data-go="tasbih-screen"><span class="qa-ico">📿</span><span>السبحة</span></button>
-        <button class="qa-btn" data-go="adhkar-screen"><span class="qa-ico">🤲</span><span>الأذكار</span></button>
-        <button class="qa-btn" data-go="mushaf-surah-index"><span class="qa-ico">📖</span><span>الفهرس</span></button>
-        <button class="qa-btn" data-go="tools-qibla"><span class="qa-ico">🧭</span><span>القبلة</span></button>
+        <button class="qa-btn" data-go="tasbih-screen"><span class="qa-ico">${iconSvg('tasbih', 20)}</span><span>السبحة</span></button>
+        <button class="qa-btn" data-go="adhkar-screen"><span class="qa-ico">${iconSvg('athkar', 20)}</span><span>الأذكار</span></button>
+        <button class="qa-btn" data-go="mushaf-surah-index"><span class="qa-ico">${iconSvg('mushaf', 20)}</span><span>الفهرس</span></button>
+        <button class="qa-btn" data-go="tools-qibla"><span class="qa-ico">${iconSvg('qibla', 20)}</span><span>القبلة</span></button>
       </div>
     </div>
 
@@ -213,9 +215,13 @@ export function renderToday(root) {
     cd.textContent = fmtHMS(left);
   }, 1000);
   // stop the ticker when the screen is replaced
-  new MutationObserver(() => {
-    if (!document.getElementById('hero-countdown')) clearInterval(timer);
-  }).observe(root, { childList: true, subtree: true });
+  const tObs = new MutationObserver(() => {
+    if (!document.getElementById('hero-countdown')) {
+      clearInterval(timer);
+      tObs.disconnect();
+    }
+  });
+  tObs.observe(root, { childList: true, subtree: true });
 }
 
 function openCityPicker(root) {
@@ -224,11 +230,11 @@ function openCityPicker(root) {
   <div class="sheet-backdrop" id="sh-backdrop"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-label="اختر المدينة">
     <div class="sheet-handle"></div>
-    <div class="sheet-head"><h2>تحديد المدينة (٦,٢٨٩ مدينة)</h2><button class="sheet-close" id="sh-close">✕</button></div>
+    <div class="sheet-head"><h2>تحديد المدينة</h2><button class="sheet-close" id="sh-close" aria-label="إغلاق">${iconSvg('close', 18)}</button></div>
     <div class="sheet-body">
-      <button class="btn primary" id="city-gps-btn" style="width:100%;margin-bottom:10px">📍 تحديد موقعي الحالي تلقائياً (GPS)</button>
+      <button class="btn primary" id="city-gps-btn" style="width:100%;margin-bottom:10px">${iconSvg('location', 16)}<span>تحديد الموقع تلقائياً (GPS)</span></button>
       <div id="city-gps-status" class="mode-note" style="margin-bottom:8px" hidden></div>
-      <input class="search-input" id="city-pick-input" type="search" placeholder="ابحث باسم المدينة بالعربية أو الإنجليزية…" autocomplete="off">
+      <input class="search-input" id="city-pick-input" type="search" placeholder="بحث باسم المدينة" autocomplete="off">
       <div id="city-pick-results" style="margin-top:10px"></div>
     </div>
   </div>`;
@@ -330,7 +336,7 @@ function openMonthSchedule(engine, startIso, tz) {
   <div class="sheet-backdrop" id="sh-backdrop"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-label="جدول الشهر">
     <div class="sheet-handle"></div>
-    <div class="sheet-head"><h2>مواقيت ٣٠ يوماً</h2><button class="sheet-close" id="sh-close">✕</button></div>
+    <div class="sheet-head"><h2>مواقيت ٣٠ يوماً</h2><button class="sheet-close" id="sh-close" aria-label="إغلاق">${iconSvg('close', 18)}</button></div>
     <div class="sheet-body" style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:12px;text-align:center;font-variant-numeric:tabular-nums">
         <thead><tr style="color:var(--color-accent);border-bottom:1px solid var(--color-border)">

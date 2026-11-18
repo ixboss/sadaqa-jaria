@@ -6,6 +6,8 @@
 import { state, loadState, haptic, HAPTICS } from '../../app-state.js';
 import { exportBackup, importBackup, peekBackup } from '../../data/backup.js';
 import { navigate } from '../router.js';
+import { mountTheme } from '../../main.js';
+import { iconSvg } from '../icons.js';
 
 export async function renderBackup(root) {
   const counts = {
@@ -102,14 +104,14 @@ export async function renderBackup(root) {
     const box = root.querySelector('#bk-peek');
     box.hidden = false;
     if (!peek.ok) {
-      box.innerHTML = `<div class="empty-state" style="padding:18px"><div class="icon">⛔</div>
+      box.innerHTML = `<div class="empty-state" style="padding:18px"><div class="icon">${iconSvg('alert', 22)}</div>
         <h2>الملف مرفوض</h2><p>${peek.errors.slice(0, 3).join(' · ') || 'بنية غير صالحة'}</p></div>`;
       return;
     }
     const total = Object.values(peek.counts).reduce((a, b) => a + b, 0);
     box.innerHTML = `
       <div class="calc-out" style="margin-top:12px">
-        <div class="mode-note">الملف سليم ✓ — ${total} عنصراً (${Object.entries(peek.counts).map(([g, n]) => `${n} ${gName(g)}`).join('، ')}) — أُنشئ ${new Date(peek.manifest.createdAt).toLocaleDateString('ar')}</div>
+        <div class="mode-note">الملف سليم — ${total} عنصراً (${Object.entries(peek.counts).map(([g, n]) => `${n} ${gName(g)}`).join('، ')}) — أُنشئ ${new Date(peek.manifest.createdAt).toLocaleDateString('ar')}</div>
         <div class="row-actions">
           <button class="btn primary" id="bk-merge">دمج ذكي</button>
           <button class="btn text-danger" id="bk-replace">استبدال كامل</button>
@@ -132,13 +134,14 @@ export async function renderBackup(root) {
       const box = root.querySelector('#bk-peek');
       box.innerHTML = `
         <div class="calc-out" style="margin-top:12px">
-          <h3 style="margin:0 0 8px;font-size:15px">${mode === 'merge' ? 'تم الدمج الذكي ✓' : 'تم الاستبدال الكامل ✓'}</h3>
+          <h3 style="margin:0 0 8px;font-size:15px">${mode === 'merge' ? 'تم الدمج الذكي' : 'تم الاستبدال الكامل'}</h3>
           <div class="stat-row"><span>أُضيف</span><span class="v">${res.report.added}</span></div>
           <div class="stat-row"><span>حُدّث</span><span class="v">${res.report.updated}</span></div>
           <div class="stat-row"><span>تعارض (أُبقي المحلي الأحدث)</span><span class="v">${res.report.conflicts}</span></div>
           <div class="stat-row"><span>مطابق (تخطي)</span><span class="v">${res.report.skipped}</span></div>
         </div>`;
       await loadState(state.db); // settings may have changed in replace mode
+      mountTheme();
       location.hash = '#/tools-backup?r=' + Date.now(); // refresh counts/history
     } catch (err) {
       alert('فشل الاستيراد: ' + err.message);

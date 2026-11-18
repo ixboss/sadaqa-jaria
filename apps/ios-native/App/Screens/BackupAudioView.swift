@@ -11,7 +11,6 @@ import UniformTypeIdentifiers
 struct BackupView: View {
     @EnvironmentObject var appState: AppState
     @State private var counts: [String: Int] = [:]
-    @State private var exportDone = false
     @State private var shareURL: URL?
     @State private var importMode: String = "merge"
     @State private var importReport: String?
@@ -264,40 +263,43 @@ struct AudioView: View {
         }
         playing = (surah, ayah, reciter.id)
         player.play(url: url) {
-            // onended chain — next ayah (web player parity)
-            guard let nextAyah = try? appState.db.queue.read({ db in
-                try Int.fetchOne(db, sql: "SELECT number_in_surah FROM ayahs WHERE surah = ? AND ayah_number = (SELECT ayah_number FROM ayahs WHERE surah = ? AND number_in_surah = ? LIMIT 1)", arguments: [surah, surah, ayah + 1])
-            }), ayah < nextAyah + 1 else { return }
-            if let u = AudioStore.shared.localURL(reciter: reciter.id, surah: surah, ayah: ayah + 1) {
-                playing = (surah, ayah + 1, reciter.id)
-                player.play(url: u) { self.play(surah: surah, ayah: ayah + 1, reciter: reciter) }
+            let ayahCount = (try? appState.db.queue.read { db in
+                try Int.fetchOne(db, sql: "SELECT ayah_count FROM surahs WHERE number = ?", arguments: [surah])
+            }) ?? 0
+            let next = ayah + 1
+            guard next <= ayahCount, AudioStore.shared.localURL(reciter: reciter.id, surah: surah, ayah: next) != nil else {
+                self.playing = nil
+                return
             }
+            self.play(surah: surah, ayah: next, reciter: reciter)
         }
     }
 
     /// Per-surah pack download into the AudioStore (EveryAyah `{SSS}{AAA}.mp3`).
     private func download(surah: Int, reciter: AudioCatalog.Entry) {
         Task {
+            let ayahCount = (try? await appState.db.queue.read { db in
+                try Int.fetchOne(db, sql: "SELECT ayah_count FROM surahs WHERE number = ?", arguments: [surah])
+            }) ?? 0
+            guard ayahCount > 0 else { return }
             var ayah = 1
-            var total = 0
-            while true {
-                guard let ayahCount = try? await appState.db.queue.read({ db in
-                    try Int.fetchOne(db, sql: "SELECT ayah_count FROM surahs WHERE number = ?", arguments: [surah])
-                }), ayah <= ayahCount else { break }
+            var failed = false
+            while ayah <= ayahCount {
                 let urlString = reciter.audioUrlTemplate
                     .replacingOccurrences(of: "{SSSAAA}", with: String(format: "%03d%03d", surah, ayah))
-                guard let url = URL(string: urlString) else { break }
+                guard let url = URL(string: urlString) else { failed = true; break }
                 do {
                     let (data, resp) = try await URLSession.shared.data(from: url)
                     if let http = resp as? HTTPURLResponse, http.statusCode == 200, data.count > 1000 {
                         try AudioStore.shared.store(data: data, reciter: reciter.id, surah: surah, ayah: ayah)
-                        total += data.count
+                        progress[reciter.id] = Double(ayah) / Double(ayahCount)
                         ayah += 1
-                        progress[reciter.id] = Double(ayah - 1) / Double(ayahCount)
-                    } else { break }
-                } catch { break }
+                    } else { failed = true; break }
+                } catch { failed = true; break }
             }
-            progress[reciter.id] = 1.0
+            if !failed { progress[reciter.id] = 1.0 }
+        }
+    }
         }
     }
 }

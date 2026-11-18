@@ -45,13 +45,13 @@ object WidgetData {
         return Triple(parts[0].toDoubleOrNull() ?: return null, parts[1].toDoubleOrNull() ?: return null, parts[2])
     }
 
-    fun nextPrayer(context: Context): Pair<PrayerName, Long>? {
+    fun nextPrayer(context: Context): Triple<PrayerName, Long, String>? {
         val (lat, lng, tz) = readState(context) ?: return null
         val now = System.currentTimeMillis()
         val next = runCatching {
             PrayerEngine.next(now, EngineOptions(lat, lng, tz))
         }.getOrNull() ?: return null
-        return next.name to next.at
+        return Triple(next.name, next.at, tz)
     }
 
     fun dailyDhikr(context: Context): String {
@@ -85,31 +85,31 @@ object PrayerCountdownWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun Content(next: Pair<PrayerName, Long>?) {
+    private fun Content(next: Triple<PrayerName, Long, String>?) {
         GlanceTheme {
             Column(
-                modifier = GlanceModifier.fillMaxSize().background(ColorProvider(android.graphics.Color.argb(0xEE, 0x07, 0x16, 0x1B))).padding(10.dp),
+                modifier = GlanceModifier.fillMaxSize().background(ColorProvider(Color(0xEE07110F))).padding(10.dp),
                 verticalAlignment = Alignment.Top,
                 horizontalAlignment = Alignment.Start,
             ) {
                 Text(
                     "الصلاة القادمة",
-                    style = TextStyle(color = ColorProvider(android.graphics.Color.argb(0xFF, 0xA7, 0xB7, 0xBD)), fontSize = 11.sp),
+                    style = TextStyle(color = ColorProvider(Color(0xFF9BB3AE)), fontSize = 11.sp),
                 )
                 if (next != null) {
                     Text(
                         next.first.labelAr,
-                        style = TextStyle(color = ColorProvider(android.graphics.Color.argb(0xFF, 0xE7, 0xC1, 0x4C)), fontSize = 20.sp),
+                        style = TextStyle(color = ColorProvider(Color(0xFFE5C158)), fontSize = 20.sp),
                     )
-                    val zdt = java.time.Instant.ofEpochMilli(next.second).atZone(java.time.ZoneId.systemDefault())
+                    val zdt = java.time.Instant.ofEpochMilli(next.second).atZone(java.time.ZoneId.of(next.third))
                     Text(
                         "%02d:%02d".format(zdt.hour, zdt.minute),
-                        style = TextStyle(color = ColorProvider(android.graphics.Color.WHITE), fontSize = 15.sp),
+                        style = TextStyle(color = ColorProvider(Color.White), fontSize = 15.sp),
                     )
                 } else {
                     Text(
                         "افتح التطبيق لضبط الموقع",
-                        style = TextStyle(color = ColorProvider(android.graphics.Color.WHITE), fontSize = 12.sp),
+                        style = TextStyle(color = ColorProvider(Color.White), fontSize = 12.sp),
                     )
                 }
             }
@@ -137,16 +137,16 @@ object DhikrWidget : GlanceAppWidget() {
     private fun Content(dhikr: String) {
         GlanceTheme {
             Column(
-                modifier = GlanceModifier.fillMaxSize().background(ColorProvider(android.graphics.Color.argb(0xEE, 0x07, 0x16, 0x1B))).padding(10.dp),
+                modifier = GlanceModifier.fillMaxSize().background(ColorProvider(Color(0xEE07110F))).padding(10.dp),
                 verticalAlignment = Alignment.Top,
             ) {
                 Text(
                     "ذكر اليوم",
-                    style = TextStyle(color = ColorProvider(android.graphics.Color.argb(0xFF, 0xA7, 0xB7, 0xBD)), fontSize = 11.sp),
+                    style = TextStyle(color = ColorProvider(Color(0xFF9BB3AE)), fontSize = 11.sp),
                 )
                 Text(
                     dhikr.ifEmpty { "أذكار الصباح" },
-                    style = TextStyle(color = ColorProvider(android.graphics.Color.WHITE), fontSize = 13.sp),
+                    style = TextStyle(color = ColorProvider(Color.White), fontSize = 13.sp),
                     maxLines = 5,
                 )
             }

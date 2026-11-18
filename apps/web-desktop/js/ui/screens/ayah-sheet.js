@@ -3,6 +3,7 @@
 // Tafsir (Muyassar) · Mutashabihat · Bookmark · Share · Play-from-here.
 // ============================================================================
 import { state, haptic, HAPTICS } from '../../app-state.js';
+import { iconSvg } from '../icons.js';
 
 export function renderAyahSheet(ayahNumber) {
   const host = document.getElementById('sheet-root');
@@ -10,7 +11,7 @@ export function renderAyahSheet(ayahNumber) {
   <div class="sheet-backdrop" id="sh-backdrop"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-label="خيارات الآية">
     <div class="sheet-handle"></div>
-    <div class="sheet-head"><h2 id="ay-title">…</h2><button class="sheet-close" id="sh-close" aria-label="إغلاق">✕</button></div>
+    <div class="sheet-head"><h2 id="ay-title">…</h2><button class="sheet-close" id="sh-close" aria-label="إغلاق">${iconSvg('close', 18)}</button></div>
     <div class="sheet-body">
       <div class="ayah-body" id="ay-body">…</div>
       <div class="sheet-actions">
@@ -19,7 +20,7 @@ export function renderAyahSheet(ayahNumber) {
         <button class="btn" id="ay-bookmark">حفظ علامة</button>
         <button class="btn" id="ay-copy">نسخ</button>
         <button class="btn" id="ay-share">مشاركة</button>
-        <button class="btn" id="ay-play">▶ تشغيل من هنا</button>
+        <button class="btn" id="ay-play">${iconSvg('play', 14)}<span>تشغيل من هنا</span></button>
       </div>
       <div id="ay-extra"></div>
     </div>
@@ -34,8 +35,11 @@ export function renderAyahSheet(ayahNumber) {
   host.querySelector('#sh-backdrop').addEventListener('click', close);
 
   (async () => {
+    if (!Number.isInteger(ayahNumber) || ayahNumber < 1) { close(); return; }
     const ayah = await state.db.queryOne(`SELECT ayah_number, surah, number_in_surah, text_uthmani, text_imlaei FROM ayahs WHERE ayah_number = ?`, [ayahNumber]);
+    if (!ayah) { close(); return; }
     const surah = await state.db.queryOne(`SELECT name_ar FROM surahs WHERE number = ?`, [ayah.surah]);
+    if (!surah) { close(); return; }
     host.querySelector('#ay-title').textContent = `${surah.name_ar} · الآية ${ayah.number_in_surah}`;
     host.querySelector('#ay-body').textContent = ayah.text_uthmani;
 
@@ -56,13 +60,13 @@ export function renderAyahSheet(ayahNumber) {
       await state.db.write(`INSERT INTO bookmarks (uuid, page, ayah_number, label_ar, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?)`, [crypto.randomUUID(), pageRow.page, ayahNumber, `${surah.name_ar} ${ayah.number_in_surah}`, Date.now(), Date.now()]);
       haptic(HAPTICS.bookmarkSaved);
-      e.target.textContent = '✓ محفوظة';
+      e.target.textContent = 'تم الحفظ';
       e.target.disabled = true;
     });
     host.querySelector('#ay-copy')?.addEventListener('click', async () => {
       const text = `${ayah.text_uthmani}\n— ${surah.name_ar} · الآية ${ayah.number_in_surah}`;
       await navigator.clipboard.writeText(text);
-      host.querySelector('#ay-copy').textContent = '✓ نُسخ';
+      host.querySelector('#ay-copy').textContent = 'تم النسخ';
     });
     host.querySelector('#ay-share').addEventListener('click', async () => {
       const text = `${ayah.text_uthmani}\n— ${surah.name_ar} · الآية ${ayah.number_in_surah}`;
@@ -70,7 +74,7 @@ export function renderAyahSheet(ayahNumber) {
         try { await navigator.share({ text }); } catch { /* user cancelled */ }
       } else {
         await navigator.clipboard.writeText(text);
-        host.querySelector('#ay-share').textContent = '✓ نُسخ';
+        host.querySelector('#ay-share').textContent = 'تم النسخ';
       }
     });
     host.querySelector('#ay-play').addEventListener('click', async () => {

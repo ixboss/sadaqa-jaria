@@ -36,10 +36,10 @@ val LocalSadaqaTheme = staticCompositionLocalOf { darkDefaults }
 val OFFERED_THEMES = listOf("dark", "light", "sepia", "night")
 
 val darkDefaults = SadaqaColors(
-    bg = Color(0xFF07161B), surface = Color(0xFF0E2228), surfaceRaised = Color(0xFF17333B),
-    textPrimary = Color(0xFFE8EEF2), textSecondary = Color(0xFFA7B7BD), accent = Color(0xFFE7C14C),
-    accentContrast = Color(0xFF1A1206), border = Color(0xFF1E3A44),
-    mushafText = Color(0xFFF2EFE6), mushafBg = Color(0xFF0A1C22),
+    bg = Color(0xFF07110F), surface = Color(0xFF0D1B18), surfaceRaised = Color(0xFF122521),
+    textPrimary = Color(0xFFF0F4F3), textSecondary = Color(0xFF9BB3AE), accent = Color(0xFFE5C158),
+    accentContrast = Color(0xFF111612), border = Color(0xFF1B352F),
+    mushafText = Color(0xFFF4EFE4), mushafBg = Color(0xFF07110F),
 )
 
 data class TokenPalette(
@@ -54,7 +54,8 @@ object SadaqaTheme {
 
     /** Map tokens.json theme keys to Compose colors (fallback = dark defaults). */
     fun colors(key: String): SadaqaColors {
-        val palette = readTokens()[key] ?: readTokens()["dark"] ?: return darkDefaults
+        val resolved = if (key == "night") "oled" else key
+        val palette = readTokens()[resolved] ?: readTokens()["dark"] ?: return darkDefaults
         return SadaqaColors(
             bg = hex(palette.bg), surface = hex(palette.surface), surfaceRaised = hex(palette.surfaceRaised),
             textPrimary = hex(palette.textPrimary), textSecondary = hex(palette.textSecondary),
@@ -65,7 +66,7 @@ object SadaqaTheme {
 
     fun colorScheme(key: String): ColorScheme {
         val c = colors(key)
-        val dark = key == "dark" || key == "night"
+        val dark = key == "dark" || key == "night" || key == "oled"
         val builder = if (dark) darkColorScheme() else lightColorScheme()
         return builder.copy(
             background = c.bg, surface = c.surface, surfaceVariant = c.surfaceRaised,
@@ -94,11 +95,11 @@ object SadaqaTheme {
             fun s(k: String, d: String): String =
                 ((t[k] as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content) ?: d
             TokenPalette(
-                bg = s("bg", "#07161B"), surface = s("surface", "#0E2228"),
-                surfaceRaised = s("surfaceRaised", "#17333B"), textPrimary = s("textPrimary", "#E8EEF2"),
-                textSecondary = s("textSecondary", "#A7B7BD"), accent = s("accent", "#E7C14C"),
-                accentContrast = s("accentContrast", "#1A1206"), border = s("border", "#1E3A44"),
-                mushafText = s("mushafText", "#F2EFE6"), mushafBg = s("mushafBg", "#0A1C22"),
+                bg = s("bg", "#07110F"), surface = s("surface", "#0D1B18"),
+                surfaceRaised = s("surfaceRaised", "#122521"), textPrimary = s("textPrimary", "#F0F4F3"),
+                textSecondary = s("textSecondary", "#9BB3AE"), accent = s("accent", "#E5C158"),
+                accentContrast = s("accentContrast", "#111612"), border = s("border", "#1B352F"),
+                mushafText = s("mushafText", "#F4EFE4"), mushafBg = s("mushafBg", "#07110F"),
             )
         }
     }

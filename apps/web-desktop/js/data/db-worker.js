@@ -12,6 +12,7 @@ import sqlite3Init from '../../vendor/sqlite-wasm/index.mjs';
 
 let db = null;
 let pool = null;
+let sqlite3Ref = null;
 let backendMode = 'opfs-sahpool';
 const DB_NAME = '/sadaqa.db'; // sahpool paths are absolute
 const DB_SOURCE = '../../../../packages/core-data/build/sadaqa.db';
@@ -71,6 +72,7 @@ function verifyDbSchema(candidate) {
 async function init() {
   emitProgress('wasm', 0, 0);
   const sqlite3 = await sqlite3Init({ print: () => {}, printErr: (m) => console.error('[sqlite]', m) });
+  sqlite3Ref = sqlite3;
   if (!sqlite3.capi.sqlite3_compileoption_used('ENABLE_FTS5')) {
     throw new Error('wasm build lacks ENABLE_FTS5 — refusing (ARCHITECTURE §5.1 guardrail)');
   }
@@ -100,6 +102,7 @@ async function init() {
   } catch (opfsErr) {
     console.warn('[db-worker] opfs-sahpool unavailable, falling back to in-memory sqlite:', opfsErr?.message ?? opfsErr);
     if (db) { try { db.close(); } catch { /* ignore */ } db = null; }
+    pool = null;
     // Tier 2: guaranteed in-memory POSIX/MEMFS fallback (Incognito, Safari iframe, multi-tab lock)
     if (!bytes) bytes = await fetchDbBytes(dbUrl);
     emitProgress('importing', bytes.byteLength, bytes.byteLength);
@@ -129,7 +132,7 @@ function run(op, sql, params) {
       if (Array.isArray(params) && params.length > 0) stmt.bind(params);
       stmt.step(); // run to completion; row callbacks unused for writes
     } finally {
-      stmt.reset();
+      stmt.finalize();
     }
     return { ok: true };
   }
@@ -148,7 +151,7 @@ function run(op, sql, params) {
           if (Array.isArray(p) && p.length > 0) stmt.bind(p);
           stmt.step();
         } finally {
-          stmt.reset();
+          stmt.finalize();
         }
       }
       db.exec('COMMIT');
@@ -167,7 +170,7 @@ self.onmessage = async ({ data: { id, op, sql, params } }) => {
       const info = await init();
       self.postMessage({ id, ok: true, result: info });
     } else if (op === 'export') {
-      const bytes = pool.exportFile(DB_NAME);
+      const bytes = pool ? pool.exportFile(DB_NAME) : sqlite3Ref.capi.sqlite3_js_db_export(db.pointer);
       self.postMessage({ id, ok: true, result: bytes });
     } else {
       self.postMessage({ id, ok: true, result: run(op, sql, params) });
