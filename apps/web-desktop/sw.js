@@ -3,10 +3,13 @@
 // cache-first: QPC1 per-page fonts + audio packs (offline after first visit).
 // Update strategy (v1 contract): prompt-based; skipWaiting ONLY via message.
 // ============================================================================
-const CACHE = 'sadaqa-v2-v4';
+const CACHE = 'sadaqa-v2-v6';
 const SHELL = [
   'index.html',
+  '../../icons/icon-192.png',
+  '../../icons/icon-512.png',
   '../../packages/design-tokens/tokens.css',
+  'assets/fonts/uthmanic/UthmanicHafs1Ver18.woff2',
   'manifest.json',
   'styles/shell.css',
   'styles/mushaf.css',
@@ -46,6 +49,25 @@ const SHELL = [
   '../../packages/core-data/engines/reminders.js',
   '../../packages/core-data/engines/smart-card.js',
   '../../packages/core-data/vendor/adhan/Adhan.js',
+  '../../packages/core-data/vendor/adhan/Astronomical.js',
+  '../../packages/core-data/vendor/adhan/CalculationMethod.js',
+  '../../packages/core-data/vendor/adhan/CalculationParameters.js',
+  '../../packages/core-data/vendor/adhan/Coordinates.js',
+  '../../packages/core-data/vendor/adhan/DateUtils.js',
+  '../../packages/core-data/vendor/adhan/HighLatitudeRule.js',
+  '../../packages/core-data/vendor/adhan/Madhab.js',
+  '../../packages/core-data/vendor/adhan/MathUtils.js',
+  '../../packages/core-data/vendor/adhan/PolarCircleResolution.js',
+  '../../packages/core-data/vendor/adhan/Prayer.js',
+  '../../packages/core-data/vendor/adhan/PrayerTimes.js',
+  '../../packages/core-data/vendor/adhan/Qibla.js',
+  '../../packages/core-data/vendor/adhan/Rounding.js',
+  '../../packages/core-data/vendor/adhan/Shafaq.js',
+  '../../packages/core-data/vendor/adhan/SolarCoordinates.js',
+  '../../packages/core-data/vendor/adhan/SolarTime.js',
+  '../../packages/core-data/vendor/adhan/SunnahTimes.js',
+  '../../packages/core-data/vendor/adhan/TimeComponents.js',
+  '../../packages/core-data/vendor/adhan/TypeUtils.js',
 ];
 
 self.addEventListener('install', (e) => {
@@ -71,8 +93,8 @@ self.addEventListener('message', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET') return;
-  // per-page QPC1 fonts + bundled/downloaded audio: cache-first (offline after first visit)
-  if (url.pathname.includes('/assets/fonts/qpc1/') || url.pathname.includes('/audio-packs/') || url.pathname.includes('/assets/audio/')) {
+  // per-page QPC1 + UthmanicHafs fonts + bundled/downloaded audio: cache-first (offline after first visit)
+  if (url.pathname.includes('/assets/fonts/') || url.pathname.includes('/audio-packs/') || url.pathname.includes('/assets/audio/')) {
     e.respondWith((async () => {
       const cache = await caches.open(CACHE);
       const hit = await cache.match(e.request);

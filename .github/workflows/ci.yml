@@ -191,10 +191,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build clean PWA archive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build v2 offline assets & PWA archive
         run: |
-          mkdir -p dist/sadaqa-jaria
-          cp -r index.html manifest.json sw.js robots.txt sitemap.xml icons assets css js .nojekyll dist/sadaqa-jaria/
+          npm install --no-audit --no-fund
+          npm run seeds:fetch
+          npm run db:build
+          npm run fonts:fetch
+          npm run audio:fetch
+          npm run pages:build
+          mv dist/pages dist/sadaqa-jaria
           cd dist && zip -r "../sadaqa-jaria-${{ github.ref_name }}-web.zip" sadaqa-jaria
 
       - name: Download native & desktop release artifacts

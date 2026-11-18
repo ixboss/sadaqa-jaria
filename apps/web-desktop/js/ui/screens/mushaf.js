@@ -16,24 +16,38 @@ const activeFaces = new Map(); // family → { page, face }
  * Load the per-page QPC1 subset font under a plate-specific family (right
  * plate 'QPC1-P', left spread plate 'QPC1-PL'), evicting the previous face of
  * that family so the browser never falls back into a wrong page's glyph set.
+ * Returns true if the face loaded cleanly; false triggers UthmanicHafs fallback.
  */
 async function ensurePageFont(page, fam = 'QPC1-P') {
   const cur = activeFaces.get(fam);
-  if (cur?.page === page) return;
+  if (cur?.page === page && cur.ok) return true;
   if (cur) document.fonts.delete(cur.face);
-  const f = new FontFace(fam, `url(assets/fonts/qpc1/p${String(page).padStart(3, '0')}.woff2)`);
-  await f.load();
-  document.fonts.add(f);
-  activeFaces.set(fam, { page, face: f });
+  try {
+    const f = new FontFace(fam, `url(assets/fonts/qpc1/p${String(page).padStart(3, '0')}.woff2)`);
+    await f.load();
+    if (f.status !== 'loaded') return false;
+    document.fonts.add(f);
+    activeFaces.set(fam, { page, face: f, ok: true });
+    return true;
+  } catch {
+    activeFaces.set(fam, { page, face: null, ok: false });
+    return false;
+  }
 }
 
 let bsmlFontLoaded = false;
 async function ensureBsmlFont() {
-  if (bsmlFontLoaded) return;
-  const f = new FontFace('QPC1-BSML', `url(assets/fonts/qpc1/QPC1BSML.ttf)`);
-  await f.load();
-  document.fonts.add(f);
-  bsmlFontLoaded = true;
+  if (bsmlFontLoaded) return true;
+  try {
+    const f = new FontFace('QPC1-BSML', `url(assets/fonts/qpc1/QPC1BSML.ttf)`);
+    await f.load();
+    if (f.status !== 'loaded') return false;
+    document.fonts.add(f);
+    bsmlFontLoaded = true;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function renderMushaf(root, { page = null } = {}) {
@@ -43,7 +57,12 @@ export function renderMushaf(root, { page = null } = {}) {
     <div class="reader-topbar" id="reader-topbar">
       <button class="rbtn" id="r-back" aria-label="رجوع">→</button>
       <span class="title" id="reader-title">…</span>
-      <button class="rbtn" id="r-khatmah" aria-label="الختمة">🌙</button>
+      <div class="r-actions">
+        <button class="rbtn" id="r-index" aria-label="الفهرس" title="فهرس السور والأجزاء">☰</button>
+        <button class="rbtn" id="r-bookmark" aria-label="علامة مرجعية" title="حفظ علامة">🔖</button>
+        <button class="rbtn" id="r-audio" aria-label="التلاوة" title="التلاوة">🎧</button>
+        <button class="rbtn" id="r-khatmah" aria-label="الختمة" title="الختمة">🌙</button>
+      </div>
     </div>
     <div class="mushaf-stage" id="mushaf-stage"></div>
     <div class="plate-foot" id="plate-foot"></div>
@@ -61,7 +80,7 @@ export function renderMushaf(root, { page = null } = {}) {
 async function showPage(root, page, direction = 0) {
   const stage = root.querySelector('#mushaf-stage');
   if (!Number.isInteger(page) || page < 1 || page > 604) page = 1;
-  await Promise.all([ensurePageFont(page), ensureBsmlFont()]);
+  const [, bsmlOk] = await Promise.all([ensurePageFont(page), ensureBsmlFont()]);
   const { lines, words } = await loadPage(page);
   const spread = matchMedia('(orientation: landscape) and (min-width: 1024px)').matches;
   const pages = spread ? spreadFor(page) : [page];
@@ -72,12 +91,13 @@ async function showPage(root, page, direction = 0) {
   for (let i = 0; i < pages.length; i++) {
     const data = pages[i] === page ? { lines, words } : await loadPage(pages[i]);
     const fam = i === 0 ? 'QPC1-P' : 'QPC1-PL';
-    await ensurePageFont(pages[i], fam);
-    plates[i].style.setProperty('--mw-font', `'${fam}'`);
-    renderPlate(plates[i], pages[i], data);
+    const pageFontOk = await ensurePageFont(pages[i], fam);
+    plates[i].style.setProperty('--mw-font', pageFontOk ? `'${fam}'` : `var(--font-quran)`);
+    renderPlate(plates[i], pages[i], data, { pageFontOk, bsmlOk });
   }
   paintFoot(root, pages.at(-1));
   paintTitle(root, pages);
+  paintBookmarkState(root, page);
   saveProgress(page);
   if (direction !== 0) animateFlip(plates[0], direction);
 }
@@ -93,7 +113,7 @@ async function loadPage(p) {
   return fontCache.get(p);
 }
 
-function renderPlate(plate, page, { lines, words }) {
+function renderPlate(plate, page, { lines, words }, { pageFontOk = true, bsmlOk = true } = {}) {
   const byLine = new Map();
   for (const w of words) {
     if (!byLine.has(w.line_number)) byLine.set(w.line_number, []);
@@ -107,12 +127,17 @@ function renderPlate(plate, page, { lines, words }) {
       return `<div class="mushaf-line kind-surah_name" data-line="${n}"><span>${escapeHtml(line.text_ar ?? '')}</span></div>`;
     }
     if (line.kind === 'bismillah') {
-      // basmala renders from QPC1-BSML PUA glyphs (dedicated calligraphy font)
-      const glyphHtml = line.glyphs_qpc ? `<span class="mw bsml">${escapeHtml(line.glyphs_qpc)}</span>` : '';
-      return `<div class="mushaf-line kind-bismillah" data-line="${n}">${glyphHtml || `<span>${escapeHtml(line.text_ar ?? '')}</span>`}</div>`;
+      // Never pass ASCII-mapped BSML glyphs to fallback font if QPC1-BSML failed to load
+      const glyphHtml = (bsmlOk && line.glyphs_qpc)
+        ? `<span class="mw bsml">${escapeHtml(line.glyphs_qpc)}</span>`
+        : `<span class="mw bsml-uthmani">${escapeHtml(line.text_ar ?? 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ')}</span>`;
+      return `<div class="mushaf-line kind-bismillah" data-line="${n}">${glyphHtml}</div>`;
     }
-    const ws = (byLine.get(n) ?? []).map((w) =>
-      `<span class="mw" data-ayah="${w.ayah_number}" data-surah="${wordSurah(words, w)}" data-nis="${w.number_in_surah}" tabindex="0">${escapeHtml(w.glyphs_qpc)}</span>`).join('');
+    const ws = (byLine.get(n) ?? []).map((w) => {
+      const renderText = (pageFontOk && w.glyphs_qpc) ? w.glyphs_qpc : (w.word_text ?? '');
+      const cls = pageFontOk ? 'mw' : 'mw uthmani-fallback';
+      return `<span class="${cls}" data-ayah="${w.ayah_number}" data-surah="${wordSurah(words, w)}" data-nis="${w.number_in_surah}" tabindex="0">${escapeHtml(renderText)}</span>`;
+    }).join('');
     return `<div class="mushaf-line kind-text" data-line="${n}">${ws}</div>`;
   }).join('');
   fitLines(plate);
@@ -148,7 +173,16 @@ function fitLines(plate) {
 }
 
 function paintFoot(root, page) {
-  root.querySelector('#plate-foot').innerHTML = `<span id="foot-hizb">…</span><span>صفحة ${page}</span><span id="foot-juz">…</span>`;
+  root.querySelector('#plate-foot').innerHTML = `
+    <span id="foot-hizb">…</span>
+    <span class="pf-nav">
+      <button class="pf-btn" id="pf-prev" aria-label="الصفحة السابقة">‹</button>
+      <span>صفحة ${page}</span>
+      <button class="pf-btn" id="pf-next" aria-label="الصفحة التالية">›</button>
+    </span>
+    <span id="foot-juz">…</span>`;
+  root.querySelector('#pf-prev')?.addEventListener('click', () => flip(root, -1));
+  root.querySelector('#pf-next')?.addEventListener('click', () => flip(root, +1));
   state.db.queryOne(`SELECT juz_start, hizb_start FROM mushaf_pages WHERE page_number = ?`, [page]).then((m) => {
     if (!m) return;
     root.querySelector('#foot-juz').textContent = m.juz_start ? `الجزء ${m.juz_start}` : '';
@@ -157,7 +191,22 @@ function paintFoot(root, page) {
 }
 
 function paintTitle(root, pages) {
-  root.querySelector('#reader-title').textContent = pages.length > 1 ? `صفحة ${pages[0]}–${pages.at(-1)}` : `صفحة ${pages[0]}`;
+  const p = pages[0];
+  const label = pages.length > 1 ? `صفحة ${pages[0]}–${pages.at(-1)}` : `صفحة ${pages[0]}`;
+  const el = root.querySelector('#reader-title');
+  el.textContent = label;
+  state.db.queryOne(`SELECT s.name_ar FROM ayahs a JOIN surahs s ON s.number = a.surah WHERE a.page = ? ORDER BY a.ayah_number LIMIT 1`, [p])
+    .then((row) => {
+      if (row?.name_ar) el.textContent = `${row.name_ar} · ${label}`;
+    });
+}
+
+async function paintBookmarkState(root, page) {
+  const btn = root.querySelector('#r-bookmark');
+  if (!btn) return;
+  const hit = await state.db.queryOne(`SELECT uuid FROM bookmarks WHERE page = ? AND deleted = 0 LIMIT 1`, [page]);
+  btn.classList.toggle('active', Boolean(hit));
+  btn.textContent = hit ? '★' : '🔖';
 }
 
 /** Book pairing: odd page on the right (RTL first), even on the left. */
@@ -207,7 +256,24 @@ function wireStageGestures(root) {
 
 function wireChrome(root) {
   root.querySelector('#r-back').addEventListener('click', () => history.back());
+  root.querySelector('#r-index')?.addEventListener('click', () => navigate('mushaf-surah-index'));
+  root.querySelector('#r-audio')?.addEventListener('click', () => navigate('mushaf-audio'));
   root.querySelector('#r-khatmah').addEventListener('click', () => navigate('mushaf-khatmah'));
+  root.querySelector('#r-bookmark')?.addEventListener('click', async () => {
+    const cur = Number(root.querySelector('#mushaf-stage .mushaf-plate')?.dataset.page ?? 1);
+    const existing = await state.db.queryOne(`SELECT uuid FROM bookmarks WHERE page = ? AND deleted = 0 LIMIT 1`, [cur]);
+    const now = Date.now();
+    if (existing) {
+      await state.db.write(`UPDATE bookmarks SET deleted = 1, updated_at = ? WHERE uuid = ?`, [now, existing.uuid]);
+    } else {
+      const surah = await state.db.queryOne(`SELECT s.name_ar FROM ayahs a JOIN surahs s ON s.number = a.surah WHERE a.page = ? ORDER BY a.ayah_number LIMIT 1`, [cur]);
+      const label = surah?.name_ar ? `${surah.name_ar} · ص ${cur}` : `صفحة ${cur}`;
+      await state.db.write(`INSERT INTO bookmarks (uuid, page, label_ar, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, 0)`,
+        [crypto.randomUUID(), cur, label, now, now]);
+    }
+    haptic(HAPTICS.bookmarkSaved);
+    paintBookmarkState(root, cur);
+  });
 }
 
 function toggleChrome() {

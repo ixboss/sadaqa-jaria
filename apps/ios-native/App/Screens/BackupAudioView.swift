@@ -248,8 +248,10 @@ struct AudioView: View {
     }
 
     private func loadCatalog() {
-        guard catalog == nil,
-              let url = Bundle.main.url(forResource: "audio-catalog", withExtension: "json"),
+        guard catalog == nil else { return }
+        let url = Bundle.main.url(forResource: "audio-catalog", withExtension: "json", subdirectory: "Resources")
+            ?? Bundle.main.url(forResource: "audio-catalog", withExtension: "json")
+        guard let url,
               let data = try? Data(contentsOf: url),
               let cat = try? JSONDecoder().decode(AudioCatalog.self, from: data) else { return }
         catalog = cat

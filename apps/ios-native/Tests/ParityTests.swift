@@ -398,3 +398,84 @@ final class ExportImportRoundTripTests: XCTestCase {
         XCTAssertTrue(verdict.ok, "iOS export validates: \(verdict.errors.prefix(3))")
     }
 }
+
+// ---------------------------------------------------------------------------
+// Write-path regression tests — atomic transactions without GRDB reentrancy,
+// zero-byte DB recovery, and bookmark/tasbih/adhkar persistence.
+// ---------------------------------------------------------------------------
+
+final class DatabaseWritePathTests: XCTestCase {
+
+    func makeDb() throws -> SadaqaDatabase {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("wp-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let repoDb = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Resources/sadaqa.db")
+        let testDb = Bundle(for: FixtureLoader.self).url(forResource: "sadaqa", withExtension: "db")
+        let src = Bundle.main.url(forResource: "sadaqa", withExtension: "db") ?? testDb ?? repoDb
+        let dst = dir.appendingPathComponent("sadaqa.db")
+        try FileManager.default.copyItem(at: src, to: dst)
+        let q = try DatabaseQueue(path: dst.path)
+        return SadaqaDatabase(queue: q)
+    }
+
+    func testIncrementDhikrTapRecordsStateAndStreakWithoutReentrancy() throws {
+        let db = try makeDb()
+        let day = "2026-11-18"
+        let now: Int64 = 1_794_988_800_000
+        let rows = try db.queue.read { q in
+            try Row.fetchAll(q, sql: "SELECT id, category_id, target FROM adhkar_items WHERE target > 0 LIMIT 1")
+        }
+        let item = try XCTUnwrap(rows.first)
+        let itemId: Int64 = item["id"]
+        let catId: Int64 = item["category_id"]
+        let target: Int = item["target"]
+
+        var count = 0
+        for step in 0..<target {
+            count = try db.incrementDhikrTap(
+                itemId: itemId,
+                categoryId: catId,
+                currentCount: step,
+                target: target,
+                dayKey: day,
+                now: now + Int64(step * 100)
+            )
+            XCTAssertEqual(count, step + 1)
+        }
+        let capped = try db.incrementDhikrTap(itemId: itemId, categoryId: catId, currentCount: count, target: target, dayKey: day, now: now + 9999)
+        XCTAssertEqual(capped, target)
+
+        let stored = try db.queue.read { q in
+            try Int.fetchOne(q, sql: "SELECT count FROM adhkar_state WHERE item_id = ? AND day_key = ?", arguments: [itemId, day])
+        }
+        XCTAssertEqual(stored, target)
+    }
+
+    func testTasbihPresetsTapAndBookmarksWritePaths() throws {
+        let db = try makeDb()
+        let day = "2026-11-18"
+        let now: Int64 = 1_794_988_800_000
+
+        try db.ensureDefaultTasbihPresets(now: now)
+        let firstUuid = try XCTUnwrap(try db.queue.read { q in
+            try String.fetchOne(q, sql: "SELECT uuid FROM tasbih_counters WHERE deleted = 0 ORDER BY sort_order LIMIT 1")
+        })
+
+        try db.recordTasbihTap(counterUuid: firstUuid, target: 33, newCount: 33, dayKey: day, now: now + 10)
+        try db.queue.read { q in
+            let row = try Row.fetchOne(q, sql: "SELECT count, total_lifetime FROM tasbih_counters WHERE uuid = ?", arguments: [firstUuid])
+            XCTAssertEqual(row?["count"] as Int?, 1)
+            XCTAssertEqual(row?["total_lifetime"] as Int?, 1)
+            XCTAssertEqual(try Int.fetchOne(q, sql: "SELECT COUNT(*) FROM tasbih_sessions WHERE counter_uuid = ?", arguments: [firstUuid]), 1)
+            XCTAssertEqual(try Int.fetchOne(q, sql: "SELECT COUNT(*) FROM streak_days WHERE kind = 'tasbih' AND day_key = ?", arguments: [day]), 1)
+        }
+
+        let added = try db.toggleBookmark(page: 1, lineNumber: nil, ayahNumber: nil, labelAr: "الفاتحة", now: now + 20)
+        XCTAssertTrue(added)
+        let removed = try db.toggleBookmark(page: 1, lineNumber: nil, ayahNumber: nil, labelAr: "الفاتحة", now: now + 30)
+        XCTAssertFalse(removed)
+    }
+}

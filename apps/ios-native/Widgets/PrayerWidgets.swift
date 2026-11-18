@@ -19,13 +19,13 @@ private func nowMs() -> Int64 { Int64(Date().timeIntervalSince1970 * 1000) }
 private func isoToday(_ ms: Int64, tz: String) -> String {
     var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: tz) ?? .current
     let c = cal.dateComponents([.year, .month, .day], from: Date(ms: ms))
-    return String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
+    return String(format: "%04d-%02d-%02d", c.year ?? 1970, c.month ?? 1, c.day ?? 1)
 }
 
 private func clock(_ ms: Int64, tz: String) -> String {
     var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: tz) ?? .current
     let c = cal.dateComponents([.hour, .minute], from: Date(ms: ms))
-    return String(format: "%02d:%02d", c.hour!, c.minute!)
+    return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
 }
 
 struct WidgetState: Codable {
@@ -113,7 +113,7 @@ struct PrayerProvider: TimelineProvider {
             entries = [PrayerEntry(date: Date(), state: state, next: state?.liveNext(), dhikr: state?.dailyDhikr ?? "")]
         }
         // refresh after the last entry (next day)
-        let refresh = Calendar.current.date(byAdding: .hour, value: 12, to: Date())!
+        let refresh = Calendar.current.date(byAdding: .hour, value: 12, to: Date()) ?? Date().addingTimeInterval(43_200)
         completion(Timeline(entries: entries, policy: .after(refresh)))
     }
 }

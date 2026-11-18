@@ -51,6 +51,9 @@ targets:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UIBackgroundModes: [audio]   # athkar hands-free TTS / recitation playback
+        UIAppFonts:
+          - Resources/fonts/UthmanicHafs1Ver18.ttf
+          - Resources/fonts/QPC1BSML.ttf
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:

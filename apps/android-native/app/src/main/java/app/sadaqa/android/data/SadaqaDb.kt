@@ -33,11 +33,15 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
          * assets/sadaqa.db on Android; JVM tests pass the file bytes directly.
          */
         fun open(dbFile: File, seedBytes: (() -> ByteArray)? = null): SadaqaDb {
-            if (!dbFile.exists()) {
+            if (!dbFile.exists() || dbFile.length() == 0L) {
+                if (dbFile.exists()) dbFile.delete()
                 val bytes = seedBytes?.invoke()
                     ?: throw IllegalStateException("bundled sadaqa.db missing — run scripts/tools/sync-native-assets.mjs")
                 dbFile.parentFile?.mkdirs()
                 dbFile.writeBytes(bytes)
+            }
+            if (!dbFile.canWrite()) {
+                dbFile.setWritable(true, true)
             }
             val conn = BundledSQLiteDriver().open(dbFile.absolutePath)
             conn.prepare("PRAGMA journal_mode = WAL").use { it.step() }
@@ -56,7 +60,7 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         val isNull = mutableSetOf<String>()
     }
 
-    fun query(sql: String, args: List<Any?> = emptyList()): List<Row> {
+    fun query(sql: String, args: List<Any?> = emptyList()): List<Row> = synchronized(this) {
         val out = mutableListOf<Row>()
         connection.prepare(sql).use { stmt ->
             bindArgs(stmt, args)
@@ -85,7 +89,7 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
 
     fun queryOne(sql: String, args: List<Any?> = emptyList()): Row? = query(sql, args).firstOrNull()
 
-    fun execute(sql: String, args: List<Any?> = emptyList()) {
+    fun execute(sql: String, args: List<Any?> = emptyList()) = synchronized(this) {
         connection.prepare(sql).use { stmt ->
             bindArgs(stmt, args)
             stmt.step()
@@ -95,7 +99,7 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
     /** Atomic multi-statement transaction (BEGIN IMMEDIATE … COMMIT/ROLLBACK). */
     fun <T> batch(body: (SadaqaDb) -> T): T = transaction(body)
 
-    fun <T> transaction(body: (SadaqaDb) -> T): T {
+    fun <T> transaction(body: (SadaqaDb) -> T): T = synchronized(this) {
         execute("BEGIN IMMEDIATE")
         try {
             val result = body(this)
@@ -105,6 +109,106 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
             runCatching { execute("ROLLBACK") }
             throw e
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Safe atomic UI write paths
+    // ------------------------------------------------------------------
+    fun incrementDhikrTap(
+        itemId: String,
+        categoryId: String,
+        currentCount: Int,
+        target: Int,
+        dayKey: String,
+        now: Long = System.currentTimeMillis(),
+    ): Int {
+        if (target > 0 && currentCount >= target) return currentCount
+        val nextCount = currentCount + 1
+        val isDone = target > 0 && nextCount >= target
+        transaction {
+            execute(
+                "INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?) " +
+                    "ON CONFLICT(item_id, day_key) DO UPDATE SET count = excluded.count, completed_at = excluded.completed_at, updated_at = excluded.updated_at",
+                listOf<Any?>(itemId, dayKey, nextCount.toLong(), if (isDone) now else null, now),
+            )
+            if (isDone) {
+                val solarWindow = queryOne(
+                    "SELECT solar_window FROM athkar_categories WHERE category_id = ?",
+                    listOf(categoryId),
+                )?.strings?.get("solar_window")
+                val kind = when (solarWindow) {
+                    "fajr" -> "adhkar_morning"
+                    "asr" -> "adhkar_evening"
+                    else -> null
+                }
+                if (kind != null) {
+                    execute(
+                        "INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)",
+                        listOf<Any?>(kind, dayKey, now),
+                    )
+                }
+            }
+        }
+        return nextCount
+    }
+
+    fun recordTasbihTap(
+        counterUuid: String,
+        target: Int?,
+        newCount: Int,
+        dayKey: String,
+        now: Long = System.currentTimeMillis(),
+    ) {
+        transaction {
+            execute(
+                "UPDATE tasbih_counters SET count = count + 1, total_lifetime = total_lifetime + 1, updated_at = ? WHERE uuid = ?",
+                listOf(now, counterUuid),
+            )
+            execute(
+                "INSERT INTO tasbih_sessions (uuid, counter_uuid, count_delta, occurred_at) VALUES (?, ?, 1, ?)",
+                listOf(UUID7.uuid7(now), counterUuid, now),
+            )
+            if (target != null && newCount == target) {
+                execute(
+                    "INSERT OR IGNORE INTO streak_days (kind, day_key, done_at) VALUES ('tasbih', ?, ?)",
+                    listOf(dayKey, now),
+                )
+            }
+        }
+    }
+
+    fun toggleBookmark(
+        page: Int,
+        lineNumber: Int = 1,
+        ayahNumber: Int? = null,
+        labelAr: String,
+        now: Long = System.currentTimeMillis(),
+    ): Boolean {
+        var added = false
+        transaction {
+            val existing = if (ayahNumber != null) {
+                queryOne("SELECT uuid, deleted FROM bookmarks WHERE ayah_number = ? LIMIT 1", listOf(ayahNumber.toLong()))
+            } else {
+                queryOne("SELECT uuid, deleted FROM bookmarks WHERE page = ? AND ayah_number IS NULL LIMIT 1", listOf(page.toLong()))
+            }
+            val existingUuid = existing?.strings?.get("uuid")
+            if (existing != null && existingUuid != null) {
+                val wasDeleted = (existing.longs["deleted"] ?: 0L) == 1L
+                val nextDeleted = if (wasDeleted) 0L else 1L
+                execute(
+                    "UPDATE bookmarks SET deleted = ?, updated_at = ?, label_ar = ? WHERE uuid = ?",
+                    listOf(nextDeleted, now, labelAr, existingUuid),
+                )
+                added = wasDeleted
+            } else {
+                execute(
+                    "INSERT INTO bookmarks (uuid, page, line_number, ayah_number, label_ar, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
+                    listOf<Any?>(UUID7.uuid7(now), page.toLong(), lineNumber.toLong(), ayahNumber?.toLong(), labelAr, now, now),
+                )
+                added = true
+            }
+        }
+        return added
     }
 
     private fun bindArgs(stmt: SQLiteStatement, args: List<Any?>) {
@@ -274,7 +378,7 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         }
 
         fun mapOf(arr: List<JsonValue>): Map<String, JsonValue> =
-            arr.associate { (it["uuid"]!!.str!!) to it }
+            arr.mapNotNull { item -> item["uuid"].str?.let { it to item } }.toMap()
 
         val payload = BackupCodec.toPayloadGroups(mapOf(
             "reading" to mapOf(reading), "dhikr" to mapOf(dhikr),
@@ -310,7 +414,7 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         )
 
         fun put(group: String, uuidRaw: String?, e: JsonValue) {
-            local[group]!![remap(uuidRaw ?: "")] = e
+            local.getOrPut(group) { mutableMapOf() }[remap(uuidRaw ?: "")] = e
         }
         for (r in query("SELECT * FROM bookmarks")) put("reading", r.strings["uuid"], Obj(mapOf(
             "uuid" to Str(remap(r.strings["uuid"] ?: "")), "type" to Str("bookmark"),
@@ -342,13 +446,14 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         for (r in query("SELECT * FROM adhkar_state")) {
             val itemId = r.strings["item_id"] ?: ""
             val dayKey = r.strings["day_key"] ?: ""
+            val synthUuid = UUID7.synthUuid7("adhkar:$itemId:$dayKey", now)
             val e = Obj(mapOf(
-                "uuid" to Str(UUID7.synthUuid7("adhkar:$itemId:$dayKey", now)),
+                "uuid" to Str(synthUuid),
                 "type" to Str("adhkarState"), "updatedAt" to jsonOf(r, "updated_at"),
                 "itemId" to Str(itemId), "dayKey" to Str(dayKey),
                 "count" to jsonOf(r, "count"), "completedAt" to jsonOf(r, "completed_at"),
             ))
-            local["dhikr"]!![e["uuid"]!!.str!!] = e
+            local.getOrPut("dhikr") { mutableMapOf() }[synthUuid] = e
         }
         for (r in query("SELECT * FROM tasbih_counters")) put("dhikr", r.strings["uuid"], Obj(mapOf(
             "uuid" to Str(remap(r.strings["uuid"] ?: "")), "type" to Str("tasbihCounter"),
@@ -365,22 +470,24 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         for (r in query("SELECT * FROM user_settings WHERE key <> ?", listOf("device_id"))) {
             val key = r.strings["key"] ?: ""
             val value = r.strings["value"]?.let { raw -> runCatching { CanonicalJson.parse(raw) }.getOrDefault(Str(raw)) } ?: Null
+            val synthUuid = UUID7.synthUuid7("setting:$key", now)
             val e = Obj(mapOf(
-                "uuid" to Str(UUID7.synthUuid7("setting:$key", now)),
+                "uuid" to Str(synthUuid),
                 "type" to Str("setting"), "updatedAt" to jsonOf(r, "updated_at"),
                 "key" to Str(key), "value" to value,
             ))
-            local["prefs"]!![e["uuid"]!!.str!!] = e
+            local.getOrPut("prefs") { mutableMapOf() }[synthUuid] = e
         }
         for (r in query("SELECT * FROM streak_days")) {
             val kind = r.strings["kind"] ?: ""
             val dayKey = r.strings["day_key"] ?: ""
+            val synthUuid = UUID7.synthUuid7("streak:$kind:$dayKey", now)
             val e = Obj(mapOf(
-                "uuid" to Str(UUID7.synthUuid7("streak:$kind:$dayKey", now)),
+                "uuid" to Str(synthUuid),
                 "type" to Str("streakDay"), "updatedAt" to jsonOf(r, "done_at"),
                 "kind" to Str(kind), "dayKey" to Str(dayKey),
             ))
-            local["meta"]!![e["uuid"]!!.str!!] = e
+            local.getOrPut("meta") { mutableMapOf() }[synthUuid] = e
         }
 
         val result = BackupCodec.mergePayload(local, payload, mode, now)

@@ -24,14 +24,18 @@ const TOOLS = [
 ];
 
 export function renderTools(root) {
+  const loc = state.settings.location?.name_ar ?? 'مكة المكرمة';
+  const themeLabel = { dark: 'داكنة', light: 'فاتحة', sepia: 'ورقية', night: 'ليلية' }[state.settings.theme ?? 'dark'] ?? 'داكنة';
   root.innerHTML = `
   <div class="screen">
-    <div class="screen-header"><h1>الأدوات</h1><div class="sub">كلها تعمل دون اتصال تام — الحساب على الجهاز</div></div>
-    <div id="tool-list">${TOOLS.map((t) => `
+    <div class="screen-header"><h1>الأدوات</h1><div class="sub">كلها تعمل دون اتصال تام — ${loc} · سمة ${themeLabel}</div></div>
+    <div id="tool-list" class="tools-bento">${TOOLS.map((t) => `
       <div class="tool-tile" data-screen="${t.screen}" role="button" tabindex="0" aria-label="${t.name}">
         <span class="t-icon">${t.icon}</span>
-        <span style="flex:1"><div class="t-name">${t.name}</div><div class="t-sub">${t.sub}</div></span>
-        <span aria-hidden="true" style="color:var(--color-text-secondary)">‹</span>
+        <div>
+          <div class="t-name">${t.name}</div>
+          <div class="t-sub">${t.sub}</div>
+        </div>
       </div>`).join('')}</div>
   </div>`;
   for (const el of root.querySelectorAll('.tool-tile')) {

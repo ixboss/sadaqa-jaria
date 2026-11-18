@@ -31,12 +31,16 @@ final class HapticsEngine {
         }
     }
 
-    func prepare() { if supportsHaptics { try? engine?.start() } }
+    func prepare() {
+        guard supportsHaptics else { return }
+        do { try engine?.start() } catch { supportsHaptics = false }
+    }
 
     /// tokens.json pattern, e.g. dhikrComplete [20, 60, 20, 60, 40].
     func play(pattern: [Int]) {
-        if supportsHaptics {
+        if supportsHaptics, let engine {
             do {
+                try engine.start()
                 var events: [CHHapticEvent] = []
                 var t: TimeInterval = 0
                 for (i, ms) in pattern.enumerated() {
@@ -46,12 +50,15 @@ final class HapticsEngine {
                     ], relativeTime: t))
                     t += TimeInterval(ms) / 1000
                 }
-                let pattern = try CHHapticPattern(events: events, parameters: [])
-                try engine?.makePlayer(with: pattern).start(atTime: CHHapticTimeImmediate)
+                let chPattern = try CHHapticPattern(events: events, parameters: [])
+                let player = try engine.makePlayer(with: chPattern)
+                try player.start(atTime: CHHapticTimeImmediate)
                 return
             } catch { /* fall through to generator */ }
         }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        DispatchQueue.main.async {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
     }
 
     func tick() { play(pattern: HapticsPatterns.dhikrTick) }
@@ -100,12 +107,13 @@ struct AdhanScheduler {
         center.add(req)
         // follow-on request for the day's remaining prayers (recomputed on app use)
         if let sched = try? PrayerEngine.daySchedule(iso, opts) {
-            for name in PrayerName.allCases where name != n.name && sched.prayers[name]! > now {
+            for name in PrayerName.allCases where name != n.name {
+                guard let prayerAt = sched.prayers[name], prayerAt > now else { continue }
                 let c2 = UNMutableNotificationContent()
                 c2.title = "الأذان — \(name.labelAr)"
                 c2.body = "حان الآن وقت صلاة \(name.labelAr)"
                 c2.sound = UNNotificationSound(named: UNNotificationSoundName("adhan.caf"))
-                var c2d = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day, .hour, .minute], from: Date(ms: sched.prayers[name]!))
+                var c2d = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day, .hour, .minute], from: Date(ms: prayerAt))
                 c2d.timeZone = TimeZone(identifier: tz)
                 let t2 = UNCalendarNotificationTrigger(dateMatching: c2d, repeats: false)
                 center.add(UNNotificationRequest(identifier: "adhan-\(name.rawValue)", content: c2, trigger: t2))
@@ -123,7 +131,7 @@ final class AudioStore {
     static let shared = AudioStore()
 
     private var baseDir: URL {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let dir = (FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory)
             .appendingPathComponent("SadaqaJaria/audio", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
@@ -134,8 +142,12 @@ final class AudioStore {
         let key = String(format: "%03d%03d.mp3", surah, ayah)
         let downloaded = baseDir.appendingPathComponent("\(reciter)/\(key)")
         if FileManager.default.fileExists(atPath: downloaded.path) { return downloaded }
-        let starter = Bundle.main.resourceURL?.appendingPathComponent("audio/starter/alafasy/\(key)")
-        if let s = starter, FileManager.default.fileExists(atPath: s.path) { return s }
+        if reciter == "alafasy" {
+            if let s = Bundle.main.resourceURL?.appendingPathComponent("Resources/audio/starter/alafasy/\(key)"),
+               FileManager.default.fileExists(atPath: s.path) { return s }
+            if let s = Bundle.main.resourceURL?.appendingPathComponent("audio/starter/alafasy/\(key)"),
+               FileManager.default.fileExists(atPath: s.path) { return s }
+        }
         return nil
     }
 

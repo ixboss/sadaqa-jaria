@@ -12,10 +12,11 @@ struct ToolsView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
+        let cols = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
         NavigationStack {
             ScrollView {
-                VStack(spacing: 10) {
-                    toolTile(" القبلة", "بوصلة محددة القبلة", "safari") { QiblaView() }
+                LazyVGrid(columns: cols, spacing: 10) {
+                    toolTile("القبلة", "بوصلة محددة القبلة", "safari") { QiblaView() }
                     toolTile("التقويم الهجري", "الأيام البيضاء والمناسبات", "calendar") { HijriCalendarView() }
                     toolTile("حاسبة الزكاة", "الذهب والفضة والنقود", "scalemass") { ZakatView() }
                     toolTile("حاسبة القيام", "منتصف الليل والثلث الأخير", "moon.stars") { QiyamView() }
@@ -23,6 +24,7 @@ struct ToolsView: View {
                     toolTile("الإعدادات", "المظهر والموقع وطريقة الحساب", "gearshape") { SettingsView() }
                 }
                 .padding(.horizontal, 16)
+                .padding(.bottom, 24)
             }
             .background(appState.theme.bg)
             .navigationTitle("الأدوات")
@@ -34,18 +36,21 @@ struct ToolsView: View {
         NavigationLink {
             dest()
         } label: {
-            HStack {
-                Image(systemName: icon).font(.system(size: 20)).foregroundStyle(appState.theme.accent)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(name).font(.system(size: 15, weight: .semibold)).foregroundStyle(appState.theme.textPrimary)
-                    Text(sub).font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary)
+            VStack(alignment: .leading, spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(appState.theme.accent.opacity(0.14))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: icon).font(.system(size: 18)).foregroundStyle(appState.theme.accent)
                 }
-                Spacer()
-                Image(systemName: "chevron.backward").font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary)
+                Text(name).font(.system(size: 15, weight: .bold)).foregroundStyle(appState.theme.textPrimary)
+                Text(sub).font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary).lineLimit(2)
             }
-            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 122, alignment: .topLeading)
+            .padding(14)
             .background(appState.theme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(appState.theme.border))
         }
     }
 }
@@ -157,7 +162,7 @@ struct HijriCalendarView: View {
 
     static func todayIso() -> String {
         let c = Calendar.current.dateComponents([.year, .month, .day], from: Date())
-        return String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
+        return String(format: "%04d-%02d-%02d", c.year ?? 1970, c.month ?? 1, c.day ?? 1)
     }
 
     var body: some View {
@@ -257,10 +262,11 @@ struct HijriCalendarView: View {
 extension HijriEngine {
     /// 0=Sunday dow of a gregorian ISO day (UTC semantics, hijri.js parity).
     static func weekdayOf(_ iso: String) -> Int {
-        let p = iso.split(separator: "-").map { Int($0)! }
+        let p = iso.split(separator: "-").compactMap { Int($0) }
+        guard p.count == 3 else { return 0 }
         var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "UTC")!
-        let d = cal.date(from: DateComponents(year: p[0], month: p[1], day: p[2]))!
+        cal.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        guard let d = cal.date(from: DateComponents(year: p[0], month: p[1], day: p[2])) else { return 0 }
         return cal.component(.weekday, from: d) - 1
     }
 }

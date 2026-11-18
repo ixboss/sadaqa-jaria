@@ -23,31 +23,91 @@ function streakKindFor(category) {
 }
 
 // ---------------------------------------------------------------------------
-// Screen 1: category tiles
+// Screen 1: Featured 2-column Dashboard + Search + 133 Hisn al-Muslim categories
 // ---------------------------------------------------------------------------
+function iconForCategory(c) {
+  if (c.solar_window === 'fajr') return '🌅';
+  if (c.solar_window === 'asr') return '🌇';
+  if (c.solar_window === 'night') return '🌙';
+  if (c.solar_window === 'duha') return '☀️';
+  if (c.solar_window === 'after_prayer') return '🕌';
+  return '📿';
+}
+
 export async function renderAthkar(root) {
   const cats = await state.db.query(`SELECT c.*, (SELECT COUNT(*) FROM athkar_items i WHERE i.category_id = c.category_id) items FROM athkar_categories c ORDER BY c.sort_order`);
-  const doneToday = await state.db.query(
-    `SELECT item_id FROM adhkar_state WHERE day_key = ? AND completed_at IS NOT NULL`, [dayKeyOf(nowMs())]);
-  const doneSet = new Set(doneToday.map((r) => r.item_id));
+  const morningCat = cats.find((c) => c.solar_window === 'fajr');
+  const eveningCat = cats.find((c) => c.solar_window === 'asr' && c.name_ar.includes('المَسَاء')) ?? cats.find((c) => c.solar_window === 'asr');
+  const sleepCat = cats.find((c) => c.name_ar.includes('النَّوْم') || c.name_ar.includes('النوم')) ?? cats.find((c) => c.solar_window === 'night');
+  const afterPrayerCat = cats.find((c) => c.solar_window === 'after_prayer');
+
+  const featured = [
+    morningCat ? { type: 'cat', id: morningCat.category_id, ico: '🌅', title: 'أذكار الصباح', sub: `${morningCat.items} ذكراً` } : null,
+    eveningCat ? { type: 'cat', id: eveningCat.category_id, ico: '🌇', title: 'أذكار المساء', sub: `${eveningCat.items} ذكراً` } : null,
+    afterPrayerCat ? { type: 'cat', id: afterPrayerCat.category_id, ico: '🕌', title: 'أذكار بعد الصلاة', sub: `${afterPrayerCat.items} ذكراً` } : null,
+    sleepCat ? { type: 'cat', id: sleepCat.category_id, ico: '🌙', title: 'أذكار النوم', sub: `${sleepCat.items} ذكراً` } : null,
+    { type: 'screen', id: 'tasbih-screen', ico: '📿', title: 'السبحة الإلكترونية', sub: 'عدّاد التسبيح والأوراد' },
+    { type: 'screen', id: 'mushaf-audio', ico: '🎧', title: 'التلاوة الصوتية', sub: 'استماع دون اتصال' },
+  ].filter(Boolean);
 
   root.innerHTML = `
   <div class="screen">
     <div class="screen-header"><h1>الأذكار</h1><div class="sub">حصن المسلم — ${cats.length} قسماً · العدّ بالحلقات الدائرية والانتقال التلقائي</div></div>
+    <div class="athkar-featured">
+      ${featured.map((f) => `<div class="feat-tile" data-ftype="${f.type}" data-fid="${f.id}" role="button" tabindex="0">
+        <span class="f-ico">${f.ico}</span>
+        <span class="f-title">${f.title}</span>
+        <span class="f-sub">${f.sub}</span>
+      </div>`).join('')}
+    </div>
+    <div style="padding:10px 16px 2px">
+      <input class="search-input" id="athkar-search" type="search" placeholder="ابحث في أقسام حصن المسلم…" autocomplete="off">
+    </div>
+    <div class="athkar-filters">
+      <button class="af-pill on" data-win="all">الكل (${cats.length})</button>
+      <button class="af-pill" data-win="fajr">الصباح</button>
+      <button class="af-pill" data-win="asr">المساء</button>
+      <button class="af-pill" data-win="after_prayer">بعد الصلاة</button>
+      <button class="af-pill" data-win="night">النوم والليل</button>
+    </div>
     <div id="cat-list">${cats.map((c) => {
       const n = Number(c.items);
-      return `<div class="cat-tile" data-cat="${c.category_id}" role="button" tabindex="0" aria-label="${c.name_ar}">
-        <span class="c-icon">${c.icon === 'dhikr' ? '🤲' : '📿'}</span>
+      return `<div class="cat-tile" data-cat="${c.category_id}" data-win="${c.solar_window ?? 'general'}" data-name="${c.name_ar}" role="button" tabindex="0" aria-label="${c.name_ar}">
+        <span class="c-icon">${iconForCategory(c)}</span>
         <span class="c-name">${c.name_ar}</span>
         <span class="c-meta">${WINDOW_BADGE[c.solar_window] ? WINDOW_BADGE[c.solar_window] + ' · ' : ''}${n} ${n === 1 ? 'ذكر' : 'أذكار'}</span>
       </div>`;
     }).join('')}</div>
   </div>`;
 
+  for (const el of root.querySelectorAll('.feat-tile')) {
+    const go = () => el.dataset.ftype === 'screen' ? navigate(el.dataset.fid) : navigate('adhkar-cat', { id: el.dataset.fid });
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  }
+
   const open = (id) => navigate('adhkar-cat', { id });
   for (const el of root.querySelectorAll('.cat-tile')) {
     el.addEventListener('click', () => open(el.dataset.cat));
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(el.dataset.cat); } });
+  }
+
+  let activeWin = 'all';
+  const applyFilters = () => {
+    const q = (root.querySelector('#athkar-search')?.value ?? '').trim();
+    for (const tile of root.querySelectorAll('#cat-list .cat-tile')) {
+      const winOk = activeWin === 'all' || tile.dataset.win === activeWin;
+      const qOk = !q || tile.dataset.name.includes(q);
+      tile.style.display = (winOk && qOk) ? '' : 'none';
+    }
+  };
+  root.querySelector('#athkar-search')?.addEventListener('input', applyFilters);
+  for (const pill of root.querySelectorAll('.af-pill')) {
+    pill.addEventListener('click', () => {
+      activeWin = pill.dataset.win;
+      for (const p of root.querySelectorAll('.af-pill')) p.classList.toggle('on', p === pill);
+      applyFilters();
+    });
   }
 }
 

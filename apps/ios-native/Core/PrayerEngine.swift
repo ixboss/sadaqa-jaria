@@ -200,7 +200,7 @@ public enum PrayerEngine {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = tz
         let comps = cal.dateComponents([.year, .month, .day, .hour, .minute, .second], from: Date(ms: instantMs))
-        return CivilParts(y: comps.year!, mo: comps.month! - 1, d: comps.day!, h: comps.hour!, mi: comps.minute!, s: comps.second!)
+        return CivilParts(y: comps.year ?? 1970, mo: (comps.month ?? 1) - 1, d: comps.day ?? 1, h: comps.hour ?? 0, mi: comps.minute ?? 0, s: comps.second ?? 0)
     }
 
     /**
@@ -228,15 +228,15 @@ public enum PrayerEngine {
         var comps = DateComponents()
         comps.year = y; comps.month = mo + 1; comps.day = d; comps.hour = h; comps.minute = mi; comps.second = s
         var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "UTC")!
-        return Int64(cal.date(from: comps)!.timeIntervalSince1970 * 1000)
+        cal.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        return Int64((cal.date(from: comps)?.timeIntervalSince1970 ?? 0) * 1000)
     }
 
     /// Civil-date anchor in the city: RUNTIME-LOCAL noon (the parity anchor).
     static func localNoonAnchor(y: Int, mo: Int, d: Int) -> Date {
         var comps = DateComponents()
         comps.year = y; comps.month = mo + 1; comps.day = d; comps.hour = 12; comps.minute = 0; comps.second = 0
-        return Calendar.current.date(from: comps)!
+        return Calendar.current.date(from: comps) ?? Date()
     }
 
     // ------------------------------------------------------------------
@@ -251,7 +251,7 @@ public enum PrayerEngine {
         // UTC (.gregorianUTC) — exactly what adhan-js derives as
         // DateComponents(utc, anchorDate) from the runtime-local noon Date.
         var utcCal = Calendar(identifier: .gregorian)
-        utcCal.timeZone = TimeZone(identifier: "UTC")!
+        utcCal.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
         let comps = utcCal.dateComponents([.year, .month, .day], from: anchor)
         guard let pt = PrayerTimes(coordinates: coords, date: comps, calculationParameters: params) else {
             throw PrayerError.invalidCoords
@@ -265,13 +265,14 @@ public enum PrayerEngine {
 
     /** daySchedule(dateIso, opts) — includes the previous day's isha. */
     public static func daySchedule(_ dateIso: String, _ opts: EngineOptions) throws -> DaySchedule {
-        let parts = dateIso.split(separator: "-").map { Int($0)! }
+        let parts = dateIso.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { throw PrayerError.invalidOffset("invalid dateIso: \(dateIso)") }
         let (y, mo, d) = (parts[0], parts[1], parts[2])
         let times = try computeForDate(y: y, mo: mo - 1, d: d, opts: opts)
         // prev civil day in UTC (JS: new Date(Date.UTC(y, mo-1, d-1)))
         let prev = try civilParts(utcMs(y: y, mo: mo - 1, d: d - 1, h: 12, mi: 0, s: 0), timeZone: "UTC")
         let prevTimes = try computeForDate(y: prev.y, mo: prev.mo, d: prev.d, opts: opts)
-        return DaySchedule(date: dateIso, prayers: times, previousIsha: prevTimes[.isha]!)
+        return DaySchedule(date: dateIso, prayers: times, previousIsha: prevTimes[.isha] ?? 0)
     }
 
     /** next(nowEpochMs, opts) — scans yesterday/today/tomorrow in the city tz. */
@@ -288,9 +289,9 @@ public enum PrayerEngine {
 
         struct Flat { let name: PrayerName; let at: Int64 }
         let flat: [Flat] =
-            PrayerName.allCases.map { Flat(name: $0, at: yesterday.prayers[$0]!) } +
-            PrayerName.allCases.map { Flat(name: $0, at: today.prayers[$0]!) } +
-            PrayerName.allCases.map { Flat(name: $0, at: tomorrow.prayers[$0]!) }
+            PrayerName.allCases.compactMap { name in yesterday.prayers[name].map { Flat(name: name, at: $0) } } +
+            PrayerName.allCases.compactMap { name in today.prayers[name].map { Flat(name: name, at: $0) } } +
+            PrayerName.allCases.compactMap { name in tomorrow.prayers[name].map { Flat(name: name, at: $0) } }
         var prevIdx = -1
         for (i, f) in flat.enumerated() where f.at <= nowMs { prevIdx = i }
         let nextIdx = prevIdx + 1
@@ -302,12 +303,13 @@ public enum PrayerEngine {
 
     /** sunnahWindows(dateIso, opts) — REA_SPEC §4.3 formulas. */
     public static func sunnahWindows(_ dateIso: String, _ opts: EngineOptions) throws -> SunnahWindows {
-        let parts = dateIso.split(separator: "-").map { Int($0)! }
+        let parts = dateIso.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { throw PrayerError.invalidOffset("invalid dateIso: \(dateIso)") }
         let (y, mo, d) = (parts[0], parts[1], parts[2])
         let params = try buildParams(opts)
         let coords = Coordinates(latitude: opts.lat, longitude: opts.lng)
         var utcCal = Calendar(identifier: .gregorian)
-        utcCal.timeZone = TimeZone(identifier: "UTC")!
+        utcCal.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
         let anchorComps = utcCal.dateComponents([.year, .month, .day], from: localNoonAnchor(y: y, mo: mo - 1, d: d))
         guard let pt = PrayerTimes(coordinates: coords, date: anchorComps, calculationParameters: params) else {
             throw PrayerError.invalidCoords
@@ -315,7 +317,9 @@ public enum PrayerEngine {
         let sunriseI = pt.time(for: .sunrise).ms
         let maghribI = pt.time(for: .maghrib).ms
         let nextDay = try civilParts(utcMs(y: y, mo: mo - 1, d: d + 1, h: 12, mi: 0, s: 0), timeZone: "UTC")
-        let nextFajrI = try computeForDate(y: nextDay.y, mo: nextDay.mo, d: nextDay.d, opts: opts)[.fajr]!
+        guard let nextFajrI = try computeForDate(y: nextDay.y, mo: nextDay.mo, d: nextDay.d, opts: opts)[.fajr] else {
+            throw PrayerError.invalidCoords
+        }
         let nightLength = nextFajrI - maghribI
         let daylight = Double(maghribI - sunriseI)
         let duhaOffset = Int64((daylight * 0.25).rounded())

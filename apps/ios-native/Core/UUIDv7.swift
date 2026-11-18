@@ -88,7 +88,7 @@ public enum CanonicalJSON {
             for (i, k) in sortedKeys(o).enumerated() {
                 if i > 0 { out += "," }
                 out += escapeString(k) + ":"
-                write(o[k]!, into: &out)
+                write(o[k] ?? .null, into: &out)
             }
             out += "}"
         }

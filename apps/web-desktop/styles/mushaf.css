@@ -72,30 +72,52 @@
   color: var(--color-accent);
   font-family: var(--font-ui);
   font-weight: 700;
-  font-size: 20px;
+  font-size: 18px;
   text-align: center;
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
+  border-radius: var(--radius-sm);
+  margin: 2px 12px;
+  padding: 2px 12px;
 }
 .mushaf-line.kind-bismillah { color: var(--color-mushaf-text); font-size: calc(var(--plate-font-size, 24px) * 0.9); }
 .mushaf-line.kind-bismillah .mw.bsml {
-  font-family: 'QPC1-BSML', var(--font-ui);
+  font-family: 'QPC1-BSML', var(--font-quran);
   font-size: calc(var(--plate-font-size, 24px) * 1.05);
   direction: ltr;            /* BSML codepoints are visual-order — never let RTL bidi reorder them */
   unicode-bidi: isolate;
 }
+.mushaf-line.kind-bismillah .mw.bsml-uthmani {
+  font-family: var(--font-quran);
+  font-size: calc(var(--plate-font-size, 24px) * 0.96);
+  direction: rtl;
+}
+.mushaf-line .mw.uthmani-fallback {
+  font-family: var(--font-quran);
+  font-size: calc(var(--plate-font-size, 24px) * 0.92);
+  padding: 0 2px;
+}
 
-/* footer: juz/hizb/surah markers + page number */
+/* footer: juz/hizb/surah markers + page number + quick nav arrows */
 .plate-foot {
   position: absolute;
-  bottom: calc(64px + env(safe-area-inset-bottom));
-  inset-inline: 10px;
+  bottom: calc(74px + env(safe-area-inset-bottom));
+  inset-inline: 14px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   color: var(--color-text-secondary);
   font-size: 12px;
-  pointer-events: none;
+  pointer-events: auto;
 }
-@media (min-width: 1024px) { .plate-foot { bottom: 12px; } }
+.plate-foot .pf-nav { display: flex; align-items: center; gap: 8px; }
+.plate-foot .pf-btn {
+  appearance: none; border: 1px solid var(--color-border);
+  background: var(--color-surface); color: var(--color-text-primary);
+  border-radius: var(--radius-pill); width: 28px; height: 28px;
+  display: grid; place-items: center; cursor: pointer; font-size: 13px;
+}
+@media (min-width: 1024px) { .plate-foot { bottom: 14px; } }
 
 /* reader top bar (revealed with chrome) */
 .reader-topbar {
@@ -105,21 +127,50 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 8px 14px;
+  padding: 6px 10px;
   z-index: 20;
   transition: transform 320ms var(--ease-standard), opacity 220ms var(--ease-standard);
 }
 body.chrome-hidden .reader-topbar { transform: translateY(-160%); opacity: 0; pointer-events: none; }
 .reader-topbar .rbtn {
   appearance: none; border: 0; background: transparent; color: var(--color-text-primary);
-  font-size: 18px; cursor: pointer; padding: 6px 10px; border-radius: var(--radius-sm);
-  transition: transform 160ms var(--ease-standard);
+  font-size: 16px; cursor: pointer; padding: 6px 8px; border-radius: var(--radius-sm);
+  transition: transform 160ms var(--ease-standard), color 160ms var(--ease-standard);
 }
+.reader-topbar .rbtn.active { color: var(--color-accent); }
 .reader-topbar .rbtn:active { transform: scale(0.94); }
-.reader-topbar .title { font-size: 14px; color: var(--color-text-secondary); }
+.reader-topbar .r-actions { display: flex; align-items: center; gap: 2px; }
+.reader-topbar .title { font-size: 13px; font-weight: 600; color: var(--color-text-primary); text-align: center; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Mushaf Hub segmented sub-navigation */
+.mushaf-subtabs {
+  display: flex; gap: 6px; padding: 10px 16px 4px; flex-wrap: wrap;
+}
+.mushaf-subtabs .stab {
+  appearance: none; border: 1px solid var(--color-border);
+  background: var(--color-surface); color: var(--color-text-secondary);
+  font-family: var(--font-ui); font-size: 13px; font-weight: 600;
+  padding: 7px 14px; border-radius: var(--radius-pill); cursor: pointer;
+}
+.mushaf-subtabs .stab.on {
+  background: var(--color-accent); color: var(--color-accent-contrast); border-color: var(--color-accent);
+}
+.juz-strip {
+  display: flex; gap: 6px; overflow-x: auto; padding: 6px 16px 10px;
+  scrollbar-width: none;
+}
+.juz-strip::-webkit-scrollbar { display: none; }
+.juz-pill {
+  flex: none; appearance: none; border: 1px solid var(--color-border);
+  background: var(--color-surface); color: var(--color-text-primary);
+  font-family: var(--font-ui); font-size: 12px; font-weight: 600;
+  padding: 6px 12px; border-radius: var(--radius-pill); cursor: pointer;
+}
+.juz-pill:active { transform: scale(0.96); }
 
 /* flip transition (page swap) — compositor-only */
 .mushaf-plate.flipping { transition: transform 380ms var(--ease-standard), opacity 380ms var(--ease-standard); }

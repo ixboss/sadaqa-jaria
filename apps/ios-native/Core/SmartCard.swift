@@ -34,7 +34,7 @@ public enum SmartCardResolver {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: tz) ?? .current
         let c = cal.dateComponents([.year, .month, .day], from: Date(ms: ms))
-        return String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
+        return String(format: "%04d-%02d-%02d", c.year ?? 1970, c.month ?? 1, c.day ?? 1)
     }
 
     /// "Fri"-style weekday abbreviation in the city timezone (web: en-US short).
@@ -42,7 +42,8 @@ public enum SmartCardResolver {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: tz) ?? .current
         let wd = cal.component(.weekday, from: Date(ms: ms))
-        return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][wd - 1]
+        let names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        return names.indices.contains(wd - 1) ? names[wd - 1] : "Sun"
     }
 
     /// Arabic 23h wall clock "HH:mm" in the city timezone (web fmtClock).
@@ -50,7 +51,7 @@ public enum SmartCardResolver {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: tz) ?? .current
         let c = cal.dateComponents([.hour, .minute], from: Date(ms: ms))
-        return String(format: "%02d:%02d", c.hour!, c.minute!)
+        return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
     }
 
     /// "HH:MM:SS" countdown (web fmtHMS).
@@ -62,20 +63,29 @@ public enum SmartCardResolver {
     public static func resolve(now: Int64, engine: BoundPrayerEngine) -> SmartCard {
         let tz = engine.opts.timeZone
         let dateIso = isoDate(now, tz: tz)
-        let sched = try! engine.daySchedule(dateIso)
-        let wsToday = try! engine.sunnahWindows(dateIso)
         let yIso = isoDate(now - 86_400_000, tz: tz)
-        let wsNight = try! engine.sunnahWindows(yIso) // the night in progress (maghrib → fajr)
+        guard let sched = try? engine.daySchedule(dateIso),
+              let wsToday = try? engine.sunnahWindows(dateIso),
+              let wsNight = try? engine.sunnahWindows(yIso),
+              let nxt = try? engine.next(now),
+              let fajr = sched.prayers[.fajr],
+              let dhuhr = sched.prayers[.dhuhr],
+              let asr = sched.prayers[.asr],
+              let maghrib = sched.prayers[.maghrib] else {
+            return SmartCard(kind: .next_prayer, icon: "🕌", badge: "الوقت الحالي",
+                             title: "مواقيت الصلاة",
+                             sub: "افتح جدول المواقيت والمدينة",
+                             actionLabel: "جدول الشهر", actionScreen: "tools-hijri")
+        }
         let dow = weekdayShort(now, tz: tz)
 
         // 1. Friday between Fajr and Jumu'ah → Surah Al-Kahf
-        if dow == "Fri" && now >= sched.prayers[.fajr]! && now < sched.prayers[.dhuhr]! {
+        if dow == "Fri" && now >= fajr && now < dhuhr {
             return SmartCard(kind: .kahf, icon: "📖", badge: "سنة الجمعة", title: "اقرأ سورة الكهف",
                              sub: "من قال في يوم الجمعة سورة الكهف أُضيئت له من النور ما بين الجمعتين",
                              actionLabel: "افتح سورة الكهف", actionScreen: "mushaf-page")
         }
         // 2. ±20 min after an obligatory prayer (sunrise is not a salah)
-        let nxt = try! engine.next(now)
         if let prevName = nxt.previousName, let prevAt = nxt.previousAt,
            prevName != .sunrise, now - prevAt >= 0, now - prevAt <= 20 * minMs {
             return SmartCard(kind: .after_prayer, icon: "📿", badge: "الوقت الحالي", title: "أذكار ما بعد الصلاة",
@@ -83,19 +93,19 @@ public enum SmartCardResolver {
                              actionLabel: "ابدأ الأذكار", actionScreen: "adhkar-cat")
         }
         // 3. Last third of the current night → Qiyam
-        if now >= wsNight.lastThird && now < sched.prayers[.fajr]! {
+        if now >= wsNight.lastThird && now < fajr {
             return SmartCard(kind: .qiyam, icon: "🌙", badge: "الثلث الأخير", title: "وقت القيام",
-                             sub: "الثلث الأخير حتى الفجر \(clock(sched.prayers[.fajr]!, tz: tz))",
+                             sub: "الثلث الأخير حتى الفجر \(clock(fajr, tz: tz))",
                              actionLabel: "افتح حاسبة القيام", actionScreen: "tools-qiyam")
         }
         // 4. Fajr window (fajr → duha start) → morning athkar
-        if now >= sched.prayers[.fajr]! && now < wsToday.duha {
+        if now >= fajr && now < wsToday.duha {
             return SmartCard(kind: .morning, icon: "🌅", badge: "الوقت الحالي", title: "أذكار الصباح",
                              sub: "ورد الصباح من حصن المسلم — اقرأها قبل أن تنشغل",
                              actionLabel: "ابدأ أذكار الصباح", actionScreen: "adhkar-cat")
         }
         // 5. Asr window (asr → maghrib) → evening athkar
-        if now >= sched.prayers[.asr]! && now < sched.prayers[.maghrib]! {
+        if now >= asr && now < maghrib {
             return SmartCard(kind: .evening, icon: "🌇", badge: "الوقت الحالي", title: "أذكار المساء",
                              sub: "ورد المساء من حصن المسلم — قبل غروب الشمس",
                              actionLabel: "ابدأ أذكار المساء", actionScreen: "adhkar-cat")

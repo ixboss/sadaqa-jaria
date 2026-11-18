@@ -68,7 +68,7 @@ object BackupCodec {
                 errors.add("payload.$group: unknown group (allowed: ${BACKUP_GROUPS.joinToString(", ")})")
                 continue
             }
-            val allowed = GROUP_ENTITY_TYPES[group]!!
+            val allowed = GROUP_ENTITY_TYPES[group].orEmpty()
             for (e in entities) {
                 if (e.obj == null) { errors.add("payload.$group: entity must be an object"); continue }
                 val obj = e // JsonValue.Obj — index via JsonValue.get (missing key → JSON Null)
@@ -114,30 +114,43 @@ object BackupCodec {
             val page = e["page"]
             if (!isInt(page) || page.int !in 1..604) "page must be 1..604" else null
         }
-        "reading/highlight" -> when {
-            !isInt(e["ayahNumber"]) || e["ayahNumber"].int !in 1..6236 -> "ayahNumber must be 1..6236"
-            !isInt(e["wordStart"]) || e["wordStart"].int!! < 1 -> "wordStart must be >= 1"
-            !isInt(e["wordEnd"]) || e["wordEnd"].int!! < e["wordStart"].int!! -> "wordEnd must be >= wordStart"
-            e["colorKey"].str !in HIGHLIGHT_COLORS -> "colorKey must be a token color key"
-            else -> null
+        "reading/highlight" -> {
+            val ws = e["wordStart"].int
+            val we = e["wordEnd"].int
+            when {
+                !isInt(e["ayahNumber"]) || e["ayahNumber"].int !in 1..6236 -> "ayahNumber must be 1..6236"
+                !isInt(e["wordStart"]) || ws == null || ws < 1 -> "wordStart must be >= 1"
+                !isInt(e["wordEnd"]) || we == null || we < ws -> "wordEnd must be >= wordStart"
+                e["colorKey"].str !in HIGHLIGHT_COLORS -> "colorKey must be a token color key"
+                else -> null
+            }
         }
-        "reading/khatmahPlan" -> when {
-            e["mode"].str != "deadline" && e["mode"].str != "rate" -> "mode must be deadline|rate"
-            e["mode"].str == "deadline" && !DAY_KEY.matches(e["endDate"].str ?: "") -> "deadline mode requires endDate YYYY-MM-DD"
-            e["mode"].str == "rate" && (!isInt(e["dailyPages"]) || e["dailyPages"].int!! !in 1..604) -> "rate mode requires dailyPages 1..604"
-            !DAY_KEY.matches(e["startDate"].str ?: "") -> "startDate must be YYYY-MM-DD"
-            else -> null
+        "reading/khatmahPlan" -> {
+            val dp = e["dailyPages"].int
+            when {
+                e["mode"].str != "deadline" && e["mode"].str != "rate" -> "mode must be deadline|rate"
+                e["mode"].str == "deadline" && !DAY_KEY.matches(e["endDate"].str ?: "") -> "deadline mode requires endDate YYYY-MM-DD"
+                e["mode"].str == "rate" && (!isInt(e["dailyPages"]) || dp == null || dp !in 1..604) -> "rate mode requires dailyPages 1..604"
+                !DAY_KEY.matches(e["startDate"].str ?: "") -> "startDate must be YYYY-MM-DD"
+                else -> null
+            }
         }
-        "dhikr/tasbihCounter" -> when {
-            e["dhikrText"].str.isNullOrEmpty() -> "dhikrText required"
-            e["target"] != null && e["target"] !is JsonValue.Null &&
-                (!isInt(e["target"]) || e["target"].int!! < 1) -> "target must be >= 1 or null"
-            else -> null
+        "dhikr/tasbihCounter" -> {
+            val tgt = e["target"].int
+            when {
+                e["dhikrText"].str.isNullOrEmpty() -> "dhikrText required"
+                e["target"] != JsonValue.Null &&
+                    (!isInt(e["target"]) || tgt == null || tgt < 1) -> "target must be >= 1 or null"
+                else -> null
+            }
         }
-        "dhikr/adhkarState" -> when {
-            !DAY_KEY.matches(e["dayKey"].str ?: "") -> "dayKey must be YYYY-MM-DD"
-            !isInt(e["count"]) || e["count"].int!! < 0 -> "count must be >= 0"
-            else -> null
+        "dhikr/adhkarState" -> {
+            val cnt = e["count"].int
+            when {
+                !DAY_KEY.matches(e["dayKey"].str ?: "") -> "dayKey must be YYYY-MM-DD"
+                !isInt(e["count"]) || cnt == null || cnt < 0 -> "count must be >= 0"
+                else -> null
+            }
         }
         "prefs/setting" -> when {
             e["key"].str.isNullOrEmpty() -> "key required"
@@ -149,10 +162,13 @@ object BackupCodec {
             !DAY_KEY.matches(e["dayKey"].str ?: "") -> "dayKey must be YYYY-MM-DD"
             else -> null
         }
-        "dhikr/tasbihSession" -> when {
-            !isInt(e["countDelta"]) || e["countDelta"].int!! <= 0 -> "countDelta must be > 0"
-            !isEpochMs(e["occurredAt"]) -> "occurredAt must be epoch ms"
-            else -> null
+        "dhikr/tasbihSession" -> {
+            val delta = e["countDelta"].int
+            when {
+                !isInt(e["countDelta"]) || delta == null || delta <= 0 -> "countDelta must be > 0"
+                !isEpochMs(e["occurredAt"]) -> "occurredAt must be epoch ms"
+                else -> null
+            }
         }
         "reading/note" -> if (e["body"]?.str == null) "body must be a string" else null
         else -> null
@@ -218,7 +234,7 @@ object BackupCodec {
 
     /** Stable payload grouping (keys sorted by the canonical serializer). */
     fun toPayloadGroups(mapByGroup: Map<String, Map<String, JsonValue>>): JsonValue =
-        JsonValue.Obj(mapByGroup.mapValues { (_, map) -> JsonValue.Arr(map.keys.sorted().map { map[it]!! }) })
+        JsonValue.Obj(mapByGroup.mapValues { (_, map) -> JsonValue.Arr(map.keys.sorted().mapNotNull { map[it] }) })
 
     /** Parse a `.sadaqa` file text into (manifest, payload). */
     fun parseFile(text: String): Pair<JsonValue, JsonValue> {

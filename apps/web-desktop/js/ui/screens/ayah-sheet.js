@@ -17,6 +17,7 @@ export function renderAyahSheet(ayahNumber) {
         <button class="btn primary" id="ay-tafsir">التفسير</button>
         <button class="btn" id="ay-mutashabihat">آيات مشابهة</button>
         <button class="btn" id="ay-bookmark">حفظ علامة</button>
+        <button class="btn" id="ay-copy">نسخ</button>
         <button class="btn" id="ay-share">مشاركة</button>
         <button class="btn" id="ay-play">▶ تشغيل من هنا</button>
       </div>
@@ -57,6 +58,11 @@ export function renderAyahSheet(ayahNumber) {
       haptic(HAPTICS.bookmarkSaved);
       e.target.textContent = '✓ محفوظة';
       e.target.disabled = true;
+    });
+    host.querySelector('#ay-copy')?.addEventListener('click', async () => {
+      const text = `${ayah.text_uthmani}\n— ${surah.name_ar} · الآية ${ayah.number_in_surah}`;
+      await navigator.clipboard.writeText(text);
+      host.querySelector('#ay-copy').textContent = '✓ نُسخ';
     });
     host.querySelector('#ay-share').addEventListener('click', async () => {
       const text = `${ayah.text_uthmani}\n— ${surah.name_ar} · الآية ${ayah.number_in_surah}`;

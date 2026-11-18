@@ -112,37 +112,86 @@ object ContextHolder {
 }
 
 // ---------------------------------------------------------------------------
-// QPC1 fonts — per-page subset TTFs from assets/fonts (Phase 3 parity: the
-// same PUA glyph codepoints, codepoint-parity by construction). Files are
-// extracted to filesDir on first use (Typeface needs a real file path).
+// QPC1 fonts — per-page subset TTFs from assets/fonts + canonical UthmanicHafs
+// fallback (`res/font/uthmanic_hafs.ttf` / `assets/fonts/UthmanicHafs1Ver18.ttf`).
+// Paint.hasGlyph() verification ensures we NEVER pass PUA glyphs to a fallback font.
 // ---------------------------------------------------------------------------
 
 object QpcFonts {
-    private val cache = mutableMapOf<Int, FontFamily>()
-    private var basmala: FontFamily? = null
+    private val cache = mutableMapOf<Int, Pair<FontFamily, android.graphics.Typeface>>()
+    private var basmala: Pair<FontFamily, android.graphics.Typeface>? = null
+    private var uthmanicFamily: FontFamily? = null
 
-    fun mushaf(context: Context, page: Int): FontFamily {
-        cache[page]?.let { return it }
-        val family = ensureExtracted(context, "fonts/p%03d.ttf".format(page))
-            ?.let { FontFamily(Font(it)) }
-            ?: FontFamily.Default
-        cache[page] = family
+    fun uthmanic(context: Context): FontFamily {
+        uthmanicFamily?.let { return it }
+        val family = runCatching {
+            val file = ensureExtracted(context, "fonts/UthmanicHafs1Ver18.ttf")
+            if (file != null) FontFamily(Font(file))
+            else {
+                val resId = context.resources.getIdentifier("uthmanic_hafs", "font", context.packageName)
+                if (resId != 0) FontFamily(Font(resId)) else FontFamily.Default
+            }
+        }.getOrDefault(FontFamily.Default)
+        uthmanicFamily = family
         return family
     }
 
+    fun mushaf(context: Context, page: Int): FontFamily =
+        loadPagePair(context, page)?.first ?: uthmanic(context)
+
+    fun verifiedMushaf(context: Context, page: Int, sample: String): FontFamily? {
+        val pair = loadPagePair(context, page) ?: return null
+        return if (coversText(pair.second, sample)) pair.first else null
+    }
+
     /** BSML basmala font — visual-ORDER glyphs, must render LTR-isolated. */
-    fun basmala(context: Context): FontFamily {
+    fun basmala(context: Context): FontFamily =
+        loadBasmalaPair(context)?.first ?: uthmanic(context)
+
+    fun verifiedBasmala(context: Context, sample: String): FontFamily? {
+        val pair = loadBasmalaPair(context) ?: return null
+        return if (coversText(pair.second, sample)) pair.first else null
+    }
+
+    private fun loadPagePair(context: Context, page: Int): Pair<FontFamily, android.graphics.Typeface>? {
+        cache[page]?.let { return it }
+        val file = ensureExtracted(context, "fonts/p%03d.ttf".format(page)) ?: return null
+        return runCatching {
+            val tf = android.graphics.Typeface.createFromFile(file)
+            val pair = FontFamily(Font(file)) to tf
+            cache[page] = pair
+            pair
+        }.getOrNull()
+    }
+
+    private fun loadBasmalaPair(context: Context): Pair<FontFamily, android.graphics.Typeface>? {
         basmala?.let { return it }
-        val family = ensureExtracted(context, "fonts/QPC1BSML.ttf")
-            ?.let { FontFamily(Font(it)) }
-            ?: FontFamily.Default
-        basmala = family
-        return family
+        val file = ensureExtracted(context, "fonts/QPC1BSML.ttf") ?: return null
+        return runCatching {
+            val tf = android.graphics.Typeface.createFromFile(file)
+            val pair = FontFamily(Font(file)) to tf
+            basmala = pair
+            pair
+        }.getOrNull()
+    }
+
+    private fun coversText(typeface: android.graphics.Typeface, sample: String): Boolean {
+        val trimmed = sample.filter { !it.isWhitespace() }
+        if (trimmed.isEmpty()) return false
+        val paint = android.graphics.Paint().apply { this.typeface = typeface }
+        var idx = 0
+        while (idx < trimmed.length) {
+            val cp = trimmed.codePointAt(idx)
+            val ch = String(Character.toChars(cp))
+            if (!paint.hasGlyph(ch)) return false
+            idx += Character.charCount(cp)
+        }
+        return true
     }
 
     private fun ensureExtracted(context: Context, assetPath: String): File? {
         val file = File(context.filesDir, assetPath)
-        if (!file.exists()) {
+        if (!file.exists() || file.length() == 0L) {
             runCatching {
                 context.assets.open(assetPath).use { input ->
                     file.parentFile?.mkdirs()
@@ -150,6 +199,6 @@ object QpcFonts {
                 }
             }
         }
-        return file.takeIf { it.exists() }
+        return file.takeIf { it.exists() && it.length() > 0L }
     }
 }

@@ -3,6 +3,15 @@
    Glass ONLY on .glass-tabbar / .glass-searchpill / .glass-miniplayer. */
 @import '../../../packages/design-tokens/tokens.css';
 
+@font-face {
+  font-family: 'QPC Uthmanic HAFS';
+  src: url('../assets/fonts/uthmanic/UthmanicHafs1Ver18.woff2') format('woff2'),
+       url('../assets/fonts/uthmanic/UthmanicHafs1Ver18.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
