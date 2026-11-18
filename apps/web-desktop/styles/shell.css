@@ -1,6 +1,6 @@
-/* shell.css — Liquid Glass control layer (Pillar A): unified floating dock
-   (4-tab capsule + separated Search Glass Orb on compact viewports, morphing
-   to a vertical rail >=1024px). Glass strictly on control layer. */
+/* shell.css — Liquid Glass control layer (Pillar A): unified floating 4-tab
+   dock on compact viewports, morphing to a vertical rail >=1024px; scroll
+   minimizes with auto-restore. Glass strictly on control layer. */
 @import '../../../packages/design-tokens/tokens.css';
 
 @font-face {
@@ -92,7 +92,7 @@ button, a, [role='button'], .tab-btn, .cat-tile, .tool-tile, .feat-tile, .zkr-ca
   transition: transform 320ms var(--ease-standard), opacity 220ms var(--ease-standard);
 }
 
-.glass-tabbar, .glass-searchpill {
+.glass-tabbar {
   pointer-events: auto;
   background: var(--glass-surface);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
@@ -153,21 +153,12 @@ button, a, [role='button'], .tab-btn, .cat-tile, .tool-tile, .feat-tile, .zkr-ca
   box-shadow: inset 0 0 0 1px var(--glass-active-border);
 }
 
-/* Separated circular Search Glass Orb */
-.glass-searchpill {
-  appearance: none;
-  flex: none;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: var(--color-text-primary);
-  padding: 0;
-  cursor: pointer;
-  transition: transform 140ms var(--ease-standard), border-color 160ms var(--ease-standard), color 160ms var(--ease-standard);
+/* scroll-minimized dock (auto-restores on scroll-up / idle — never tap-to-restore) */
+body.dock-min .glass-dock {
+  transform: translateY(160%);
+  opacity: 0;
+  pointer-events: none;
 }
-.glass-searchpill:active { transform: scale(0.93); }
 
 body.chrome-hidden .glass-dock {
   transform: translateY(150%);
@@ -201,10 +192,7 @@ body.chrome-hidden .glass-dock {
     padding: 8px 4px;
     border-radius: var(--radius-md);
   }
-  .glass-searchpill {
-    width: 54px;
-    height: 54px;
-  }
+  body.dock-min .glass-dock { transform: none; opacity: 1; pointer-events: auto; }
   body.chrome-hidden .glass-dock {
     transform: translateX(130%);
   }
@@ -217,10 +205,6 @@ body.chrome-hidden .glass-dock {
   .glass-tabbar .tab-btn:not([aria-current='page']):hover {
     color: var(--color-text-primary);
     background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
-  }
-  .glass-searchpill:hover {
-    color: var(--glass-active-fg);
-    border-color: var(--glass-active-border);
   }
   .btn:hover {
     border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
@@ -289,5 +273,5 @@ body.chrome-hidden .glass-dock {
 .btn.primary { background: var(--color-accent); color: var(--color-accent-contrast); border-color: transparent; font-weight: 600; }
 
 @media (prefers-reduced-motion: reduce) {
-  .glass-dock, .glass-tabbar, .glass-searchpill, .tab-btn, .btn { transition-duration: 1ms; }
+  .glass-dock, .glass-tabbar, .tab-btn, .btn { transition-duration: 1ms; }
 }

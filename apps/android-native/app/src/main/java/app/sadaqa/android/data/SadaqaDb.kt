@@ -382,21 +382,20 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         return best
     }
 
-    fun selectCity(city: CityRow, now: Long = System.currentTimeMillis()) {
-        setSetting(
-            "location",
-            Obj(
-                mapOf(
-                    "lat" to Num(city.lat),
-                    "lng" to Num(city.lng),
-                    "timeZone" to Str(city.timeZone),
-                    "cityId" to Num(city.id.toDouble()),
-                    "name_ar" to Str(city.nameAr),
-                    "name_en" to Str(city.nameEn),
-                ),
-            ),
-            now,
+    fun selectCity(city: CityRow, gpsLat: Double? = null, gpsLng: Double? = null, now: Long = System.currentTimeMillis()) {
+        val fields = mutableMapOf(
+            "lat" to Num(city.lat),
+            "lng" to Num(city.lng),
+            "timeZone" to Str(city.timeZone),
+            "cityId" to Num(city.id.toDouble()),
+            "name_ar" to Str(city.nameAr),
+            "name_en" to Str(city.nameEn),
         )
+        // persist the exact live GPS fix alongside the city (Qibla source)
+        if (gpsLat != null && gpsLng != null) {
+            fields["gps"] = Obj(mapOf("lat" to Num(gpsLat), "lng" to Num(gpsLng), "at" to Num(now.toDouble())))
+        }
+        setSetting("location", Obj(fields), now)
     }
 
     private fun mapCity(r: Row) = CityRow(

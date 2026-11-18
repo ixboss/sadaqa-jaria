@@ -106,7 +106,7 @@ struct TodayView: View {
 
     // Smart Context-Aware Card — the shared resolver's verdict (§9)
     private var smartCard: some View {
-        let card = SmartCardResolver.resolve(now: now, engine: engine)
+        let card = contextualCard(SmartCardResolver.resolve(now: now, engine: engine))
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 ZStack {
@@ -136,6 +136,36 @@ struct TodayView: View {
         .background(appState.theme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 18))
         .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(appState.theme.border))
+    }
+
+    /// When the resolver can only offer the countdown duplicate, swap in a
+    /// time-of-day contextual card (same windows as the web Today screen —
+    /// reuses existing SmartCardKind cases to stay parity-safe).
+    private func contextualCard(_ card: SmartCard) -> SmartCard {
+        guard card.kind == .next_prayer else { return card }
+        let tz = appState.engineOptions.timeZone
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: tz) ?? .current
+        let hour = cal.component(.hour, from: Date(ms: now))
+        switch hour {
+        case 4..<11:
+            return SmartCard(kind: .morning, icon: "🌅", badge: "الوقت الحالي", title: "أذكار الصباح",
+                             sub: "ورد الصباح من حصن المسلم — اقرأها قبل أن تنشغل",
+                             actionLabel: "افتح أذكار الصباح", actionScreen: "adhkar-cat")
+        case 11..<16:
+            let h = HijriEngine.withAdjust(Self.iso(now, tz: tz), appState.hijriAdjust)
+            return SmartCard(kind: .next_prayer, icon: "📅", badge: "التاريخ الهجري", title: "التقويم الهجري",
+                             sub: "اليوم \(h.d) \(HijriEngine.monthsArSafe(h.m)) \(h.y) هـ",
+                             actionLabel: "افتح الأدوات", actionScreen: "tools-hijri")
+        case 16..<20:
+            return SmartCard(kind: .evening, icon: "🌇", badge: "الوقت الحالي", title: "أذكار المساء",
+                             sub: "ورد المساء من حصن المسلم — قبل غروب الشمس",
+                             actionLabel: "افتح أذكار المساء", actionScreen: "adhkar-cat")
+        default:
+            return SmartCard(kind: .qiyam, icon: "🌙", badge: "وقت النوم", title: "أذكار النوم",
+                             sub: "تسبيح ما قبل النوم يكفيك حاسدك الليلة",
+                             actionLabel: "افتح الأذكار", actionScreen: "adhkar-cat")
+        }
     }
 
     // 6-prayer 3-column grid, next highlighted + month schedule trigger

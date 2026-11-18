@@ -5,9 +5,10 @@
 // RTL swipe (pointer capture + velocity + damping); tap-to-toggle HUD with
 // scrubber, previous-position jump, search, index, audio, khatmah, bookmark.
 // ============================================================================
-import { state, saveProgress, haptic, HAPTICS } from '../../app-state.js';
+import { state, saveProgress, saveSetting, haptic, HAPTICS } from '../../app-state.js';
 import { navigate } from '../router.js';
 import { iconSvg } from '../icons.js';
+import { mountTheme } from '../../main.js';
 
 const pageCache = new Map(); // page -> { lines, words }
 const activeFaces = new Map(); // family -> { page, face, ok }
@@ -90,6 +91,7 @@ export function renderMushaf(root, { page = null } = {}) {
       <div class="hud-scrubber-row">
         <span class="hud-page-pill" id="hud-page-label">ص ${startPage} / ٦٠٤</span>
         <input type="range" id="hud-page-slider" min="1" max="604" value="${startPage}" aria-label="شريط التنقل بين الصفحات">
+        <button class="hud-aa" id="hud-look" aria-label="مظهر القراءة" title="حجم الخط ومظهر القراءة">${iconSvg('type', 16)}</button>
       </div>
       <div class="hud-actions-row">
         <button class="hud-btn" id="hud-index">${iconSvg('list', 15)}<span>الفهرس</span></button>
@@ -100,6 +102,11 @@ export function renderMushaf(root, { page = null } = {}) {
       <div class="hud-actions-row" style="grid-template-columns:repeat(2,minmax(0,1fr))">
         <button class="hud-btn" id="hud-audio">${iconSvg('headphones', 15)}<span>التلاوة الصوتية</span></button>
         <button class="hud-btn" id="hud-hide">${iconSvg('close', 15)}<span>إخفاء الشريط</span></button>
+      </div>
+      <div class="hud-actions-row" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <button class="hud-btn" id="hud-tab-today">${iconSvg('today', 15)}<span>اليوم</span></button>
+        <button class="hud-btn" id="hud-tab-athkar">${iconSvg('athkar', 15)}<span>الأذكار</span></button>
+        <button class="hud-btn" id="hud-tab-tools">${iconSvg('tools', 15)}<span>الأدوات</span></button>
       </div>
     </div>
   </div>`;
@@ -253,7 +260,6 @@ function renderPlate(plate, page, { lines, words }, { pageFontOk = true, bsmlOk 
   fitLines(plate);
   if (!plate.dataset.wired) {
     plate.dataset.wired = '1';
-    plate.addEventListener('click', (e) => onWordTap(e, plate, page), false);
     plate.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         const mw = e.target.closest('.mw');
@@ -268,13 +274,17 @@ function fitLines(plate) {
   if (!plate.isConnected) return;
   const rect = plate.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) { requestAnimationFrame(() => fitLines(plate)); return; }
-  const maxByHeight = (rect.height / 15) * 0.72;
-  const maxByWidth = rect.width / 11.5;
-  const plateSize = Math.max(13, Math.min(maxByHeight, maxByWidth));
+  // mushaf_scale (Reader Appearance AA) scales the base fit; the slot-height
+  // cap keeps a scaled-up font inside its 1fr row (width handled per-line below)
+  const scale = Math.min(Math.max(Number(state.settings.mushaf_scale ?? 1) || 1, 0.8), 2);
+  const slotH = rect.height / 15;
+  const base = Math.min(slotH * 0.80, rect.width / 11.5);
+  const plateSize = Math.max(13, Math.min(base * scale, slotH * 0.92));
   plate.style.setProperty('--plate-font-size', `${plateSize.toFixed(1)}px`);
 
   const textLines = [...plate.querySelectorAll('.kind-text, .kind-bismillah')];
   for (const line of textLines) {
+    line.style.setProperty('--plate-font-size', `${plateSize.toFixed(1)}px`);
     let size = plateSize;
     const childWidth = () => [...line.children].reduce((s, c) => s + c.getBoundingClientRect().width, 0)
       + Math.max(0, line.children.length - 1) * (size * 0.14);
@@ -337,42 +347,88 @@ function escapeHtml(s) {
 }
 
 // ---------------------------------------------------------------------------
-// gestures (design-engineering: pointer capture, velocity, damping)
+// gestures — single tap ANYWHERE (even on an ayah) toggles the HUD; a 450ms
+// press-and-hold on an ayah is the ONLY way to select it + open its action
+// sheet; horizontal drags page with finger tracking (RTL: rightward → P+1).
 // ---------------------------------------------------------------------------
 function wireStageGestures(root) {
   const stage = root.querySelector('#mushaf-stage');
-  let startX = 0, startY = 0, dragging = false, startT = 0, moved = 0;
+  const LONG_PRESS_MS = 450;
+  let startX = 0, startY = 0, startT = 0, moved = 0;
+  let pressing = false, dragging = false, horiz = null, lpTimer = null, lpFired = false;
+
+  const cancelLongPress = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
 
   stage.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.mw') || e.target.closest('.reader-topbar') || e.target.closest('#mushaf-retry')) return;
-    dragging = true; moved = 0;
+    if (e.target.closest('#mushaf-retry')) return;
+    pressing = true; dragging = false; horiz = null; moved = 0; lpFired = false;
     startX = e.clientX; startY = e.clientY; startT = performance.now();
-    stage.setPointerCapture(e.pointerId);
+    const word = e.target.closest('.mw[data-ayah]');
+    if (word) {
+      lpTimer = setTimeout(() => {
+        lpTimer = null;
+        if (!pressing) return;
+        lpFired = true;
+        pressing = false; // swallow the rest of this gesture (no drag, no tap)
+        onAyahLongPress(root, word);
+      }, LONG_PRESS_MS);
+    }
   });
+
   stage.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    moved = e.clientX - startX;
+    if (!pressing) return;
+    const dx = e.clientX - startX;
     const dy = e.clientY - startY;
-    if (Math.abs(dy) > Math.abs(moved)) return;
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) cancelLongPress();
+    if (horiz === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) horiz = Math.abs(dx) > Math.abs(dy);
+    if (horiz !== true) return; // vertical pans belong to the page scroll (touch-action: pan-y)
+    if (!dragging) {
+      dragging = true;
+      try { stage.setPointerCapture(e.pointerId); } catch { /* already captured */ }
+    }
+    moved = dx;
     const w = stage.getBoundingClientRect().width || 360;
     const damped = moved * (1 - Math.min(Math.abs(moved) / w, 0.6) * 0.6);
     stage.style.transform = `translateX(${damped}px)`;
   });
+
   stage.addEventListener('pointerup', (e) => {
-    if (!dragging) return;
-    dragging = false;
-    stage.style.transform = '';
+    if (!pressing) return;
+    pressing = false;
+    cancelLongPress();
     const dt = performance.now() - startT;
-    const velocity = Math.abs(moved) / Math.max(dt, 1);
+    startT = 0;
+    stage.style.transform = '';
+    if (lpFired) { lpFired = false; moved = 0; return; } // long-press already opened the sheet
     const w = stage.getBoundingClientRect().width || 360;
-    if (Math.abs(moved) >= w * 0.22 || velocity > 0.11) {
+    const velocity = Math.abs(moved) / Math.max(dt, 1);
+    if (dragging && (Math.abs(moved) >= w * 0.22 || velocity > 0.11)) {
       // RTL Arabic Mushaf: page 1 on right; swiping LEFT-TO-RIGHT (moved > 0) turns to NEXT page (+1)
       flip(root, moved > 0 ? +1 : -1);
-    } else if (Math.abs(moved) < 6 && !e.target.closest('.mw')) {
-      toggleChrome();
+    } else if (!dragging && Math.abs(moved) < 6 && dt < LONG_PRESS_MS) {
+      toggleChrome(); // single tap anywhere — even directly on an ayah — toggles the HUD only
     }
+    moved = 0; dragging = false; horiz = null;
   });
-  stage.addEventListener('pointercancel', () => { dragging = false; stage.style.transform = ''; });
+
+  stage.addEventListener('pointercancel', () => {
+    pressing = false; dragging = false; horiz = null; moved = 0; startT = 0;
+    cancelLongPress();
+    stage.style.transform = '';
+  });
+  // long-press must never raise the browser callout / selection UI on the page
+  stage.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+
+/** Long-press on an ayah: highlight it, tick haptic, open the action sheet. */
+function onAyahLongPress(root, mwEl) {
+  const plate = mwEl.closest('.mushaf-plate');
+  const ayahNumber = Number(mwEl.dataset.ayah);
+  if (!plate || !Number.isInteger(ayahNumber) || ayahNumber < 1) return;
+  for (const el of root.querySelectorAll('.mw.ayah-active')) el.classList.remove('ayah-active');
+  for (const el of plate.querySelectorAll(`.mw[data-ayah="${ayahNumber}"]`)) el.classList.add('ayah-active');
+  haptic(HAPTICS.ayahSelect);
+  openAyahSheet(ayahNumber);
 }
 
 function wireChrome(root) {
@@ -396,6 +452,10 @@ function wireChrome(root) {
     }
   });
   root.querySelector('#hud-hide')?.addEventListener('click', () => document.body.classList.add('chrome-hidden'));
+  root.querySelector('#hud-look')?.addEventListener('click', () => openAppearanceSheet(root));
+  root.querySelector('#hud-tab-today')?.addEventListener('click', () => navigate('today'));
+  root.querySelector('#hud-tab-athkar')?.addEventListener('click', () => navigate('adhkar-screen'));
+  root.querySelector('#hud-tab-tools')?.addEventListener('click', () => navigate('tools-phase4'));
 
   const slider = root.querySelector('#hud-page-slider');
   const hudLbl = root.querySelector('#hud-page-label');
@@ -440,6 +500,46 @@ function toggleChrome() {
   document.body.classList.toggle('chrome-hidden');
 }
 
+/** Reader Appearance sheet (AA): font scale with live re-fit + reading theme. */
+function openAppearanceSheet(root) {
+  const host = document.getElementById('sheet-root');
+  const cur = Math.min(Math.max(Number(state.settings.mushaf_scale ?? 1) || 1, 0.8), 2);
+  const theme = state.settings.theme ?? 'dark';
+  const themes = [['dark', 'داكنة'], ['night', 'ليلية'], ['sepia', 'ورقية'], ['light', 'فاتحة']];
+  host.innerHTML = `
+  <div class="sheet-backdrop" id="sh-backdrop"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="مظهر القراءة">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h2>مظهر القراءة</h2><button class="sheet-close" id="sh-close" aria-label="إغلاق">${iconSvg('close', 18)}</button></div>
+    <div class="sheet-body">
+      <div class="field"><label>حجم خط المصحف (<span id="look-scale-val">${cur.toFixed(2)}</span>×)</label>
+        <input id="look-scale" type="range" min="0.8" max="2" step="0.05" value="${cur}" aria-label="حجم خط المصحف"></div>
+      <div class="field"><label>سمة القراءة</label>
+        <div class="row-actions" id="look-themes">
+          ${themes.map(([v, l]) => `<button class="btn ${theme === v ? 'primary' : ''}" data-theme="${v}">${l}</button>`).join('')}
+        </div></div>
+    </div>
+  </div>`;
+  const close = () => { host.innerHTML = ''; };
+  host.querySelector('#sh-close').addEventListener('click', close);
+  host.querySelector('#sh-backdrop').addEventListener('click', close);
+  const slider = host.querySelector('#look-scale');
+  const out = host.querySelector('#look-scale-val');
+  slider.addEventListener('input', async () => {
+    const v = Number(slider.value);
+    out.textContent = v.toFixed(2);
+    await saveSetting('mushaf_scale', v);
+    for (const plate of root.querySelectorAll('.mushaf-plate')) fitLines(plate);
+  });
+  for (const btn of host.querySelectorAll('#look-themes [data-theme]')) {
+    btn.addEventListener('click', async () => {
+      await saveSetting('theme', btn.dataset.theme);
+      mountTheme();
+      for (const b of host.querySelectorAll('#look-themes [data-theme]')) b.classList.toggle('primary', b === btn);
+    });
+  }
+}
+
 let flipping = false;
 function flip(root, dir) {
   if (flipping) return;
@@ -465,18 +565,8 @@ function animateFlip(plate, dir) {
 }
 
 // ---------------------------------------------------------------------------
-// word tap → ayah highlight + action sheet
+// long-press on an ayah → highlight + action sheet (keyboard path above)
 // ---------------------------------------------------------------------------
-function onWordTap(e, plate) {
-  const mw = e.target.closest('.mw[data-ayah]');
-  if (!mw) return;
-  const ayahNumber = Number(mw.dataset.ayah);
-  if (!Number.isInteger(ayahNumber) || ayahNumber < 1) return;
-  for (const el of plate.querySelectorAll('.mw.ayah-active')) el.classList.remove('ayah-active');
-  for (const el of plate.querySelectorAll(`.mw[data-ayah="${ayahNumber}"]`)) el.classList.add('ayah-active');
-  openAyahSheet(ayahNumber);
-}
-
 async function openAyahSheet(ayahNumber) {
   const { renderAyahSheet } = await import('./ayah-sheet.js');
   renderAyahSheet(ayahNumber);

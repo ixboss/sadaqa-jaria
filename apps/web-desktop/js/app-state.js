@@ -78,6 +78,7 @@ export const HAPTICS = {
   categoryComplete: [40, 120, 40, 120, 40],
   pageFlipSettle: [15],
   bookmarkSaved: [25, 60, 25],
+  ayahSelect: [12],
 };
 export function haptic(pattern) {
   state.bridge?.haptic?.(pattern);

@@ -19,7 +19,8 @@
 <body data-theme="dark">
   <div id="screen-root" aria-live="polite"></div>
 
-  <!-- Liquid Glass control layer: unified bottom dock (4-tab capsule + separated Search orb) -->
+  <!-- Liquid Glass control layer: unified 4-tab bottom dock.
+       Search lives in the screen headers + Mushaf HUD, never in the dock. -->
   <div class="glass-dock" id="glass-dock">
     <nav class="glass-tabbar" id="tabbar" aria-label="التنقل الرئيسي">
       <button class="tab-btn" type="button" data-tab="today">
@@ -47,9 +48,6 @@
         <span class="tab-lbl">الأدوات</span>
       </button>
     </nav>
-    <button class="glass-searchpill" id="searchpill" type="button" aria-label="بحث شامل" title="بحث في القرآن والأذكار والتفاسير">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
-    </button>
   </div>
 
   <div class="miniplayer" id="miniplayer" role="region" aria-label="مشغل التلاوة"></div>

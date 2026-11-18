@@ -12,7 +12,8 @@
   background: var(--color-mushaf-bg);
 }
 
-/* minimal top metadata strip (always visible, quiet) */
+/* minimal top metadata strip — visible in immersive reading, fades out when
+   the floating HUD/topbar is open so the two texts never overlap */
 .mushaf-meta-strip {
   width: min(100%, 760px);
   display: flex;
@@ -24,6 +25,19 @@
   color: var(--color-text-secondary);
   flex: none;
   z-index: 5;
+  transition: opacity 200ms var(--ease-standard);
+}
+body:not(.chrome-hidden) .mushaf-meta-strip { opacity: 0; }
+
+/* the mushaf page is a gesture surface, never a text-selection surface:
+   drags page, taps toggle the HUD, long-press selects an ayah */
+.mushaf-screen,
+.mushaf-stage,
+.mushaf-plate,
+.mushaf-line {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .mushaf-stage {
@@ -105,6 +119,10 @@
   user-select: none;
 }
 .mushaf-line .mw:active { background: color-mix(in srgb, var(--color-accent) 22%, transparent); }
+.mw:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
 .mushaf-line .mw.ayah-active { background: color-mix(in srgb, var(--color-accent) 26%, transparent); }
 
 .mushaf-line.kind-surah_name {
@@ -264,6 +282,25 @@ body.chrome-hidden .mushaf-hud {
   direction: rtl;
   cursor: pointer;
 }
+/* AA — Reader Appearance trigger (opens the sheet with live preview) */
+.hud-aa {
+  appearance: none;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--glass-rim);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-surface) 76%, transparent);
+  color: var(--color-text-primary);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 120ms var(--ease-standard);
+}
+.hud-aa:active { transform: scale(0.94); }
 .hud-page-pill {
   font-size: 12px;
   font-weight: 600;
@@ -334,5 +371,5 @@ body.chrome-hidden .mushaf-hud {
 .mushaf-plate.flipping { transition: transform 340ms var(--ease-standard), opacity 340ms var(--ease-standard); }
 
 @media (prefers-reduced-motion: reduce) {
-  .mushaf-plate.flipping, .reader-topbar, .mushaf-hud { transition-duration: 1ms; }
+  .mushaf-plate.flipping, .reader-topbar, .mushaf-hud, .mushaf-meta-strip { transition-duration: 1ms; }
 }

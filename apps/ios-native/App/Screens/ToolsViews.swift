@@ -63,12 +63,18 @@ struct QiblaView: View {
     @EnvironmentObject var appState: AppState
     @State private var manualOffset: Double = 0
     @StateObject private var locator = CompassLocator()
+    @StateObject private var gps = CityLocationDetector()
 
     private static let compassLabels = ["ش", "ش.شر", "شر", "ج.شر", "ج", "ج.غ", "غ", "ش.غ"]
 
     var body: some View {
         let opts = appState.engineOptions
-        let bearing = QiblaEngine.qiblaBearing(lat: opts.lat, lng: opts.lng)
+        // bearing from the live GPS fix when one is saved, else the selected city
+        let locJson = appState.db.setting("location")?.objectValue
+        let qLat = locJson?["gps"]?.objectValue?["lat"]?.doubleValue ?? opts.lat
+        let qLng = locJson?["gps"]?.objectValue?["lng"]?.doubleValue ?? opts.lng
+        let bearing = QiblaEngine.qiblaBearing(lat: qLat, lng: qLng)
+        let distKm = QiblaEngine.distanceKm(lat: qLat, lng: qLng)
         let northDeg = locator.heading ?? manualOffset
         let relativeDeg = (bearing - northDeg + 360).truncatingRemainder(dividingBy: 360)
         let signedDelta = abs(((relativeDeg + 180).truncatingRemainder(dividingBy: 360)) - 180)
@@ -151,8 +157,40 @@ struct QiblaView: View {
                         .multilineTextAlignment(.center)
                 }
 
-                Text("الاتجاه من موقعك إلى الكعبة: \(String(format: "%.1f", bearing))°")
-                    .font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary)
+                if distKm < 5 {
+                    Text("موقعك قريب جداً من الكعبة — داخل الحرم تُقدَّر القبلة باتجاه الكعبة نفسه.")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(appState.theme.accent)
+                        .multilineTextAlignment(.center)
+                } else {
+                    Text("الاتجاه من موقعك إلى الكعبة: \(String(format: "%.1f", bearing))° · \(Int(distKm.rounded())) كم")
+                        .font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary)
+                }
+
+                if let gpsError = gps.errorMessage {
+                    Text(gpsError)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                }
+
+                Button {
+                    gps.detectNearest(in: appState.db) { city in
+                        appState.selectCity(city, gps: gps.lastFix)
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        if gps.isLocating {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "location.fill")
+                        }
+                        Text(gps.isLocating ? "جاري تحديد موقعك…" : "تحديد موقعي (GPS)")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundStyle(appState.theme.accent)
+                }
+                .disabled(gps.isLocating)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 20)
@@ -598,7 +636,7 @@ struct CityPickerView: View {
             Section {
                 Button {
                     gps.detectNearest(in: appState.db) { city in
-                        appState.selectCity(city)
+                        appState.selectCity(city, gps: gps.lastFix)
                         dismiss()
                     }
                 } label: {
@@ -660,8 +698,14 @@ struct CityPickerView: View {
 
 @MainActor
 final class CityLocationDetector: NSObject, ObservableObject, CLLocationManagerDelegate {
+    struct GpsFix: Sendable {
+        let lat: Double
+        let lng: Double
+    }
+
     @Published var isLocating = false
     @Published var errorMessage: String?
+    private(set) var lastFix: GpsFix?
     private let manager = CLLocationManager()
     private var db: SadaqaDatabase?
     private var onFound: ((SadaqaDatabase.CityRow) -> Void)?
@@ -708,6 +752,7 @@ final class CityLocationDetector: NSObject, ObservableObject, CLLocationManagerD
         let lat = loc.coordinate.latitude
         let lng = loc.coordinate.longitude
         Task { @MainActor in
+            self.lastFix = GpsFix(lat: lat, lng: lng)
             self.isLocating = false
             if let city = self.db?.findNearestCity(lat: lat, lng: lng) {
                 let cb = self.onFound

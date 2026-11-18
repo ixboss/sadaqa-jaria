@@ -10,6 +10,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
+import android.location.LocationListener
 import android.location.LocationManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -61,7 +62,10 @@ import app.sadaqa.android.engine.*
 import app.sadaqa.android.platform.Haptics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
 import java.util.UUID
 import java.time.ZoneId
 import java.time.Instant
@@ -169,8 +173,10 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
             }
         }
 
-        // Smart Context-Aware Card — the shared §9 resolver's verdict
-        val card = remember(now / 60000, opts) { SmartCardResolver.resolve(now, engine) }
+        // Smart Context-Aware Card — the shared §9 resolver's verdict, with a
+        // time-of-day contextual card when the resolver only has the countdown
+        // duplicate to offer (same windows as the web Today screen)
+        val card = remember(now / 60000, opts) { contextualCard(SmartCardResolver.resolve(now, engine), now, opts.timeZone, db.hijriAdjust()) }
         val cardIcon = when (card.kind) {
             SmartCardKind.KAHF -> Icons.Outlined.MenuBook
             SmartCardKind.AFTER_PRAYER -> Icons.Outlined.Adjust
@@ -203,6 +209,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                     when (card.actionScreen) {
                         "mushaf-page" -> onNavigate("mushaf")
                         "tools-qiyam", "tools-hijri" -> onNavigate(card.actionScreen)
+                        "adhkar-sleep" -> scope.launch { AthkarNav.openCategory(db, "sleep"); onNavigate("athkar") }
                         else -> scope.launch { AthkarNav.openCategory(db, card.kind.key); onNavigate("athkar") }
                     }
                 }) { Text(card.actionLabel) }
@@ -389,6 +396,7 @@ object AthkarNav {
         pendingCategory = when (kind) {
             "morning" -> db.firstCategoryByWindow("fajr")
             "evening" -> db.firstCategoryByWindow("asr")
+            "sleep" -> db.firstCategoryByWindow("night")
             else -> db.firstCategoryByWindow("after_prayer")
         }
         pendingCategory?.let { Navigator.open("athkar-reader/$it") }
@@ -764,6 +772,62 @@ fun lastKnownLocationOrNull(context: Context): Location? {
     return best
 }
 
+/** Requests a fresh one-shot fix, falling back to the best cached fix on timeout. */
+@Suppress("MissingPermission")
+suspend fun freshLocationOrNull(context: Context, timeoutMs: Long = 12_000L): Location? {
+    if (!hasLocationPermission(context)) return null
+    val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
+    val provider = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+        .firstOrNull { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) }
+        ?: return lastKnownLocationOrNull(context)
+    val cached = lastKnownLocationOrNull(context)
+    var listener: LocationListener? = null
+    val fresh = withTimeoutOrNull(timeoutMs) {
+        suspendCancellableCoroutine { cont ->
+            val l = LocationListener { loc -> if (cont.isActive) cont.resume(loc) }
+            listener = l
+            runCatching { lm.requestLocationUpdates(provider, 0L, 0f, l) }
+                .onFailure { if (cont.isActive) cont.resume(null) }
+            cont.invokeOnCancellation { runCatching { lm.removeUpdates(l) } }
+        }
+    }
+    listener?.let { runCatching { lm.removeUpdates(it) } }
+    return fresh ?: cached
+}
+
+/** When the shared resolver can only offer the countdown duplicate, swap in a
+ *  time-of-day contextual card (reuses existing SmartCardKind cases — parity-safe). */
+private fun contextualCard(resolved: SmartCard, nowMs: Long, tz: String, hijriAdjust: Int): SmartCard {
+    if (resolved.kind != SmartCardKind.NEXT_PRAYER) return resolved
+    val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone(tz))
+    cal.timeInMillis = nowMs
+    return when (cal.get(java.util.Calendar.HOUR_OF_DAY)) {
+        in 4..10 -> SmartCard(
+            SmartCardKind.MORNING, "🌅", "الوقت الحالي", "أذكار الصباح",
+            "ورد الصباح من حصن المسلم — اقرأها قبل أن تنشغل",
+            "افتح أذكار الصباح", "adhkar-cat",
+        )
+        in 11..15 -> {
+            val h = runCatching { HijriEngine.withAdjust(isoOf(nowMs, tz), hijriAdjust) }.getOrNull()
+            SmartCard(
+                SmartCardKind.NEXT_PRAYER, "📅", "التاريخ الهجري", "التقويم الهجري",
+                "اليوم ${h?.d ?: ""} ${HijriEngine.monthNameAr(h?.m ?: 1)} ${h?.y ?: ""} هـ",
+                "افتح الأدوات", "tools-hijri",
+            )
+        }
+        in 16..19 -> SmartCard(
+            SmartCardKind.EVENING, "🌇", "الوقت الحالي", "أذكار المساء",
+            "ورد المساء من حصن المسلم — قبل غروب الشمس",
+            "افتح أذكار المساء", "adhkar-cat",
+        )
+        else -> SmartCard(
+            SmartCardKind.QIYAM, "🌙", "وقت النوم", "أذكار النوم",
+            "تسبيح ما قبل النوم يكفيك حاسدك الليلة",
+            "افتح الأذكار", "adhkar-sleep",
+        )
+    }
+}
+
 @Composable
 fun CityPickerDialog(
     db: SadaqaDb,
@@ -778,14 +842,15 @@ fun CityPickerDialog(
     var gpsStatus by remember { mutableStateOf<String?>(null) }
 
     fun applyGps() {
-        val loc = lastKnownLocationOrNull(context)
-        if (loc == null) {
-            gpsStatus = "تعذر الحصول على الإحداثيات الحالية — فعّل GPS أو ابحث بالاسم."
-            return
-        }
+        gpsStatus = "جارٍ تحديد موقعك…"
         scope.launch {
+            val loc = freshLocationOrNull(context)
+            if (loc == null) {
+                gpsStatus = "تعذر الحصول على الإحداثيات الحالية — فعّل GPS أو ابحث بالاسم."
+                return@launch
+            }
             val city = withContext(Dispatchers.IO) {
-                db.findNearestCity(loc.latitude, loc.longitude)?.also { db.selectCity(it) }
+                db.findNearestCity(loc.latitude, loc.longitude)?.also { db.selectCity(it, gpsLat = loc.latitude, gpsLng = loc.longitude) }
             }
             if (city != null) onSelected(city)
             else gpsStatus = "لم يتم العثور على مدينة قريبة."

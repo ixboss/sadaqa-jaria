@@ -73,6 +73,10 @@ export function smartCardIconName(kind) {
     morning: 'sunrise',
     evening: 'sunset',
     next_prayer: 'mosque',
+    daily_morning: 'sunrise',
+    daily_evening: 'sunset',
+    daily_hijri: 'calendar',
+    daily_sleep: 'moon',
   }[kind] ?? 'mosque';
 }
 

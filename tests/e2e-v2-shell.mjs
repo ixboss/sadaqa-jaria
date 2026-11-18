@@ -89,10 +89,10 @@ async function main() {
     const ready = await waitFor('window.__sadaqaReady === true', { timeout: 90000 });
     ok('boot: app ready (bridge + opfs-sahpool db + router)', ready === true);
 
-    // 2. shell chrome
+    // 2. shell chrome — unified 4-tab dock (no search orb; search in header/HUD)
     const chrome = await evaljs(`({ tabs: [...document.querySelectorAll('.glass-tabbar .tab-btn')].map(b => b.textContent.trim()),
-      pill: !!document.getElementById('searchpill'), current: document.querySelector('.glass-tabbar .tab-btn[aria-current]')?.dataset.tab })`);
-    ok('shell: 4 primary tabs + trailing search pill', chrome.tabs.length === 4 && chrome.pill, JSON.stringify(chrome.tabs));
+      pill: !!document.getElementById('searchpill'), headerSearch: !!document.getElementById('today-search-btn'), current: document.querySelector('.glass-tabbar .tab-btn[aria-current]')?.dataset.tab })`);
+    ok('shell: 4 primary tabs, no search orb, header search present', chrome.tabs.length === 4 && !chrome.pill && chrome.headerSearch, JSON.stringify(chrome.tabs));
     ok('shell: اليوم is the default screen', chrome.current === 'today');
 
     // 3. mushaf page 1 — font parity + zero overflow + no missing glyphs
@@ -148,16 +148,37 @@ async function main() {
     ok(`mushaf: densest page ${dense.page_number} (${dense.c} words) zero overflow + glyphs covered`, pd.fontOk === true && pd.overflow === 0 && pd.words === dense.c, `textLines=${pd.textLines} overflow=${pd.overflow}`);
     await screenshot(`v2-mushaf-dense-${dense.page_number}.png`);
 
-    // 6. ayah tap → action sheet → tafsir
+    // 6. ayah LONG-PRESS → highlight + action sheet → tafsir
+    //    (single tap toggles the HUD only — the tap must NOT open the sheet)
     await goto('#/mushaf/page/1');
     await waitFor(`document.querySelectorAll('.mushaf-plate[data-page="1"] .mw').length > 0`, { timeout: 30000 });
-    // retry the tap: the plate may re-render between the wait and the click
+    // single tap on an ayah word: HUD toggles, sheet must stay closed
+    // (reader boots chrome-hidden, so lift it first and expect the tap to hide chrome again)
+    const tapToggled = await evaljs(`(async () => {
+      document.body.classList.remove('chrome-hidden');
+      const mw = document.querySelector('.mushaf-plate[data-page="1"] .mw');
+      const r = mw.getBoundingClientRect();
+      mw.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.x + 2, clientY: r.y + 2, pointerId: 1 }));
+      await new Promise(res => setTimeout(res, 60));
+      mw.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: r.x + 2, clientY: r.y + 2, pointerId: 1 }));
+      await new Promise(res => setTimeout(res, 120));
+      return { hidden: document.body.classList.contains('chrome-hidden'), sheet: !!document.querySelector('.sheet-head h2') };
+    })()`);
+    ok('mushaf: single tap on an ayah toggles the HUD, never opens the sheet', tapToggled.hidden === true && tapToggled.sheet === false, JSON.stringify(tapToggled));
+    await evaljs(`document.body.classList.remove('chrome-hidden')`);
+    // retry the long-press: the plate may re-render between the wait and the press
     let sheetTitle = null;
     for (let attempt = 0; attempt < 3 && !sheetTitle; attempt++) {
-      await evaljs(`document.querySelector('.mushaf-plate[data-page="1"] .mw')?.click()`);
+      await evaljs(`(async () => {
+        const mw = document.querySelector('.mushaf-plate[data-page="1"] .mw');
+        const r = mw.getBoundingClientRect();
+        mw.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.x + 2, clientY: r.y + 2, pointerId: 2 }));
+        await new Promise(res => setTimeout(res, 520));
+        mw.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: r.x + 2, clientY: r.y + 2, pointerId: 2 }));
+      })()`);
       sheetTitle = await waitFor(`document.querySelector('.sheet-head h2')?.textContent`, { timeout: 8000 });
     }
-    ok('ayah sheet: opens on word tap with surah title', (sheetTitle ?? '').includes('الفات') || (sheetTitle ?? '').includes('ٱلْفَات'), sheetTitle);
+    ok('ayah sheet: opens on 450ms long-press with surah title', (sheetTitle ?? '').includes('الفات') || (sheetTitle ?? '').includes('ٱلْفَات'), sheetTitle);
     await evaljs(`document.getElementById('ay-tafsir').click()`);
     const tafsirShown = await waitFor(`(document.getElementById('ay-extra')?.textContent || '').length > 40`, { timeout: 15000 });
     ok('ayah sheet: Muyassar tafsir renders', tafsirShown === true);

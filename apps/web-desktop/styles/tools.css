@@ -8,6 +8,10 @@
 .today-toprow {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
 }
+.today-actions {
+  display: flex; align-items: center; gap: 8px; flex: none;
+}
+.city-pill.icon-pill { padding: 9px 11px; }
 .city-pill {
   appearance: none; border: 1px solid var(--color-border);
   background: var(--color-surface); color: var(--color-text-primary);

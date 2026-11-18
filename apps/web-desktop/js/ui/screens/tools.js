@@ -14,6 +14,7 @@ import { iconSvg } from '../icons.js';
 import { mountTheme } from '../../main.js';
 import { renderBackup } from './backup.js';
 import { findNearestCity, searchCitiesOffline } from './today.js';
+import { getGpsFix, persistLocation } from '../geo.js';
 
 const fmtClock = (ms, tz) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
 
@@ -53,12 +54,16 @@ export function renderTools(root) {
 // ---------------------------------------------------------------------------
 export function renderQibla(root) {
   const loc = state.settings.location ?? { lat: 21.4225, lng: 39.8262, tz: 'Asia/Riyadh', name_ar: 'مكة المكرمة' };
-  const bearing = qiblaBearing({ lat: loc.lat, lng: loc.lng });
-  const dist = distanceKm({ lat: loc.lat, lng: loc.lng });
+  // bearing from the live GPS fix when one is saved, else the selected city
+  const src = loc.gps ?? loc;
+  const bearing = qiblaBearing({ lat: src.lat, lng: src.lng });
+  const dist = distanceKm({ lat: src.lat, lng: src.lng });
+  const srcLabel = loc.gps ? 'موقعك الحالي (GPS)' : (loc.cityId ? loc.name_ar : `${loc.name_ar} — افتراضي، حدّد موقعك`);
+  const degenerate = dist < 5;
 
   root.innerHTML = `
   <div class="screen">
-    <div class="screen-header"><h1>اتجاه القبلة</h1><div class="sub">${loc.name_ar} — ${bearing.toFixed(1)}° من الشمال · ${Math.round(dist).toLocaleString('ar-EG')} كم إلى الكعبة</div></div>
+    <div class="screen-header"><h1>اتجاه القبلة</h1><div class="sub">${srcLabel} — ${bearing.toFixed(1)}° من الشمال · ${Math.round(dist).toLocaleString('ar-EG')} كم إلى الكعبة</div></div>
     <div class="card">
       <div class="qibla-wrap"><div class="qibla-dial" id="q-dial"></div></div>
       <div class="qibla-heading"><span id="q-reading">—</span></div>
@@ -67,10 +72,13 @@ export function renderQibla(root) {
         <span class="deg" id="q-north">الشمال: 0°</span>
         <button class="btn" id="q-plus" aria-label="دوران مع عقارب الساعة">+</button>
       </div>
-      <div class="qibla-note" id="q-note">وجّه علامة الشمال (▲) نحو الشمال الحقيقي؛ تظهر قببة الكعبة عند اتجاه القبلة.</div>
+      <div class="qibla-note" id="q-note">${degenerate
+        ? 'موقعك قريب جداً من الكعبة — داخل الحرم تُقدَّر القبلة باتجاه الكعبة نفسه.'
+        : 'وجّه علامة الشمال (▲) نحو الشمال الحقيقي؛ تظهر قببة الكعبة عند اتجاه القبلة.'}</div>
       <div class="row-actions" style="justify-content:center">
         <button class="btn primary" id="q-compass">تشغيل البوصلة</button>
         <button class="btn" id="q-dial-mode">القرص اليدوي</button>
+        <button class="btn" id="q-gps">${iconSvg('location', 15)}<span>تحديد موقعي (GPS)</span></button>
       </div>
     </div>
   </div>`;
@@ -156,6 +164,23 @@ export function renderQibla(root) {
   });
   root.querySelector('#q-minus').addEventListener('click', () => setHeading(northDeg - 1));
   root.querySelector('#q-plus').addEventListener('click', () => setHeading(northDeg + 1));
+
+  root.querySelector('#q-gps')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    const note = root.querySelector('#q-note');
+    try {
+      const fix = await getGpsFix();
+      const nearest = await findNearestCity(state.db, fix.lat, fix.lng);
+      if (!nearest) throw new Error('تعذر مطابقة الإحداثيات مع قاعدة المدن.');
+      await persistLocation(nearest, fix);
+      haptic([15, 40, 15]);
+      renderQibla(root); // re-render from the new saved coords
+    } catch (err) {
+      if (note) note.textContent = err?.message ?? 'تعذر تحديد الموقع.';
+      btn.disabled = false;
+    }
+  });
 
   root.querySelector('#q-compass').addEventListener('click', async () => {
     try {
@@ -417,16 +442,27 @@ export async function renderSettings(root) {
   const input = root.querySelector('#s-city');
   const results = root.querySelector('#s-city-results');
   const applyCity = async (row) => {
-    await saveSetting('location', { cityId: row.city_id, lat: row.lat, lng: row.lng, tz: row.timezone, name_ar: row.name_ar });
-    root.querySelector('#s-loc-current').textContent = `الحالي: ${row.name_ar} (${row.lat.toFixed(3)}, ${row.lng.toFixed(3)})`;
+    const saved = await persistLocation(row);
+    root.querySelector('#s-loc-current').textContent = `الحالي: ${saved.name_ar} (${saved.lat.toFixed(3)}, ${saved.lng.toFixed(3)})`;
     haptic([15, 40, 15]);
   };
-  root.querySelector('#s-gps-btn')?.addEventListener('click', () => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      const nearest = await findNearestCity(state.db, pos.coords.latitude, pos.coords.longitude);
-      if (nearest) await applyCity(nearest);
-    });
+  root.querySelector('#s-gps-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const statusEl = root.querySelector('#s-loc-current');
+    btn.disabled = true;
+    statusEl.textContent = 'جاري تحديد موقعك…';
+    try {
+      const fix = await getGpsFix();
+      const nearest = await findNearestCity(state.db, fix.lat, fix.lng);
+      if (!nearest) throw new Error('تعذر مطابقة الإحداثيات مع قاعدة المدن.');
+      const saved = await persistLocation(nearest, fix);
+      statusEl.textContent = `الحالي: ${saved.name_ar} (${saved.lat.toFixed(3)}, ${saved.lng.toFixed(3)})${saved.gps ? ' · GPS' : ''}`;
+      haptic([15, 40, 15]);
+    } catch (err) {
+      statusEl.textContent = err?.message ?? 'تعذر تحديد الموقع — يمكنك البحث أو الاختيار من القائمة أدناه.';
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   let seq = 0;

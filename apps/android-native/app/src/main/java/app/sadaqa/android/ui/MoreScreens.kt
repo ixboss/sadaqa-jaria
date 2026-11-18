@@ -48,11 +48,14 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -117,8 +120,9 @@ private data class MushafLineItem(
     val words: List<MushafWordRow>,
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MushafScreen(db: SadaqaDb) {
+fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSearch: () -> Unit = {}) {
     val theme = LocalSadaqaTheme.current
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -127,7 +131,8 @@ fun MushafScreen(db: SadaqaDb) {
 
     var hubTab by remember { mutableStateOf("reader") } // reader | reading | index
     var page by remember { mutableIntStateOf((db.setting("mushaf_page")?.dbl?.toInt() ?: 1).coerceIn(1, 604)) }
-    var fontScale by remember { mutableStateOf((db.setting("font_scale")?.dbl ?: 1.15).toFloat().coerceIn(0.85f, 1.6f)) }
+    var mushafScale by remember { mutableStateOf((db.setting("mushaf_scale")?.dbl ?: 1.0).toFloat().coerceIn(0.8f, 2.0f)) }
+    var showAppearance by remember { mutableStateOf(false) }
     var hudVisible by remember { mutableStateOf(false) }
     val pageCache = remember { mutableStateMapOf<Int, List<MushafLineItem>>() }
     val pageMeta = remember { mutableStateMapOf<Int, Triple<String, Int, Int>>() }
@@ -154,6 +159,11 @@ fun MushafScreen(db: SadaqaDb) {
                 }
             }
         }
+    }
+
+    fun setMushafScale(v: Float) {
+        mushafScale = ((v * 20f).roundToInt().toFloat() / 20f).coerceIn(0.8f, 2.0f)
+        scope.launch { withContext(Dispatchers.IO) { db.setSetting("mushaf_scale", JsonValue.Num(mushafScale.toDouble())) } }
     }
 
     LaunchedEffect(Unit) {
@@ -284,13 +294,16 @@ fun MushafScreen(db: SadaqaDb) {
 
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     Column(Modifier.fillMaxSize()) {
-                        // Subtle top metadata strip
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(surahTitle, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.textSecondary, modifier = Modifier.weight(1f))
-                            Text("الجزء $juzNum · الحزب $hizbNum", fontSize = 11.sp, color = theme.textSecondary)
+                        // Subtle top metadata strip (hidden while the HUD is up —
+                        // the HUD bar carries the same meta, never double-rendered)
+                        if (!hudVisible) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(surahTitle, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.textSecondary, modifier = Modifier.weight(1f))
+                                Text("الجزء $juzNum · الحزب $hizbNum", fontSize = 11.sp, color = theme.textSecondary)
+                            }
                         }
 
                         // RTL HorizontalPager: page 1 on right, swipe left->right advances to next page
@@ -306,9 +319,9 @@ fun MushafScreen(db: SadaqaDb) {
                                 MushafPagePlate(
                                     page = slotPage,
                                     lines = slotLines,
-                                    fontScale = fontScale,
+                                    mushafScale = mushafScale,
                                     selectedAyah = selectedAyah,
-                                    onSelectAyah = { selectedAyah = it },
+                                    onSelectAyah = { Haptics.tick(context); selectedAyah = it },
                                     onToggleHud = { hudVisible = !hudVisible },
                                 )
                             }
@@ -357,10 +370,7 @@ fun MushafScreen(db: SadaqaDb) {
                                     fontWeight = FontWeight.Bold,
                                     color = theme.accent,
                                     modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
-                                        .clickable {
-                                            fontScale = if (fontScale >= 1.45f) 0.9f else fontScale + 0.1f
-                                            scope.launch { withContext(Dispatchers.IO) { db.setSetting("font_scale", JsonValue.Num(fontScale.toDouble())) } }
-                                        }.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        .clickable { showAppearance = true }.padding(horizontal = 10.dp, vertical = 6.dp),
                                 )
                                 Box(
                                     Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
@@ -400,6 +410,15 @@ fun MushafScreen(db: SadaqaDb) {
                                         .clickable { hudVisible = false; hubTab = "reading" }
                                         .padding(horizontal = 10.dp, vertical = 6.dp),
                                 )
+                                Text(
+                                    "بحث",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = theme.textPrimary,
+                                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
+                                        .clickable { hudVisible = false; onOpenSearch() }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                )
                             }
 
                             // Bottom HUD capsule with RTL page slider
@@ -437,6 +456,43 @@ fun MushafScreen(db: SadaqaDb) {
                                         fontWeight = FontWeight.SemiBold,
                                         color = if (page < 604) theme.accent else theme.textSecondary,
                                         modifier = Modifier.clickable(enabled = page < 604) { page += 1 }.padding(6.dp),
+                                    )
+                                }
+
+                                // Main-nav escape hatch — jump straight to a tab from the reader
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Text(
+                                        "اليوم",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = theme.textPrimary,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
+                                            .clickable { hudVisible = false; onNavigateMain("today") }
+                                            .padding(vertical = 7.dp),
+                                    )
+                                    Text(
+                                        "الأذكار",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = theme.textPrimary,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
+                                            .clickable { hudVisible = false; onNavigateMain("athkar") }
+                                            .padding(vertical = 7.dp),
+                                    )
+                                    Text(
+                                        "الأدوات",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = theme.textPrimary,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
+                                            .clickable { hudVisible = false; onNavigateMain("tools") }
+                                            .padding(vertical = 7.dp),
                                     )
                                 }
                             }
@@ -557,6 +613,68 @@ fun MushafScreen(db: SadaqaDb) {
         }
     }
 
+    // Reader Appearance — Mushaf font-scale slider (0.8×–2.0×) with live preview
+    if (showAppearance) {
+        ModalBottomSheet(
+            onDismissRequest = { showAppearance = false },
+            containerColor = theme.surface,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("مظهر القراءة", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "−",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = theme.textPrimary,
+                        modifier = Modifier.size(44.dp).clip(CircleShape).background(theme.surfaceRaised)
+                            .clickable { setMushafScale(mushafScale - 0.05f) }
+                            .wrapContentSize(Alignment.Center),
+                    )
+                    Slider(
+                        value = mushafScale,
+                        onValueChange = { setMushafScale(it) },
+                        valueRange = 0.8f..2.0f,
+                        steps = 23, // 0.05 increments
+                        colors = SliderDefaults.colors(thumbColor = theme.accent, activeTrackColor = theme.accent),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        "+",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = theme.textPrimary,
+                        modifier = Modifier.size(44.dp).clip(CircleShape).background(theme.surfaceRaised)
+                            .clickable { setMushafScale(mushafScale + 0.05f) }
+                            .wrapContentSize(Alignment.Center),
+                    )
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("حجم خط المصحف", fontSize = 13.sp, color = theme.textSecondary, modifier = Modifier.weight(1f))
+                    Text("${(mushafScale * 100).roundToInt()}٪", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = theme.accent)
+                }
+                Box(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(theme.mushafBg)
+                        .padding(vertical = 24.dp, horizontal = 16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "وَمَنْ أَعْرَضَ عَن ذِكْرِي فَإِنَّ لَهُ مَعِيشَةً ضَنكًا",
+                        fontFamily = QpcFonts.uthmanic(context),
+                        fontSize = (16f * mushafScale).sp,
+                        color = theme.mushafText,
+                        textAlign = TextAlign.Center,
+                        lineHeight = (26f * mushafScale).sp,
+                    )
+                }
+            }
+        }
+    }
+
     // Ayah Action Modal
     val activeAyah = selectedAyah
     if (activeAyah != null && ayahInfo.isNotEmpty()) {
@@ -659,7 +777,7 @@ fun MushafScreen(db: SadaqaDb) {
 private fun MushafPagePlate(
     page: Int,
     lines: List<MushafLineItem>,
-    fontScale: Float,
+    mushafScale: Float,
     selectedAyah: Int?,
     onSelectAyah: (Int) -> Unit,
     onToggleHud: () -> Unit,
@@ -688,7 +806,7 @@ private fun MushafPagePlate(
         val availWidthPx = with(density) { (maxWidth - 8.dp).toPx() }.coerceAtLeast(100f)
         val slotCount = maxOf(lines.size, 15)
         val slotHeightDp = maxHeight / slotCount
-        val uniformSp = remember(page, lines, maxWidth, maxHeight, fontScale, verifiedPageFont) {
+        val uniformSp = remember(page, lines, maxWidth, maxHeight, mushafScale, verifiedPageFont) {
             val tf = if (verifiedPageFont != null) (verifiedTypeface ?: uthmanicTypeface) else uthmanicTypeface
             val paint = android.graphics.Paint().apply {
                 typeface = tf
@@ -702,9 +820,10 @@ private fun MushafPagePlate(
                 val w = paint.measureText(txt)
                 if (w > maxLineW) maxLineW = w
             }
-            val widthFitSp = (20f * (availWidthPx * 0.90f) / maxLineW).coerceIn(11f, 34f)
-            val heightFitSp = (slotHeightDp.value * 0.64f * fontScale).coerceIn(11f, 34f)
-            minOf(widthFitSp, heightFitSp)
+            val widthFitSp = (20f * (availWidthPx * 0.90f) / maxLineW).coerceIn(11f, 38f)
+            val heightFitSp = (slotHeightDp.value * 0.72f * mushafScale).coerceIn(11f, 38f)
+            // zoom must never overflow the 15-slot page grid
+            minOf(widthFitSp, heightFitSp).coerceAtMost(slotHeightDp.value * 0.90f)
         }
 
         Column(
@@ -779,7 +898,14 @@ private fun MushafPagePlate(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(4.dp))
                                                 .background(if (selectedAyah == ayahNum) theme.accent.copy(alpha = 0.20f) else Color.Transparent)
-                                                .clickable { onSelectAyah(ayahNum) },
+                                                // Long-press is the ONLY way to select an ayah — a quick
+                                                // tap toggles the HUD, exactly like the plate around it
+                                                .pointerInput(ayahNum) {
+                                                    detectTapGestures(
+                                                        onTap = { onToggleHud() },
+                                                        onLongPress = { onSelectAyah(ayahNum) },
+                                                    )
+                                                },
                                         )
                                     }
                                 }
@@ -795,7 +921,12 @@ private fun MushafPagePlate(
                                     modifier = Modifier.fillMaxWidth()
                                         .clip(RoundedCornerShape(4.dp))
                                         .background(if (firstAyah != null && selectedAyah == firstAyah) theme.accent.copy(alpha = 0.20f) else Color.Transparent)
-                                        .clickable(enabled = firstAyah != null) { firstAyah?.let(onSelectAyah) },
+                                        .pointerInput(firstAyah) {
+                                            detectTapGestures(
+                                                onTap = { onToggleHud() },
+                                                onLongPress = { firstAyah?.let(onSelectAyah) },
+                                            )
+                                        },
                                 )
                             }
                         }
@@ -890,23 +1021,46 @@ fun QiblaScreen(db: SadaqaDb, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var opts by remember { mutableStateOf(db.engineOptions()) }
-    val bearing = remember(opts) { QiblaEngine.qiblaBearing(opts.lat, opts.lng) }
-    val distKm = remember(opts) { QiblaEngine.distanceKm(opts.lat, opts.lng) }
+    // Qibla uses the exact live GPS fix when one is persisted, else the city coords
+    val gpsFix = remember(opts) { db.setting("location")?.get("gps") }
+    val qLat = gpsFix?.get("lat")?.dbl ?: opts.lat
+    val qLng = gpsFix?.get("lng")?.dbl ?: opts.lng
+    val bearing = remember(opts) { QiblaEngine.qiblaBearing(qLat, qLng) }
+    val distKm = remember(opts) { QiblaEngine.distanceKm(qLat, qLng) }
     var northDeg by remember { mutableDoubleStateOf(0.0) }
     var hasSensor by remember { mutableStateOf(false) }
     var gpsMsg by remember { mutableStateOf<String?>(null) }
-    var cityLabel by remember { mutableStateOf(db.setting("location")?.get("name_ar")?.str ?: "مكة المكرمة") }
+    var cityLabel by remember {
+        val loc = db.setting("location")
+        val name = loc?.get("name_ar")?.str ?: "مكة المكرمة"
+        mutableStateOf(if (loc?.get("gps") != null) "$name · GPS" else name)
+    }
 
-    DisposableEffect(context) {
+    DisposableEffect(context, qLat, qLng) {
         val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
         val rot = sm?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
         val listener = object : SensorEventListener {
             private val rMat = FloatArray(9)
+            private val mapped = FloatArray(9)
             private val ori = FloatArray(3)
             override fun onSensorChanged(event: SensorEvent) {
                 SensorManager.getRotationMatrixFromVector(rMat, event.values)
-                SensorManager.getOrientation(rMat, ori)
-                val deg = (Math.toDegrees(ori[0].toDouble()) + 360.0) % 360.0
+                // Map the device frame to the screen frame so azimuth stays true
+                // regardless of display rotation.
+                val rotation = (context.getSystemService(Context.WINDOW_SERVICE) as? android.view.WindowManager)
+                    ?.defaultDisplay?.rotation ?: android.view.Surface.ROTATION_0
+                when (rotation) {
+                    android.view.Surface.ROTATION_90 -> SensorManager.remapCoordinateSystem(rMat, SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X, mapped)
+                    android.view.Surface.ROTATION_180 -> SensorManager.remapCoordinateSystem(rMat, SensorManager.AXIS_MINUS_X, SensorManager.AXIS_MINUS_Z, mapped)
+                    android.view.Surface.ROTATION_270 -> SensorManager.remapCoordinateSystem(rMat, SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_X, mapped)
+                    else -> SensorManager.remapCoordinateSystem(rMat, SensorManager.AXIS_X, SensorManager.AXIS_Z, mapped)
+                }
+                SensorManager.getOrientation(mapped, ori)
+                var deg = (Math.toDegrees(ori[0].toDouble()) + 360.0) % 360.0
+                // getOrientation azimuth is relative to MAGNETIC north — convert
+                // to true north with the local declination (east-positive)
+                val gf = android.hardware.GeomagneticField(qLat.toFloat(), qLng.toFloat(), 0f, System.currentTimeMillis())
+                deg = (deg + gf.declination + 360.0) % 360.0
                 northDeg = deg
             }
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
@@ -919,13 +1073,19 @@ fun QiblaScreen(db: SadaqaDb, onBack: () -> Unit) {
 
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
         if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true || grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
-            val loc = lastKnownLocationOrNull(context)
-            if (loc != null) {
-                scope.launch {
-                    val city = withContext(Dispatchers.IO) { db.findNearestCity(loc.latitude, loc.longitude)?.also { db.selectCity(it) } }
-                    if (city != null) { opts = db.engineOptions(); cityLabel = city.nameAr; gpsMsg = null }
+            gpsMsg = "جارٍ تحديد موقعك…"
+            scope.launch {
+                val loc = freshLocationOrNull(context)
+                if (loc == null) { gpsMsg = "تعذر تحديد الإحداثيات الحالية."; return@launch }
+                val city = withContext(Dispatchers.IO) {
+                    db.findNearestCity(loc.latitude, loc.longitude)?.also { db.selectCity(it, gpsLat = loc.latitude, gpsLng = loc.longitude) }
                 }
-            } else gpsMsg = "تعذر تحديد الإحداثيات الحالية."
+                if (city != null) {
+                    opts = db.engineOptions()
+                    cityLabel = "${city.nameAr} · GPS"
+                    gpsMsg = null
+                } else gpsMsg = "لم يتم العثور على مدينة قريبة."
+            }
         } else gpsMsg = "يلزم السماح بالموقع لتحديث إحداثيات القبلة."
     }
 
@@ -989,13 +1149,19 @@ fun QiblaScreen(db: SadaqaDb, onBack: () -> Unit) {
         }
         Button(onClick = {
             if (hasLocationPermission(context)) {
-                val loc = lastKnownLocationOrNull(context)
-                if (loc != null) {
-                    scope.launch {
-                        val city = withContext(Dispatchers.IO) { db.findNearestCity(loc.latitude, loc.longitude)?.also { db.selectCity(it) } }
-                        if (city != null) { opts = db.engineOptions(); cityLabel = city.nameAr; gpsMsg = null }
+                gpsMsg = "جارٍ تحديد موقعك…"
+                scope.launch {
+                    val loc = freshLocationOrNull(context)
+                    if (loc == null) { gpsMsg = "تعذر الحصول على الموقع الحالي."; return@launch }
+                    val city = withContext(Dispatchers.IO) {
+                        db.findNearestCity(loc.latitude, loc.longitude)?.also { db.selectCity(it, gpsLat = loc.latitude, gpsLng = loc.longitude) }
                     }
-                } else gpsMsg = "تعذر الحصول على الموقع الحالي."
+                    if (city != null) {
+                        opts = db.engineOptions()
+                        cityLabel = "${city.nameAr} · GPS"
+                        gpsMsg = null
+                    } else gpsMsg = "لم يتم العثور على مدينة قريبة."
+                }
             } else {
                 permLauncher.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
             }
@@ -1005,7 +1171,18 @@ fun QiblaScreen(db: SadaqaDb, onBack: () -> Unit) {
             Text("تحديث موقعي (GPS)")
         }
         gpsMsg?.let { Text(it, fontSize = 12.sp, color = Color(0xFFE5636F)) }
-        Text("الاتجاه من موقعك إلى الكعبة: %.1f° · المسافة %.0f كم".format(bearing, distKm), fontSize = 12.sp, color = theme.textSecondary)
+        if (distKm < 5.0) {
+            // Degenerate coords (Mecca default / GPS inside the sanctuary) — a
+            // bearing readout here would be a misleading 0.0°
+            Text(
+                "موقعك قريب جداً من الكعبة — فعّل GPS لتحديد الاتجاه الدقيق من مكانك.",
+                fontSize = 12.sp,
+                color = theme.textSecondary,
+                textAlign = TextAlign.Center,
+            )
+        } else {
+            Text("الاتجاه من موقعك إلى الكعبة: %.1f° · المسافة %.0f كم".format(bearing, distKm), fontSize = 12.sp, color = theme.textSecondary)
+        }
         Spacer(Modifier.height(24.dp))
     }
 }
