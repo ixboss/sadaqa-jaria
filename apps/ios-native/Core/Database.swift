@@ -126,7 +126,7 @@ public final class SadaqaDatabase: @unchecked Sendable {
     static func migrate(_ db: Database) throws {
         let row = try Row.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'schema_version'")
         var v = 0
-        if let raw = row.flatMap({ strOf($0["value"]) }) { v = Int(Double(raw)) ?? 0 }
+        if let raw = row.flatMap({ strOf($0["value"]) }) { v = Int(Double(raw) ?? 0) }
         if v > schemaVersion {
             NSLog("[SadaqaDB] sadaqa.db schema_version \(v) is newer than this build (\(schemaVersion)) — update the app")
             throw NSError(domain: "SadaqaDB", code: 10,
