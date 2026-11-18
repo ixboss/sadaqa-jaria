@@ -300,8 +300,6 @@ struct AudioView: View {
             if !failed { progress[reciter.id] = 1.0 }
         }
     }
-        }
-    }
 }
 
 /// AVAudioPlayer chain with next-ayah preload slot.
