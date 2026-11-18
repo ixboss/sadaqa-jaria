@@ -272,10 +272,10 @@ fun AthkarReaderScreen(db: SadaqaDb, categoryId: String, onBack: () -> Unit) {
                         val day = dayKeyOf(now, "UTC")
                         scope.launch {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                db.execute("INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(item_id, day_key) DO UPDATE SET count = excluded.count, completed_at = excluded.completed_at, updated_at = excluded.updated_at", listOf<Any>(item.id, day, c.toLong(), if (target > 0 && c >= target) now else null, now))
+                                db.execute("INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(item_id, day_key) DO UPDATE SET count = excluded.count, completed_at = excluded.completed_at, updated_at = excluded.updated_at", listOf<Any?>(item.id, day, c.toLong(), if (target > 0 && c >= target) now else null, now))
                                 val kind = db.categoryStreakKind(categoryId)
                                 if (kind != null && target > 0 && c >= target) {
-                                    db.execute("INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)", listOf<Any>(kind, day, now))
+                                    db.execute("INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)", listOf<Any?>(kind, day, now))
                                 }
                             }
                         }
@@ -341,7 +341,7 @@ fun TasbihScreen(db: SadaqaDb, onClose: () -> Unit) {
         counters = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             if (db.query("SELECT uuid FROM tasbih_counters WHERE deleted = 0").isEmpty()) {
                 db.transaction {
-                    for ((i, preset) in listOf<Pair<String, Int>>("سبحان الله", 33), Pair("الحمد لله", 33), Pair("الله أكبر", 34)).withIndex()) {
+                    for ((i, preset) in listOf(Pair("سبحان الله", 33), Pair("الحمد لله", 33), Pair("الله أكبر", 34)).withIndex()) {
                         db.execute("INSERT INTO tasbih_counters (uuid, label_ar, dhikr_text, target, count, total_lifetime, sort_order, updated_at, deleted) VALUES (?, ?, ?, ?, 0, 0, ?, ?, 0)", listOf(UUID.randomUUID().let { app.sadaqa.android.backup.UUID7.uuid7() }, preset.first, preset.first, preset.second.toLong(), i.toLong(), System.currentTimeMillis()))
                     }
                 }

@@ -6,6 +6,7 @@
 
 import SwiftUI
 import CoreLocation
+import GRDB
 
 struct ToolsView: View {
     @EnvironmentObject var appState: AppState
