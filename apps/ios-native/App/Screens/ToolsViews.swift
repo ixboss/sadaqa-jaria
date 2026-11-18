@@ -407,6 +407,9 @@ private func TonightWindow(_ ms: Int64?, _ tz: String) -> String {
 
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
+    @State private var calcMethod: String = "umm_al_qura"
+    @State private var madhab: String = "shafi"
+    @State private var hlr: String = "middle_of_the_night"
 
     var body: some View {
         Form {
@@ -453,9 +456,6 @@ struct SettingsView: View {
             madhab = appState.db.setting("madhab")?.stringValue ?? "shafi"
             hlr = appState.db.setting("high_latitude_rule")?.stringValue ?? "middle_of_the_night"
         }
-        @State var calcMethod: String = "umm_al_qura"
-        @State var madhab: String = "shafi"
-        @State var hlr: String = "middle_of_the_night"
     }
 
     private func themeName(_ key: String) -> String {
