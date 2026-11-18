@@ -48,7 +48,7 @@ final class PrayerParityTests: XCTestCase {
                 madhab: meta["madhab"]!.stringValue!,
                 highLatitudeRule: meta["highLatitudeRule"]!.stringValue!)
             for day in fx["days"]!.arrayValue! {
-                let parts = day["date"]!.stringValue!.split("-").map { Int($0)! }
+                let parts = day["date"]!.stringValue!.split(separator: "-").map { Int($0)! }
                 let got = try PrayerEngine.computeForDate(y: parts[0], mo: parts[1] - 1, d: parts[2], opts: opts)
                 for name in PrayerName.allCases {
                     let want = day["prayers"]![name.rawValue]!.int64Value!

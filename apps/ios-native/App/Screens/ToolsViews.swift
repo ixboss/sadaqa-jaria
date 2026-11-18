@@ -256,7 +256,7 @@ struct HijriCalendarView: View {
 extension HijriEngine {
     /// 0=Sunday dow of a gregorian ISO day (UTC semantics, hijri.js parity).
     static func weekdayOf(_ iso: String) -> Int {
-        let p = iso.split("-").map { Int($0)! }
+        let p = iso.split(separator: "-").map { Int($0)! }
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "UTC")!
         let d = cal.date(from: DateComponents(year: p[0], month: p[1], day: p[2]))!
