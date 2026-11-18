@@ -1,10 +1,13 @@
 // ==================== Service Worker — إسلامي ====================
-// v54: استراتيجية التحديث prompt — العامل الجديد ينتظر حتى يوافق المستخدم
+// v58: rebrand splash + About card + mushaf-scale honored by page fit (index.html, features.js, app-core.js)
+// v57: STATIC_CACHE يشتق من CACHE_NAME (ينتقل مع كل إصدار) — يمنع «HTML جديد
+//      مع JS قديم» بعد النشر؛ إخفاق التخزين المسبق يُبلَّغ للصفحة بدل تجاهله.
+// سابقاً v54: استراتيجية التحديث prompt — العامل الجديد ينتظر حتى يوافق المستخدم
 //      (رسالة SKIP_WAITING من sw-register.js)، فلا تنقطع جلسة قراءة نشطة أبداً.
-//      سابقاً v53: بنية CSS/JS المنظّمة (css/* + js/*)، Stale-While-Revalidate للأصول الثابتة.
-const CACHE_NAME = 'quran-app-v56';
+const CACHE_NAME = 'quran-app-v58';
 const API_CACHE = 'quran-api-v52';
-const STATIC_CACHE = 'static-v56';
+// يتدرج مع CACHE_NAME تلقائياً — لا يبقى ثابتاً عبر الإصدارات (skew fix)
+const STATIC_CACHE = CACHE_NAME.replace('quran-app', 'static');
 
 const PRECACHE_URLS = [
   './',
@@ -31,6 +34,8 @@ const PRECACHE_URLS = [
   './js/features.js',
   './js/tafsir.js',
   './js/backup.js',
+  // محرّك المواقيت/القبلة الذهبي الموحّد (v2 core-data) — يلزم features.js بلا إنترنت
+  './js/core-data.bundle.js',
   // محرّك المصحف الموحّد (فهرس الـ٦٠٤ صفحة) — يلزم القراءة بلا إنترنت
   './js/mushaf.js',
   // محرّك قلب الصفحات (السحب ثلاثي الأبعاد + بديل الحركة المخفّضة)
@@ -57,12 +62,21 @@ const FONT_ORIGINS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 // ==================== Installation ====================
 // استراتيجية prompt: لا skipWaiting هنا — العامل الجديد يبقى في حالة waiting
 // حتى يضغط المستخدم "تحديث" فيتسلّم فوراً، أو يغلق كل تبويبات التطبيق لاحقاً.
+// الإخفاقات تُجمع وتُبلَّغ للصفحة بعد التفعيل (v57) — بدل تبويعها صامتة
+// فلا يُثبَّت وضع الأوفلاين جزئياً بلا علم أحد.
+let precacheFailures = [];
+
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(PRECACHE_URLS).catch(err => {
-        console.warn('Failed to cache precache URLs:', err);
-      });
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.allSettled(PRECACHE_URLS.map(u => cache.add(u)))
+    ).then(results => {
+      precacheFailures = results
+        .map((r, i) => (r.status === 'rejected' ? PRECACHE_URLS[i] : null))
+        .filter(Boolean);
+      if (precacheFailures.length) {
+        console.warn('[sw] precache incomplete:', precacheFailures.join(', '));
+      }
     })
   );
 });
@@ -84,6 +98,12 @@ self.addEventListener('activate', event => {
         })
       );
     }).then(() => self.clients.claim())
+    .then(() => {
+      // أبلغ الصفحات عن أي إخفاق في التخزين المسبق — بطاقة أوفلاين جزئية
+      if (!precacheFailures.length) return;
+      return self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then(list => list.forEach(c => c.postMessage({ type: 'PRECACHE_INCOMPLETE', urls: precacheFailures })));
+    })
   );
 });
 
@@ -202,36 +222,5 @@ function updateCacheInBackground(request, cacheName) {
     .catch(() => {});
 }
 
-// ==================== Push Notifications ====================
-self.addEventListener('push', event => {
-  if (event.data) {
-    const options = {
-      body: event.data.text(),
-      icon: './icons/icon-192.png',
-      badge: './icons/icon-120.png',
-      tag: 'islamic-app-notification',
-      requireInteraction: false
-    };
-
-    event.waitUntil(
-      self.registration.showNotification('إسلامي', options)
-    );
-  }
-});
-
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      const scope = self.registration.scope;
-      for (let client of clientList) {
-        if (client.url.startsWith(scope) && 'focus' in client) {
-          return client.focus();
-        }
-      }
-      if (clients.openWindow) {
-        return clients.openWindow('./');
-      }
-    })
-  );
-});
+// ملاحظة: معالجات push/notificationclick حُذفت (2026-11 audit) — لا يوجد
+// pushManager ولا اشتراك إشعارات في أي واجهة؛ الإشعارات داخل الصفحة فقط.

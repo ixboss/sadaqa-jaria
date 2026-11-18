@@ -435,6 +435,44 @@ class DbRoundTripTest {
     private fun Sha256Hex(s: String) = app.sadaqa.android.data.Sha256.hex(s)
 
     @Test
+    fun tamperedImportRefusedAndRollsBack() {
+        // integrity recompute (2026-11 finding): a structurally-valid payload
+        // whose bytes were altered after export must be refused BEFORE any
+        // write — the db stays byte-identical (rollback/cleanliness proof).
+        val fx = Fixtures.read("backup/sample-export.json")
+        val manifest = fx["manifest"]!!
+        val parsed = CanonicalJson.parse(fx["payloadJson"]!!.str!!)
+        val tampered = CanonicalJson.parse(fx["payloadJson"]!!.str!!.replace("\"page\":303", "\"page\":304"))
+        val text = CanonicalJson.serialize(Obj(mapOf("manifest" to manifest, "payload" to tampered)))
+        val db = makeDb()
+        db.deviceId()
+        try {
+            val before = db.queryOne("SELECT COUNT(*) AS n FROM bookmarks")!!.longs["n"]
+            val err = runCatching { db.importBackup(text, "merge") }.exceptionOrNull()
+            assertTrue(
+                "tampered import refused with integrity error, got: $err",
+                err is IllegalArgumentException && err.message?.contains("integrity") == true,
+            )
+            assertEquals("no row written before refusal", before, db.queryOne("SELECT COUNT(*) AS n FROM bookmarks")!!.longs["n"])
+
+            // missing digest field is refused too
+            val noDigest = CanonicalJson.serialize(Obj(mapOf(
+                "manifest" to Obj(manifest.obj!!.filterKeys { it != "integrity" }),
+                "payload" to parsed,
+            )))
+            val err2 = runCatching { db.importBackup(noDigest, "merge") }.exceptionOrNull()
+            assertTrue("missing digest refused: $err2", err2 != null && err2.message?.contains("integrity") == true)
+
+            // the clean golden export still imports — digest over canonical
+            // bytes equals the web golden's (cross-target byte parity)
+            val clean = db.importBackup(CanonicalJson.serialize(Obj(mapOf("manifest" to manifest, "payload" to parsed))), "merge")
+            assertEquals(16, clean.added)
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
     fun uuid7GroupOrderMatchesWebPayloadBytes() {
         // top-level groups must serialize in the golden's fixed order
         val payload = BackupCodec.toPayloadGroups(mapOf(

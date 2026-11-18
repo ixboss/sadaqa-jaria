@@ -61,6 +61,11 @@ const SCREENS = {
 
 function renderRoute({ screen, args }) {
   const seq = ++routeSeq;
+  // تذكّر موضع التمرير للشاشة الغادرة حتى لا يفقد المستخدم مكانه عائداً إليها
+  if (lastRoute && lastRoute.screen !== screen && lastRoute.screen !== 'mushaf-page') {
+    const prev = root.querySelector('.screen');
+    if (prev) scrollMemory.set(lastRoute.screen, prev.scrollTop);
+  }
   lastRoute = { screen, args };
   document.body.classList.toggle('reading', screen.startsWith('mushaf'));
   if (screen !== 'mushaf-page') document.body.classList.remove('chrome-hidden');
@@ -68,6 +73,12 @@ function renderRoute({ screen, args }) {
   const tab = SCREEN_TAB[screen] ?? 'today';
   for (const btn of document.querySelectorAll('.glass-tabbar .tab-btn')) {
     btn.getAttribute('data-tab') === tab ? btn.setAttribute('aria-current', 'page') : btn.removeAttribute('aria-current');
+  }
+  // شريط قسم المصحف الطافي: شاشات القسم الخارجة عن القارئ فقط
+  const hub = document.getElementById('mushaf-hub-dock');
+  if (hub) {
+    hub.hidden = !(tab === 'mushaf' && screen !== 'mushaf-page');
+    for (const b of hub.querySelectorAll('[data-go]')) b.classList.toggle('on', b.dataset.go === screen);
   }
   const fn = SCREENS[screen] ?? renderToday;
   Promise.resolve()
@@ -82,8 +93,18 @@ function renderRoute({ screen, args }) {
         <button class="btn primary" id="route-retry-btn">إعادة المحاولة</button>
       </div></div>`;
       document.getElementById('route-retry-btn')?.addEventListener('click', () => renderRoute({ screen, args }));
+    })
+    .finally(() => {
+      if (seq !== routeSeq) return;
+      const el = root.querySelector('.screen');
+      if (el && scrollMemory.has(screen)) el.scrollTop = scrollMemory.get(screen);
+      // انتقال ناعم عند تبديل الأقسام بدل الاستبدال المفاجئ
+      root.firstElementChild?.classList.add('route-enter');
     });
 }
+
+// مواضع التمرير المحفوظة لكل شاشة (استمرارية التنقّل ذهاباً وإياباً)
+const scrollMemory = new Map();
 
 function wireNav() {
   for (const btn of document.querySelectorAll('.glass-tabbar .tab-btn')) {
@@ -98,6 +119,11 @@ function wireNav() {
       navigate(targets[tab]);
     });
   }
+  // شريط قسم المصحف الطافي: زر واحد لكل شاشة من شاشات القسم
+  document.getElementById('mushaf-hub-dock')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-go]');
+    if (btn) navigate(btn.dataset.go);
+  });
 }
 
 // Dock minimize on scroll-down; auto-restores on scroll-up, at the top, or
@@ -127,12 +153,12 @@ function renderBootProgress(loaded = 0, total = 0, phase = 'wasm') {
     ? `تجهيز قاعدة البيانات للعمل دون اتصال${total > 0 ? ` — ${pct}٪` : ''}`
     : phase === 'importing'
       ? 'تهيئة الفهرس والمصحف'
-      : 'تشغيل صدقة جارية';
+      : 'تشغيل إسلامي';
   let box = document.getElementById('boot-progress-box');
   if (!box) {
     root.innerHTML = `<div class="screen"><div class="empty-state" id="boot-progress-box">
       <div class="icon">${iconSvg('mushaf', 24)}</div>
-      <h2>صدقة جارية</h2>
+      <h2>إسلامي</h2>
       <p id="boot-progress-label">${label}</p>
       <div style="margin:16px auto 0;width:min(280px,80%);height:6px;border-radius:999px;background:var(--color-surface-raised);overflow:hidden;border:1px solid var(--color-border)">
         <div id="boot-progress-bar" style="height:100%;width:${pct}%;background:var(--color-accent);transition:width 120ms ease-out"></div>
@@ -185,7 +211,7 @@ async function boot() {
   }
   state.bridge = await resolveBridge();
   const db = await state.bridge.dbHost();
-  registerWrite((sql, params) => db.write(sql, params));
+  registerWrite((sql, params, opts) => db.write(sql, params, opts));
   await loadState(db);
   // one-time v1 localStorage migration + reciter catalog sync (both idempotent)
   state.v1Migration = await maybeMigrateV1(db);

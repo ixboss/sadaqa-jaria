@@ -1,7 +1,7 @@
 // backup-validate.test.js — .sadaqa payload validator (formatVersion 1)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateBackup, SUPPORTED_FORMAT_VERSION, BACKUP_GROUPS } from '../engines/backup-validate.js';
+import { validateBackup, integrityMatches, sha256Hex, SUPPORTED_FORMAT_VERSION, BACKUP_GROUPS } from '../engines/backup-validate.js';
 
 const SHA = 'a'.repeat(64);
 const manifest = (over = {}) => ({
@@ -82,4 +82,65 @@ test('error list is accumulated, not fail-fast', () => {
   });
   assert.equal(r.ok, false);
   assert.ok(r.errors.length >= 2, `expected >=2 errors, got ${r.errors.length}`);
+});
+
+// ---------------------------------------------------------------------------
+// integrity (2026-11 finding): manifest.integrity was required and computed
+// at export but NEVER recomputed on import — a corrupted/tampered payload
+// imported cleanly. These cases pin the recompute-before-write contract.
+// ---------------------------------------------------------------------------
+
+/** Exporter-shaped payload: uuid-sorted groups, recursively sorted keys. */
+function exporterPayload() {
+  return {
+    reading: [{
+      uuid: VALID.uuid, type: 'bookmark', updatedAt: 1_700_000_000_000,
+      deleted: false, ayahNumber: null, createdAt: 1_700_000_000_000,
+      labelAr: null, lineNumber: 1, page: 42,
+    }],
+  };
+}
+
+test('integrity: digest over payload bytes matches a real export', async () => {
+  const payload = exporterPayload();
+  const m = manifest({ integrity: await sha256Hex(JSON.stringify(payload)) });
+  assert.equal(await integrityMatches(m, payload), true);
+});
+
+test('integrity: tampered payload value is refused', async () => {
+  const payload = exporterPayload();
+  const m = manifest({ integrity: await sha256Hex(JSON.stringify(payload)) });
+  const tampered = structuredClone(payload);
+  tampered.reading[0].page = 43; // one flipped field
+  assert.equal(await integrityMatches(m, tampered), false);
+});
+
+test('integrity: tampered payload addition is refused', async () => {
+  const payload = exporterPayload();
+  const m = manifest({ integrity: await sha256Hex(JSON.stringify(payload)) });
+  const tampered = structuredClone(payload);
+  tampered.reading.push({ ...payload.reading[0], uuid: '01935a10-7c3f-7abc-9d5e-3f2b1c4d5e70' });
+  assert.equal(await integrityMatches(m, tampered), false);
+});
+
+test('integrity: malformed/missing digest is refused', async () => {
+  const payload = exporterPayload();
+  for (const bad of [undefined, null, '', 'abc', 'Z'.repeat(64)]) {
+    assert.equal(await integrityMatches(manifest({ integrity: bad }), payload), false, `digest=${String(bad)}`);
+  }
+});
+
+test('integrity: non-object payload is refused', async () => {
+  assert.equal(await integrityMatches(manifest(), [1, 2]), false);
+  assert.equal(await integrityMatches(manifest(), null), false);
+});
+
+test('integrity: parity fixture sample-export verifies (golden bytes)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+  const fx = JSON.parse(readFileSync(join(root, 'tests', 'parity', 'fixtures', 'backup', 'sample-export.json'), 'utf8'));
+  assert.equal(await integrityMatches(fx.manifest, fx.payload), true);
+  assert.equal(fx.manifest.integrity, await sha256Hex(JSON.stringify(fx.payload)));
 });

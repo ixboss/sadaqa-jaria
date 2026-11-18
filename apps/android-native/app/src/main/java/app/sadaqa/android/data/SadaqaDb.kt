@@ -28,6 +28,31 @@ import java.io.File
 class SadaqaDb private constructor(val connection: SQLiteConnection) {
 
     companion object {
+        /** meta.schema_version baseline (schema.sql:42) — read on every open. */
+        const val SCHEMA_VERSION = 1
+
+        /**
+         * In-place migrations keyed on meta.schema_version. v1 is the seed
+         * baseline; a db written by a NEWER build is never touched (downgrade
+         * protection — audit 2026-11: the version was written but never read).
+         */
+        private fun migrate(conn: SQLiteConnection) {
+            var v = 0
+            conn.prepare("SELECT value FROM meta WHERE key = 'schema_version'").use { stmt ->
+                if (stmt.step()) v = runCatching { stmt.getText(0).trim().toDouble().toInt() }.getOrDefault(0)
+            }
+            if (v > SCHEMA_VERSION) {
+                println("[SadaqaDb] sadaqa.db schema_version $v is newer than this build ($SCHEMA_VERSION) — leaving the db untouched")
+                return
+            }
+            if (v < SCHEMA_VERSION) {
+                conn.prepare("UPDATE meta SET value = ? WHERE key = 'schema_version'").use {
+                    it.bindText(1, SCHEMA_VERSION.toString())
+                    it.step()
+                }
+            }
+        }
+
         /**
          * Open (copying the bundled seed on first run). `seedBytes` supplies
          * assets/sadaqa.db on Android; JVM tests pass the file bytes directly.
@@ -46,6 +71,7 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
             val conn = BundledSQLiteDriver().open(dbFile.absolutePath)
             conn.prepare("PRAGMA journal_mode = WAL").use { it.step() }
             conn.prepare("PRAGMA foreign_keys = ON").use { it.step() }
+            migrate(conn)
             return SadaqaDb(conn)
         }
 
@@ -559,6 +585,16 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         val verdict = BackupCodec.validateBackup(manifest, payload)
         require(verdict.ok) {
             "فشل التحقق: " + verdict.errors.take(3).joinToString(" · ")
+        }
+        // Recompute manifest.integrity over the payload bytes BEFORE any write
+        // (parity with packages/core-data/engines/backup-validate.js
+        // integrityMatches). Re-serialization reorders keys, so the digest is
+        // taken over CanonicalJson.serialize(payload) — byte-identical to what
+        // every exporter (web/Kotlin/Swift) hashed at export time.
+        val expectedDigest = manifest["integrity"].str
+        val actualDigest = Sha256.hex(CanonicalJson.serialize(payload))
+        require(expectedDigest != null && expectedDigest.equals(actualDigest, ignoreCase = true)) {
+            "فشل التحقق: manifest.integrity — البصمة لا تطابق محتوى الملف (تلف أو تلاعب)"
         }
         val remap = { uuid: String -> if (UUID7.isV7Shape(uuid)) uuid else UUID7.synthUuid7("row:$uuid", now) }
         val local = mutableMapOf(

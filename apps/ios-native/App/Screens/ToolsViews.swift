@@ -593,6 +593,16 @@ struct SettingsView: View {
                 }
                 .onChange(of: appState.hijriAdjust) { appState.setSetting("hijri_adjust", .number(Double($0))) }
             }
+            Section("عن التطبيق") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("إسلامي — مصحف كامل وأذكار ومواقيت وختمة تعمل دون اتصال، وبياناتك تبقى على جهازك.")
+                        .font(.system(size: 14))
+                    Text("هذا المشروع صدقة جارية وليّةً لله تعالى، مُهداة عن المطوّر ixboss ووالديه وأحبته جميعاً — فمن انتفع به فليدعُ لهم بالثواب والأجر.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(appState.theme.textSecondary)
+                }
+                .padding(.vertical, 2)
+            }
         }
         .navigationTitle("الإعدادات")
         .onAppear {

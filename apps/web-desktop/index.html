@@ -7,7 +7,7 @@
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#07110F">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>صدقة جارية — المصحف والأذكار والمواقيت</title>
+  <title>إسلامي — المصحف والأذكار والمواقيت</title>
   <link rel="icon" href="../../icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="../../icons/icon-192.png">
   <link rel="manifest" href="manifest.json">
@@ -48,6 +48,16 @@
         <span class="tab-lbl">الأدوات</span>
       </button>
     </nav>
+  </div>
+
+  <!-- شريط قسم المصحف الطافي (قراءتي · الفهرس · ختمتي · التلاوة): يظهر فوق
+       الـdock فقط في شاشات قسم المصحف الخارجة عن القارئ نفسه — سهولة وصول
+       بيد واحدة بدل الشريط العلوي البعيد. -->
+  <div class="mushaf-hub-dock" id="mushaf-hub-dock" role="navigation" aria-label="أقسام المصحف" hidden>
+    <button type="button" data-go="mushaf-page" aria-label="قراءتي"><span class="hub-ico" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.5A2.5 2.5 0 0 1 4.5 3H11v17H4.5A2.5 2.5 0 0 0 2 22V5.5Z"/><path d="M22 5.5A2.5 2.5 0 0 0 19.5 3H13v17h6.5a2.5 2.5 0 0 1 2.5 2V5.5Z"/></svg></span><span>قراءتي</span></button>
+    <button type="button" data-go="mushaf-surah-index" aria-label="الفهرس"><span class="hub-ico" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="14" y2="18"/></svg></span><span>الفهرس</span></button>
+    <button type="button" data-go="mushaf-khatmah" aria-label="ختمتي"><span class="hub-ico" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12.6A8 8 0 1 1 11.4 4a6.4 6.4 0 0 0 8.6 8.6z"/></svg></span><span>ختمتي</span></button>
+    <button type="button" data-go="mushaf-audio" aria-label="التلاوة"><span class="hub-ico" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></span><span>التلاوة</span></button>
   </div>
 
   <div class="miniplayer" id="miniplayer" role="region" aria-label="مشغل التلاوة"></div>

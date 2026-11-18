@@ -9,7 +9,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 const invoke = (channel, payload) => {
   // channel allowlist — nothing else is reachable from the renderer
   const OK = new Set([
-    'db:query', 'db:queryOne', 'db:write', 'db:batch', 'db:export',
+    'db:query', 'db:queryOne', 'db:write', 'db:batch',
     'audio:put', 'audio:get', 'audio:delete',
     'file:save', 'file:open', 'notify',
   ]);
@@ -28,14 +28,14 @@ contextBridge.exposeInMainWorld('sadaqaBridge', {
     shareFile: true,
   }),
 
-  /** Same db-host contract as the web adapter: { query, queryOne, write, batch, exportDb } */
+  /** Same db-host contract as the web adapter: { query, queryOne, write, batch }.
+   *  write forwards opts.engineReload — explicit settings-write flag (no SQL sniffing). */
   async dbHost() {
     return {
       query: (sql, params = []) => invoke('db:query', { sql, params }),
       queryOne: (sql, params = []) => invoke('db:queryOne', { sql, params }),
-      write: (sql, params = []) => invoke('db:write', { sql, params }),
+      write: (sql, params = [], opts = {}) => invoke('db:write', { sql, params, engineReload: opts?.engineReload === true }),
       batch: (stmts) => invoke('db:batch', { stmts }),
-      exportDb: () => invoke('db:export'),
     };
   },
 

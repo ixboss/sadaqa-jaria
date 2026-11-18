@@ -256,30 +256,6 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
     }
 
     Column(Modifier.fillMaxSize().background(theme.mushafBg)) {
-        // Segmented Mushaf Hub bar only shown outside full-screen reader mode
-        if (hubTab != "reader") {
-            Row(
-                Modifier.fillMaxWidth().background(theme.bg).padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                for ((k, label) in listOf("reader" to "المصحف", "reading" to "قراءاتي وختمتي", "index" to "الفهرس")) {
-                    val active = hubTab == k
-                    Text(
-                        label,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (active) theme.accentContrast else theme.textSecondary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(50))
-                            .background(if (active) theme.accent else theme.surface)
-                            .border(1.dp, if (active) theme.accent else theme.border, RoundedCornerShape(50))
-                            .clickable { hubTab = k }
-                            .padding(vertical = 8.dp),
-                    )
-                }
-            }
-        }
-
         when (hubTab) {
             "reader" -> {
                 val pagerState = rememberPagerState(initialPage = page - 1, pageCount = { 604 })
@@ -502,7 +478,7 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
             }
             "reading" -> {
                 Column(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                    Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     val plan = remember(bookmarks) {
@@ -546,7 +522,7 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
                 }
             }
             "index" -> {
-                Column(Modifier.fillMaxSize()) {
+                Column(Modifier.weight(1f)) {
                     TextField(
                         value = surahFilter,
                         onValueChange = { surahFilter = it },
@@ -608,6 +584,31 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
                         }
                         Spacer(Modifier.height(24.dp))
                     }
+                }
+            }
+        }
+
+        // Segmented Mushaf Hub bar — bottom thumb zone (sits above the app
+        // dock), hidden in full-screen reader mode where the HUD covers it
+        if (hubTab != "reader") {
+            Row(
+                Modifier.fillMaxWidth().background(theme.bg).padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                for ((k, label) in listOf("reader" to "المصحف", "reading" to "قراءاتي وختمتي", "index" to "الفهرس")) {
+                    val active = hubTab == k
+                    Text(
+                        label,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (active) theme.accentContrast else theme.textSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(50))
+                            .background(if (active) theme.accent else theme.surface)
+                            .border(1.dp, if (active) theme.accent else theme.border, RoundedCornerShape(50))
+                            .clickable { hubTab = k }
+                            .padding(vertical = 8.dp),
+                    )
                 }
             }
         }
@@ -1377,6 +1378,7 @@ fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
     var opts by remember { mutableStateOf(db.engineOptions()) }
     var cityName by remember { mutableStateOf(db.setting("location")?.get("name_ar")?.str ?: "مكة المكرمة") }
     var showCityPicker by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
     var method by remember { mutableStateOf(db.setting("calc_method")?.str ?: "umm_al_qura") }
 
     Column(
@@ -1429,7 +1431,37 @@ fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
         }
         Text("المذهب (العصر): ${if (opts.madhab == "hanafi") "الحنفي" else "الشافعي"} — بدّلها من ملف الإعدادات المتقدم", fontSize = 12.sp, color = theme.textSecondary)
         Text("تعديل الهجري: ${db.hijriAdjust()} (±٣) — يُطبَّق على العرض فقط", fontSize = 12.sp, color = theme.textSecondary)
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(theme.surface)
+                .border(1.dp, theme.border, RoundedCornerShape(12.dp))
+                .clickable { showAbout = true }.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("عن التطبيق", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary, modifier = Modifier.weight(1f))
+            Text("عرض", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.accent)
+        }
         Spacer(Modifier.height(24.dp))
+    }
+    if (showAbout) {
+        AlertDialog(
+            onDismissRequest = { showAbout = false },
+            containerColor = theme.surface,
+            title = { Text("عن التطبيق — إسلامي", color = theme.textPrimary, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("مصحف كامل وأذكار ومواقيت وختمة تعمل دون اتصال، وبياناتك تبقى على جهازك.", fontSize = 14.sp, color = theme.textPrimary, lineHeight = 22.sp)
+                    Text(
+                        "هذا المشروع صدقة جارية وليّةً لله تعالى، مُهداة عن المطوّر ixboss ووالديه وأحبته جميعاً — فمن انتفع به فليدعُ لهم بالثواب والأجر.",
+                        fontSize = 13.sp, color = theme.textSecondary, lineHeight = 21.sp,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showAbout = false }, colors = ButtonDefaults.buttonColors(containerColor = theme.accent, contentColor = theme.accentContrast)) {
+                    Text("حسناً")
+                }
+            },
+        )
     }
     if (showCityPicker) {
         CityPickerDialog(

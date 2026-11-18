@@ -11,7 +11,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const UNIT = ['unit-backup.mjs', 'unit-mushaf.mjs'];
+const UNIT = ['unit-backup.mjs', 'unit-dbguard.mjs', 'unit-mushaf.mjs', 'unit-v1engines.mjs'];
 // الاختبارات الشاملة: النواة أوفلاين + الأذكار + المصحف + التفسير + النسخ الاحتياطي …
 const E2E = [
   'e2e-offline-shell.mjs',

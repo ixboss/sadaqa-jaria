@@ -294,28 +294,40 @@ async function main() {
     ok('backup: payload passes the validator (all groups)', exportCheck.ok === true, JSON.stringify(exportCheck.errors ?? []));
     ok('backup: manifest.integrity = sha-256(payload)', exportCheck.integrityMatches === true, `${exportCheck.total} entities`);
 
-    // merge import: injected newer bookmark wins
+    // merge import: injected newer bookmark wins. The payload is mutated, so
+    // the digest must be recomputed over the mutated bytes (2026-11: the old
+    // test shipped integrity:'0'*64 and import STILL succeeded — proof the
+    // digest was never verified; now a tampered digest must be refused).
     const mergeRes = await evaljs(`(async () => {
-      const { buildExportPayload } = await import(new URL('./js/data/backup.js', location.href));
-      const { importBackup } = await import(new URL('./js/data/backup.js', location.href));
+      const { buildExportPayload, importBackup } = await import(new URL('./js/data/backup.js', location.href));
       const { manifest, payload } = await buildExportPayload(window.__sadaqa.db);
       const bmk = { uuid: '11111111-2222-7333-8444-555566667777', type: 'bookmark', updatedAt: Date.now() + 60000, page: 50, lineNumber: 3, labelAr: 'اختبار الدمج' };
       payload.reading = [bmk];
+      const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(payload)));
+      const hex = [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
       const before = (await window.__sadaqa.db.queryOne("SELECT COUNT(*) n FROM bookmarks")).n;
-      const res = await importBackup(window.__sadaqa.db, new TextEncoder().encode(JSON.stringify({ manifest: { ...manifest, integrity: '0'.repeat(64) }, payload })), 'merge');
+      // tampered digest must now be refused BEFORE any write
+      let refused = false;
+      try {
+        await importBackup(window.__sadaqa.db, new TextEncoder().encode(JSON.stringify({ manifest: { ...manifest, integrity: '0'.repeat(64) }, payload })), 'merge');
+      } catch (e) { refused = /integrity/.test(String(e.message)); }
+      const afterRefusal = (await window.__sadaqa.db.queryOne("SELECT COUNT(*) n FROM bookmarks")).n;
+      const res = await importBackup(window.__sadaqa.db, new TextEncoder().encode(JSON.stringify({ manifest: { ...manifest, integrity: hex }, payload })), 'merge');
       const after = (await window.__sadaqa.db.queryOne("SELECT COUNT(*) n FROM bookmarks")).n;
-      return { report: res.report, before, after, ok: after > before };
+      return { refused, untouched: afterRefusal === before, report: res.report, before, after, ok: after > before };
     })()`);
+    ok('backup: tampered integrity refused before any write', mergeRes.refused === true && mergeRes.untouched === true, JSON.stringify({ refused: mergeRes.refused, untouched: mergeRes.untouched }));
     ok('backup: Smart Merge adds incoming newer entity', mergeRes.ok === true, JSON.stringify(mergeRes.report));
 
     // replace import: wipes locals then inserts payload verbatim
     const replaceRes = await evaljs(`(async () => {
-      const { buildExportPayload } = await import(new URL('./js/data/backup.js', location.href));
-      const { importBackup } = await import(new URL('./js/data/backup.js', location.href));
+      const { buildExportPayload, importBackup } = await import(new URL('./js/data/backup.js', location.href));
       const { manifest, payload } = await buildExportPayload(window.__sadaqa.db);
       // strip the injected merge bookmark so counts are deterministic
       payload.reading = payload.reading.filter(e => e.type !== 'bookmark' || e.labelAr !== 'اختبار الدمج');
-      const res = await importBackup(window.__sadaqa.db, new TextEncoder().encode(JSON.stringify({ manifest: { ...manifest, integrity: '0'.repeat(64) }, payload })), 'replace');
+      const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(payload)));
+      const hex = [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
+      const res = await importBackup(window.__sadaqa.db, new TextEncoder().encode(JSON.stringify({ manifest: { ...manifest, integrity: hex }, payload })), 'replace');
       const bmk = (await window.__sadaqa.db.queryOne("SELECT COUNT(*) n FROM bookmarks")).n;
       const tas = (await window.__sadaqa.db.queryOne("SELECT COUNT(*) n FROM tasbih_counters")).n;
       return { report: res.report, bookmarks: bmk, tasbih: tas, payloadBookmarks: payload.reading.filter(e => e.type === 'bookmark').length, payloadTasbih: payload.dhikr.filter(e => e.type === 'tasbihCounter').length };

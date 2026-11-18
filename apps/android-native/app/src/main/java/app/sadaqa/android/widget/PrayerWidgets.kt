@@ -1,8 +1,10 @@
 // ============================================================================
 // PrayerWidgets.kt — Glance app widgets: prayer countdown + daily dhikr.
-// Data: SharedPreferences (WidgetStateBridge) + recomputation via the SAME
-// engine — offline, no db from the widget process. (Receivers must have a
-// no-arg constructor; the db is opened read-only against the app's copy.)
+// Data: SharedPreferences ("widget-state", published by the app process via
+// WidgetStateBridge) + recomputation via the SAME engine — offline, and the
+// widget process NEVER opens the app's SQLite db (2026-11 audit fix: opening
+// the app's WAL db from a separate process re-issued journal_mode=WAL while
+// the app held it; all cross-process data now flows through the prefs bridge).
 // ============================================================================
 
 package app.sadaqa.android.widget
@@ -27,19 +29,16 @@ import androidx.glance.layout.padding
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import app.sadaqa.android.data.SadaqaDb
 import app.sadaqa.android.engine.EngineOptions
 import app.sadaqa.android.engine.PrayerEngine
 import app.sadaqa.android.engine.PrayerName
-import java.io.File
 
 /** Reads the app-published widget state; recomputes next prayer offline. */
 object WidgetData {
-    private fun dbFile(context: Context): File = File(context.filesDir, "databases/sadaqa.db")
+    private fun prefs(context: Context) = context.getSharedPreferences("widget-state", Context.MODE_PRIVATE)
 
     private fun readState(context: Context): Triple<Double, Double, String>? {
-        val prefs = context.getSharedPreferences("widget-state", Context.MODE_PRIVATE)
-        val loc = prefs.getString("location", null) ?: return null
+        val loc = prefs(context).getString("location", null) ?: return null
         val parts = loc.split(";")
         if (parts.size < 3) return null
         return Triple(parts[0].toDoubleOrNull() ?: return null, parts[1].toDoubleOrNull() ?: return null, parts[2])
@@ -54,18 +53,9 @@ object WidgetData {
         return Triple(next.name, next.at, tz)
     }
 
-    fun dailyDhikr(context: Context): String {
-        // deterministic daily pick: first morning-window item (web parity)
-        return runCatching {
-            val db = SadaqaDb.open(dbFile(context))
-            val row = db.queryOne(
-                "SELECT text_ar FROM athkar_items WHERE category_id = (SELECT category_id FROM athkar_categories WHERE solar_window = ? LIMIT 1) ORDER BY sort_order LIMIT 1",
-                listOf("fajr"),
-            )
-            db.close()
-            row?.strings?.get("text_ar") ?: ""
-        }.getOrDefault("")
-    }
+    /** App-published daily dhikr pick (empty until the app first publishes). */
+    fun dailyDhikr(context: Context): String =
+        prefs(context).getString("dhikr", null) ?: ""
 }
 
 // ---------------------------------------------------------------------------

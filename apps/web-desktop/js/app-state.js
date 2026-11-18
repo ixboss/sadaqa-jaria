@@ -43,14 +43,15 @@ export async function loadState(db) {
 export async function saveSetting(key, value) {
   state.settings[key] = value;
   return callWrite(`INSERT INTO user_settings (key, value, updated_at) VALUES (?, ?, ?)
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`, [key, JSON.stringify(value), Date.now()]);
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+    [key, JSON.stringify(value), Date.now()], { engineReload: true });
 }
 
 let _write = null;
 export function registerWrite(fn) { _write = fn; }
-async function callWrite(sql, params) {
+async function callWrite(sql, params, opts) {
   if (!_write) throw new Error('db write channel not registered');
-  return _write(sql, params);
+  return _write(sql, params, opts);
 }
 
 export async function saveProgress(page, line = 1) {

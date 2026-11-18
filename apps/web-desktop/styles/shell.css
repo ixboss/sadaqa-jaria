@@ -212,6 +212,13 @@ body.chrome-hidden .glass-dock {
 }
 
 /* ---- screens ------------------------------------------------------------- */
+/* انتقال ناعم عند تبديل الأقسام — compositor-only، ويُعطَّل مع تقليل الحركة */
+@keyframes route-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.route-enter { animation: route-in 220ms var(--ease-standard) both; }
+
 .screen-header {
   padding: calc(14px + env(safe-area-inset-top, 0px)) 20px 12px;
   position: sticky;
@@ -274,4 +281,5 @@ body.chrome-hidden .glass-dock {
 
 @media (prefers-reduced-motion: reduce) {
   .glass-dock, .glass-tabbar, .tab-btn, .btn { transition-duration: 1ms; }
+  .route-enter { animation-duration: 1ms; }
 }

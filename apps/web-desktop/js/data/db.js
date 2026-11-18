@@ -54,9 +54,10 @@ const api = {
   query: (sql, params = []) => call('query', { sql, params }),
   /** first row or null */
   queryOne: (sql, params = []) => call('queryOne', { sql, params }),
-  /** prepared write (INSERT/UPDATE/DELETE) via bind+step in the worker */
-  write: (sql, params = []) => call('write', { sql, params }),
+  /** prepared write (INSERT/UPDATE/DELETE) via bind+step in the worker.
+   *  opts.engineReload: explicit flag — the Electron main process reloads its
+   *  tray/adhan engine on settings writes (no string sniffing of the SQL). */
+  write: (sql, params = [], opts = {}) => call('write', { sql, params, engineReload: opts?.engineReload === true }),
   /** atomic multi-write in one transaction: batch({ stmts: [{sql, params}] }) */
   batch: (stmts) => call('batch', { params: { stmts } }),
-  exportDb: () => call('export'),
 };

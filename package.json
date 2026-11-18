@@ -37,6 +37,7 @@
     "db:build": "node packages/core-data/tools/build-db.mjs",
     "db:verify": "node packages/core-data/tools/verify-db.mjs",
     "tokens": "node scripts/tools/gen-tokens.mjs",
+    "engines:bundle": "node scripts/tools/build-engines-bundle.mjs",
     "parity:gen": "node scripts/tools/gen-parity-fixtures.mjs",
     "parity:verify": "node tests/parity/verify-parity.mjs",
     "native:sync": "node scripts/tools/gen-parity-fixtures.mjs && node scripts/tools/sync-native-assets.mjs",

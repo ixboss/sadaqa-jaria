@@ -27,6 +27,26 @@ if ('serviceWorker' in navigator) {
     location.reload();
   });
 
+  // العامل الجديد (v57): يُبلِغ عن إخفاق التخزين المسبق بعد تفعيله — بطاقة
+  // زجاجية صامتة غير مزعجة، تُخفى بالنقر (وضع الأوفلاين مثبَّت جزئياً).
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'PRECACHE_INCOMPLETE' && Array.isArray(event.data.urls)) {
+      showPrecacheToast(event.data.urls.length);
+    }
+  });
+
+  function showPrecacheToast(count) {
+    if (!count || document.getElementById('sw-precache-toast')) return;
+    const el = document.createElement('div');
+    el.id = 'sw-precache-toast';
+    el.setAttribute('role', 'status');
+    el.innerHTML = '<span class="sw-upd-msg">تم تثبيت وضع الأوفلاين جزئياً — افتح التطبيق مع اتصال لإكماله</span>';
+    el.addEventListener('click', () => el.remove());
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('visible'));
+    setTimeout(() => el.remove(), 12000);
+  }
+
   // بطاقة التحديث: زجاجية، غير مزعجة، تظهر أعلى شريط التنقل
   function showUpdateToast(worker) {
     if (document.getElementById('sw-update-toast') || sessionStorage.getItem(DISMISS_KEY)) return;

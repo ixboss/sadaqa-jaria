@@ -195,6 +195,28 @@ final class BackupCodecParityTests: XCTestCase {
         XCTAssertEqual(counts["prefs"], 2, "prefs entity count")
         XCTAssertEqual(counts["meta"], 2, "meta entity count")
     }
+
+    func testTamperedPayloadFailsIntegrityCheck() throws {
+        // integrity recompute (2026-11 finding): the digest is recomputed over
+        // canonical payload bytes on import; a structurally-valid payload whose
+        // bytes changed after export must NOT hash to manifest.integrity.
+        let fx = try FixtureLoader.read("backup/sample-export.json")
+        let manifest = fx["manifest"]
+        let payload = try JSONValue.parse(fx["payloadJson"]!.stringValue!)
+        XCTAssertEqual(
+            BackupCodec.integrityOf(payloadJson: CanonicalJSON.serialize(payload)),
+            manifest!["integrity"]!.stringValue!,
+            "golden bytes verify")
+        let tampered = try JSONValue.parse(
+            fx["payloadJson"]!.stringValue!.replacingOccurrences(of: "\"page\":303", with: "\"page\":304"))
+        XCTAssertNotEqual(
+            BackupCodec.integrityOf(payloadJson: CanonicalJSON.serialize(tampered)),
+            manifest!["integrity"]!.stringValue!,
+            "one flipped field must change the digest")
+        XCTAssertTrue(
+            BackupCodec.validateBackup(manifest: manifest, payload: tampered).ok,
+            "the validator alone accepts the tampered shape — the digest check is the guard")
+    }
 }
 
 // ---------------------------------------------------------------------------

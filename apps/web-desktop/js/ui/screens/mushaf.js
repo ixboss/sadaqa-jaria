@@ -274,12 +274,13 @@ function fitLines(plate) {
   if (!plate.isConnected) return;
   const rect = plate.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) { requestAnimationFrame(() => fitLines(plate)); return; }
-  // mushaf_scale (Reader Appearance AA) scales the base fit; the slot-height
-  // cap keeps a scaled-up font inside its 1fr row (width handled per-line below)
+  // mushaf_scale (Reader Appearance AA + Settings slider) scales the base fit;
+  // the slot-height cap keeps a scaled-up font inside its 1fr row (width
+  // handled per-line below). 0.84/10.8 fill the plate fuller without clipping.
   const scale = Math.min(Math.max(Number(state.settings.mushaf_scale ?? 1) || 1, 0.8), 2);
   const slotH = rect.height / 15;
-  const base = Math.min(slotH * 0.80, rect.width / 11.5);
-  const plateSize = Math.max(13, Math.min(base * scale, slotH * 0.92));
+  const base = Math.min(slotH * 0.84, rect.width / 10.8);
+  const plateSize = Math.max(14, Math.min(base * scale, slotH * 0.92));
   plate.style.setProperty('--plate-font-size', `${plateSize.toFixed(1)}px`);
 
   const textLines = [...plate.querySelectorAll('.kind-text, .kind-bismillah')];

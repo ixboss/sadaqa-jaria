@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Sadaqa Jaria v2 · Monorepo Architecture & Platform Contracts
 
-> Status: **Phase 1 deliverable** (v1.0, 2026-11-17) · Companion: [`docs/REA_SPEC.md`](REA_SPEC.md) · [`packages/core-data/schema.sql`](../packages/core-data/schema.sql) · [`TASK_PLAN.md`](../TASK_PLAN.md)
+> Status: **Phase 1 deliverable** (v1.0, 2026-11-17) · Companion: [`docs/REA_SPEC.md`](REA_SPEC.md) · [`packages/core-data/schema.sql`](../packages/core-data/schema.sql) · [`TASK_PLAN-v2.md`](archive/TASK_PLAN-v2.md) (archived)
 
 ---
 
@@ -57,7 +57,7 @@ sadaqa-jaria/
 ├── docs/
 │   ├── REA_SPEC.md · ARCHITECTURE.md · QURAN_LAYOUT.md · ADHKAR_DESIGN.md · archive/
 ├── tests/                           # migrated v1 harness (e2e + probes + unit)
-├── TASK_PLAN.md
+├── docs/archive/TASK_PLAN-v2.md (archived phase tracker)
 ├── index.html                       # v1 PWA (frozen until cutover, see §10)
 └── sw.js
 ```

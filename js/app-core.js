@@ -328,7 +328,15 @@ function loadState() {
   state.currentScreen = 'surah-list';
   state.mushafMode = null;
 }
-function saveState() { try { localStorage.setItem('app_state', JSON.stringify(state)); checkBookmarkFAB(); } catch(e) {} }
+// بيانات السورة الكاملة (currentSurahData: كل آياتها + أشكال الكلمات) حقل
+// جلسة فقط — تسلسلها مع كل حفظ كان ينفخ app_state بعدة ميغابايتات
+// (2026-11 audit). تُستبعد من التخزين وتُعاد جلبها عند الإقلاع.
+function saveState() {
+  try {
+    localStorage.setItem('app_state', JSON.stringify(state, (k, v) => (k === 'currentSurahData' ? undefined : v)));
+    checkBookmarkFAB();
+  } catch(e) {}
+}
 
 function applyTheme(th) {
   state.theme = th;
@@ -1239,10 +1247,13 @@ function fitMushafPageToViewport() {
   const isLandscape = pageW > pageH * 1.15;
 
   // الصفحتان الاستفتاحيتان (الفاتحة ١ وأول البقرة ٢) قصيرتان بطبيعتهما (٧-٨ أسطر)
+  // والملاءمة التلقائية تحترم اختيار المستخدم (--mushaf-scale) بدل تجاهله
+  const userScale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mushaf-scale')) || 1;
   if (curPageNum <= 2) {
     let fSize = isLandscape
       ? Math.min(24, Math.max(14, Math.round(pageH * 0.062 * 10) / 10))
       : Math.min(31, Math.max(21, Math.round(textW * 0.075 * 10) / 10));
+    fSize *= userScale;
     let lh = isLandscape ? 1.65 : 2.12;
     page.style.setProperty('--mushaf-fit-size', fSize + 'px');
     page.style.setProperty('--mushaf-fit-lh', String(lh));
@@ -1277,7 +1288,10 @@ function fitMushafPageToViewport() {
       break;
     }
   }
-  page.style.setProperty('--mushaf-fit-size', bestF + 'px');
+  // احترام اختيار المستخدم من إعدادات الخط (--mushaf-scale): القياس التلقائي
+  // وحده كان يتجاهله فيمس الخط لا يتغيّر على صفحة المصحف — حلّ تقليص السطر
+  // التالي يمتصّ أي فيض بسيط بعد التكبير
+  page.style.setProperty('--mushaf-fit-size', (bestF * userScale) + 'px');
 
   let lh = baseLh;
   let shrinkGuard = 0;

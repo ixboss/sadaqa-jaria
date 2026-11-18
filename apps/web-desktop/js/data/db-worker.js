@@ -7,8 +7,12 @@
 // All SQL is prepared + bound (never concatenated); writes go through
 // prepare/bind/step (no dynamic string execution).
 // Boot guardrail: refuses to serve if the wasm build lacks FTS5 (ARCH §5.1).
+// Boot safety (db-guard.js): a transient verify error NEVER triggers a seed
+// re-import (that silently wiped user data — pre-2026-11 bug); only provable
+// corruption reseeds, and only after stashing a recoverable .corrupt-bak copy.
 // ============================================================================
 import sqlite3Init from '../../vendor/sqlite-wasm/index.mjs';
+import { planBoot, migrate, SCHEMA_VERSION } from './db-guard.js';
 
 let db = null;
 let pool = null;
@@ -58,15 +62,32 @@ async function fetchDbBytes(url) {
   return out;
 }
 
-function verifyDbSchema(candidate) {
+async function fetchSeed() {
+  return fetchDbBytes(new URL(DB_SOURCE, import.meta.url).href);
+}
+
+/**
+ * Provably-corrupt db path (planBoot action 'reseed'): stash ONE recoverable
+ * copy of the old bytes in the pool before any overwrite, then re-import the
+ * seed. Never wipes without the backup attempt succeeding — if the stash
+ * fails we keep the corrupt db untouched and surface the error instead.
+ */
+async function reseedWithBackup(reason) {
+  let backupName = null;
   try {
-    const r = candidate.selectObjects("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name IN ('ayahs','cities','athkar_categories')");
-    if ((r?.[0]?.n ?? 0) < 3) return false;
-    const a = candidate.selectObjects('SELECT COUNT(*) AS n FROM ayahs');
-    return (a?.[0]?.n ?? 0) >= 6236;
-  } catch {
-    return false;
+    const old = pool.exportFile(DB_NAME);
+    backupName = `${DB_NAME}.corrupt-bak`;
+    try { pool.unlink(backupName); } catch { /* first backup — nothing to drop */ }
+    await pool.importDb(backupName, old);
+  } catch (e) {
+    console.error(`[db-worker] ${reason}: refusing to overwrite — could not stash a backup of the old db:`, e?.message ?? e);
+    throw new Error(`db reseed aborted (backup failed): ${reason}`);
   }
+  console.warn(`[db-worker] ${reason}: re-seeding (old db preserved at ${backupName})`);
+  const bytes = await fetchSeed();
+  emitProgress('importing', bytes.byteLength, bytes.byteLength);
+  await pool.importDb(DB_NAME, bytes);
+  return backupName;
 }
 
 async function init() {
@@ -79,6 +100,8 @@ async function init() {
   const dbUrl = new URL(DB_SOURCE, import.meta.url).href;
   let bytes = null;
   let existed = false;
+  let schemaVersion = null;
+  let schemaRefused = false;
 
   // Tier 1: opfs-sahpool (persistent offline storage without COOP/COEP)
   try {
@@ -86,20 +109,36 @@ async function init() {
     existed = pool.getCapacity() > 0 && pool.getFileNames().includes(DB_NAME);
     if (existed) {
       db = new pool.OpfsSAHPoolDb(DB_NAME);
-      if (!verifyDbSchema(db)) {
+      const plan = planBoot(db);
+      schemaVersion = plan.version;
+      if (plan.action === 'reseed') {
         try { db.close(); } catch { /* ignore */ }
         db = null;
-        existed = false;
+        await reseedWithBackup(plan.reason);
+        db = new pool.OpfsSAHPoolDb(DB_NAME);
+        schemaVersion = SCHEMA_VERSION;
+      } else if (plan.action === 'refuse') {
+        // db written by a NEWER app version — keep bytes, refuse to serve
+        try { db.close(); } catch { /* ignore */ }
+        db = null;
+        schemaRefused = true;
+        throw new Error(`sadaqa.db schema_version ${plan.version} is newer than this build (${SCHEMA_VERSION}) — update the app (data left untouched)`);
+      } else {
+        const mig = migrate(db);
+        if (mig.applied.length > 0) console.info('[db-worker] migrations applied:', mig.applied.join('; '));
+        schemaVersion = mig.to;
       }
     }
-    if (!existed) {
+    if (!db) {
       bytes = await fetchDbBytes(dbUrl);
       emitProgress('importing', bytes.byteLength, bytes.byteLength);
       await pool.importDb(DB_NAME, bytes);
       db = new pool.OpfsSAHPoolDb(DB_NAME);
+      schemaVersion = SCHEMA_VERSION;
     }
     backendMode = 'opfs-sahpool';
   } catch (opfsErr) {
+    if (schemaRefused) throw opfsErr; // upgrade-required is fatal, not a fallback case
     console.warn('[db-worker] opfs-sahpool unavailable, falling back to in-memory sqlite:', opfsErr?.message ?? opfsErr);
     if (db) { try { db.close(); } catch { /* ignore */ } db = null; }
     pool = null;
@@ -117,6 +156,7 @@ async function init() {
     existed,
     mode: backendMode,
     fts5: true,
+    schemaVersion,
     capacity: pool?.getCapacity?.() ?? 0,
     version: sqlite3.capi.sqlite3_libversion(),
   };
