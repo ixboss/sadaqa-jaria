@@ -251,6 +251,9 @@ class BoundPrayerEngine(val opts: EngineOptions) {
     fun next(now: Long) = PrayerEngine.next(now, opts)
 }
 
-/** Unresolvable prayer times throw — golden behavior (never silent epoch-0). */
+/** Unresolvable prayer times throw — golden behavior (never silent epoch-0).
+ *  adhan-java TimeComponents.dateComponents() leaves Calendar.MILLISECOND at the
+ *  runtime clock's sub-second offset; floor to whole seconds for 0 ms parity. */
 private fun Date?.requireTime(name: String): Long =
-    this?.time ?: throw IllegalArgumentException("adhan could not resolve prayer time: $name (check lat/lng + high-latitude rule)")
+    this?.let { java.lang.Math.floorDiv(it.time, 1000L) * 1000L }
+        ?: throw IllegalArgumentException("adhan could not resolve prayer time: $name (check lat/lng + high-latitude rule)")

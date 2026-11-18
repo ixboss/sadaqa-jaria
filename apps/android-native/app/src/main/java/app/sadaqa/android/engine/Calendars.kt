@@ -32,7 +32,11 @@ object HijriEngine {
     /** Hijri → Gregorian "YYYY-MM-DD" (throws on nonexistent dates, like the web). */
     fun fromHijri(h: HijriDate): String {
         require(h.m in 1..12 && h.d in 1..30) { "invalid hijri date: ${h.y}-${h.m}-${h.d}" }
-        val hd = HijrahChronology.INSTANCE.date(h.y, h.m, h.d) // throws HijrahDateTimeException if absent
+        val hd = try {
+            HijrahChronology.INSTANCE.date(h.y, h.m, h.d) // throws DateTimeException if absent
+        } catch (e: java.time.DateTimeException) {
+            throw IllegalArgumentException(e.message ?: "invalid hijri date: ${h.y}-${h.m}-${h.d}", e)
+        }
         val g = LocalDate.from(hd)
         return "%04d-%02d-%02d".format(g.year, g.monthValue, g.dayOfMonth)
     }

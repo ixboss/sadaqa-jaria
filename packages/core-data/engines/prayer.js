@@ -163,8 +163,10 @@ export function computeForDate({ y, mo, d }, { lat, lng, timeZone, ...cfg } = {}
   const times = {};
   for (const name of PRAYER_NAMES) {
     // adhan's output Dates are true UTC instants (see header contract); the
-    // local-noon anchor guarantees the civil date was the city's.
-    times[name] = pt.timeForPrayer(name).getTime();
+    // local-noon anchor guarantees the civil date was the city's. Floor to
+    // whole seconds because adhan-js DateUtils.roundedMinute leaves sub-second
+    // 1000/7 ms fractions on seventh_of_the_night whereas Adhan-Swift/Java do not.
+    times[name] = Math.floor(pt.timeForPrayer(name).getTime() / 1000) * 1000;
   }
   return { times };
 }
@@ -245,8 +247,8 @@ export function sunnahWindows(dateIso, opts) {
   const params = buildParams(opts);
   const pt = new PrayerTimes(coords, localNoonAnchor(y, mo - 1, d), params);
   const st = new SunnahTimes(pt); // night math uses next-day fajr internally
-  const sunriseI = pt.sunrise.getTime();
-  const maghribI = pt.maghrib.getTime();
+  const sunriseI = Math.floor(pt.sunrise.getTime() / 1000) * 1000;
+  const maghribI = Math.floor(pt.maghrib.getTime() / 1000) * 1000;
   // next day's fajr as the night's end anchor (same math as SunnahTimes uses)
   const nextDay = new Date(Date.UTC(y, mo - 1, d + 1));
   const { y: ny, mo: nmo, d: nd } = civilParts(nextDay, 'UTC');
