@@ -38,4 +38,5 @@ linux:
     - AppImage
     - deb
   category: Utility
+  maintainer: ixboss <ixboss@users.noreply.github.com>
   artifactName: SadaqaJaria-${version}-${arch}.${ext}
