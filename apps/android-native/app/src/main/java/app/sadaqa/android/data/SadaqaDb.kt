@@ -152,6 +152,19 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         return nextCount
     }
 
+    fun ensureDefaultTasbihPresets(now: Long = System.currentTimeMillis()) {
+        if (query("SELECT uuid FROM tasbih_counters WHERE deleted = 0").isEmpty()) {
+            transaction {
+                for ((i, preset) in listOf(Pair("سبحان الله", 33), Pair("الحمد لله", 33), Pair("الله أكبر", 34)).withIndex()) {
+                    execute(
+                        "INSERT OR IGNORE INTO tasbih_counters (uuid, label_ar, dhikr_text, target, count, total_lifetime, sort_order, updated_at, deleted) VALUES (?, ?, ?, ?, 0, 0, ?, ?, 0)",
+                        listOf(UUID7.uuid7(now), preset.first, preset.first, preset.second.toLong(), i.toLong(), now),
+                    )
+                }
+            }
+        }
+    }
+
     fun recordTasbihTap(
         counterUuid: String,
         target: Int?,

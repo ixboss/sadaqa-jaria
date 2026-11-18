@@ -239,10 +239,8 @@ public enum BackupCodec {
                 for e in entities {
                     let uuid = e["uuid"]?.stringValue ?? ""
                     guard let existing = localMap?[uuid] else {
-                        mutations.addOrInsert: do {
-                            mutations.append(Mutation(group: group, uuid: uuid, entity: e, action: "insert"))
-                            report.added += 1
-                        }
+                        mutations.append(Mutation(group: group, uuid: uuid, entity: e, action: "insert"))
+                        report.added += 1
                         continue
                     }
                     if CanonicalJSON.serialize(existing) == CanonicalJSON.serialize(e) {

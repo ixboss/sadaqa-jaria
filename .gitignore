@@ -256,6 +256,9 @@ packages/core-data/seed/*
 # (Negations target the excluded paths directly — parents are not excluded.)
 # vendored adhan@4.4.6 — engines import it, SW precaches it:
 !packages/core-data/vendor/
+# vendored @sqlite.org/sqlite-wasm — web-desktop db-worker + SW precache + GitHub Pages need it:
+!apps/web-desktop/vendor/
+!apps/web-desktop/vendor/sqlite-wasm/
 # Electron shell manifest + authoritative lockfile for the desktop dependency tree:
 !apps/electron/package.json
 !apps/electron/package-lock.json

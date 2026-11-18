@@ -65,4 +65,26 @@ function rewriteTree(dir) {
 }
 rewriteTree(OUT);
 
-console.log(`✔ Staged GitHub Pages v2 PWA in ${OUT}`);
+// 5. Verify every SW SHELL entry and critical runtime asset actually exists in OUT
+const requiredAssets = [
+  'vendor/sqlite-wasm/index.mjs',
+  'vendor/sqlite-wasm/sqlite3.wasm',
+  'packages/core-data/build/sadaqa.db',
+  'packages/design-tokens/tokens.css',
+  'assets/fonts/uthmanic/UthmanicHafs1Ver18.woff2',
+  'assets/audio/catalog.json',
+  'icons/icon-192.png',
+];
+const swSrc = readFileSync(join(OUT, 'sw.js'), 'utf8');
+const shellMatch = swSrc.match(/const SHELL = \[([\s\S]*?)\];/);
+if (shellMatch) {
+  for (const m of shellMatch[1].matchAll(/'([^']+)'/g)) {
+    requiredAssets.push(m[1]);
+  }
+}
+const missing = [...new Set(requiredAssets)].filter((rel) => !existsSync(join(OUT, rel)));
+if (missing.length > 0) {
+  throw new Error(`dist/pages is missing required runtime/SW assets:\n  - ${missing.join('\n  - ')}`);
+}
+
+console.log(`✔ Staged GitHub Pages v2 PWA in ${OUT} (${new Set(requiredAssets).size} assets verified)`);
