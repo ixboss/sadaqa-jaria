@@ -426,12 +426,12 @@ final class DatabaseWritePathTests: XCTestCase {
         let day = "2026-11-18"
         let now: Int64 = 1_794_988_800_000
         let rows = try db.queue.read { q in
-            try Row.fetchAll(q, sql: "SELECT id, category_id, target FROM adhkar_items WHERE target > 0 LIMIT 1")
+            try Row.fetchAll(q, sql: "SELECT item_id, category_id, count_target FROM athkar_items WHERE count_target > 0 LIMIT 1")
         }
         let item = try XCTUnwrap(rows.first)
-        let itemId: Int64 = item["id"]
-        let catId: Int64 = item["category_id"]
-        let target: Int = item["target"]
+        let itemId: String = item["item_id"]
+        let catId: String = item["category_id"]
+        let target: Int = item["count_target"]
 
         var count = 0
         for step in 0..<target {
@@ -473,9 +473,9 @@ final class DatabaseWritePathTests: XCTestCase {
             XCTAssertEqual(try Int.fetchOne(q, sql: "SELECT COUNT(*) FROM streak_days WHERE kind = 'tasbih' AND day_key = ?", arguments: [day]), 1)
         }
 
-        let added = try db.toggleBookmark(page: 1, lineNumber: nil, ayahNumber: nil, labelAr: "الفاتحة", now: now + 20)
+        let added = try db.toggleBookmark(page: 1, lineNumber: 1, ayahNumber: nil, labelAr: "الفاتحة", now: now + 20)
         XCTAssertTrue(added)
-        let removed = try db.toggleBookmark(page: 1, lineNumber: nil, ayahNumber: nil, labelAr: "الفاتحة", now: now + 30)
+        let removed = try db.toggleBookmark(page: 1, lineNumber: 1, ayahNumber: nil, labelAr: "الفاتحة", now: now + 30)
         XCTAssertFalse(removed)
     }
 }

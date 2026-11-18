@@ -472,10 +472,10 @@ class DatabaseWritePathTest {
             val now = 1_794_988_800_000L
             val day = "2026-11-18"
 
-            val item = db.queryOne("SELECT id, category_id, target FROM adhkar_items WHERE target > 0 LIMIT 1")!!
-            val itemId = item.longs["id"]!!
-            val catId = item.longs["category_id"]!!
-            val target = item.longs["target"]!!.toInt()
+            val item = db.queryOne("SELECT item_id, category_id, count_target FROM athkar_items WHERE count_target > 0 LIMIT 1")!!
+            val itemId = item.strings["item_id"]!!
+            val catId = item.strings["category_id"]!!
+            val target = item.longs["count_target"]!!.toInt()
 
             var cur = 0
             for (step in 0 until target) {
@@ -491,8 +491,8 @@ class DatabaseWritePathTest {
             assertEquals(1L, db.queryOne("SELECT count FROM tasbih_counters WHERE uuid = ?", listOf(counterUuid))?.longs?.get("count"))
             assertEquals(1L, db.queryOne("SELECT COUNT(*) AS n FROM streak_days WHERE kind = 'tasbih' AND day_key = ?", listOf(day))?.longs?.get("n"))
 
-            assertTrue(db.toggleBookmark(1, null, null, "الفاتحة", now + 20L))
-            assertTrue(!db.toggleBookmark(1, null, null, "الفاتحة", now + 30L))
+            assertTrue(db.toggleBookmark(1, 1, null, "الفاتحة", now + 20L))
+            assertTrue(!db.toggleBookmark(1, 1, null, "الفاتحة", now + 30L))
         } finally {
             db.close()
         }
