@@ -494,15 +494,15 @@ final class DatabaseWritePathTests: XCTestCase {
         XCTAssertEqual(opts.lng, zagazig.lng, accuracy: 1e-4)
 
         let sched = try PrayerEngine.daySchedule("2026-11-18", opts)
-        XCTAssertLessThan(sched.times[.fajr]!, sched.times[.dhuhr]!)
-        XCTAssertLessThan(sched.times[.dhuhr]!, sched.times[.isha]!)
+        XCTAssertLessThan(sched.prayers[.fajr]!, sched.prayers[.dhuhr]!)
+        XCTAssertLessThan(sched.prayers[.dhuhr]!, sched.prayers[.isha]!)
 
-        let next = try PrayerEngine.next(sched.times[.isha]! + 60_000, opts)
+        let next = try PrayerEngine.next(sched.prayers[.isha]! + 60_000, opts)
         XCTAssertEqual(next.name, .fajr)
 
         let engine = PrayerEngine.bind(opts)
-        let card = SmartCardResolver.resolve(now: sched.times[.dhuhr]! + 2 * 60 * 60_000, engine: engine)
-        if card.kind == .nextPrayer {
+        let card = SmartCardResolver.resolve(now: sched.prayers[.dhuhr]! + 2 * 60 * 60_000, engine: engine)
+        if card.kind == .next_prayer {
             XCTAssertEqual(card.actionLabel, "التقويم الهجري")
             XCTAssertEqual(card.actionScreen, "tools-hijri")
         }
