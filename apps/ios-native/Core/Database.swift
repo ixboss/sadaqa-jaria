@@ -31,8 +31,12 @@ public final class SadaqaDatabase: @unchecked Sendable {
             return try open()
         } catch {
             // Never crash on launch even if bundle or filesystem fails; surface loadError safely.
-            let memQueue = (try? DatabaseQueue()) ?? DatabaseQueue()
-            return SadaqaDatabase(queue: memQueue, loadError: error.localizedDescription)
+            do {
+                let memQueue = try DatabaseQueue()
+                return SadaqaDatabase(queue: memQueue, loadError: error.localizedDescription)
+            } catch {
+                fatalError("Failed to open in-memory fallback database: \(error)")
+            }
         }
     }
 
