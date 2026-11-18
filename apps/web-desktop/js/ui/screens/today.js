@@ -41,18 +41,69 @@ async function resolveAdhkarCategory(db, kind) {
   return null;
 }
 
+export async function findNearestCity(db, lat, lng) {
+  const cosLat2 = Math.pow(Math.cos((lat * Math.PI) / 180), 2);
+  return db.queryOne(
+    `SELECT city_id, name_ar, country_ar, lat, lng, timezone
+     FROM cities
+     ORDER BY ((lat - ?) * (lat - ?)) + ((lng - ?) * (lng - ?) * ?) ASC
+     LIMIT 1`,
+    [lat, lat, lng, lng, cosLat2],
+  );
+}
+
+export async function searchCitiesOffline(db, rawQuery) {
+  const q = String(rawQuery ?? '').trim();
+  if (q.length < 2) {
+    return db.query(
+      `SELECT city_id, name_ar, country_ar, lat, lng, timezone
+       FROM cities
+       WHERE is_preseed = 1
+       ORDER BY CASE WHEN country_en IN ('Egypt','Saudi Arabia','United Arab Emirates','Kuwait','Qatar','Jordan','Oman','Bahrain') THEN 0 ELSE 1 END,
+                population DESC
+       LIMIT 40`,
+    );
+  }
+  const { ftsQuery } = await import('../../../../../packages/core-data/engines/search.js');
+  let rows = [];
+  const fts = ftsQuery(q);
+  if (fts) {
+    rows = await db.query(
+      `SELECT c.city_id, c.name_ar, c.country_ar, c.lat, c.lng, c.timezone FROM cities c
+       WHERE c.rowid IN (SELECT rowid FROM fts_cities WHERE fts_cities MATCH ?)
+       ORDER BY c.population DESC LIMIT 16`,
+      [fts],
+    );
+  }
+  if (rows.length === 0) {
+    const like = `%${q}%`;
+    rows = await db.query(
+      `SELECT city_id, name_ar, country_ar, lat, lng, timezone FROM cities
+       WHERE name_ar LIKE ? OR name_en LIKE ?
+       ORDER BY population DESC LIMIT 16`,
+      [like, like],
+    );
+  }
+  return rows;
+}
+
 export function renderToday(root) {
   const engine = prayerEngineForSettings();
   const tz = engine.opts.timeZone;
   const now = nowMs();
   const next = engine.next(now);
   const dateIso = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now);
+  const nextIso = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(next.at);
   const day = engine.daySchedule(dateIso);
-  const windows = engine.sunnahWindows(dateIso);
+  const qiyamIso = now < day.prayers.fajr
+    ? new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now - 86_400_000)
+    : dateIso;
+  const windows = engine.sunnahWindows(qiyamIso);
   const locName = state.settings.location?.name_ar ?? 'مكة المكرمة';
   const hijri = withAdjust(dateIso, Number(state.settings.hijri_adjust ?? 0));
   const dowEn = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long' }).format(now);
   const gregText = new Intl.DateTimeFormat('ar', { timeZone: tz, day: 'numeric', month: 'long' }).format(now);
+  const nextLabel = nextIso !== dateIso ? `${PRAYER_LABELS[next.name]} (غداً)` : PRAYER_LABELS[next.name];
 
   const card = resolveSmartCard(now, engine);
   root.innerHTML = `
@@ -69,7 +120,7 @@ export function renderToday(root) {
 
     <div class="card hub-hero" id="prayer-hero">
       <div class="hh-label">الصلاة القادمة</div>
-      <div class="hh-name">${PRAYER_LABELS[next.name]}</div>
+      <div class="hh-name">${nextLabel}</div>
       <div class="hh-clock" id="hero-countdown">${fmtHMS(next.at - now)}</div>
       <div class="hh-at">الأذان ${fmtClock(next.at, tz)}</div>
     </div>
@@ -175,6 +226,8 @@ function openCityPicker(root) {
     <div class="sheet-handle"></div>
     <div class="sheet-head"><h2>تحديد المدينة (٦,٢٨٩ مدينة)</h2><button class="sheet-close" id="sh-close">✕</button></div>
     <div class="sheet-body">
+      <button class="btn primary" id="city-gps-btn" style="width:100%;margin-bottom:10px">📍 تحديد موقعي الحالي تلقائياً (GPS)</button>
+      <div id="city-gps-status" class="mode-note" style="margin-bottom:8px" hidden></div>
       <input class="search-input" id="city-pick-input" type="search" placeholder="ابحث باسم المدينة بالعربية أو الإنجليزية…" autocomplete="off">
       <div id="city-pick-results" style="margin-top:10px"></div>
     </div>
@@ -184,31 +237,78 @@ function openCityPicker(root) {
   host.querySelector('#sh-backdrop').addEventListener('click', close);
   const input = host.querySelector('#city-pick-input');
   const resEl = host.querySelector('#city-pick-results');
-  input.focus();
+  const gpsBtn = host.querySelector('#city-gps-btn');
+  const gpsStatus = host.querySelector('#city-gps-status');
+
+  const chooseCity = async (row) => {
+    await saveSetting('location', {
+      cityId: row.city_id,
+      lat: row.lat,
+      lng: row.lng,
+      tz: row.timezone,
+      name_ar: row.name_ar,
+    });
+    haptic([15, 40, 15]);
+    close();
+    renderToday(root);
+  };
+
   let seq = 0;
-  input.addEventListener('input', async () => {
+  const loadList = async (q) => {
     const my = ++seq;
-    const q = input.value.trim();
-    if (q.length < 2) { resEl.innerHTML = ''; return; }
-    const { ftsQuery } = await import('../../../../../packages/core-data/engines/search.js');
-    const rows = await state.db.query(
-      `SELECT c.city_id, c.name_ar, c.country_ar, c.lat, c.lng, c.timezone FROM cities c
-       WHERE c.rowid IN (SELECT rowid FROM fts_cities WHERE fts_cities MATCH ?) LIMIT 12`,
-      [ftsQuery(q)]);
+    const rows = await searchCitiesOffline(state.db, q);
     if (my !== seq) return;
-    resEl.innerHTML = rows.map((r) => `<div class="result-item" data-cid="${r.city_id}" role="button" tabindex="0">
+    const heading = q.trim().length < 2
+      ? `<div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:6px">المدن الشائعة والعواصم</div>`
+      : '';
+    resEl.innerHTML = heading + (rows.map((r) => `<div class="result-item" data-cid="${r.city_id}" role="button" tabindex="0">
       <div style="font-weight:700">${r.name_ar}</div>
       <div class="meta">${r.country_ar} · ${r.timezone}</div>
-    </div>`).join('') || `<div class="mode-note">لا توجد نتائج مطابقة</div>`;
+    </div>`).join('') || `<div class="mode-note">لا توجد نتائج مطابقة</div>`);
     for (const item of resEl.querySelectorAll('[data-cid]')) {
-      item.addEventListener('click', async () => {
+      const pick = () => {
         const row = rows.find((r) => String(r.city_id) === item.dataset.cid);
-        await saveSetting('location', { lat: row.lat, lng: row.lng, tz: row.timezone, name_ar: row.name_ar });
-        close();
-        renderToday(root);
-      });
+        if (row) chooseCity(row);
+      };
+      item.addEventListener('click', pick);
+      item.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
     }
+  };
+
+  gpsBtn.addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      gpsStatus.hidden = false;
+      gpsStatus.textContent = 'الموقع التلقائي غير مدعوم في هذا المتصفح — اختر مدينتك من القائمة.';
+      return;
+    }
+    gpsBtn.disabled = true;
+    gpsStatus.hidden = false;
+    gpsStatus.textContent = 'جاري تحديد موقعك…';
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const nearest = await findNearestCity(state.db, pos.coords.latitude, pos.coords.longitude);
+          if (nearest) {
+            await chooseCity(nearest);
+            return;
+          }
+          gpsStatus.textContent = 'تعذر مطابقة الإحداثيات مع قاعدة المدن.';
+        } catch (err) {
+          gpsStatus.textContent = `خطأ أثناء تحديد المدينة: ${err.message}`;
+        } finally {
+          gpsBtn.disabled = false;
+        }
+      },
+      () => {
+        gpsBtn.disabled = false;
+        gpsStatus.textContent = 'تعذر الحصول على إذن الموقع — يمكنك البحث أو الاختيار من القائمة أدناه.';
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+    );
   });
+
+  loadList('');
+  input.addEventListener('input', () => loadList(input.value));
 }
 
 function openMonthSchedule(engine, startIso, tz) {

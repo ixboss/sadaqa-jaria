@@ -64,11 +64,27 @@ export function renderMushaf(root, { page = null } = {}) {
         <button class="rbtn" id="r-khatmah" aria-label="الختمة" title="الختمة">🌙</button>
       </div>
     </div>
+    <div class="mushaf-meta-strip" id="mushaf-meta-strip">
+      <span id="meta-surah">…</span>
+      <span id="meta-juz">…</span>
+    </div>
     <div class="mushaf-stage" id="mushaf-stage"></div>
     <div class="plate-foot" id="plate-foot"></div>
+    <div class="mushaf-hud" id="mushaf-hud" role="region" aria-label="أدوات المصحف">
+      <div class="hud-scrubber-row">
+        <span class="hud-page-pill" id="hud-page-label">ص ${startPage}</span>
+        <input type="range" id="hud-page-slider" min="1" max="604" value="${startPage}" aria-label="شريط التنقل بين الصفحات">
+      </div>
+      <div class="hud-actions-row">
+        <button class="hud-btn" id="hud-index">☰ الفهرس</button>
+        <button class="hud-btn" id="hud-audio">🎧 التلاوة</button>
+        <button class="hud-btn" id="hud-khatmah">🌙 الختمة</button>
+        <button class="hud-btn" id="hud-hide">✕ إخفاء</button>
+      </div>
+    </div>
   </div>`;
 
-  document.body.classList.add('reading');
+  document.body.classList.add('reading', 'chrome-hidden');
   wireChrome(root);
   wireStageGestures(root);
   return showPage(root, startPage);
@@ -98,6 +114,10 @@ async function showPage(root, page, direction = 0) {
   paintFoot(root, pages.at(-1));
   paintTitle(root, pages);
   paintBookmarkState(root, page);
+  const slider = root.querySelector('#hud-page-slider');
+  const hudLbl = root.querySelector('#hud-page-label');
+  if (slider) slider.value = String(page);
+  if (hudLbl) hudLbl.textContent = `ص ${page} / ٦٠٤`;
   saveProgress(page);
   if (direction !== 0) animateFlip(plates[0], direction);
 }
@@ -155,17 +175,21 @@ function wordSurah(words, w) {
   return words.find((x) => x.word_seq === w.word_seq && x.line_number === w.line_number && x.ayah_number === w.ayah_number)?.surah ?? null;
 }
 
-/** Auto-fit: shrink per-line font-size until every text line fits (zero overflow). */
+/** Auto-fit: compute uniform plate font-size so all 15 lines fit vertically and horizontally with zero clipping. */
 function fitLines(plate) {
   const rect = plate.getBoundingClientRect();
-  if (rect.width === 0) { requestAnimationFrame(() => fitLines(plate)); return; }
-  const base = Math.max(14, Math.min(rect.height / 15 * 0.78, rect.width / 11));
-  plate.style.setProperty('--plate-font-size', `${base.toFixed(1)}px`);
-  for (const line of plate.querySelectorAll('.kind-text, .kind-bismillah')) {
-    // flex centering hides overflow from scrollWidth in RTL — measure children
-    const childWidth = () => [...line.children].reduce((s, c) => s + c.offsetWidth, 0);
-    let size = base;
-    for (let i = 0; i < 8 && childWidth() > line.clientWidth + 1; i++) {
+  if (rect.width === 0 || rect.height === 0) { requestAnimationFrame(() => fitLines(plate)); return; }
+  const maxByHeight = (rect.height / 15) * 0.72;
+  const maxByWidth = rect.width / 11.5;
+  let plateSize = Math.max(13, Math.min(maxByHeight, maxByWidth));
+  plate.style.setProperty('--plate-font-size', `${plateSize.toFixed(1)}px`);
+
+  const textLines = [...plate.querySelectorAll('.kind-text, .kind-bismillah')];
+  for (const line of textLines) {
+    let size = plateSize;
+    const childWidth = () => [...line.children].reduce((s, c) => s + c.getBoundingClientRect().width, 0)
+      + Math.max(0, line.children.length - 1) * (size * 0.14);
+    for (let i = 0; i < 10 && (childWidth() > line.clientWidth - 4 || line.scrollWidth > line.clientWidth + 1); i++) {
       size *= 0.92;
       line.style.setProperty('--plate-font-size', `${size.toFixed(1)}px`);
     }
@@ -174,19 +198,20 @@ function fitLines(plate) {
 
 function paintFoot(root, page) {
   root.querySelector('#plate-foot').innerHTML = `
-    <span id="foot-hizb">…</span>
     <span class="pf-nav">
-      <button class="pf-btn" id="pf-prev" aria-label="الصفحة السابقة">‹</button>
-      <span>صفحة ${page}</span>
-      <button class="pf-btn" id="pf-next" aria-label="الصفحة التالية">›</button>
-    </span>
-    <span id="foot-juz">…</span>`;
-  root.querySelector('#pf-prev')?.addEventListener('click', () => flip(root, -1));
-  root.querySelector('#pf-next')?.addEventListener('click', () => flip(root, +1));
+      <button class="pf-btn" id="pf-prev" aria-label="الصفحة السابقة">›</button>
+      <span id="foot-page-num">${page}</span>
+      <button class="pf-btn" id="pf-next" aria-label="الصفحة التالية">‹</button>
+    </span>`;
+  root.querySelector('#pf-prev')?.addEventListener('click', (e) => { e.stopPropagation(); flip(root, -1); });
+  root.querySelector('#pf-next')?.addEventListener('click', (e) => { e.stopPropagation(); flip(root, +1); });
   state.db.queryOne(`SELECT juz_start, hizb_start FROM mushaf_pages WHERE page_number = ?`, [page]).then((m) => {
-    if (!m) return;
-    root.querySelector('#foot-juz').textContent = m.juz_start ? `الجزء ${m.juz_start}` : '';
-    root.querySelector('#foot-hizb').textContent = m.hizb_start ? `الحزب ${m.hizb_start}` : '';
+    const juzEl = root.querySelector('#meta-juz');
+    if (!m || !juzEl) return;
+    const parts = [];
+    if (m.juz_start) parts.push(`الجزء ${m.juz_start}`);
+    if (m.hizb_start) parts.push(`الحزب ${m.hizb_start}`);
+    juzEl.textContent = parts.join(' · ') || '';
   });
 }
 
@@ -194,10 +219,14 @@ function paintTitle(root, pages) {
   const p = pages[0];
   const label = pages.length > 1 ? `صفحة ${pages[0]}–${pages.at(-1)}` : `صفحة ${pages[0]}`;
   const el = root.querySelector('#reader-title');
-  el.textContent = label;
+  const surahEl = root.querySelector('#meta-surah');
+  if (el) el.textContent = label;
   state.db.queryOne(`SELECT s.name_ar FROM ayahs a JOIN surahs s ON s.number = a.surah WHERE a.page = ? ORDER BY a.ayah_number LIMIT 1`, [p])
     .then((row) => {
-      if (row?.name_ar) el.textContent = `${row.name_ar} · ${label}`;
+      if (row?.name_ar) {
+        if (el) el.textContent = `${row.name_ar} · ${label}`;
+        if (surahEl) surahEl.textContent = row.name_ar;
+      }
     });
 }
 
@@ -245,10 +274,13 @@ function wireStageGestures(root) {
     const dt = performance.now() - startT;
     const velocity = Math.abs(moved) / Math.max(dt, 1);
     const w = stage.getBoundingClientRect().width;
-    if (Math.abs(moved) >= w * 0.28 || velocity > 0.11) {
-      flip(root, moved < 0 ? +1 : -1); // RTL: swipe left → next page
-    } else if (moved === 0 && !e.target.closest('.mw')) {
-      toggleChrome(); // plain tap toggles chrome
+    if (Math.abs(moved) >= w * 0.22 || velocity > 0.11) {
+      // RTL Arabic Mushaf: page 1 is on the right, page 604 is on the left.
+      // Swiping finger LEFT-TO-RIGHT (moved > 0) turns to the NEXT page (+1);
+      // swiping finger RIGHT-TO-LEFT (moved < 0) turns to the PREVIOUS page (-1).
+      flip(root, moved > 0 ? +1 : -1);
+    } else if (Math.abs(moved) < 6 && !e.target.closest('.mw')) {
+      toggleChrome(); // plain tap toggles floating HUD
     }
   });
   stage.addEventListener('pointercancel', () => { dragging = false; stage.style.transform = ''; });
@@ -259,6 +291,28 @@ function wireChrome(root) {
   root.querySelector('#r-index')?.addEventListener('click', () => navigate('mushaf-surah-index'));
   root.querySelector('#r-audio')?.addEventListener('click', () => navigate('mushaf-audio'));
   root.querySelector('#r-khatmah').addEventListener('click', () => navigate('mushaf-khatmah'));
+  root.querySelector('#hud-index')?.addEventListener('click', () => navigate('mushaf-surah-index'));
+  root.querySelector('#hud-audio')?.addEventListener('click', () => navigate('mushaf-audio'));
+  root.querySelector('#hud-khatmah')?.addEventListener('click', () => navigate('mushaf-khatmah'));
+  root.querySelector('#hud-hide')?.addEventListener('click', () => document.body.classList.add('chrome-hidden'));
+
+  const slider = root.querySelector('#hud-page-slider');
+  const hudLbl = root.querySelector('#hud-page-label');
+  slider?.addEventListener('input', () => {
+    if (hudLbl) hudLbl.textContent = `ص ${slider.value} / ٦٠٤`;
+  });
+  slider?.addEventListener('change', () => {
+    const target = Number(slider.value);
+    if (target >= 1 && target <= 604) showPage(root, target);
+  });
+
+  const onKey = (e) => {
+    if (!root.querySelector('#mushaf-screen')) { removeEventListener('keydown', onKey); return; }
+    if (e.key === 'ArrowLeft') flip(root, +1);
+    else if (e.key === 'ArrowRight') flip(root, -1);
+  };
+  addEventListener('keydown', onKey);
+
   root.querySelector('#r-bookmark')?.addEventListener('click', async () => {
     const cur = Number(root.querySelector('#mushaf-stage .mushaf-plate')?.dataset.page ?? 1);
     const existing = await state.db.queryOne(`SELECT uuid FROM bookmarks WHERE page = ? AND deleted = 0 LIMIT 1`, [cur]);
@@ -283,9 +337,11 @@ function toggleChrome() {
 let flipping = false;
 function flip(root, dir) {
   if (flipping) return;
-  const cur = Number(root.querySelector('#mushaf-stage .mushaf-plate')?.dataset.page ?? 1);
-  const target = cur + dir;
-  if (target < 1 || target > 604) return;
+  const plates = root.querySelectorAll('#mushaf-stage .mushaf-plate');
+  const cur = Number(plates[0]?.dataset.page ?? 1);
+  const step = plates.length > 1 ? dir * 2 : dir;
+  const target = Math.max(1, Math.min(604, cur + step));
+  if (target === cur) return;
   flipping = true;
   haptic(HAPTICS.pageFlipSettle);
   showPage(root, target, dir).finally(() => { flipping = false; });

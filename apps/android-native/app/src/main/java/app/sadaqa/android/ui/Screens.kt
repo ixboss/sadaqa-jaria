@@ -6,6 +6,14 @@
 
 package app.sadaqa.android.ui
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -116,7 +124,8 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
         }
 
         // hero — next prayer
-        val next = remember(opts) { runCatching { engine.next(now) }.getOrNull() }
+        val todayIso = isoOf(now, opts.timeZone)
+        val next = remember(opts, todayIso) { runCatching { engine.next(now) }.getOrNull() }
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
                 .background(Brush.verticalGradient(listOf(theme.accent.copy(alpha = 0.14f), theme.surface)))
@@ -126,9 +135,14 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
         ) {
             Text("الصلاة القادمة", fontSize = 12.sp, color = theme.textSecondary)
             if (next != null) {
+                val isTomorrow = isoOf(next.at, opts.timeZone) != todayIso
                 Text(next.name.labelAr, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = theme.accent)
                 Text(hmsOf(next.at - now), fontSize = 28.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
-                Text("الأذان ${clockOf(next.at, opts.timeZone)}", fontSize = 13.sp, color = theme.textSecondary)
+                Text(
+                    "الأذان ${clockOf(next.at, opts.timeZone)}${if (isTomorrow) " (غداً)" else ""}",
+                    fontSize = 13.sp,
+                    color = theme.textSecondary,
+                )
             }
         }
 
@@ -143,7 +157,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                     Button(colors = ButtonDefaults.buttonColors(containerColor = theme.accent, contentColor = theme.accentContrast), onClick = {
                         when (card.actionScreen) {
                             "mushaf-page" -> onNavigate("mushaf")
-                            "tools-qiyam", "tools-hijri" -> onOpenTool()
+                            "tools-qiyam", "tools-hijri" -> onNavigate(card.actionScreen)
                             else -> scope.launch { AthkarNav.openCategory(db, card.kind.key); onNavigate("athkar") }
                         }
                     }) { Text(card.actionLabel) }
@@ -153,7 +167,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
         }
 
         // 6-prayer 3-column grid, next highlighted + month schedule trigger
-        val sched = remember(opts) { runCatching { engine.daySchedule(isoOf(now, opts.timeZone)) }.getOrNull() }
+        val sched = remember(opts, todayIso) { runCatching { engine.daySchedule(todayIso) }.getOrNull() }
         if (sched != null) {
             CardBox {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -201,10 +215,10 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                 Text("تطبيقاتك اليومية", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for ((ico, label, targetTab) in listOf(
-                        Triple("📿", "السبحة", "tools"),
+                        Triple("📿", "السبحة", "tools-tasbih"),
                         Triple("🤲", "الأذكار", "athkar"),
                         Triple("📖", "المصحف", "mushaf"),
-                        Triple("🧭", "القبلة", "tools"),
+                        Triple("🧭", "القبلة", "tools-qibla"),
                     )) {
                         Column(
                             Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(theme.surfaceRaised)
@@ -259,66 +273,14 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
     }
 
     if (showCityPicker) {
-        var q by remember { mutableStateOf("") }
-        var cities by remember { mutableStateOf(listOf<Map<String, Any>>()) }
-        LaunchedEffect(q) {
-            if (q.trim().length < 2) { cities = emptyList(); return@LaunchedEffect }
-            val term = q.trim().split(" ").filter { it.isNotBlank() }.joinToString(" ") { "\"$it\"" }
-            cities = withContext(Dispatchers.IO) {
-                db.query(
-                    "SELECT c.city_id, c.name_ar, c.country_ar, c.lat, c.lng, c.timezone FROM cities c WHERE c.rowid IN (SELECT rowid FROM fts_cities WHERE fts_cities MATCH ?) LIMIT 12",
-                    listOf(term),
-                ).map {
-                    mapOf(
-                        "name" to (it.strings["name_ar"] ?: ""),
-                        "country" to (it.strings["country_ar"] ?: ""),
-                        "lat" to (it.doubles["lat"] ?: 21.4225),
-                        "lng" to (it.doubles["lng"] ?: 39.8262),
-                        "tz" to (it.strings["timezone"] ?: "Asia/Riyadh"),
-                    )
-                }
-            }
-        }
-        AlertDialog(
-            onDismissRequest = { showCityPicker = false },
-            containerColor = theme.surface,
-            title = { Text("تحديد المدينة (٦,٢٨٩ مدينة)", color = theme.textPrimary) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextField(value = q, onValueChange = { q = it }, placeholder = { Text("ابحث باسم المدينة…") }, singleLine = true)
-                    Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        for (c in cities) {
-                            val name = c["name"] as? String ?: ""
-                            val country = c["country"] as? String ?: ""
-                            val lat = c["lat"] as? Double ?: 21.4225
-                            val lng = c["lng"] as? Double ?: 39.8262
-                            val tz = c["tz"] as? String ?: "Asia/Riyadh"
-                            Column(
-                                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
-                                    .clickable {
-                                        scope.launch {
-                                            withContext(Dispatchers.IO) {
-                                                db.setSetting("location", JsonValue.Obj(mapOf(
-                                                    "lat" to JsonValue.Num(lat),
-                                                    "lng" to JsonValue.Num(lng),
-                                                    "timeZone" to JsonValue.Str(tz),
-                                                    "name_ar" to JsonValue.Str(name),
-                                                )))
-                                            }
-                                            opts = db.engineOptions()
-                                            cityName = name
-                                            showCityPicker = false
-                                        }
-                                    }.padding(10.dp),
-                            ) {
-                                Text(name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
-                                Text("$country · $tz", fontSize = 11.sp, color = theme.textSecondary)
-                            }
-                        }
-                    }
-                }
+        CityPickerDialog(
+            db = db,
+            onSelected = { city ->
+                opts = db.engineOptions()
+                cityName = city.nameAr
+                showCityPicker = false
             },
-            confirmButton = { Button(onClick = { showCityPicker = false }) { Text("إغلاق") } },
+            onDismiss = { showCityPicker = false },
         )
     }
 
@@ -518,7 +480,7 @@ fun AthkarReaderScreen(db: SadaqaDb, categoryId: String, onBack: () -> Unit) {
     var counts by remember { mutableStateOf(mapOf<String, Int>()) }
 
     LaunchedEffect(categoryId) {
-        val day = dayKeyOf(System.currentTimeMillis(), "UTC") // local-day key (web parity: local date)
+        val day = dayKeyOf(System.currentTimeMillis(), ZoneId.systemDefault().id)
         val loaded = withContext(Dispatchers.IO) {
             categoryName = db.queryOne("SELECT name_ar FROM athkar_categories WHERE category_id = ?", listOf(categoryId))?.strings?.get("name_ar") ?: "الأذكار"
             val list = db.query("SELECT item_id, text_ar, count_target, source_ar FROM athkar_items WHERE category_id = ? ORDER BY sort_order", listOf(categoryId))
@@ -566,7 +528,7 @@ fun AthkarReaderScreen(db: SadaqaDb, categoryId: String, onBack: () -> Unit) {
                         counts = counts + (item.id to c)
                         if (target > 0 && c == target) Haptics.complete(context) else Haptics.tick(context)
                         val now = System.currentTimeMillis()
-                        val day = dayKeyOf(now, "UTC")
+                        val day = dayKeyOf(now, ZoneId.systemDefault().id)
                         scope.launch {
                             withContext(Dispatchers.IO) {
                                 db.incrementDhikrTap(item.id, categoryId, cur, target, day, now)
@@ -672,7 +634,7 @@ fun TasbihScreen(db: SadaqaDb, onClose: () -> Unit) {
                             val cUuid = counter.uuid
                             val targetVal = counter.target
                             val now = System.currentTimeMillis()
-                            val day = dayKeyOf(now, "UTC")
+                            val day = dayKeyOf(now, ZoneId.systemDefault().id)
                             scope.launch {
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                     db.recordTasbihTap(cUuid, targetVal, newCount, day, now)
@@ -718,4 +680,104 @@ fun TasbihScreen(db: SadaqaDb, onClose: () -> Unit) {
 object Navigator {
     var current: String? = null
     fun open(route: String) { current = route }
+}
+
+fun hasLocationPermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+@Suppress("MissingPermission")
+fun lastKnownLocationOrNull(context: Context): Location? {
+    if (!hasLocationPermission(context)) return null
+    val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
+    var best: Location? = null
+    for (p in listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER, LocationManager.PASSIVE_PROVIDER)) {
+        val loc = runCatching { lm.getLastKnownLocation(p) }.getOrNull() ?: continue
+        if (best == null || loc.time > best.time) best = loc
+    }
+    return best
+}
+
+@Composable
+fun CityPickerDialog(
+    db: SadaqaDb,
+    onSelected: (SadaqaDb.CityRow) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val theme = LocalSadaqaTheme.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var q by remember { mutableStateOf("") }
+    var cities by remember { mutableStateOf(listOf<SadaqaDb.CityRow>()) }
+    var gpsStatus by remember { mutableStateOf<String?>(null) }
+
+    fun applyGps() {
+        val loc = lastKnownLocationOrNull(context)
+        if (loc == null) {
+            gpsStatus = "تعذر الحصول على الإحداثيات الحالية — فعّل GPS أو ابحث بالاسم."
+            return
+        }
+        scope.launch {
+            val city = withContext(Dispatchers.IO) {
+                db.findNearestCity(loc.latitude, loc.longitude)?.also { db.selectCity(it) }
+            }
+            if (city != null) onSelected(city)
+            else gpsStatus = "لم يتم العثور على مدينة قريبة."
+        }
+    }
+
+    val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+        if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true || grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
+            applyGps()
+        } else {
+            gpsStatus = "يلزم السماح بالموقع لتحديد مدينتك تلقائياً."
+        }
+    }
+
+    LaunchedEffect(q) {
+        cities = withContext(Dispatchers.IO) { db.searchCities(q, 20) }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = theme.surface,
+        title = { Text("تحديد المدينة (٦,٢٨٩ مدينة)", color = theme.textPrimary) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = {
+                        if (hasLocationPermission(context)) applyGps()
+                        else permLauncher.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = theme.accent, contentColor = theme.accentContrast),
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("📍 تحديد موقعي الحالي تلقائياً (GPS)") }
+                gpsStatus?.let { Text(it, fontSize = 11.sp, color = Color(0xFFE5636F)) }
+                TextField(
+                    value = q,
+                    onValueChange = { q = it },
+                    placeholder = { Text("ابحث باسم المدينة (مثلاً: الزقازيق، القاهرة)…") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (c in cities) {
+                        Column(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
+                                .clickable {
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) { db.selectCity(c) }
+                                        onSelected(c)
+                                    }
+                                }.padding(10.dp),
+                        ) {
+                            Text(c.nameAr, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
+                            Text("${c.countryAr} · ${c.timeZone}", fontSize = 11.sp, color = theme.textSecondary)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { Button(onClick = onDismiss) { Text("إغلاق") } },
+    )
 }

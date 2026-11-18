@@ -46,6 +46,7 @@ const SCREENS = {
 
 function renderRoute({ screen, args }) {
   document.body.classList.toggle('reading', screen.startsWith('mushaf'));
+  if (screen !== 'mushaf-page') document.body.classList.remove('chrome-hidden');
   const fn = SCREENS[screen] ?? renderToday;
   fn(root, args ?? {});
   const tab = SCREEN_TAB[screen] ?? 'today';
@@ -72,9 +73,68 @@ function wireNav() {
   pill.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); renderSearchSheet(); } });
 }
 
+function renderBootProgress(loaded = 0, total = 0, phase = 'wasm') {
+  if (window.__sadaqaReady) return;
+  const pct = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
+  const label = phase === 'downloading'
+    ? `جاري تجهيز قاعدة البيانات القرآنية للعمل بدون إنترنت… ${total > 0 ? `${pct}٪` : ''}`
+    : phase === 'importing'
+      ? 'جاري تهيئة الفهرس والمصحف…'
+      : 'جاري تشغيل صدقة جارية…';
+  let box = document.getElementById('boot-progress-box');
+  if (!box) {
+    root.innerHTML = `<div class="screen"><div class="empty-state" id="boot-progress-box">
+      <div class="icon">📖</div>
+      <h2>صدقة جارية</h2>
+      <p id="boot-progress-label">${label}</p>
+      <div style="margin:16px auto 0;width:min(280px,80%);height:8px;border-radius:999px;background:var(--color-surface-raised);overflow:hidden;border:1px solid var(--color-border)">
+        <div id="boot-progress-bar" style="height:100%;width:${pct}%;background:var(--color-accent);transition:width 120ms ease-out"></div>
+      </div>
+    </div></div>`;
+    return;
+  }
+  const lblEl = document.getElementById('boot-progress-label');
+  const barEl = document.getElementById('boot-progress-bar');
+  if (lblEl) lblEl.textContent = label;
+  if (barEl) barEl.style.width = `${phase === 'importing' ? 100 : pct}%`;
+}
+
+async function resetAppStorageAndReload() {
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+    if (navigator.storage?.getDirectory) {
+      const dir = await navigator.storage.getDirectory();
+      for await (const name of dir.keys()) {
+        await dir.removeEntry(name, { recursive: true }).catch(() => {});
+      }
+    }
+  } catch { /* ignore */ }
+  location.reload();
+}
+
 async function boot() {
+  renderBootProgress(0, 0, 'wasm');
+  window.addEventListener('sadaqa:boot-progress', (ev) => {
+    const d = ev.detail ?? {};
+    renderBootProgress(d.loaded ?? 0, d.total ?? 0, d.phase ?? 'wasm');
+  });
+
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch((e) => console.warn('[sw]', e.message));
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloading) return;
+      reloading = true;
+      location.reload();
+    });
+    navigator.serviceWorker.register('sw.js').then((reg) => reg.update().catch(() => {})).catch((e) => console.warn('[sw]', e.message));
   }
   state.bridge = await resolveBridge();
   const db = await state.bridge.dbHost();
@@ -95,5 +155,7 @@ async function boot() {
 boot().catch((e) => {
   console.error('[boot]', e);
   root.innerHTML = `<div class="screen"><div class="empty-state"><div class="icon">⚠️</div>
-    <h2>تعذر تشغيل التطبيق</h2><p>${String(e.message ?? e)}</p></div></div>`;
+    <h2>تعذر تشغيل التطبيق</h2><p style="margin-bottom:16px">${String(e.message ?? e)}</p>
+    <button class="btn primary" id="boot-retry-btn">إعادة تهيئة التطبيق</button></div></div>`;
+  document.getElementById('boot-retry-btn')?.addEventListener('click', resetAppStorageAndReload);
 });

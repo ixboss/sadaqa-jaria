@@ -12,36 +12,111 @@ import sqlite3Init from '../../vendor/sqlite-wasm/index.mjs';
 
 let db = null;
 let pool = null;
+let backendMode = 'opfs-sahpool';
 const DB_NAME = '/sadaqa.db'; // sahpool paths are absolute
 const DB_SOURCE = '../../../../packages/core-data/build/sadaqa.db';
 
+function emitProgress(phase, loaded = 0, total = 0) {
+  try {
+    self.postMessage({ type: 'boot-progress', phase, loaded, total });
+  } catch { /* ignore */ }
+}
+
+async function fetchDbBytes(url) {
+  emitProgress('downloading', 0, 0);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`bundled sadaqa.db fetch failed: HTTP ${res.status}`);
+  const total = Number(res.headers.get('content-length') || 0);
+  if (!res.body || typeof res.body.getReader !== 'function') {
+    const buf = await res.arrayBuffer();
+    emitProgress('downloading', buf.byteLength, total || buf.byteLength);
+    return new Uint8Array(buf);
+  }
+  const reader = res.body.getReader();
+  const chunks = [];
+  let loaded = 0;
+  let lastEmit = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loaded += value.byteLength;
+    const now = Date.now();
+    if (now - lastEmit > 80) {
+      lastEmit = now;
+      emitProgress('downloading', loaded, total);
+    }
+  }
+  emitProgress('downloading', loaded, total || loaded);
+  const out = new Uint8Array(loaded);
+  let offset = 0;
+  for (const c of chunks) {
+    out.set(c, offset);
+    offset += c.byteLength;
+  }
+  return out;
+}
+
+function verifyDbSchema(candidate) {
+  try {
+    const r = candidate.selectObjects("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name IN ('ayahs','cities','athkar_categories')");
+    if ((r?.[0]?.n ?? 0) < 3) return false;
+    const a = candidate.selectObjects('SELECT COUNT(*) AS n FROM ayahs');
+    return (a?.[0]?.n ?? 0) >= 6236;
+  } catch {
+    return false;
+  }
+}
+
 async function init() {
+  emitProgress('wasm', 0, 0);
   const sqlite3 = await sqlite3Init({ print: () => {}, printErr: (m) => console.error('[sqlite]', m) });
   if (!sqlite3.capi.sqlite3_compileoption_used('ENABLE_FTS5')) {
     throw new Error('wasm build lacks ENABLE_FTS5 — refusing (ARCHITECTURE §5.1 guardrail)');
   }
-  pool = await sqlite3.installOpfsSAHPoolVfs({ clearOnInit: false }); // pool === PoolUtil
-  const existing = pool.getCapacity() > 0 && pool.getFileNames().includes(DB_NAME);
-  if (!existing) {
-    const bytes = await fetch(new URL(DB_SOURCE, import.meta.url)).then((r) => {
-      if (!r.ok) throw new Error(`bundled sadaqa.db fetch failed: HTTP SW-cached (status ${r.status})`);
-      return r.arrayBuffer();
-    });
-    pool.importDb(DB_NAME, corected(bytes));
+  const dbUrl = new URL(DB_SOURCE, import.meta.url).href;
+  let bytes = null;
+  let existed = false;
+
+  // Tier 1: opfs-sahpool (persistent offline storage without COOP/COEP)
+  try {
+    pool = await sqlite3.installOpfsSAHPoolVfs({ clearOnInit: false });
+    existed = pool.getCapacity() > 0 && pool.getFileNames().includes(DB_NAME);
+    if (existed) {
+      db = new pool.OpfsSAHPoolDb(DB_NAME);
+      if (!verifyDbSchema(db)) {
+        try { db.close(); } catch { /* ignore */ }
+        db = null;
+        existed = false;
+      }
+    }
+    if (!existed) {
+      bytes = await fetchDbBytes(dbUrl);
+      emitProgress('importing', bytes.byteLength, bytes.byteLength);
+      await pool.importDb(DB_NAME, bytes);
+      db = new pool.OpfsSAHPoolDb(DB_NAME);
+    }
+    backendMode = 'opfs-sahpool';
+  } catch (opfsErr) {
+    console.warn('[db-worker] opfs-sahpool unavailable, falling back to in-memory sqlite:', opfsErr?.message ?? opfsErr);
+    if (db) { try { db.close(); } catch { /* ignore */ } db = null; }
+    // Tier 2: guaranteed in-memory POSIX/MEMFS fallback (Incognito, Safari iframe, multi-tab lock)
+    if (!bytes) bytes = await fetchDbBytes(dbUrl);
+    emitProgress('importing', bytes.byteLength, bytes.byteLength);
+    sqlite3.capi.sqlite3_js_posix_create_file(DB_NAME, bytes);
+    db = new sqlite3.oo1.DB(DB_NAME, 'rw');
+    backendMode = 'memory-vfs';
   }
-  db = new pool.OpfsSAHPoolDb(DB_NAME);
+
+  emitProgress('ready', 1, 1);
   return {
     ready: true,
-    existed: existing,
+    existed,
+    mode: backendMode,
     fts5: true,
-    capacity: pool.getCapacity(),
+    capacity: pool?.getCapacity?.() ?? 0,
     version: sqlite3.capi.sqlite3_libversion(),
   };
-}
-
-/** Fetch returns ArrayBuffer; importDb wants Uint8Array (copy, view → plain array). */
-function corected(bytes) {
-  return new Uint8Array(bytes);
 }
 
 function run(op, sql, params) {

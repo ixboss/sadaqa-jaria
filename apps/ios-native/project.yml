@@ -42,12 +42,12 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: صدقة جارية
-        CFBundleShortVersionString: "2.0.0"
-        CFBundleVersion: "2"
+        CFBundleShortVersionString: "2.0.2"
+        CFBundleVersion: "3"
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         NSMotionUsageDescription: "اتجاه القبلة عبر حساس البوصلة."
-        NSLocationWhenInUseUsageDescription: "حساب اتجاه القبلة من موقعك."
+        NSLocationWhenInUseUsageDescription: "تحديد مدينتك وحساب اتجاه القبلة بدقة دون اتصال بالإنترنت."
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UIBackgroundModes: [audio]   # athkar hands-free TTS / recitation playback
@@ -75,8 +75,8 @@ targets:
       path: Widgets/Info.plist
       properties:
         CFBundleDisplayName: مواقيت الصلاة
-        CFBundleShortVersionString: "2.0.0"
-        CFBundleVersion: "2"
+        CFBundleShortVersionString: "2.0.2"
+        CFBundleVersion: "3"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:

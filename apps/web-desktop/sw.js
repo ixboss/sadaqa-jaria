@@ -1,15 +1,16 @@
 // ============================================================================
-// sw.js — v2 shell SW. Precache: app shell + vendor wasm + tokens. Runtime
-// cache-first: QPC1 per-page fonts + audio packs (offline after first visit).
-// Update strategy (v1 contract): prompt-based; skipWaiting ONLY via message.
+// sw.js — v2 shell SW. Precache: core app shell + vendor wasm + tokens
+// (never block install on the 42 MB sadaqa.db). Runtime cache-first:
+// sadaqa.db, QPC1 per-page fonts, and audio packs.
 // ============================================================================
-const CACHE = 'sadaqa-v2-v7';
+const CACHE = 'sadaqa-v2-v9';
 const SHELL = [
   'index.html',
   '../../icons/icon-192.png',
   '../../icons/icon-512.png',
   '../../packages/design-tokens/tokens.css',
   'assets/fonts/uthmanic/UthmanicHafs1Ver18.woff2',
+  'assets/fonts/qpc1/QPC1BSML.ttf',
   'manifest.json',
   'styles/shell.css',
   'styles/mushaf.css',
@@ -39,7 +40,6 @@ const SHELL = [
   'assets/audio/catalog.json',
   'vendor/sqlite-wasm/index.mjs',
   'vendor/sqlite-wasm/sqlite3.wasm',
-  '../../packages/core-data/build/sadaqa.db',
   '../../packages/core-data/engines/prayer.js',
   '../../packages/core-data/engines/hijri.js',
   '../../packages/core-data/engines/qibla.js',
@@ -71,9 +71,12 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (e) => {
+  self.skipWaiting();
   e.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    await cache.addAll(SHELL.map((p) => new Request(p, { cache: 'reload' })));
+    await Promise.allSettled(
+      SHELL.map((p) => cache.add(new Request(p, { cache: 'reload' }))),
+    );
   })());
 });
 
@@ -82,7 +85,7 @@ self.addEventListener('activate', (e) => {
     for (const key of await caches.keys()) {
       if (key !== CACHE && key.startsWith('sadaqa-')) await caches.delete(key);
     }
-    // no skipWaiting here — the page decides via message (v1 contract)
+    await self.clients.claim();
   })());
 });
 
@@ -93,8 +96,13 @@ self.addEventListener('message', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET') return;
-  // per-page QPC1 + UthmanicHafs fonts + bundled/downloaded audio: cache-first (offline after first visit)
-  if (url.pathname.includes('/assets/fonts/') || url.pathname.includes('/audio-packs/') || url.pathname.includes('/assets/audio/')) {
+  // per-page QPC1 + UthmanicHafs fonts + audio + bundled 42 MB sadaqa.db: cache-first + runtime store
+  if (
+    url.pathname.includes('/assets/fonts/') ||
+    url.pathname.includes('/audio-packs/') ||
+    url.pathname.includes('/assets/audio/') ||
+    url.pathname.endsWith('/sadaqa.db')
+  ) {
     e.respondWith((async () => {
       const cache = await caches.open(CACHE);
       const hit = await cache.match(e.request);
@@ -105,12 +113,16 @@ self.addEventListener('fetch', (e) => {
     })());
     return;
   }
-  // shell + shared packages + bundled db: cache-first with network fallback
+  // shell + shared packages: stale-while-revalidate with network fallback
   if (url.origin === self.location.origin) {
     e.respondWith((async () => {
       const cache = await caches.open(CACHE);
       const hit = await cache.match(e.request, { ignoreSearch: true });
-      return hit ?? fetch(e.request);
+      const net = fetch(e.request).then((res) => {
+        if (res.ok) cache.put(e.request, res.clone());
+        return res;
+      }).catch(() => null);
+      return hit ?? (await net) ?? new Response('Offline', { status: 503 });
     })());
   }
 });

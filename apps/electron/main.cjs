@@ -9,7 +9,7 @@
 //   prayer entry. Zero-server: everything loads from packaged local assets.
 // Probe mode (SADAQA_PROBE=1): self-checks → JSON on stdout → exit.
 // ============================================================================
-const { app, protocol, net, BrowserWindow, Tray, Menu, Notification, ipcMain, nativeImage } = require('electron');
+const { app, protocol, net, BrowserWindow, Tray, Menu, Notification, ipcMain, nativeImage, dialog } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
@@ -105,7 +105,12 @@ function guardParams(params) {
 function registerIpc() {
   ipcMain.handle('db:query', (_e, { sql, params }) => db.prepare(String(sql)).all(...guardParams(params)));
   ipcMain.handle('db:queryOne', (_e, { sql, params }) => db.prepare(String(sql)).get(...guardParams(params)) ?? null);
-  ipcMain.handle('db:write', (_e, { sql, params }) => { db.prepare(String(sql)).run(...guardParams(params)); return { ok: true }; });
+  ipcMain.handle('db:write', (_e, { sql, params }) => {
+    const s = String(sql);
+    db.prepare(s).run(...guardParams(params));
+    if (s.includes('user_settings')) loadEngine().catch(() => {});
+    return { ok: true };
+  });
   ipcMain.handle('db:batch', (_e, { stmts }) => {
     if (!Array.isArray(stmts) || stmts.length === 0) throw new Error('batch: stmts required');
     const runAll = db.transaction(() => {
@@ -185,7 +190,14 @@ async function loadEngine() {
       if (r.key === 'high_latitude_rule') hlr = String(v);
     }
   } catch { /* defaults */ }
-  engine = prayer.bindPrayerEngine({ lat: loc.lat, lng: loc.lng, timeZone: loc.tz, method, madhab, highLatitudeRule: hlr });
+  engine = prayer.bindPrayerEngine({
+    lat: loc.lat,
+    lng: loc.lng,
+    timeZone: loc.timeZone || loc.tz || 'Asia/Riyadh',
+    method,
+    madhab,
+    highLatitudeRule: hlr,
+  });
   return engine;
 }
 
