@@ -202,6 +202,10 @@ public enum BackupCodec {
         }
     }
 
+    private static func orderedGroupKeys(_ groups: [String: JSONValue]) -> [String] {
+        backupGroups.filter { groups[$0] != nil } + groups.keys.filter { !backupGroups.contains($0) }.sorted()
+    }
+
     // ------------------------------------------------------------------
     // mergePayload — backup-merge.js port
     // ------------------------------------------------------------------
@@ -212,8 +216,8 @@ public enum BackupCodec {
             var mutations: [Mutation] = []
             var report = MergeReport(added: 0, updated: 0, conflicts: 0, skipped: 0, deleted: 0)
             if case .object(let groups) = payload {
-                for (group, groupValue) in groups {
-                    guard case .array(let entities) = groupValue else { continue }
+                for group in orderedGroupKeys(groups) {
+                    guard case .array(let entities) = groups[group]! else { continue }
                     for e in entities {
                         let uuid = e["uuid"]?.stringValue ?? ""
                         mutations.append(Mutation(group: group, uuid: uuid, entity: e, action: "insert"))
@@ -227,8 +231,8 @@ public enum BackupCodec {
         var report = MergeReport(added: 0, updated: 0, conflicts: 0, skipped: 0, deleted: 0)
         var mutations: [Mutation] = []
         if case .object(let groups) = payload {
-            for (group, groupValue) in groups {
-                guard case .array(let entities) = groupValue else {
+            for group in orderedGroupKeys(groups) {
+                guard case .array(let entities) = groups[group]! else {
                     throw BackupCodecError.refused("payload.\(group): must be an array (run backup-validate first)")
                 }
                 let localMap = local[group]
