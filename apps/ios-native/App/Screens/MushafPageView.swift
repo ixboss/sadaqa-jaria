@@ -787,14 +787,14 @@ struct MushafPlate: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                     .environment(\.layoutDirection, .leftToRight)
-                    .frame(maxWidth: .infinity, height: slotH, alignment: .center)
+                    .frame(maxWidth: .infinity, minHeight: slotH, maxHeight: slotH, alignment: .center)
             } else {
                 Text(line.textAr ?? "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ")
                     .font(Font(FontRegistry.uthmanicFont(size: min(fontSize * 0.94, slotH * 0.78))))
                     .foregroundStyle(theme.mushafText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
-                    .frame(maxWidth: .infinity, height: slotH, alignment: .center)
+                    .frame(maxWidth: .infinity, minHeight: slotH, maxHeight: slotH, alignment: .center)
                     .multilineTextAlignment(.center)
             }
         } else if line.kind == "surah_name" {
@@ -824,7 +824,7 @@ struct MushafPlate: View {
                         .onTapGesture { onSelectAyah(seg.ayah) }
                 }
             }
-            .frame(maxWidth: .infinity, height: slotH, alignment: .center)
+            .frame(maxWidth: .infinity, minHeight: slotH, maxHeight: slotH, alignment: .center)
         }
     }
 }
