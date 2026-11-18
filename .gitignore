@@ -178,7 +178,6 @@ _netrc
 #  "Dependencies" and CONTRIBUTING.md "Contributions We Cannot Accept".
 
 node_modules/
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 bun.lockb
