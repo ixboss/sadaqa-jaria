@@ -12,6 +12,22 @@ import Adhan
 
 private let appGroupId = "group.app.sadaqa.shared"
 
+/// Local stand-ins for TodayView helpers (the widget target compiles without
+/// the App sources — semantics must stay identical).
+private func nowMs() -> Int64 { Int64(Date().timeIntervalSince1970 * 1000) }
+
+private func isoToday(_ ms: Int64, tz: String) -> String {
+    var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: tz) ?? .current
+    let c = cal.dateComponents([.year, .month, .day], from: Date(ms: ms))
+    return String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
+}
+
+private func clock(_ ms: Int64, tz: String) -> String {
+    var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: tz) ?? .current
+    let c = cal.dateComponents([.hour, .minute], from: Date(ms: ms))
+    return String(format: "%02d:%02d", c.hour!, c.minute!)
+}
+
 struct WidgetState: Codable {
     struct Location: Codable {
         let lat: Double
@@ -67,18 +83,22 @@ struct PrayerProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (PrayerEntry) -> Void) {
-        completion(entry())
+        let state = WidgetState.load()
+        completion(PrayerEntry(date: Date(), state: state, next: state?.liveNext(), dhikr: state?.dailyDhikr ?? ""))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<PrayerEntry>) -> Void) {
         let state = WidgetState.load()
-        let now = Date.nowMs
+        let now = nowMs()
         var entries: [PrayerEntry] = []
         // one entry per future prayer instant across the scan window
         if let state {
             let opts = state.options()
-            if let sched = try? PrayerEngine.daySchedule(TodayView.iso(now, tz: opts.timeZone), opts) {
-                let upcoming = PrayerName.allCases.map { (name: $0, at: sched.prayers[$0]!) }
+            if let sched = try? PrayerEngine.daySchedule(isoToday(now, tz: opts.timeZone), opts) {
+                let all: [(name: PrayerName, at: Int64)] = PrayerName.allCases.map { name in
+                    (name: name, at: sched.prayers[name] ?? 0)
+                }
+                let upcoming = all
                     .filter { $0.at > now }
                     .sorted { $0.at < $1.at }
                 for p in upcoming {
@@ -126,7 +146,7 @@ struct PrayerCountdownWidgetView: View {
                 Text("الصلاة القادمة").font(.system(size: 12)).foregroundStyle(.secondary)
                 Text(Self.labels[n.name.rawValue] ?? n.name.rawValue)
                     .font(.system(size: 22, weight: .bold))
-                Text(TodayView.clock(n.at, tz: entry.state?.location.timeZone ?? "UTC"))
+                Text(clock(n.at, tz: entry.state?.location.timeZone ?? "UTC"))
                     .font(.system(size: 15)).monospacedDigit()
                 Text(Self.hms(n.at - Int64(entry.date.timeIntervalSince1970 * 1000)))
                     .font(.system(size: 13)).monospacedDigit().foregroundStyle(.secondary)
@@ -145,7 +165,7 @@ struct PrayerCountdownWidgetView: View {
             if let n {
                 Text(Self.labels[n.name.rawValue] ?? "")
                     .font(.system(size: 13, weight: .semibold))
-                Text(TodayView.clock(n.at, tz: entry.state?.location.timeZone ?? "UTC"))
+                Text(clock(n.at, tz: entry.state?.location.timeZone ?? "UTC"))
                     .font(.system(size: 13)).monospacedDigit()
             }
         }
