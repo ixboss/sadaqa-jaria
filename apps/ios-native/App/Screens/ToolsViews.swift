@@ -308,7 +308,7 @@ struct ZakatView: View {
         .onAppear { loadInputs() }
     }
 
-    @ViewBuilder private field(_ label: String, _ binding: Binding<String>) -> some View {
+    @ViewBuilder private func field(_ label: String, _ binding: Binding<String>) -> some View {
         TextField(label, text: binding)
             .keyboardType(.decimalPad)
             .onChange(of: binding.wrappedValue) { _ in saveInputs() }
