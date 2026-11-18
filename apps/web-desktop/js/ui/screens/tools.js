@@ -10,18 +10,20 @@ import { qiblaBearing, distanceKm } from '../../../../../packages/core-data/engi
 import { toHijri, fromHijri, monthNameAr, events, withAdjust } from '../../../../../packages/core-data/engines/hijri.js';
 import { CALC_METHODS, MADHABS, HIGH_LATITUDE_RULES } from '../../../../../packages/core-data/engines/prayer.js';
 import { navigate } from '../router.js';
+import { iconSvg } from '../icons.js';
+import { mountTheme } from '../../main.js';
 import { renderBackup } from './backup.js';
 import { findNearestCity, searchCitiesOffline } from './today.js';
 
 const fmtClock = (ms, tz) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
 
 const TOOLS = [
-  { screen: 'tools-qibla', icon: '🧭', name: 'اتجاه القبلة', sub: 'بوصلة تعمل دون اتصال + قرص يدوي' },
-  { screen: 'tools-hijri', icon: '📅', name: 'التقويم الهجري', sub: 'الأشهر والأيام البيض والمناسبات' },
-  { screen: 'tools-zakat', icon: '🧮', name: 'حاسبة الزكاة', sub: 'نقود وذهب وفضة وعروض' },
-  { screen: 'tools-qiyam', icon: '🌙', name: 'حاسبة القيام', sub: 'الثلث الأخير وتخطيط النوم' },
-  { screen: 'tools-backup', icon: '💾', name: 'النسخ الاحتياطي', sub: 'تصدير/استيراد .sadaqa' },
-  { screen: 'tools-settings', icon: '⚙️', name: 'الإعدادات', sub: 'الموقع والمذهب والسمة والخط' },
+  { screen: 'tools-qibla', icon: 'qibla', name: 'اتجاه القبلة', sub: 'بوصلة تعمل دون اتصال + قرص يدوي' },
+  { screen: 'tools-hijri', icon: 'calendar', name: 'التقويم الهجري', sub: 'الأشهر والأيام البيض والمناسبات' },
+  { screen: 'tools-zakat', icon: 'scale', name: 'حاسبة الزكاة', sub: 'نقود وذهب وفضة وعروض' },
+  { screen: 'tools-qiyam', icon: 'moon', name: 'حاسبة القيام', sub: 'الثلث الأخير وتخطيط النوم' },
+  { screen: 'tools-backup', icon: 'backup', name: 'النسخ الاحتياطي', sub: 'تصدير واستيراد .sadaqa' },
+  { screen: 'tools-settings', icon: 'settings', name: 'الإعدادات', sub: 'الموقع والمذهب والسمة والخط' },
 ];
 
 export function renderTools(root) {
@@ -29,10 +31,10 @@ export function renderTools(root) {
   const themeLabel = { dark: 'داكنة', light: 'فاتحة', sepia: 'ورقية', night: 'ليلية' }[state.settings.theme ?? 'dark'] ?? 'داكنة';
   root.innerHTML = `
   <div class="screen">
-    <div class="screen-header"><h1>الأدوات</h1><div class="sub">كلها تعمل دون اتصال تام — ${loc} · سمة ${themeLabel}</div></div>
+    <div class="screen-header"><h1>الأدوات</h1><div class="sub">${loc} · سمة ${themeLabel}</div></div>
     <div id="tool-list" class="tools-bento">${TOOLS.map((t) => `
       <div class="tool-tile" data-screen="${t.screen}" role="button" tabindex="0" aria-label="${t.name}">
-        <span class="t-icon">${t.icon}</span>
+        <span class="t-icon">${iconSvg(t.icon, 20)}</span>
         <div>
           <div class="t-name">${t.name}</div>
           <div class="t-sub">${t.sub}</div>
@@ -170,23 +172,32 @@ export function renderQibla(root) {
         live = true;
         manualBox.hidden = true;
         const delta = ((bearing - heading + 540) % 360) - 180;
-        root.querySelector('#q-note').textContent = Math.abs(delta) <= 5
-          ? 'أنت الآن باتجاه القبلة الصحيح ✓'
-          : 'البوصلة الحيّة تعمل — أبقِ الجهاز مستوياً.';
+        const qNote = root.querySelector('#q-note');
+        if (qNote) {
+          qNote.textContent = Math.abs(delta) <= 5
+            ? 'باتجاه القبلة الصحيح'
+            : 'البوصلة الحيّة تعمل — أبقِ الجهاز مستوياً.';
+        }
         setHeading(heading);
       };
       window.addEventListener('deviceorientationabsolute', headingHandler, true);
       window.addEventListener('deviceorientation', headingHandler, true);
-      root.querySelector('#q-note').textContent = 'حرّك الجهاز بحركة ٨ لمعايرة البوصلة…';
+      const qNote = root.querySelector('#q-note');
+      if (qNote) qNote.textContent = 'حرّك الجهاز بحركة ٨ لمعايرة البوصلة…';
     } catch {
       manualBox.hidden = false;
-      root.querySelector('#q-note').textContent = 'لا يوجد مستشعر بوصلة على هذا الجهاز — استخدم القرص اليدوي.';
+      const qNote = root.querySelector('#q-note');
+      if (qNote) qNote.textContent = 'لا يوجد مستشعر بوصلة على هذا الجهاز — استخدم القرص اليدوي.';
     }
   });
 
-  new MutationObserver(() => {
-    if (!document.getElementById('q-dial')) stopCompassListeners();
-  }).observe(root, { childList: true, subtree: true });
+  const qObs = new MutationObserver(() => {
+    if (!document.getElementById('q-dial')) {
+      stopCompassListeners();
+      qObs.disconnect();
+    }
+  });
+  qObs.observe(root, { childList: true, subtree: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -231,9 +242,9 @@ export function renderHijriCalendar(root) {
       <div class="screen-header"><h1>التقويم الهجري</h1><div class="sub">تقويم أم القرى — الأحد بداية الأسبوع</div></div>
       <div class="card">
         <div class="hc-head">
-          <button class="btn" id="hc-prev" aria-label="الشهر السابق">›</button>
+          <button class="btn" id="hc-prev" aria-label="الشهر السابق">${iconSvg('chevron-right', 16)}</button>
           <strong style="font-size:17px">${monthNameAr(view.m)} ${view.y} هـ</strong>
-          <button class="btn" id="hc-next" aria-label="الشهر التالي">‹</button>
+          <button class="btn" id="hc-next" aria-label="الشهر التالي">${iconSvg('chevron-left', 16)}</button>
         </div>
         <div class="hc-grid">
           ${['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'].map((d) => `<div class="hc-dow">${d}</div>`).join('')}
@@ -337,8 +348,10 @@ export function renderQiyam(root) {
   </div>`;
 
   root.querySelector('#qy-calc').addEventListener('click', () => {
-    const before = Math.max(0, Number(root.querySelector('#qy-before').value) || 0);
-    const hours = Math.max(1, Number(root.querySelector('#qy-hours').value) || 6);
+    const rawBefore = Number(root.querySelector('#qy-before').value);
+    const rawHours = Number(root.querySelector('#qy-hours').value);
+    const before = Number.isFinite(rawBefore) ? Math.max(0, rawBefore) : 20;
+    const hours = Number.isFinite(rawHours) ? Math.max(1, rawHours) : 6;
     const wake = tonight.nextFajr - before * 60_000;
     const bedtime = wake - hours * 3_600_000;
     const inLastThird = wake >= tonight.lastThird;
@@ -347,7 +360,7 @@ export function renderQiyam(root) {
     out.hidden = false;
     out.innerHTML = `
       <div class="stat-row"><span>موعد النوم</span><span class="v">${fmtFull(bedtime)}</span></div>
-      <div class="stat-row"><span>موعد الاستيقاظ</span><span class="v">${fmtFull(wake)} ${inLastThird ? '✓ داخل الثلث الأخير' : '· قبل الثلث الأخير'}</span></div>
+      <div class="stat-row"><span>موعد الاستيقاظ</span><span class="v">${fmtFull(wake)} · ${inLastThird ? 'داخل الثلث الأخير' : 'قبل الثلث الأخير'}</span></div>
       <div class="mode-note">الاستيقاظ داخل الثلث الأخير أفضل؛ إن تعب جسدك فالنوم الكافي مقدم على قيام مُتعِب.</div>`;
   });
 }
@@ -380,9 +393,9 @@ export async function renderSettings(root) {
     <div class="card">
       <h3 style="margin:0 0 8px;font-size:15px">الموقع</h3>
       <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:8px" id="s-loc-current">الحالي: ${loc.name_ar ?? 'مكة المكرمة'} (${loc.lat?.toFixed(3) ?? '21.423'}, ${loc.lng?.toFixed(3) ?? '39.826'})</div>
-      <button class="btn primary" id="s-gps-btn" style="width:100%;margin-bottom:10px">📍 تحديد موقعي الحالي تلقائياً (GPS)</button>
+      <button class="btn primary" id="s-gps-btn" style="width:100%;margin-bottom:10px">${iconSvg('location', 16)}<span>تحديد الموقع تلقائياً (GPS)</span></button>
       <div class="field"><label>ابحث في مدن التطبيق (تعمل دون اتصال — ٦,٢٨٩ مدينة)</label>
-        <input id="s-city" class="search-input" placeholder="اكتب اسم المدينة…" autocomplete="off"></div>
+        <input id="s-city" class="search-input" placeholder="اكتب اسم المدينة" autocomplete="off"></div>
       <div id="s-city-results"></div>
     </div>
     <div class="card">
@@ -391,7 +404,7 @@ export async function renderSettings(root) {
     </div>
   </div>`;
 
-  const rerender = () => { document.body.dataset.theme = state.settings.theme; document.body.style.setProperty('--font-scale', String(state.settings.font_scale ?? 1.3)); };
+  const rerender = () => { mountTheme(); };
   root.querySelector('#s-theme').addEventListener('change', async (e) => { await saveSetting('theme', e.target.value); rerender(); });
   root.querySelector('#s-font').addEventListener('input', async (e) => { await saveSetting('font_scale', Number(e.target.value)); rerender(); });
   root.querySelector('#s-method').addEventListener('change', async (e) => { await saveSetting('calc_method', e.target.value); });

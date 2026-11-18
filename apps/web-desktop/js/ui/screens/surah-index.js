@@ -4,6 +4,7 @@
 // ============================================================================
 import { state } from '../../app-state.js';
 import { navigate } from '../router.js';
+import { iconSvg } from '../icons.js';
 
 export async function renderSurahIndex(root) {
   const [rows, juzRows, bookmarks] = await Promise.all([
@@ -32,12 +33,12 @@ export async function renderSurahIndex(root) {
     </div>
     ${bookmarks.length ? `
       <div style="padding:4px 16px 6px;display:flex;gap:6px;flex-wrap:wrap">
-        ${bookmarks.map((b) => `<button class="juz-pill" data-page="${b.page}" style="border-color:var(--color-accent);color:var(--color-accent)">🔖 ${b.label_ar || `ص ${b.page}`}</button>`).join('')}
+        ${bookmarks.map((b) => `<button class="juz-pill" data-page="${b.page}" style="border-color:var(--color-accent);color:var(--color-accent)">${iconSvg('bookmark-filled', 13)}<span>${b.label_ar || `ص ${b.page}`}</span></button>`).join('')}
       </div>` : ''}
     <div id="surah-list">${rows.map((s) => `
       <div class="cat-tile" data-page="${s.start_page}" data-search="${s.number} ${s.name_ar} ${s.name_translit}" role="button" tabindex="0" aria-label="${s.name_ar}">
         <span class="c-icon" style="min-width:34px;text-align:center;font-variant-numeric:tabular-nums;color:var(--color-accent);font-weight:700">${s.number}</span>
-        <span class="c-name">${s.name_ar} <span style="font-size:11px;color:var(--color-text-secondary)">${s.revelation_type === 'Meccan' ? 'مكية' : 'مدنية'} · ${s.ayah_count} آية</span></span>
+        <span class="c-name">${s.name_ar} <span style="font-size:12px;color:var(--color-text-secondary)">${(s.revelation_type === 'makkah' || s.revelation_type === 'Meccan') ? 'مكية' : 'مدنية'} · ${s.ayah_count} آية</span></span>
         <span class="c-meta">ص ${s.start_page}</span>
       </div>`).join('')}</div>
   </div>`;

@@ -2,29 +2,56 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#07161B">
-  <title>صدقة جارية — إسلامي</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF7F0">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#07110F">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>صدقة جارية — المصحف والأذكار والمواقيت</title>
   <link rel="icon" href="../../icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="../../icons/icon-192.png">
   <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="styles/shell.css">
-    <link rel="stylesheet" href="styles/mushaf.css">
-    <link rel="stylesheet" href="styles/sheets.css">
-    <link rel="stylesheet" href="styles/tools.css">
+  <link rel="stylesheet" href="styles/shell.css">
+  <link rel="stylesheet" href="styles/mushaf.css">
+  <link rel="stylesheet" href="styles/sheets.css">
+  <link rel="stylesheet" href="styles/tools.css">
 </head>
 <body data-theme="dark">
   <div id="screen-root" aria-live="polite"></div>
 
-  <!-- Liquid Glass control layer: floating pill bar + separated Search pill -->
-  <nav class="glass-tabbar" id="tabbar" aria-label="التنقل الرئيسي">
-    <button class="tab-btn" data-tab="today">اليوم</button>
-    <button class="tab-btn" data-tab="mushaf">المصحف</button>
-    <button class="tab-btn" data-tab="athkar">الأذكار</button>
-    <button class="tab-btn" data-tab="tools">الأدوات</button>
-  </nav>
-  <div class="glass-searchpill" id="searchpill" role="button" tabindex="0" aria-label="بحث شامل"
-       title="بحث في القرآن والأذكار والتفاسير">🔍</div>
+  <!-- Liquid Glass control layer: unified bottom dock (4-tab capsule + separated Search orb) -->
+  <div class="glass-dock" id="glass-dock">
+    <nav class="glass-tabbar" id="tabbar" aria-label="التنقل الرئيسي">
+      <button class="tab-btn" type="button" data-tab="today">
+        <span class="tab-ico" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        </span>
+        <span class="tab-lbl">اليوم</span>
+      </button>
+      <button class="tab-btn" type="button" data-tab="mushaf">
+        <span class="tab-ico" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.5A2.5 2.5 0 0 1 4.5 3H11v17H4.5A2.5 2.5 0 0 0 2 22V5.5Z"/><path d="M22 5.5A2.5 2.5 0 0 0 19.5 3H13v17h6.5a2.5 2.5 0 0 1 2.5 2V5.5Z"/></svg>
+        </span>
+        <span class="tab-lbl">المصحف</span>
+      </button>
+      <button class="tab-btn" type="button" data-tab="athkar">
+        <span class="tab-ico" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-2.2 3.2-5 5.4-5 9a5 5 0 0 0 10 0c0-3.6-2.8-5.8-5-9Z"/><path d="M12 12v5"/><path d="M8 20h8"/></svg>
+        </span>
+        <span class="tab-lbl">الأذكار</span>
+      </button>
+      <button class="tab-btn" type="button" data-tab="tools">
+        <span class="tab-ico" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
+        </span>
+        <span class="tab-lbl">الأدوات</span>
+      </button>
+    </nav>
+    <button class="glass-searchpill" id="searchpill" type="button" aria-label="بحث شامل" title="بحث في القرآن والأذكار والتفاسير">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+    </button>
+  </div>
+
   <div class="miniplayer" id="miniplayer" role="region" aria-label="مشغل التلاوة"></div>
 
   <div id="sheet-root"></div>

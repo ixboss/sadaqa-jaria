@@ -19,14 +19,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Spa
-import androidx.compose.material.icons.filled.Today
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Spa
+import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -42,9 +44,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -113,38 +117,49 @@ fun RootScaffold(db: SadaqaDb) {
 
 /**
  * Floating glass pill navigation — translucent rounded bar + separated
- * circular Search pill. Approximation of iOS 26 Liquid Glass (Android has no
- * system glass material — documented platform limit, ARCHITECTURE §3).
+ * circular Search orb. Approximation of iOS 26 Liquid Glass.
  */
 @Composable
 fun GlassPillNav(selected: String, onSelect: (String) -> Unit, onSearch: () -> Unit) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(28.dp)
     val theme = LocalSadaqaTheme.current
+    val isDark = theme.bg.luminance() < 0.4f
+    val glassBg = if (isDark) {
+        Brush.verticalGradient(listOf(Color(0xCC122521), Color(0xB8091513)))
+    } else {
+        Brush.verticalGradient(listOf(Color(0xE6FAF7F0), Color(0xD8F1ECE1)))
+    }
+    val glassBorder = if (isDark) Color(0x28FFFFFF) else Color(0x22000000)
+    val searchBg = if (isDark) Color(0xCC122521) else Color(0xE6FAF7F0)
+
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(
             modifier = Modifier
                 .weight(1f)
-                .background(Brush.verticalGradient(listOf(Color(0x1AFFFFFF), Color(0x0DFFFFFF))), shape)
-                .border(1.dp, Color(0x38FFFFFF), shape)
-                .padding(6.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+                .clip(shape)
+                .background(glassBg, shape)
+                .border(1.dp, glassBorder, shape)
+                .padding(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            NavItem(Icons.Filled.Today, "اليوم", "today", selected, onSelect)
-            NavItem(Icons.Filled.MenuBook, "المصحف", "mushaf", selected, onSelect)
-            NavItem(Icons.Filled.Spa, "الأذكار", "athkar", selected, onSelect)
-            NavItem(Icons.Filled.Settings, "الأدوات", "tools", selected, onSelect)
+            NavItem(Icons.Outlined.Today, "اليوم", "today", selected, isDark, Modifier.weight(1f), onSelect)
+            NavItem(Icons.Outlined.MenuBook, "المصحف", "mushaf", selected, isDark, Modifier.weight(1f), onSelect)
+            NavItem(Icons.Outlined.Spa, "الأذكار", "athkar", selected, isDark, Modifier.weight(1f), onSelect)
+            NavItem(Icons.Outlined.GridView, "الأدوات", "tools", selected, isDark, Modifier.weight(1f), onSelect)
         }
         FloatingActionButton(
             onClick = onSearch,
-            modifier = Modifier.padding(start = 10.dp).size(48.dp),
-            shape = RoundedCornerShape(50),
-            containerColor = Color(0x2EFFFFFF),
+            modifier = Modifier.size(54.dp).border(1.dp, glassBorder, CircleShape),
+            shape = CircleShape,
+            containerColor = searchBg,
             contentColor = theme.textPrimary,
+            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
         ) {
-            Icon(Icons.Default.Search, contentDescription = "بحث")
+            Icon(Icons.Outlined.Search, contentDescription = "بحث", modifier = Modifier.size(21.dp))
         }
     }
 }
@@ -155,18 +170,34 @@ private fun NavItem(
     label: String,
     key: String,
     selected: String,
+    isDark: Boolean,
+    modifier: Modifier = Modifier,
     onSelect: (String) -> Unit,
 ) {
     val theme = LocalSadaqaTheme.current
     val active = selected == key
+    val activeTint = if (isDark) Color(0xFF5EEAD4) else Color(0xFF0F766E)
+    val activeFill = if (isDark) Color(0x292DD4BF) else Color(0x240F766E)
+    val activeStroke = if (isDark) Color(0x572DD4BF) else Color(0x4D0F766E)
+    val pillShape = RoundedCornerShape(22.dp)
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clip(RoundedCornerShape(18.dp))
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = modifier
+            .clip(pillShape)
+            .background(if (active) activeFill else Color.Transparent, pillShape)
+            .border(1.dp, if (active) activeStroke else Color.Transparent, pillShape)
             .clickable { onSelect(key) }
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(vertical = 7.dp),
     ) {
-        Icon(icon, contentDescription = label, tint = if (active) theme.accent else theme.textSecondary)
-        Text(label, fontSize = 11.sp, color = if (active) theme.accent else theme.textSecondary)
+        Icon(icon, contentDescription = label, tint = if (active) activeTint else theme.textSecondary, modifier = Modifier.size(20.dp))
+        Text(
+            label,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (active) activeTint else theme.textSecondary,
+            maxLines = 1,
+        )
     }
 }

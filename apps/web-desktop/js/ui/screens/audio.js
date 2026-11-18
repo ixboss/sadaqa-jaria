@@ -7,20 +7,21 @@
 // ============================================================================
 import { state, haptic, HAPTICS, nowMs, saveSetting } from '../../app-state.js';
 import { navigate } from '../router.js';
+import { iconSvg } from '../icons.js';
 import { loadCatalog, syncReciters, downloadSurahPack, getAyahAudio, catalogFor } from '../../data/audio-catalog.js';
 
 // ---------------------------------------------------------------------------
 // global player (miniplayer lives outside #screen-root)
 // ---------------------------------------------------------------------------
-const player = { audio: null, nextPreload: null, reciterId: null, surah: null, ayah: null, playing: false, blobUrl: null };
+const player = { audio: null, nextPreload: null, nextBlobUrl: null, reciterId: null, surah: null, ayah: null, playing: false, blobUrl: null, session: 0 };
 
 function miniplayerShow(title, sub) {
   const el = document.getElementById('miniplayer');
   el.classList.add('visible');
   el.innerHTML = `
     <div class="track"><div class="t1">${title}</div><div class="t2">${sub}</div></div>
-    <button class="pbtn" id="mp-toggle" aria-label="تشغيل/إيقاف">${player.playing ? '⏸' : '▶'}</button>
-    <button class="pbtn" id="mp-stop" style="background:var(--color-surface-raised);color:var(--color-text-primary)" aria-label="إيقاف الكل">⏹</button>`;
+    <button class="pbtn" id="mp-toggle" aria-label="تشغيل/إيقاف">${iconSvg(player.playing ? 'pause' : 'play', 15)}</button>
+    <button class="pbtn" id="mp-stop" style="background:var(--color-surface-raised);color:var(--color-text-primary)" aria-label="إيقاف الكل">${iconSvg('stop', 14)}</button>`;
   el.querySelector('#mp-toggle').addEventListener('click', () => togglePlay());
   el.querySelector('#mp-stop').addEventListener('click', () => stopPlayback());
 }
@@ -36,14 +37,17 @@ export async function togglePlay() {
   if (player.playing) { player.audio.pause(); player.playing = false; }
   else { player.audio.play(); player.playing = true; }
   const t = document.getElementById('mp-toggle');
-  if (t) t.textContent = player.playing ? '⏸' : '▶';
+  if (t) t.innerHTML = iconSvg(player.playing ? 'pause' : 'play', 15);
 }
 
 export function stopPlayback() {
+  player.session++;
   player.audio?.pause();
   player.audio = null;
+  player.nextPreload?.pause?.();
   player.nextPreload = null;
   if (player.blobUrl) { URL.revokeObjectURL(player.blobUrl); player.blobUrl = null; }
+  if (player.nextBlobUrl) { URL.revokeObjectURL(player.nextBlobUrl); player.nextBlobUrl = null; }
   player.playing = false;
   player.surah = null;
   miniplayerHide();
@@ -51,9 +55,15 @@ export function stopPlayback() {
 }
 
 async function playAyah(reciterId, surah, ayah) {
+  const session = ++player.session;
   const s = await state.db.queryOne(`SELECT ayah_count, name_ar FROM surahs WHERE number = ?`, [surah]);
+  if (session !== player.session || !s) return;
   const src = await getAyahAudio(reciterId, surah, ayah);
+  if (session !== player.session) return;
+
   if (player.blobUrl) { URL.revokeObjectURL(player.blobUrl); player.blobUrl = null; }
+  if (player.nextBlobUrl) { URL.revokeObjectURL(player.nextBlobUrl); player.nextBlobUrl = null; }
+  player.nextPreload = null;
   player.audio?.pause();
   player.reciterId = reciterId;
   player.surah = surah;
@@ -65,33 +75,53 @@ async function playAyah(reciterId, surah, ayah) {
     player.audio = new Audio(src.url); // online fallback (pack not installed)
   }
   player.playing = true;
-  miniplayerShow(`${s.name_ar} · آية ${ayah}`, `${catalogFor(reciterId)?.name_ar ?? ''}${src.offline ? ' · دون اتصال ✓' : ' · بث مباشر (الحزمة غير مثبتة)'}`);
-  // preload the next ayah for gapless-ish handoff
-  if (ayah < s.ayah_count) {
-    getAyahAudio(reciterId, surah, ayah + 1).then((n) => {
-      player.nextPreload = n.blob ? new Audio(URL.createObjectURL(n.blob)) : new Audio(n.url);
+  miniplayerShow(`${s.name_ar} · آية ${ayah}`, `${catalogFor(reciterId)?.name_ar ?? ''}${src.offline ? ' · دون اتصال' : ' · بث مباشر (الحزمة غير مثبتة)'}`);
+
+  const preloadNext = (curAyah) => {
+    if (curAyah >= s.ayah_count) return;
+    getAyahAudio(reciterId, surah, curAyah + 1).then((n) => {
+      if (session !== player.session || player.ayah !== curAyah) return;
+      if (player.nextBlobUrl) { URL.revokeObjectURL(player.nextBlobUrl); player.nextBlobUrl = null; }
+      let nextUrl = n.url;
+      if (n.blob) {
+        player.nextBlobUrl = URL.createObjectURL(n.blob);
+        nextUrl = player.nextBlobUrl;
+      }
+      player.nextPreload = new Audio(nextUrl);
       player.nextPreload.preload = 'auto';
     }).catch(() => {});
-  }
-  player.audio.onended = async () => {
-    if (player.nextPreload) {
-      const nxt = player.nextPreload;
-      player.nextPreload = null;
-      player.audio = nxt;
-      player.ayah = ayah + 1;
-      player.playing = true;
-      miniplayerShow(`${s.name_ar} · آية ${ayah + 1}`, catalogFor(reciterId)?.name_ar ?? '');
-      nxt.play().catch(() => {});
-      nxt.onended = player.audio.onended;
-      return;
-    }
-    if (ayah < s.ayah_count) await playAyah(reciterId, surah, ayah + 1);
-    else stopPlayback();
   };
-  player.audio.onerror = () => {
+  preloadNext(ayah);
+
+  const handleError = () => {
     stopPlayback();
     alert('تعذر تشغيل الآية — ثبّت حزمة السورة من شاشة التلاوة لتشغيلها دون اتصال.');
   };
+  const handleEnded = async () => {
+    if (session !== player.session) return;
+    const curAyah = player.ayah ?? ayah;
+    if (player.nextPreload && curAyah < s.ayah_count) {
+      const nxt = player.nextPreload;
+      const nxtBlob = player.nextBlobUrl;
+      player.nextPreload = null;
+      player.nextBlobUrl = null;
+      if (player.blobUrl) { URL.revokeObjectURL(player.blobUrl); player.blobUrl = null; }
+      player.blobUrl = nxtBlob;
+      player.audio = nxt;
+      player.ayah = curAyah + 1;
+      player.playing = true;
+      miniplayerShow(`${s.name_ar} · آية ${player.ayah}`, `${catalogFor(reciterId)?.name_ar ?? ''} · دون اتصال`);
+      nxt.onended = handleEnded;
+      nxt.onerror = handleError;
+      preloadNext(player.ayah);
+      nxt.play().catch(() => { player.playing = false; });
+      return;
+    }
+    if (curAyah < s.ayah_count) await playAyah(reciterId, surah, curAyah + 1);
+    else stopPlayback();
+  };
+  player.audio.onended = handleEnded;
+  player.audio.onerror = handleError;
   await player.audio.play().catch(() => { player.playing = false; });
 }
 
@@ -165,9 +195,9 @@ export async function renderAudio(root, args = {}) {
       try {
         await downloadSurahPack(state.db, reciterId, surah, (a, total) => { btn.textContent = `${a} / ${total}`; });
         haptic(HAPTICS.categoryComplete);
-        btn.textContent = 'تم ✓';
+        btn.textContent = 'تم التثبيت';
         if (!state.settings.reciter) await saveSetting('reciter', reciterId);
-        setTimeout(() => navigate('mushaf-audio', { r: Date.now() }), 700);
+        setTimeout(() => { if (location.hash.startsWith('#/mushaf-audio')) navigate('mushaf-audio', { r: Date.now() }); }, 700);
       } catch (e) {
         btn.textContent = 'فشل — أعد المحاولة';
         btn.disabled = false;

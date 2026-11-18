@@ -37,9 +37,9 @@ enum SadaqaTheme {
     static let offeredKeys = ["dark", "light", "sepia", "night"] // settings-screen parity with web
 
     static let fallbackDarkTheme = TokenTheme(
-        bg: "#07161B", surface: "#0E2228", surfaceRaised: "#17333B",
-        textPrimary: "#E8EEF2", textSecondary: "#A7B7BD", accent: "#E7C14C",
-        accentContrast: "#1A1206", border: "#1E3A44", mushafText: "#F2EFE6", mushafBg: "#0A1C22"
+        bg: "#07110F", surface: "#0D1B18", surfaceRaised: "#122521",
+        textPrimary: "#F0F4F3", textSecondary: "#9BB3AE", accent: "#E5C158",
+        accentContrast: "#111612", border: "#1B352F", mushafText: "#F4EFE4", mushafBg: "#07110F"
     )
 
     static func loadFile() -> TokensFile {
@@ -55,7 +55,8 @@ enum SadaqaTheme {
 
     static func load(key: String) -> SadaqaThemeColors {
         let file = loadFile()
-        let t = file.themes[key] ?? file.themes["dark"] ?? fallbackDarkTheme
+        let resolvedKey = (key == "night") ? "oled" : key
+        let t = file.themes[resolvedKey] ?? file.themes["dark"] ?? fallbackDarkTheme
         return SadaqaThemeColors(token: t, all: file)
     }
 }

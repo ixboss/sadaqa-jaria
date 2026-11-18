@@ -61,11 +61,21 @@ struct MushafPageView: View {
             }
             .background(hubTab == .reader ? appState.theme.mushafBg : appState.theme.bg)
             .onAppear {
-                if page == 1, let saved = appState.db.setting("mushaf_page")?.intValue, (1...604).contains(saved) {
+                if let target = appState.targetMushafPage, (1...604).contains(target) {
+                    page = target
+                    appState.targetMushafPage = nil
+                } else if page == 1, let saved = appState.db.setting("mushaf_page")?.intValue, (1...604).contains(saved) {
                     page = saved
                 }
                 reloadPage()
                 loadHubData()
+            }
+            .onChange(of: appState.targetMushafPage) { target in
+                if let target, (1...604).contains(target) {
+                    page = target
+                    hubTab = .reader
+                    appState.targetMushafPage = nil
+                }
             }
             .onChange(of: page) { _ in
                 reloadPage()
@@ -290,7 +300,11 @@ struct MushafPageView: View {
                     hudVisible = false
                     hubTab = .index
                 }
-                hudButton("الختمة والتلاوة", icon: "book.pages") {
+                hudButton("بحث", icon: "magnifyingglass") {
+                    hudVisible = false
+                    appState.searchPresented = true
+                }
+                hudButton("الختمة", icon: "book.pages") {
                     hudVisible = false
                     hubTab = .reading
                 }
@@ -936,6 +950,8 @@ struct AyahActionSheet: View {
                 page = r["page"] as Int? ?? 1
                 surahName = r["name_ar"] as String? ?? ""
             }
+            let bmCount = try Int.fetchOne(q, sql: "SELECT COUNT(*) FROM bookmarks WHERE ayah_number = ? AND deleted = 0", arguments: [ayahNumber]) ?? 0
+            bookmarked = bmCount > 0
         }
     }
 
@@ -990,8 +1006,14 @@ struct KhatmahView: View {
                         .foregroundStyle(appState.theme.textSecondary)
                 }
                 Spacer()
-                Text("📖")
-                    .font(.system(size: 24))
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(appState.theme.accent.opacity(0.14))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "book.closed")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(appState.theme.accent)
+                }
             }
 
             if planUuid != nil {

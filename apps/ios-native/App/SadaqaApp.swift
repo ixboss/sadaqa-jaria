@@ -28,18 +28,19 @@ struct RootView: View {
     var body: some View {
         TabView(selection: $appState.tab) {
             TodayView()
-                .tabItem { Label("اليوم", systemImage: "moon.stars.fill") }
+                .tabItem { Label("اليوم", systemImage: "sun.max") }
                 .tag(RootTab.today)
             MushafPageView()
-                .tabItem { Label("المصحف", systemImage: "book.closed.fill") }
+                .tabItem { Label("المصحف", systemImage: "book.closed") }
                 .tag(RootTab.mushaf)
             AthkarView()
-                .tabItem { Label("الأذكار", systemImage: "sparkles") }
+                .tabItem { Label("الأذكار", systemImage: "hands.sparkles") }
                 .tag(RootTab.athkar)
             ToolsView()
-                .tabItem { Label("الأدوات", systemImage: "compass.drawing") }
+                .tabItem { Label("الأدوات", systemImage: "square.grid.2x2") }
                 .tag(RootTab.tools)
         }
+        .tint(appState.theme.accent)
         // iOS 26 Liquid Glass: floating bar minimizes on scroll + trailing
         // Search pill. On iOS 18 these modifiers no-op (compiled-out).
         .applyGlassTabBar()
@@ -47,6 +48,10 @@ struct RootView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationSearchPill()
             }
+        }
+        .sheet(isPresented: $appState.searchPresented) {
+            UniversalSearchView()
+                .environmentObject(appState)
         }
     }
 }
@@ -85,6 +90,7 @@ enum RootTab: Hashable { case today, mushaf, athkar, tools }
 final class AppState: ObservableObject {
     @Published var tab: RootTab = .today
     @Published var searchPresented = false
+    @Published var targetMushafPage: Int?
     @Published var fontScale: Double = 1.3
     @Published var hijriAdjust: Int = 0
     @Published var engineOptions: EngineOptions = EngineOptions(lat: 21.4225, lng: 39.8262, timeZone: "Asia/Riyadh")

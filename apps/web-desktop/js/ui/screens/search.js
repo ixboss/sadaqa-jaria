@@ -6,6 +6,8 @@
 import { state } from '../../app-state.js';
 import { ftsQuery, normalizeArabic } from '../../../../../packages/core-data/engines/search.js';
 import { gotoAyah } from './mushaf.js';
+import { navigate } from '../router.js';
+import { iconSvg } from '../icons.js';
 
 export function renderSearchSheet() {
   const host = document.getElementById('sheet-root');
@@ -13,10 +15,10 @@ export function renderSearchSheet() {
   <div class="sheet-backdrop" id="sh-backdrop"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-label="بحث شامل">
     <div class="sheet-handle"></div>
-    <div class="sheet-head"><h2>بحث شامل</h2><button class="sheet-close" id="sh-close" aria-label="إغلاق">✕</button></div>
+    <div class="sheet-head"><h2>بحث شامل</h2><button class="sheet-close" id="sh-close" aria-label="إغلاق">${iconSvg('close', 18)}</button></div>
     <div class="sheet-body">
-      <input class="search-input" id="search-input" type="search" placeholder="ابحث في القرآن والأذكار وسور القرآن…" autocomplete="off">
-      <div id="search-results" aria-live="polite"><div class="empty-state"><div class="icon">🔍</div><h2>ابدأ بالكتابة</h2><p>البحث يعمل دون اتصال بالإنترنت — اكتب الآية أو الذكر حتى بدون تشكيل.</p></div></div>
+      <input class="search-input" id="search-input" type="search" enterkeyhint="search" placeholder="ابحث في القرآن والأذكار والسور" autocomplete="off">
+      <div id="search-results" aria-live="polite"><div class="empty-state"><div class="icon">${iconSvg('search', 22)}</div><h2>بحث دون اتصال</h2><p>اكتب كلمة من الآية أو الذكر أو اسم السورة حتى بدون تشكيل.</p></div></div>
     </div>
   </div>`;
   wire(host);
@@ -57,12 +59,15 @@ function wire(host) {
     if (mySeq !== seq) return; // stale keystroke
     out.innerHTML = `
       ${surahHits.length ? `<div class="result-group"><h3>السور</h3>${surahHits.map((s) => `
-        <div class="result-item" data-surah="${s.number}"><div class="ayah-text">${escapeHtml(s.name_ar)}</div><div class="meta">سورة ${s.number} · تبدأ في صفحة ${s.start_page ?? '…'}</div></div>`).join('')}</div>` : ''}
+        <div class="result-item" data-surah="${s.number}" data-surah-page="${s.start_page ?? 1}"><div class="ayah-text">${escapeHtml(s.name_ar)}</div><div class="meta">سورة ${s.number} · تبدأ في صفحة ${s.start_page ?? '…'}</div></div>`).join('')}</div>` : ''}
       ${ayahRows.length ? `<div class="result-group"><h3>الآيات</h3>${ayahRows.map((r) => `
         <div class="result-item" data-ayah="${r.ayah_number}"><div class="ayah-text">${escapeHtml(r.text_uthmani)}</div><div class="meta">${escapeHtml(r.surah_name)} · الآية ${r.number_in_surah}</div></div>`).join('')}</div>` : ''}
       ${athkarRows.length ? `<div class="result-group"><h3>الأذكار</h3>${athkarRows.map((r) => `
         <div class="result-item"><div class="ayah-text" style="font-size:16px">${escapeHtml(r.text_ar)}</div><div class="meta">${escapeHtml(r.cat_name)}</div></div>`).join('')}</div>` : ''}
-      ${!surahHits.length && !ayahRows.length && !athkarRows.length ? `<div class="empty-state"><div class="icon">•</div><h2>لا نتائج</h2><p>جرّب كلمات أقل أو بدون تشكيل.</p></div>` : ''}`;
+      ${!surahHits.length && !ayahRows.length && !athkarRows.length ? `<div class="empty-state"><div class="icon">${iconSvg('search', 20)}</div><h2>لا نتائج</h2><p>جرّب كلمات أقل أو بدون تشكيل.</p></div>` : ''}`;
+    for (const el of out.querySelectorAll('[data-surah-page]')) {
+      el.addEventListener('click', () => { close(); navigate('mushaf-page', { page: Number(el.dataset.surahPage) }); });
+    }
     for (const el of out.querySelectorAll('[data-ayah]')) {
       el.addEventListener('click', () => { close(); gotoAyah(Number(el.dataset.ayah)); });
     }

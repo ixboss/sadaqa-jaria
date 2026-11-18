@@ -20,14 +20,14 @@ struct AthkarCategory: Identifiable {
     let solarWindow: String?
     let itemCount: Int
 
-    var displayIcon: String {
+    var displaySymbol: String {
         switch solarWindow {
-        case "fajr": return "🌅"
-        case "asr": return "🌇"
-        case "night": return "🌙"
-        case "duha": return "☀️"
-        case "after_prayer": return "🕌"
-        default: return "📿"
+        case "fajr": return "sunrise"
+        case "asr": return "sunset"
+        case "night": return "moon.stars"
+        case "duha": return "sun.max"
+        case "after_prayer": return "building.columns"
+        default: return "hands.sparkles"
         }
     }
 
@@ -75,7 +75,14 @@ struct AthkarView: View {
                     ForEach(filtered) { cat in
                         NavigationLink(value: cat.id) {
                             HStack(spacing: 12) {
-                                Text(cat.displayIcon).font(.system(size: 22))
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(appState.theme.surfaceRaised)
+                                        .frame(width: 36, height: 36)
+                                    Image(systemName: cat.displaySymbol)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundStyle(appState.theme.accent)
+                                }
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(cat.nameAr).font(.system(size: 15, weight: .semibold))
                                         .foregroundStyle(appState.theme.textPrimary)
@@ -115,27 +122,34 @@ struct AthkarView: View {
         let cols = [GridItem(.flexible()), GridItem(.flexible())]
         return LazyVGrid(columns: cols, spacing: 10) {
             if let m = morning {
-                NavigationLink(value: m.id) { featuredCard("🌅", "أذكار الصباح", "\(m.itemCount) ذكراً") }
+                NavigationLink(value: m.id) { featuredCard("sunrise", "أذكار الصباح", "\(m.itemCount) ذكراً") }
             }
             if let e = evening {
-                NavigationLink(value: e.id) { featuredCard("🌇", "أذكار المساء", "\(e.itemCount) ذكراً") }
+                NavigationLink(value: e.id) { featuredCard("sunset", "أذكار المساء", "\(e.itemCount) ذكراً") }
             }
             if let a = afterPrayer {
-                NavigationLink(value: a.id) { featuredCard("🕌", "أذكار بعد الصلاة", "\(a.itemCount) ذكراً") }
+                NavigationLink(value: a.id) { featuredCard("building.columns", "أذكار بعد الصلاة", "\(a.itemCount) ذكراً") }
             }
             if let s = sleep {
-                NavigationLink(value: s.id) { featuredCard("🌙", "أذكار النوم", "\(s.itemCount) ذكراً") }
+                NavigationLink(value: s.id) { featuredCard("moon.stars", "أذكار النوم", "\(s.itemCount) ذكراً") }
             }
-            NavigationLink { TasbihView() } label: { featuredCard("📿", "السبحة الإلكترونية", "التسبيح والأوراد") }
-            NavigationLink { AudioView() } label: { featuredCard("🎧", "التلاوة الصوتية", "استماع دون اتصال") }
+            NavigationLink { TasbihView() } label: { featuredCard("circle.dashed", "السبحة الإلكترونية", "التسبيح والأوراد") }
+            NavigationLink { AudioView() } label: { featuredCard("headphones", "التلاوة الصوتية", "استماع دون اتصال") }
         }
     }
 
-    private func featuredCard(_ icon: String, _ title: String, _ sub: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(icon).font(.system(size: 22))
+    private func featuredCard(_ symbol: String, _ title: String, _ sub: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(appState.theme.accent.opacity(0.14))
+                    .frame(width: 36, height: 36)
+                Image(systemName: symbol)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(appState.theme.accent)
+            }
             Text(title).font(.system(size: 14, weight: .bold)).foregroundStyle(appState.theme.textPrimary)
-            Text(sub).font(.system(size: 11)).foregroundStyle(appState.theme.textSecondary)
+            Text(sub).font(.system(size: 11)).monospacedDigit().foregroundStyle(appState.theme.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
@@ -472,7 +486,7 @@ func dayKeyOf(_ ms: Int64) -> String {
 extension String {
     /// Local-day start (00:00) as epoch ms — used by today-session queries.
     var startOfDayMs: Int64 {
-        var cal = Calendar(identifier: .gregorian)
+        let cal = Calendar(identifier: .gregorian)
         let p = split(separator: "-").map { Int($0) ?? 0 }
         let d = cal.date(from: DateComponents(year: p.first ?? 0, month: p.dropFirst().first ?? 1, day: p.last ?? 1)) ?? Date()
         return Int64(d.timeIntervalSince1970 * 1000)

@@ -111,12 +111,15 @@ struct QiblaView: View {
                     .foregroundStyle(isAligned ? appState.theme.accent : appState.theme.textPrimary)
 
                 if isAligned {
-                    Text("✓ باتجاه القبلة")
-                        .font(.system(size: 13, weight: .bold))
-                        .padding(.horizontal, 14).padding(.vertical, 6)
-                        .background(appState.theme.accent.opacity(0.18))
-                        .foregroundStyle(appState.theme.accent)
-                        .clipShape(Capsule())
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("باتجاه القبلة")
+                    }
+                    .font(.system(size: 13, weight: .bold))
+                    .padding(.horizontal, 14).padding(.vertical, 6)
+                    .background(appState.theme.accent.opacity(0.18))
+                    .foregroundStyle(appState.theme.accent)
+                    .clipShape(Capsule())
                 }
 
                 HStack(spacing: 12) {
@@ -257,12 +260,12 @@ struct HijriCalendarView: View {
         ScrollView {
             VStack(spacing: 12) {
                 HStack {
-                    Button("‹") { shift(-1) }.font(.system(size: 16, weight: .bold))
+                    Button { shift(-1) } label: { Image(systemName: "chevron.right").font(.system(size: 15, weight: .semibold)).padding(6) }
                     Spacer()
                     Text("\(HijriEngine.monthsArSafe(hijriMonth.m)) \(hijriMonth.y) هـ")
                         .font(.system(size: 15, weight: .bold))
                     Spacer()
-                    Button("›") { shift(1) }.font(.system(size: 16, weight: .bold))
+                    Button { shift(1) } label: { Image(systemName: "chevron.left").font(.system(size: 15, weight: .semibold)).padding(6) }
                 }
                 let dows = ["ح", "ن", "ث", "ر", "خ", "ج", "س"] // أحد..سبت (RTL grid starts Sunday)
                 HStack {
@@ -373,7 +376,6 @@ struct ZakatView: View {
     @State private var goldPrice = ""
     @State private var silverPrice = ""
     @State private var standard = "gold"
-    @State private var persisted = false
 
     var body: some View {
         Form {
@@ -693,7 +695,7 @@ final class CityLocationDetector: NSObject, ObservableObject, CLLocationManagerD
         Task { @MainActor in
             guard self.isLocating else { return }
             if status == .authorizedWhenInUse || status == .authorizedAlways {
-                manager.requestLocation()
+                self.manager.requestLocation()
             } else if status == .denied || status == .restricted {
                 self.isLocating = false
                 self.errorMessage = "تم رفض إذن الموقع — اختر مدينتك من البحث."
@@ -732,20 +734,31 @@ final class CityLocationDetector: NSObject, ObservableObject, CLLocationManagerD
 struct UniversalSearchView: View {
     @EnvironmentObject var appState: AppState
     @State private var query = ""
-    @State private var ayahs: [(n: Int, surah: String, text: String)] = []
+    @State private var ayahs: [(id: Int, nis: Int, page: Int, surah: String, text: String)] = []
 
     var body: some View {
         NavigationStack {
             List {
-                TextField("ابحث في القرآن والأذكار…", text: $query)
+                TextField("ابحث في القرآن والأذكار", text: $query)
                     .autocorrectionDisabled()
                     .onChange(of: query) { q in search(q) }
-                ForEach(ayahs, id: \.n) { a in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("\(a.surah) — آية \(a.n)").font(.system(size: 12)).foregroundStyle(appState.theme.accent)
-                        Text(a.text).font(.system(size: 17)).lineSpacing(8)
+                ForEach(ayahs, id: \.id) { a in
+                    Button {
+                        appState.targetMushafPage = a.page
+                        appState.tab = .mushaf
+                        appState.searchPresented = false
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("\(a.surah) · الآية \(a.nis) · ص \(a.page)")
+                                .font(.system(size: 12))
+                                .foregroundStyle(appState.theme.accent)
+                            Text(a.text)
+                                .font(.system(size: 17))
+                                .foregroundStyle(appState.theme.textPrimary)
+                                .lineSpacing(8)
+                        }
+                        .padding(.vertical, 4)
                     }
-                    .padding(.vertical, 4)
                 }
             }
             .navigationTitle("البحث")
@@ -758,12 +771,14 @@ struct UniversalSearchView: View {
         guard trimmed.count >= 2, let term = SadaqaDatabase.ftsQuery(trimmed) else { ayahs = []; return }
         try? appState.db.queue.read { db in
             ayahs = try Row.fetchAll(db, sql: """
-                SELECT a.ayah_number, a.text_uthmani, s.name_ar
+                SELECT a.ayah_number, a.number_in_surah, a.page, a.text_uthmani, s.name_ar
                 FROM ayahs a
                 JOIN surahs s ON s.number = a.surah
                 WHERE a.ayah_number IN (SELECT rowid FROM fts_ayahs WHERE fts_ayahs MATCH ?) LIMIT 25
                 """, arguments: [term]).map { r in
-                (n: r["ayah_number"] as Int? ?? 0,
+                (id: r["ayah_number"] as Int? ?? 0,
+                 nis: r["number_in_surah"] as Int? ?? 1,
+                 page: r["page"] as Int? ?? 1,
                  surah: r["name_ar"] as String? ?? "",
                  text: r["text_uthmani"] as String? ?? "")
             }

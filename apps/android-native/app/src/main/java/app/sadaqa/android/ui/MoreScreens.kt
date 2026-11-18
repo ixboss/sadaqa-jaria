@@ -16,6 +16,7 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,20 +29,41 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Adjust
+import androidx.compose.material.icons.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Calculate
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.NightsStay
+import androidx.compose.material.icons.outlined.Save
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -340,11 +362,8 @@ fun MushafScreen(db: SadaqaDb) {
                                             scope.launch { withContext(Dispatchers.IO) { db.setSetting("font_scale", JsonValue.Num(fontScale.toDouble())) } }
                                         }.padding(horizontal = 10.dp, vertical = 6.dp),
                                 )
-                                Text(
-                                    if (isBookmarked) "★" else "🔖",
-                                    fontSize = 15.sp,
-                                    color = if (isBookmarked) theme.accent else theme.textSecondary,
-                                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
+                                Box(
+                                    Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
                                         .clickable {
                                             scope.launch {
                                                 val added = withContext(Dispatchers.IO) {
@@ -355,7 +374,14 @@ fun MushafScreen(db: SadaqaDb) {
                                                 refreshBookmarks()
                                             }
                                         }.padding(horizontal = 10.dp, vertical = 6.dp),
-                                )
+                                ) {
+                                    Icon(
+                                        if (isBookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
+                                        contentDescription = "علامة مرجعية",
+                                        tint = if (isBookmarked) theme.accent else theme.textSecondary,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
                                 Text(
                                     "الفهرس",
                                     fontSize = 12.sp,
@@ -455,9 +481,9 @@ fun MushafScreen(db: SadaqaDb) {
                                     .clickable { page = bPage; hubTab = "reader" }.padding(14.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text("★", fontSize = 15.sp, color = theme.accent, modifier = Modifier.padding(end = 10.dp))
+                                Icon(Icons.Outlined.Bookmark, contentDescription = null, tint = theme.accent, modifier = Modifier.padding(end = 10.dp).size(18.dp))
                                 Text(bLabel.ifEmpty { "صفحة $bPage" }, fontSize = 14.sp, color = theme.textPrimary, modifier = Modifier.weight(1f))
-                                Text("ص $bPage", fontSize = 12.sp, color = theme.accent)
+                                Text("ص $bPage", fontSize = 12.sp, color = theme.accent, style = TextStyle(fontFeatureSettings = "tnum"))
                             }
                         }
                     }
@@ -805,15 +831,16 @@ fun ToolsScreen(db: SadaqaDb, initialSub: String? = null, onClearInitial: () -> 
     if (sub == "audio") return AudioScreen(db) { sub = null }
     if (sub == "tasbih") return TasbihScreen(db) { sub = null }
 
+    data class ToolEntry(val key: String, val icon: ImageVector, val name: String, val sub: String)
     val toolsList = listOf(
-        listOf("qibla", "🧭", "القبلة", "بوصلة محددة القبلة"),
-        listOf("hijri", "📅", "التقويم الهجري", "الأيام البيضاء والمناسبات"),
-        listOf("zakat", "⚖️", "حاسبة الزكاة", "الذهب والفضة والنقود"),
-        listOf("qiyam", "🌙", "حاسبة القيام", "منتصف الليل والثلث الأخير"),
-        listOf("tasbih", "📿", "السبحة", "السبحة الإلكترونية"),
-        listOf("backup", "💾", "النسخ الاحتياطي", "ملف .sadaqa — دمج أو استبدال"),
-        listOf("audio", "🎧", "التلاوة", "الحزم الصوتية والتشغيل"),
-        listOf("settings", "⚙️", "الإعدادات", "المظهر والموقع وطريقة الحساب"),
+        ToolEntry("qibla", Icons.Outlined.Explore, "القبلة", "بوصلة محددة القبلة"),
+        ToolEntry("hijri", Icons.Outlined.DateRange, "التقويم الهجري", "الأيام البيضاء والمناسبات"),
+        ToolEntry("zakat", Icons.Outlined.Calculate, "حاسبة الزكاة", "الذهب والفضة والنقود"),
+        ToolEntry("qiyam", Icons.Outlined.NightsStay, "حاسبة القيام", "منتصف الليل والثلث الأخير"),
+        ToolEntry("tasbih", Icons.Outlined.Adjust, "السبحة", "السبحة الإلكترونية"),
+        ToolEntry("backup", Icons.Outlined.Save, "النسخ الاحتياطي", "ملف .sadaqa — دمج أو استبدال"),
+        ToolEntry("audio", Icons.Outlined.Headphones, "التلاوة", "الحزم الصوتية والتشغيل"),
+        ToolEntry("settings", Icons.Outlined.Settings, "الإعدادات", "المظهر والموقع وطريقة الحساب"),
     )
 
     Column(
@@ -828,17 +855,17 @@ fun ToolsScreen(db: SadaqaDb, initialSub: String? = null, onClearInitial: () -> 
                     Column(
                         Modifier.weight(1f).defaultMinSize(minHeight = 122.dp).clip(RoundedCornerShape(16.dp))
                             .background(theme.surface).border(1.dp, theme.border, RoundedCornerShape(16.dp))
-                            .clickable { sub = t[0] }.padding(14.dp),
+                            .clickable { sub = t.key }.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Box(
                             Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(theme.accent.copy(alpha = 0.14f)),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(t[1], fontSize = 18.sp)
+                            Icon(t.icon, contentDescription = null, tint = theme.accent, modifier = Modifier.size(20.dp))
                         }
-                        Text(t[2], fontSize = 15.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
-                        Text(t[3], fontSize = 12.sp, color = theme.textSecondary, lineHeight = 16.sp)
+                        Text(t.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
+                        Text(t.sub, fontSize = 12.sp, color = theme.textSecondary, lineHeight = 16.sp)
                     }
                 }
             }
@@ -850,8 +877,8 @@ fun ToolsScreen(db: SadaqaDb, initialSub: String? = null, onClearInitial: () -> 
 @Composable
 fun SubHeader(title: String, onBack: () -> Unit) {
     val theme = LocalSadaqaTheme.current
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 8.dp)) {
-        Text("→", fontSize = 18.sp, color = theme.textSecondary, modifier = Modifier.clickable { onBack() }.padding(6.dp))
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+        Icon(Icons.Outlined.ArrowForward, contentDescription = "رجوع", tint = theme.textSecondary, modifier = Modifier.clickable { onBack() }.padding(6.dp).size(20.dp))
         Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
     }
 }
@@ -929,14 +956,26 @@ fun QiblaScreen(db: SadaqaDb, onBack: () -> Unit) {
                     color = if (idx == 0) theme.accent else theme.textSecondary,
                     modifier = Modifier.offset(x = xDp, y = yDp))
             }
-            // Rotate around center FIRST, then offset outward so the Kaaba icon orbits the compass ring
-            Text("🕋", fontSize = 28.sp, modifier = Modifier.rotate(dialAngle.toFloat()).offset(y = (-78).dp))
-            Text(if (aligned) "✓" else "▲", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (aligned) theme.accent else theme.textPrimary)
+            // Rotate around center FIRST, then offset outward so the Kaaba emblem orbits the compass ring
+            Canvas(Modifier.rotate(dialAngle.toFloat()).offset(y = (-78).dp).size(26.dp)) {
+                drawRect(color = Color(0xFF141816), size = size)
+                drawRect(color = theme.accent, topLeft = Offset(0f, size.height * 0.22f), size = Size(size.width, size.height * 0.18f))
+            }
+            if (aligned) {
+                Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = theme.accent, modifier = Modifier.size(22.dp))
+            } else {
+                Text("▲", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
+            }
         }
-        Text("${dialAngle.roundToInt()}°", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
-        if (aligned) Text("✓ باتجاه القبلة", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = theme.accent)
+        Text("${dialAngle.roundToInt()}°", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary, style = TextStyle(fontFeatureSettings = "tnum"))
+        if (aligned) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = theme.accent, modifier = Modifier.size(16.dp))
+                Text("باتجاه القبلة", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = theme.accent)
+            }
+        }
         Text(
-            if (hasSensor) "البوصلة الحية نشطة — أدر الهاتف نحو 🕋"
+            if (hasSensor) "البوصلة الحية نشطة — وجّه الهاتف نحو رمز الكعبة"
             else "وضع المعايرة اليدوي (لا يتوفر مستشعر اتجاه على هذا الجهاز)",
             fontSize = 12.sp,
             color = theme.textSecondary,
@@ -960,7 +999,11 @@ fun QiblaScreen(db: SadaqaDb, onBack: () -> Unit) {
             } else {
                 permLauncher.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
             }
-        }) { Text("📍 تحديث موقعي (GPS)") }
+        }) {
+            Icon(Icons.Outlined.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("تحديث موقعي (GPS)")
+        }
         gpsMsg?.let { Text(it, fontSize = 12.sp, color = Color(0xFFE5636F)) }
         Text("الاتجاه من موقعك إلى الكعبة: %.1f° · المسافة %.0f كم".format(bearing, distKm), fontSize = 12.sp, color = theme.textSecondary)
         Spacer(Modifier.height(24.dp))
@@ -980,9 +1023,13 @@ fun HijriScreen(db: SadaqaDb, onBack: () -> Unit) {
     ) {
         SubHeader("التقويم الهجري", onBack)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Button(onClick = { month = shiftMonth(month, -1) }) { Text("‹") }
+            Button(onClick = { month = shiftMonth(month, -1) }) {
+                Icon(Icons.Outlined.ChevronRight, contentDescription = "الشهر السابق", modifier = Modifier.size(18.dp))
+            }
             Text("${HijriEngine.monthNameAr(month.m)} ${month.y} هـ", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-            Button(onClick = { month = shiftMonth(month, 1) }) { Text("›") }
+            Button(onClick = { month = shiftMonth(month, 1) }) {
+                Icon(Icons.Outlined.ChevronLeft, contentDescription = "الشهر التالي", modifier = Modifier.size(18.dp))
+            }
         }
         val firstIso = runCatching { HijriEngine.fromHijri(HijriEngine.HijriDate(month.y, month.m, 1)) }.getOrNull()
         if (firstIso != null) {
@@ -1226,53 +1273,68 @@ fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
 fun BackupScreen(db: SadaqaDb, onBack: () -> Unit) {
     val theme = LocalSadaqaTheme.current
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val app = context.applicationContext as app.sadaqa.android.SadaqaApp
     var importMode by remember { mutableStateOf("merge") }
     var report by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var counts by remember { mutableStateOf(mapOf<String, Int>()) }
 
-    LaunchedEffect(Unit) {
+    suspend fun refreshCounts() {
         withContext(Dispatchers.IO) {
-            // fixed table→SQL pairs (no identifier interpolation; bound where args exist)
             val pairs: List<Pair<String, String>> = listOf(
-                "bookmarks" to "SELECT COUNT(*) AS n FROM bookmarks",
-                "highlights" to "SELECT COUNT(*) AS n FROM highlights",
-                "notes" to "SELECT COUNT(*) AS n FROM notes",
-                "khatmah_plans" to "SELECT COUNT(*) AS n FROM khatmah_plans",
-                "tasbih_counters" to "SELECT COUNT(*) AS n FROM tasbih_counters",
+                "bookmarks" to "SELECT COUNT(*) AS n FROM bookmarks WHERE deleted = 0",
+                "highlights" to "SELECT COUNT(*) AS n FROM highlights WHERE deleted = 0",
+                "notes" to "SELECT COUNT(*) AS n FROM notes WHERE deleted = 0",
+                "khatmah_plans" to "SELECT COUNT(*) AS n FROM khatmah_plans WHERE deleted = 0",
+                "tasbih_counters" to "SELECT COUNT(*) AS n FROM tasbih_counters WHERE deleted = 0",
                 "tasbih_sessions" to "SELECT COUNT(*) AS n FROM tasbih_sessions",
                 "adhkar_state" to "SELECT COUNT(*) AS n FROM adhkar_state",
                 "streak_days" to "SELECT COUNT(*) AS n FROM streak_days",
             )
-            counts = pairs.associate { (t, sql) -> t to (db.queryOne(sql)?.longs?.get("n")?.toInt() ?: 0) }
+            val next = pairs.associate { (t, sql) -> t to (db.queryOne(sql)?.longs?.get("n")?.toInt() ?: 0) }
+            withContext(Dispatchers.Main) { counts = next }
         }
     }
 
+    LaunchedEffect(Unit) { refreshCounts() }
+
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) {
-            scopeSafe {
-                withContext(Dispatchers.IO) {
-                    val now = System.currentTimeMillis()
-                    val (manifest, payloadJson) = db.buildExportPayload(now)
-                    val doc = CanonicalJson.serialize(JsonValue.Obj(mapOf("manifest" to manifest, "payload" to runCatching { CanonicalJson.parse(payloadJson) }.getOrDefault(JsonValue.Null))))
-                    context.contentResolver.openOutputStream(uri)?.use { it.write(doc.toByteArray(Charsets.UTF_8)) }
-                    // audit row carries the real entity counts (golden parity)
-                    val countsJson = CanonicalJson.serialize(manifest["entities"] ?: JsonValue.Obj(emptyMap()))
-                    db.execute("INSERT INTO backup_log (direction, mode, format_version, counts_json, created_at) VALUES ('export', NULL, 1, ?, ?)", listOf(countsJson, now))
+            scope.launch {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        val now = System.currentTimeMillis()
+                        val (manifest, payloadJson) = db.buildExportPayload(now)
+                        val doc = CanonicalJson.serialize(JsonValue.Obj(mapOf("manifest" to manifest, "payload" to runCatching { CanonicalJson.parse(payloadJson) }.getOrDefault(JsonValue.Null))))
+                        context.contentResolver.openOutputStream(uri)?.use { it.write(doc.toByteArray(Charsets.UTF_8)) }
+                        val countsJson = CanonicalJson.serialize(manifest["entities"] ?: JsonValue.Obj(emptyMap()))
+                        db.execute("INSERT INTO backup_log (direction, mode, format_version, counts_json, created_at) VALUES ('export', NULL, 1, ?, ?)", listOf(countsJson, now))
+                    }
+                }.onSuccess {
+                    error = null
+                    report = "تم التصدير"
+                }.onFailure { e ->
+                    error = e.message ?: "تعذر التصدير"
                 }
-                report = "تم التصدير"
             }
         }
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            scopeSafe {
-                withContext(Dispatchers.IO) {
-                    val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-                    val r = db.importBackup(text, importMode)
-                    withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        report = "تم الاستيراد: أُضيف ${r.added}، حُدِّث ${r.updated}، تعارض ${r.conflicts}، تخطي ${r.skipped}"
+            scope.launch {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+                        db.importBackup(text, importMode)
                     }
+                }.onSuccess { r ->
+                    error = null
+                    report = "تم الاستيراد: أُضيف ${r.added}، حُدِّث ${r.updated}، تعارض ${r.conflicts}، تخطي ${r.skipped}"
+                    db.setting("theme")?.str?.let { app.setTheme(it) }
+                    refreshCounts()
+                }.onFailure { e ->
+                    error = e.message ?: "تعذر الاستيراد"
                 }
             }
         }
@@ -1332,11 +1394,6 @@ private fun backupLabel(t: String) = when (t) {
     "adhkar_state" -> "حالة الأذكار"
     "streak_days" -> "سلاسل الأيام"
     else -> t
-}
-
-/** Runs a block on a detached IO coroutine (SAF callbacks live off-Composable). */
-private fun scopeSafe(block: suspend () -> Unit) {
-    kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch { runCatching { block() } }
 }
 
 // Audio — pack catalog + per-surah downloads + starter playback (offline).
@@ -1424,7 +1481,7 @@ fun SearchSheet(db: SadaqaDb, onClose: () -> Unit) {
             }
             results = runCatching {
                 db.query(
-                    "SELECT a.ayah_number AS n, a.text_uthmani AS t, s.name_ar AS sn FROM ayahs a JOIN surahs s ON s.number = a.surah WHERE a.ayah_number IN (SELECT rowid FROM fts_ayahs WHERE fts_ayahs MATCH ?) LIMIT 25",
+                    "SELECT a.number_in_surah AS n, a.text_uthmani AS t, s.name_ar AS sn FROM ayahs a JOIN surahs s ON s.number = a.surah WHERE a.ayah_number IN (SELECT rowid FROM fts_ayahs WHERE fts_ayahs MATCH ?) LIMIT 25",
                     listOf(term),
                 ).map { Triple((it.longs["n"] ?: 0).toInt(), it.strings["sn"] ?: "", it.strings["t"] ?: "") }
             }.getOrDefault(emptyList())
@@ -1433,12 +1490,12 @@ fun SearchSheet(db: SadaqaDb, onClose: () -> Unit) {
 
     Column(Modifier.fillMaxSize().background(theme.bg).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TextField(value = query, onValueChange = { query = it }, label = { Text("ابحث في القرآن والأذكار…") }, modifier = Modifier.weight(1f))
+            TextField(value = query, onValueChange = { query = it }, label = { Text("ابحث في القرآن والأذكار") }, modifier = Modifier.weight(1f))
             Text("إغلاق", fontSize = 13.sp, color = theme.textSecondary, modifier = Modifier.clickable { onClose() }.padding(8.dp))
         }
         for ((n, surah, text) in results) {
             Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Text("$surah — آية $n", fontSize = 12.sp, color = theme.accent)
+                Text("$surah · الآية $n", fontSize = 12.sp, color = theme.accent)
                 Text(text, fontSize = 17.sp, color = theme.textPrimary, lineHeight = 26.sp)
             }
         }

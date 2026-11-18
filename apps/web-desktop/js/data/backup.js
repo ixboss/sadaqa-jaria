@@ -145,7 +145,7 @@ export async function importBackup(db, bytes, mode, now = Date.now()) {
   }
   for (const m of mutations) stmts.push(...entityStmts(m.entity, mode === 'replace' ? 'insert' : m.action));
 
-  await db.batch(stmts);
+  if (stmts.length > 0) await db.batch(stmts);
   await db.write(
     `INSERT INTO backup_log (direction, mode, format_version, counts_json, created_at) VALUES ('import', ?, ?, ?, ?)`,
     [mode, manifest.formatVersion, JSON.stringify(report), now],

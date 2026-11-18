@@ -9,7 +9,6 @@ import SwiftUI
 struct TodayView: View {
     @EnvironmentObject var appState: AppState
     @State private var now = Date.nowMs
-    @State private var timer: Timer?
     @State private var showMonthSchedule = false
 
     var body: some View {
@@ -29,17 +28,14 @@ struct TodayView: View {
             }
             .background(appState.theme.bg)
             .navigationTitle("اليوم")
-            .onAppear { startTicker() }
-            .onDisappear { timer?.invalidate() }
-            .sheet(isPresented: $appState.searchPresented) { UniversalSearchView() }
+            .task {
+                now = Date.nowMs
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                    now = Date.nowMs // format-only recompute; engine values stay fixed
+                }
+            }
             .sheet(isPresented: $showMonthSchedule) { monthScheduleSheet }
-        }
-    }
-
-    private func startTicker() {
-        now = Date.nowMs
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            now = Date.nowMs // format-only recompute; engine values stay fixed
         }
     }
 
@@ -111,18 +107,30 @@ struct TodayView: View {
     // Smart Context-Aware Card — the shared resolver's verdict (§9)
     private var smartCard: some View {
         let card = SmartCardResolver.resolve(now: now, engine: engine)
-        return HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(card.badge).font(.system(size: 11)).foregroundStyle(appState.theme.accent)
-                Text(card.title).font(.system(size: 17, weight: .bold))
-                Text(card.sub).font(.system(size: 13)).foregroundStyle(appState.theme.textSecondary)
-                Button(card.actionLabel) { appState.openSmartCardAction(card) }
-                    .buttonStyle(.borderedProminent)
-                    .tint(appState.theme.accent)
-                    .foregroundStyle(appState.theme.accentContrast)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(appState.theme.accent.opacity(0.14))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: smartCardSymbol(card.kind))
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(appState.theme.accent)
+                }
+                Spacer()
+                Text(card.badge)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(appState.theme.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .overlay(Capsule().strokeBorder(appState.theme.accent.opacity(0.36)))
             }
-            Spacer()
-            Text(card.icon).font(.system(size: 26))
+            Text(card.title).font(.system(size: 17, weight: .semibold)).foregroundStyle(appState.theme.textPrimary)
+            Text(card.sub).font(.system(size: 13)).foregroundStyle(appState.theme.textSecondary)
+            Button(card.actionLabel) { appState.openSmartCardAction(card) }
+                .buttonStyle(.borderedProminent)
+                .tint(appState.theme.accent)
+                .foregroundStyle(appState.theme.accentContrast)
         }
         .padding(16)
         .background(appState.theme.surface)
@@ -153,7 +161,9 @@ struct TodayView: View {
                     ForEach(PrayerName.allCases, id: \.self) { name in
                         let isNext = next?.name == name
                         VStack(spacing: 4) {
-                            Text(prayerIcon(name)).font(.system(size: 15))
+                            Image(systemName: prayerSymbol(name))
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(isNext ? appState.theme.accent : appState.theme.textSecondary)
                             Text(name.labelAr).font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(isNext ? appState.theme.accent : appState.theme.textSecondary)
                             Text(Self.clock(s.prayers[name] ?? 0, tz: tz)).monospacedDigit()
@@ -180,10 +190,10 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("تطبيقاتك اليومية").font(.system(size: 15, weight: .bold)).foregroundStyle(appState.theme.textPrimary)
             HStack(spacing: 8) {
-                NavigationLink { TasbihView() } label: { quickAppTile("📿", "السبحة") }
-                Button { appState.tab = .athkar } label: { quickAppTile("🤲", "الأذكار") }
-                Button { appState.tab = .mushaf } label: { quickAppTile("📖", "المصحف") }
-                NavigationLink { QiblaView() } label: { quickAppTile("🧭", "القبلة") }
+                NavigationLink { TasbihView() } label: { quickAppTile("circle.dashed", "السبحة") }
+                Button { appState.tab = .athkar } label: { quickAppTile("hands.sparkles", "الأذكار") }
+                Button { appState.tab = .mushaf } label: { quickAppTile("book.closed", "المصحف") }
+                NavigationLink { QiblaView() } label: { quickAppTile("safari", "القبلة") }
             }
         }
         .padding(16)
@@ -192,22 +202,28 @@ struct TodayView: View {
         .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(appState.theme.border))
     }
 
-    private func quickAppTile(_ icon: String, _ title: String) -> some View {
-        VStack(spacing: 6) {
-            Text(icon).font(.system(size: 20))
+    private func quickAppTile(_ symbol: String, _ title: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.system(size: 19, weight: .medium))
+                .foregroundStyle(appState.theme.accent)
             Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(appState.theme.textPrimary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .background(appState.theme.surfaceRaised)
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
-    // Qiyam windows (tonight)
+    // Qiyam windows (tonight = the night whose Fajr has not passed yet)
     private var qiyamCard: some View {
         let tz = appState.engineOptions.timeZone
-        let yIso = Self.iso(now - 86_400_000, tz: tz)
-        let ws = try? engine.sunnahWindows(yIso)
+        let todayIso = Self.iso(now, tz: tz)
+        let todaySched = try? engine.daySchedule(todayIso)
+        let qiyamIso = (todaySched.flatMap { $0.prayers[.fajr] }.map { now < $0 } ?? false)
+            ? Self.iso(now - 86_400_000, tz: tz)
+            : todayIso
+        let ws = try? engine.sunnahWindows(qiyamIso)
         return VStack(alignment: .leading, spacing: 6) {
             Text("قيام الليل").font(.system(size: 15, weight: .bold)).foregroundStyle(appState.theme.textPrimary)
             if let w = ws {
@@ -275,14 +291,25 @@ struct TodayView: View {
         }
     }
 
-    private func prayerIcon(_ name: PrayerName) -> String {
+    private func prayerSymbol(_ name: PrayerName) -> String {
         switch name {
-        case .fajr: return "🌅"
-        case .sunrise: return "☀️"
-        case .dhuhr: return "🌤️"
-        case .asr: return "🌇"
-        case .maghrib: return "🌆"
-        case .isha: return "🌙"
+        case .fajr: return "sunrise"
+        case .sunrise: return "sun.max"
+        case .dhuhr: return "sun.haze"
+        case .asr: return "sunset"
+        case .maghrib: return "moon.haze"
+        case .isha: return "moon.stars"
+        }
+    }
+
+    private func smartCardSymbol(_ kind: SmartCardKind) -> String {
+        switch kind {
+        case .kahf: return "book.closed"
+        case .after_prayer: return "circle.dashed"
+        case .qiyam: return "moon.stars"
+        case .morning: return "sunrise"
+        case .evening: return "sunset"
+        case .next_prayer: return "building.columns"
         }
     }
 

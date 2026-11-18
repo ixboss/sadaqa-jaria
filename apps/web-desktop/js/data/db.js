@@ -38,9 +38,15 @@ export async function openDatabase() {
     }
     worker = null;
   };
-  const info = await call('init');
-  console.info(`[db] ready (sqlite ${info.version}, mode=${info.mode ?? 'opfs-sahpool'}, capacity=${info.capacity}, existed=${info.existed})`);
-  return api;
+  try {
+    const info = await call('init');
+    console.info(`[db] ready (sqlite ${info.version}, mode=${info.mode ?? 'opfs-sahpool'}, capacity=${info.capacity}, existed=${info.existed})`);
+    return api;
+  } catch (err) {
+    try { worker?.terminate?.(); } catch { /* ignore */ }
+    worker = null;
+    throw err;
+  }
 }
 
 const api = {

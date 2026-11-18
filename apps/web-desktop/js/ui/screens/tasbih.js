@@ -7,12 +7,15 @@
 import { state, haptic, HAPTICS, nowMs } from '../../app-state.js';
 import { uuid7 } from '../../data/uuid7.js';
 import { navigate } from '../router.js';
+import { iconSvg } from '../icons.js';
 
 const DEFAULT_PRESETS = [
   { label_ar: 'سُبْحَانَ اللّٰه', dhikr_text: 'سُبْحَانَ اللّٰهِ وَبِحَمْدِهِ', target: 33 },
   { label_ar: 'الْحَمْدُ لِلّٰه', dhikr_text: 'الْحَمْدُ لِلّٰهِ رَبِّ الْعَالَمِين', target: 33 },
   { label_ar: 'اللّٰهُ أَكْبَر', dhikr_text: 'اللّٰهُ أَكْبَرُ وَلِلّٰهِ الْحَمْد', target: 34 },
 ];
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const dayKeyOf = (ms) => new Intl.DateTimeFormat('en-CA').format(ms);
 const dayShift = (days) => dayKeyOf(nowMs() - days * 86_400_000);
@@ -58,8 +61,8 @@ export async function renderTasbih(root) {
       ${counters.map((c) => `
         <div class="plan-row tasbih-pick-row" data-uuid="${c.uuid}" style="padding:9px 0;border-bottom:1px solid var(--color-border)">
           <div>
-            <div style="font-weight:600">${c.label_ar}</div>
-            <div style="font-size:12px;color:var(--color-text-secondary)">${c.dhikr_text}${c.target ? ` · الهدف ${c.target}` : ' · بلا هدف'}</div>
+            <div style="font-weight:600">${esc(c.label_ar)}</div>
+            <div style="font-size:12px;color:var(--color-text-secondary)">${esc(c.dhikr_text)}${c.target ? ` · الهدف ${c.target}` : ' · بلا هدف'}</div>
           </div>
           <div style="text-align:end">
             <div style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums">${c.count}${c.target ? ` / ${c.target}` : ''}</div>
@@ -86,10 +89,10 @@ export async function renderTasbih(root) {
     const pct = c.target ? Math.min(100, (c.count / c.target) * 100) : 0;
     dialHost.innerHTML = `
     <div class="card" data-active="${c.uuid}">
-      <div class="tasbih-dial" id="tb-dial" role="button" tabindex="0" aria-label="عدّ ${c.label_ar}" style="--p:${pct}">
+      <div class="tasbih-dial" id="tb-dial" role="button" tabindex="0" aria-label="عدّ ${esc(c.label_ar)}" style="--p:${pct}">
         <div>
           <div class="t-count" id="tb-count">${c.count}</div>
-          <div class="t-label">${c.dhikr_text}</div>
+          <div class="t-label">${esc(c.dhikr_text)}</div>
         </div>
         ${c.target ? `<div class="t-of">الهدف ${c.target}</div>` : ''}
       </div>
@@ -120,8 +123,8 @@ export async function renderTasbih(root) {
     };
     dial.addEventListener('click', tap);
     dial.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(); } });
-    dialHost.querySelector('#tb-reset').addEventListener('click', () => {
-      state.db.write(`UPDATE tasbih_counters SET count = 0, updated_at = ? WHERE uuid = ?`, [nowMs(), c.uuid]);
+    dialHost.querySelector('#tb-reset').addEventListener('click', async () => {
+      await state.db.write(`UPDATE tasbih_counters SET count = 0, updated_at = ? WHERE uuid = ?`, [nowMs(), c.uuid]);
       c.count = 0; renderDial(c); haptic([15]);
     });
     dialHost.querySelector('#tb-edit').addEventListener('click', () => renderEditor(c));
@@ -157,7 +160,7 @@ export async function renderTasbih(root) {
       const streakNow = await tasbihStreak();
       const lifetime = await state.db.queryOne(`SELECT SUM(count_delta) s FROM tasbih_sessions`);
       statsCard.querySelector('#wk-nums').innerHTML = `
-        <div class="stat-row"><span>السلسلة الحالية</span><span class="v">${streakNow} ${streakNow === 1 ? 'يوم' : 'أيام'} 🔥</span></div>
+        <div class="stat-row"><span>السلسلة الحالية</span><span class="v">${iconSvg('flame', 15)}<span>${streakNow} ${streakNow === 1 ? 'يوم' : 'أيام'}</span></span></div>
         <div class="stat-row"><span>الإجمالي الكلي</span><span class="v">${lifetime?.s ?? 0}</span></div>`;
     })();
   }
@@ -166,8 +169,8 @@ export async function renderTasbih(root) {
     editCard.hidden = false;
     editCard.innerHTML = `
       <h3 style="margin:0 0 8px;font-size:15px">${c ? 'تعديل الورد' : 'ورد جديد'}</h3>
-      <div class="field"><label>الاسم</label><input id="te-label" value="${c?.label_ar ?? ''}" maxlength="60"></div>
-      <div class="field"><label>نص الذكر</label><input id="te-text" value="${c?.dhikr_text ?? ''}" maxlength="200"></div>
+      <div class="field"><label>الاسم</label><input id="te-label" value="${esc(c?.label_ar ?? '')}" maxlength="60"></div>
+      <div class="field"><label>نص الذكر</label><input id="te-text" value="${esc(c?.dhikr_text ?? '')}" maxlength="200"></div>
       <div class="field"><label>الهدف (اتركه فارغاً = بلا هدف)</label><input id="te-target" type="number" min="1" max="100000" value="${c?.target ?? ''}"></div>
       <div class="row-actions">
         <button class="btn primary" id="te-save">حفظ</button>
