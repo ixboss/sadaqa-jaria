@@ -373,7 +373,7 @@ extension String {
     /// Local-day start (00:00) as epoch ms — used by today-session queries.
     var startOfDayMs: Int64 {
         var cal = Calendar(identifier: .gregorian)
-        let p = split("-").map { Int($0) ?? 0 }
+        let p = split(separator: "-").map { Int($0) ?? 0 }
         let d = cal.date(from: DateComponents(year: p.first ?? 0, month: p.dropFirst().first ?? 1, day: p.last ?? 1)) ?? Date()
         return Int64(d.timeIntervalSince1970 * 1000)
     }

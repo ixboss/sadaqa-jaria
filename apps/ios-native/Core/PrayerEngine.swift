@@ -247,18 +247,25 @@ public enum PrayerEngine {
         let params = try buildParams(opts)
         let coords = Coordinates(latitude: opts.lat, longitude: opts.lng)
         let anchor = localNoonAnchor(y: y, mo: mo, d: d)
-        let pt = PrayerTimes(coordinates: coords, date: anchor, calculationParameters: params)
+        // adhan-swift 1.3.0 takes civil DateComponents and interprets them as
+        // UTC (.gregorianUTC) — exactly what adhan-js derives as
+        // DateComponents(utc, anchorDate) from the runtime-local noon Date.
+        var utcCal = Calendar(identifier: .gregorian)
+        utcCal.timeZone = TimeZone(identifier: "UTC")!
+        let comps = utcCal.dateComponents([.year, .month, .day], from: anchor)
+        guard let pt = PrayerTimes(coordinates: coords, date: comps, calculationParameters: params) else {
+            throw PrayerError.invalidCoords
+        }
         var times: [PrayerName: Int64] = [:]
         for name in PrayerName.allCases {
-            guard let t = pt.timeForPrayer(name.adhan) else { throw PrayerError.invalidCoords }
-            times[name] = t.ms
+            times[name] = pt.time(for: name.adhan).ms
         }
         return times
     }
 
     /** daySchedule(dateIso, opts) — includes the previous day's isha. */
     public static func daySchedule(_ dateIso: String, _ opts: EngineOptions) throws -> DaySchedule {
-        let parts = dateIso.split("-").map { Int($0)! }
+        let parts = dateIso.split(separator: "-").map { Int($0)! }
         let (y, mo, d) = (parts[0], parts[1], parts[2])
         let times = try computeForDate(y: y, mo: mo - 1, d: d, opts: opts)
         // prev civil day in UTC (JS: new Date(Date.UTC(y, mo-1, d-1)))
@@ -295,21 +302,31 @@ public enum PrayerEngine {
 
     /** sunnahWindows(dateIso, opts) — REA_SPEC §4.3 formulas. */
     public static func sunnahWindows(_ dateIso: String, _ opts: EngineOptions) throws -> SunnahWindows {
-        let parts = dateIso.split("-").map { Int($0)! }
+        let parts = dateIso.split(separator: "-").map { Int($0)! }
         let (y, mo, d) = (parts[0], parts[1], parts[2])
         let params = try buildParams(opts)
         let coords = Coordinates(latitude: opts.lat, longitude: opts.lng)
-        let pt = PrayerTimes(coordinates: coords, date: localNoonAnchor(y: y, mo: mo - 1, d: d), calculationParameters: params)
-        let sunriseI = try pt.timeForPrayer(.sunrise)!.ms
-        let maghribI = try pt.timeForPrayer(.maghrib)!.ms
+        var utcCal = Calendar(identifier: .gregorian)
+        utcCal.timeZone = TimeZone(identifier: "UTC")!
+        let anchorComps = utcCal.dateComponents([.year, .month, .day], from: localNoonAnchor(y: y, mo: mo - 1, d: d))
+        guard let pt = PrayerTimes(coordinates: coords, date: anchorComps, calculationParameters: params) else {
+            throw PrayerError.invalidCoords
+        }
+        let sunriseI = pt.time(for: .sunrise).ms
+        let maghribI = pt.time(for: .maghrib).ms
         let nextDay = try civilParts(utcMs(y: y, mo: mo - 1, d: d + 1, h: 12, mi: 0, s: 0), timeZone: "UTC")
         let nextFajrI = try computeForDate(y: nextDay.y, mo: nextDay.mo, d: nextDay.d, opts: opts)[.fajr]!
         let nightLength = nextFajrI - maghribI
+        let daylight = Double(maghribI - sunriseI)
+        let duhaOffset = Int64((daylight * 0.25).rounded())
+        let duhaEndOffset = Int64((daylight * 0.5).rounded())
+        let midnightOffset = Int64((Double(nightLength) / 2).rounded())
+        let lastThirdOffset = Int64((Double(nightLength) * 2 / 3).rounded())
         return SunnahWindows(
-            duha: sunriseI + Int64(((Double(maghribI - sunriseI)) * 0.25).rounded()),
-            duhaEnd: sunriseI + Int64(((Double(maghribI - sunriseI)) * 0.5).rounded()),
-            midnight: maghribI + Int64((Double(nightLength) / 2).rounded()),
-            lastThird: maghribI + Int64(((Double(nightLength) * 2) / 3).rounded()),
+            duha: sunriseI + duhaOffset,
+            duhaEnd: sunriseI + duhaEndOffset,
+            midnight: maghribI + midnightOffset,
+            lastThird: maghribI + lastThirdOffset,
             nextFajr: nextFajrI)
     }
 

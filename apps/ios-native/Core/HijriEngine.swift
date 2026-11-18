@@ -37,7 +37,7 @@ public enum HijriEngine {
     }
 
     static func noonUTC(_ iso: String) -> Date {
-        let p = iso.split("-").map { Int($0)! }
+        let p = iso.split(separator: "-").map { Int($0)! }
         return gregorianUTC().date(from: DateComponents(year: p[0], month: p[1], day: p[2], hour: 12))!
     }
 
