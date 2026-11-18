@@ -3,7 +3,7 @@
 // cache-first: QPC1 per-page fonts + audio packs (offline after first visit).
 // Update strategy (v1 contract): prompt-based; skipWaiting ONLY via message.
 // ============================================================================
-const CACHE = 'sadaqa-v2-v6';
+const CACHE = 'sadaqa-v2-v7';
 const SHELL = [
   'index.html',
   '../../icons/icon-192.png',

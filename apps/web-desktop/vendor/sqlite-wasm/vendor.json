@@ -1,0 +1,17 @@
+{
+  "name": "@sqlite.org/sqlite-wasm",
+  "version": "3.54.1-build1",
+  "source": "https://registry.npmjs.org/@sqlite.org/sqlite-wasm/-/sqlite-wasm-3.54.1-build1.tgz",
+  "artifacts": {
+    "index.mjs": {
+      "bytes": 656872,
+      "sha256": "0dcdd860e6ec672623b13b8b8e41bb6c78be7a5df80ec553fc4f69160161c8af"
+    },
+    "sqlite3.wasm": {
+      "bytes": 879084,
+      "sha256": "b8a92a19f441a90ff2339fe988fbe317c4adf3ed844096f12aee04aa72d58257"
+    }
+  },
+  "license": " blessing / Public Domain (SQLite)",
+  "note": "Vendored, pinned. Do not hand-edit; re-run scripts/tools/vendor-sqlite-wasm.mjs to refresh."
+}

@@ -249,7 +249,7 @@ fun MushafScreen(db: SadaqaDb) {
                         modifier = Modifier.clickable {
                             scope.launch {
                                 val added = withContext(Dispatchers.IO) {
-                                    db.toggleBookmark(page, null, null, "$surahTitle · ص $page", System.currentTimeMillis())
+                                    db.toggleBookmark(page, 1, null, "$surahTitle · ص $page", System.currentTimeMillis())
                                 }
                                 isBookmarked = added
                                 Haptics.complete(context)
@@ -530,7 +530,7 @@ fun MushafScreen(db: SadaqaDb) {
                             onClick = {
                                 scope.launch {
                                     withContext(Dispatchers.IO) {
-                                        db.toggleBookmark(pNum, null, activeAyah, "$sName $nis", System.currentTimeMillis())
+                                        db.toggleBookmark(pNum, 1, activeAyah, "$sName $nis", System.currentTimeMillis())
                                     }
                                     Haptics.complete(context)
                                     refreshBookmarks()

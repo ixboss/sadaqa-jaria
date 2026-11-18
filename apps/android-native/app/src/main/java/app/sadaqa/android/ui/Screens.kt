@@ -78,7 +78,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
     var showMonthSchedule by remember { mutableStateOf(false) }
     var cityName by remember {
         mutableStateOf(
-            (db.setting("location") as? JsonValue.Obj)?.entries?.get("name_ar")?.str ?: "مكة المكرمة"
+            db.setting("location")?.get("name_ar")?.str ?: "مكة المكرمة"
         )
     }
     val currentPage = remember { (db.setting("mushaf_page")?.dbl?.toInt() ?: 1).coerceIn(1, 604) }
@@ -169,8 +169,8 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                         )
                     }
                     val icons = mapOf(
-                        PrayerName.fajr to "🌅", PrayerName.sunrise to "☀️", PrayerName.dhuhr to "🌤️",
-                        PrayerName.asr to "🌇", PrayerName.maghrib to "🌆", PrayerName.isha to "🌙",
+                        PrayerName.FAJR to "🌅", PrayerName.SUNRISE to "☀️", PrayerName.DHUHR to "🌤️",
+                        PrayerName.ASR to "🌇", PrayerName.MAGHRIB to "🌆", PrayerName.ISHA to "🌙",
                     )
                     for (chunk in PrayerName.entries.chunked(3)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -336,7 +336,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                         if (s != null) {
                             Row(Modifier.fillMaxWidth()) {
                                 Text(iso.drop(5), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.accent, modifier = Modifier.width(44.dp))
-                                for (p in listOf(PrayerName.fajr, PrayerName.dhuhr, PrayerName.asr, PrayerName.maghrib, PrayerName.isha)) {
+                                for (p in listOf(PrayerName.FAJR, PrayerName.DHUHR, PrayerName.ASR, PrayerName.MAGHRIB, PrayerName.ISHA)) {
                                     Text(clockOf(s.prayers.getValue(p), opts.timeZone), fontSize = 11.sp, color = theme.textPrimary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                                 }
                             }
