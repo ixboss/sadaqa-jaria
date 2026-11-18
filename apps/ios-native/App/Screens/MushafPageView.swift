@@ -10,7 +10,7 @@ import SwiftUI
 struct MushafPageView: View {
     @EnvironmentObject var appState: AppState
     @State private var page: Int = 1
-    @State private var lines: [MushafLine] = []
+    @State private var lines: [MushafRepository.MushafLine] = []
 
     var body: some View {
         VStack(spacing: 0) {

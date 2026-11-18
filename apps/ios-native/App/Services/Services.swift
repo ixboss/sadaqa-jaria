@@ -18,18 +18,18 @@ import UserNotifications
 
 final class HapticsEngine {
     static let shared = HapticsEngine()
-    private let engine = CHHapticEngine()
+    private var engine: CHHapticEngine?
     private var supportsHaptics = false
 
     init() {
         supportsHaptics = CHHapticEngine.capabilitiesForHardware().supportsHaptics
         if supportsHaptics {
-            try? engine.start()
-            engine.resetHandler = { try? self.engine.start() }
+            engine = try? CHHapticEngine()
+            engine?.resetHandler = { try? self.engine?.start() }
         }
     }
 
-    func prepare() { if supportsHaptics { try? engine.start() } }
+    func prepare() { if supportsHaptics { try? engine?.start() } }
 
     /// tokens.json pattern, e.g. dhikrComplete [20, 60, 20, 60, 40].
     func play(pattern: [Int]) {
@@ -44,7 +44,7 @@ final class HapticsEngine {
                     ], relativeTime: t))
                     t += TimeInterval(ms) / 1000
                 }
-                try engine.playPattern(from: try CHHapticPattern(events: events, parameters: []))
+                try engine?.playPattern(from: try CHHapticPattern(events: events, parameters: []))
                 return
             } catch { /* fall through to generator */ }
         }
@@ -73,7 +73,7 @@ enum HapticsPatterns {
 // (UNCalendar = the exact OS schedule from the platform matrix §3).
 // ---------------------------------------------------------------------------
 
-enum AdhanScheduler {
+struct AdhanScheduler {
     static let shared = AdhanScheduler()
 
     func reschedule(db: SadaqaDatabase) {

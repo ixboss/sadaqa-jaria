@@ -209,6 +209,7 @@ struct AthkarReaderView: View {
 // ---------------------------------------------------------------------------
 
 struct TasbihCounter: Identifiable {
+    var id: String { uuid }
     let uuid: String
     let labelAr: String
     let dhikrText: String
