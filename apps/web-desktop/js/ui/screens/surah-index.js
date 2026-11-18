@@ -1,25 +1,60 @@
 // ============================================================================
-// surah-index.js — 114-surah navigator (mushaf tab): jump to any surah's
-// start page. Data straight from the canonical surahs table.
+// surah-index.js — 114-surah & 30-juz navigator (mushaf hub): jump to any
+// surah or juz start page, plus bookmarks & Mushaf hub sub-navigation.
 // ============================================================================
 import { state } from '../../app-state.js';
 import { navigate } from '../router.js';
 
 export async function renderSurahIndex(root) {
-  const rows = await state.db.query(`SELECT number, name_ar, name_translit, ayah_count, start_page, revelation_type FROM surahs ORDER BY number`);
+  const [rows, juzRows, bookmarks] = await Promise.all([
+    state.db.query(`SELECT number, name_ar, name_translit, ayah_count, start_page, revelation_type FROM surahs ORDER BY number`),
+    state.db.query(`SELECT juz, MIN(page) AS start_page FROM ayahs GROUP BY juz ORDER BY juz`),
+    state.db.query(`SELECT page, label_ar FROM bookmarks WHERE deleted = 0 ORDER BY updated_at DESC LIMIT 8`),
+  ]);
+
   root.innerHTML = `
-  <div class="screen">
-    <div class="screen-header"><h1>السور</h1><div class="sub">١١٤ سورة — انقر للانتقال إلى صفحة بدايتها</div></div>
+  <div class="screen" style="padding-bottom:104px">
+    <div class="screen-header">
+      <h1>المصحف الشريف</h1>
+      <div class="sub">١١٤ سورة · ٣٠ جزءاً — انقر للانتقال الفوري</div>
+    </div>
+    <div class="mushaf-subtabs">
+      <button class="stab" data-go="mushaf-page">القراءة</button>
+      <button class="stab on" data-go="mushaf-surah-index">الفهرس</button>
+      <button class="stab" data-go="mushaf-khatmah">الختمة</button>
+      <button class="stab" data-go="mushaf-audio">التلاوة</button>
+    </div>
+    <div style="padding:8px 16px 2px">
+      <input class="search-input" id="surah-filter" type="search" placeholder="ابحث باسم السورة أو رقمها…" autocomplete="off">
+    </div>
+    <div class="juz-strip" aria-label="الأجزاء">
+      ${juzRows.map((j) => `<button class="juz-pill" data-page="${j.start_page}">الجزء ${j.juz}</button>`).join('')}
+    </div>
+    ${bookmarks.length ? `
+      <div style="padding:4px 16px 6px;display:flex;gap:6px;flex-wrap:wrap">
+        ${bookmarks.map((b) => `<button class="juz-pill" data-page="${b.page}" style="border-color:var(--color-accent);color:var(--color-accent)">🔖 ${b.label_ar || `ص ${b.page}`}</button>`).join('')}
+      </div>` : ''}
     <div id="surah-list">${rows.map((s) => `
-      <div class="cat-tile" data-page="${s.start_page}" role="button" tabindex="0" aria-label="${s.name_ar}">
-        <span class="c-icon" style="min-width:34px;text-align:center;font-variant-numeric:tabular-nums;color:var(--color-text-secondary)">${s.number}</span>
-        <span class="c-name">${s.name_ar} <span style="font-size:11px;color:var(--color-text-secondary)">${s.name_translit} · ${s.ayah_count} آية</span></span>
+      <div class="cat-tile" data-page="${s.start_page}" data-search="${s.number} ${s.name_ar} ${s.name_translit}" role="button" tabindex="0" aria-label="${s.name_ar}">
+        <span class="c-icon" style="min-width:34px;text-align:center;font-variant-numeric:tabular-nums;color:var(--color-accent);font-weight:700">${s.number}</span>
+        <span class="c-name">${s.name_ar} <span style="font-size:11px;color:var(--color-text-secondary)">${s.revelation_type === 'Meccan' ? 'مكية' : 'مدنية'} · ${s.ayah_count} آية</span></span>
         <span class="c-meta">ص ${s.start_page}</span>
       </div>`).join('')}</div>
   </div>`;
+
+  for (const btn of root.querySelectorAll('[data-go]')) {
+    btn.addEventListener('click', () => navigate(btn.dataset.go));
+  }
   const open = (p) => navigate('mushaf-page', { page: Number(p) });
   for (const el of root.querySelectorAll('[data-page]')) {
     el.addEventListener('click', () => open(el.dataset.page));
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(el.dataset.page); } });
   }
+  const filter = root.querySelector('#surah-filter');
+  filter?.addEventListener('input', () => {
+    const q = filter.value.trim().toLowerCase();
+    for (const tile of root.querySelectorAll('#surah-list .cat-tile')) {
+      tile.style.display = (!q || tile.dataset.search.toLowerCase().includes(q)) ? '' : 'none';
+    }
+  });
 }

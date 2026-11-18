@@ -40,7 +40,7 @@ export async function syncReciters(db) {
     let bytes = 0;
     try {
       for (let a = 1; a <= sp.ayahs; a++) {
-        const url = new URL(`${sp.basePrefix}/001${String(a).padStart(3, '0')}.mp3`, import.meta.url);
+        const url = new URL(`../../${sp.basePrefix}/001${String(a).padStart(3, '0')}.mp3`, import.meta.url);
         bytes += Number((await fetch(url)).headers.get('content-length') ?? 0);
       }
     } catch { bytes = 0; }
@@ -64,7 +64,7 @@ function ayahUrl(rec, surah, ayah) {
 /** Starter-pack (bundled) ayah URL — offline via SW runtime cache. */
 function starterAyahUrl(surah, ayah) {
   const sp = CATALOG.starterPack;
-  return new URL(`${sp.basePrefix}/${String(surah).padStart(3, '0')}${String(ayah).padStart(3, '0')}.mp3`, import.meta.url).href;
+  return new URL(`../../${sp.basePrefix}/${String(surah).padStart(3, '0')}${String(ayah).padStart(3, '0')}.mp3`, import.meta.url).href;
 }
 
 function isStarter(reciterId, surah) {

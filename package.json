@@ -40,6 +40,7 @@
     "parity:gen": "node scripts/tools/gen-parity-fixtures.mjs",
     "parity:verify": "node tests/parity/verify-parity.mjs",
     "native:sync": "node scripts/tools/gen-parity-fixtures.mjs && node scripts/tools/sync-native-assets.mjs",
+    "pages:build": "node scripts/tools/build-pages.mjs",
     "desktop:start": "electron apps/electron",
     "desktop:probe": "electron apps/electron --probe",
     "desktop:dist": "cd apps/electron && electron-builder"

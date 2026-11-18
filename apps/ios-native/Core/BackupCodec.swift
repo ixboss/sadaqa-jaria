@@ -67,11 +67,11 @@ public enum BackupCodec {
 
     static let highlightColors = ["gold", "emerald", "rose", "sky", "none"]
     static let streakKinds = ["adhkar_morning", "adhkar_evening", "tasbih", "khatmah"]
-    static let dayKeyRegex = try! NSRegularExpression(pattern: "^\\d{4}-\\d{2}-\\d{2}$")
+    static let dayKeyRegex = try? NSRegularExpression(pattern: "^\\d{4}-\\d{2}-\\d{2}$")
 
     static func isDayKey(_ s: JSONValue?) -> Bool {
-        guard case .string(let v) = s else { return false }
-        let r = dayKeyRegex.firstMatch(in: v, range: NSRange(v.startIndex..., in: v))
+        guard case .string(let v) = s, let regex = dayKeyRegex else { return false }
+        let r = regex.firstMatch(in: v, range: NSRange(v.startIndex..., in: v))
         return r != nil
     }
 
@@ -138,7 +138,7 @@ public enum BackupCodec {
                     errors.append("payload.\(group)[\(uuid)].updatedAt: must be epoch ms")
                     continue
                 }
-                if obj["deleted"] != nil && obj["deleted"]!.boolValue == nil {
+                if let deletedVal = obj["deleted"], deletedVal.boolValue == nil {
                     errors.append("payload.\(group)[\(uuid)].deleted: must be boolean when present")
                     continue
                 }
@@ -159,8 +159,8 @@ public enum BackupCodec {
             return nil
         case "reading/highlight":
             guard isInt(obj["ayahNumber"]), let ay = obj["ayahNumber"]?.intValue, (1...6236).contains(ay) else { return "ayahNumber must be 1..6236" }
-            guard isInt(obj["wordStart"]), (obj["wordStart"]?.intValue)! >= 1 else { return "wordStart must be >= 1" }
-            guard isInt(obj["wordEnd"]), (obj["wordEnd"]?.intValue)! >= (obj["wordStart"]?.intValue)! else { return "wordEnd must be >= wordStart" }
+            guard isInt(obj["wordStart"]), let ws = obj["wordStart"]?.intValue, ws >= 1 else { return "wordStart must be >= 1" }
+            guard isInt(obj["wordEnd"]), let we = obj["wordEnd"]?.intValue, we >= ws else { return "wordEnd must be >= wordStart" }
             guard let c = obj["colorKey"]?.stringValue, highlightColors.contains(c) else { return "colorKey must be a token color key" }
             return nil
         case "reading/khatmahPlan":
@@ -174,13 +174,13 @@ public enum BackupCodec {
             return nil
         case "dhikr/tasbihCounter":
             guard let t = obj["dhikrText"]?.stringValue, !t.isEmpty else { return "dhikrText required" }
-            if obj["target"] != nil && !obj["target"]!.isNull {
-                guard isInt(obj["target"]), (obj["target"]?.intValue)! >= 1 else { return "target must be >= 1 or null" }
+            if let targetVal = obj["target"], !targetVal.isNull {
+                guard isInt(targetVal), let target = targetVal.intValue, target >= 1 else { return "target must be >= 1 or null" }
             }
             return nil
         case "dhikr/adhkarState":
             guard isDayKey(obj["dayKey"]) else { return "dayKey must be YYYY-MM-DD" }
-            guard isInt(obj["count"]), (obj["count"]?.intValue)! >= 0 else { return "count must be >= 0" }
+            guard isInt(obj["count"]), let count = obj["count"]?.intValue, count >= 0 else { return "count must be >= 0" }
             return nil
         case "prefs/setting":
             guard let k = obj["key"]?.stringValue, !k.isEmpty else { return "key required" }
@@ -191,7 +191,7 @@ public enum BackupCodec {
             guard isDayKey(obj["dayKey"]) else { return "dayKey must be YYYY-MM-DD" }
             return nil
         case "dhikr/tasbihSession":
-            guard isInt(obj["countDelta"]), (obj["countDelta"]?.intValue)! > 0 else { return "countDelta must be > 0" }
+            guard isInt(obj["countDelta"]), let delta = obj["countDelta"]?.intValue, delta > 0 else { return "countDelta must be > 0" }
             guard isFinitePositive(obj["occurredAt"]) else { return "occurredAt must be epoch ms" }
             return nil
         case "reading/note":
@@ -217,7 +217,7 @@ public enum BackupCodec {
             var report = MergeReport(added: 0, updated: 0, conflicts: 0, skipped: 0, deleted: 0)
             if case .object(let groups) = payload {
                 for group in orderedGroupKeys(groups) {
-                    guard case .array(let entities) = groups[group]! else { continue }
+                    guard case .array(let entities)? = groups[group] else { continue }
                     for e in entities {
                         let uuid = e["uuid"]?.stringValue ?? ""
                         mutations.append(Mutation(group: group, uuid: uuid, entity: e, action: "insert"))
@@ -232,30 +232,31 @@ public enum BackupCodec {
         var mutations: [Mutation] = []
         if case .object(let groups) = payload {
             for group in orderedGroupKeys(groups) {
-                guard case .array(let entities) = groups[group]! else {
+                guard case .array(let entities)? = groups[group] else {
                     throw BackupCodecError.refused("payload.\(group): must be an array (run backup-validate first)")
                 }
                 let localMap = local[group]
                 for e in entities {
                     let uuid = e["uuid"]?.stringValue ?? ""
-                    let existing = localMap?[uuid]
-                    if existing == nil {
-                        mutations.append(Mutation(group: group, uuid: uuid, entity: e, action: "insert"))
-                        report.added += 1
+                    guard let existing = localMap?[uuid] else {
+                        mutations.addOrInsert: do {
+                            mutations.append(Mutation(group: group, uuid: uuid, entity: e, action: "insert"))
+                            report.added += 1
+                        }
                         continue
                     }
-                    if CanonicalJSON.serialize(existing!) == CanonicalJSON.serialize(e) {
+                    if CanonicalJSON.serialize(existing) == CanonicalJSON.serialize(e) {
                         report.skipped += 1
                         continue
                     }
-                    let localTime = existing?["updatedAt"]?.int64Value ?? 0
+                    let localTime = existing["updatedAt"]?.int64Value ?? 0
                     let incomingTime = e["updatedAt"]?.int64Value ?? 0
                     if incomingTime > localTime {
-                        let isResurrection = (existing?["deleted"]?.boolValue == true) && (e["deleted"]?.boolValue != true)
+                        let isResurrection = (existing["deleted"]?.boolValue == true) && (e["deleted"]?.boolValue != true)
                         mutations.append(Mutation(group: group, uuid: uuid, entity: e, action: isResurrection ? "restore" : "apply"))
                         report.updated += 1
                     } else if localTime > incomingTime {
-                        if existing?["deleted"]?.boolValue == true {
+                        if existing["deleted"]?.boolValue == true {
                             report.skipped += 1 // tombstone wins over older incoming copy
                         } else {
                             report.conflicts += 1 // local is newer and alive — keep local, log conflict
@@ -273,7 +274,7 @@ public enum BackupCodec {
     public static func toPayloadGroups(_ mapByGroup: [String: [String: JSONValue]]) -> JSONValue {
         var out: [String: JSONValue] = [:]
         for (group, map) in mapByGroup {
-            let arr = map.keys.sorted().map { map[$0]! }
+            let arr = map.keys.sorted().compactMap { map[$0] }
             out[group] = .array(arr)
         }
         return .object(out)

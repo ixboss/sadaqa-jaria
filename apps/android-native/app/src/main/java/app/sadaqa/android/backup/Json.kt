@@ -65,7 +65,7 @@ object CanonicalJson {
                 sortedKeys(v.fields).forEachIndexed { i, k ->
                     if (i > 0) out.append(',')
                     out.append(escape(k)).append(':')
-                    write(v.fields[k]!!, out)
+                    write(v.fields[k] ?: JsonValue.Null, out)
                 }
                 out.append('}')
             }
@@ -116,7 +116,7 @@ object CanonicalJson {
         is JsonNull -> JsonValue.Null
         is JsonPrimitive -> when {
             e.isString -> JsonValue.Str(e.content)
-            e.booleanOrNull != null -> JsonValue.Bool(e.booleanOrNull!!)
+            e.booleanOrNull != null -> JsonValue.Bool(e.booleanOrNull == true)
             else -> JsonValue.Num(e.double)
         }
         is JsonArray -> JsonValue.Arr(e.map { toJsonValue(it) })

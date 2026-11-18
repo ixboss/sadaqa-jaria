@@ -11,7 +11,9 @@ import { isIP } from 'node:net';
 import dns from 'node:dns/promises';
 
 const DEST = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'apps', 'web-desktop', 'assets', 'fonts', 'qpc1');
+const UTHMANIC_DEST = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'apps', 'web-desktop', 'assets', 'fonts', 'uthmanic');
 const BASE = 'https://raw.githubusercontent.com/zonetecde/mushaf-layout/v2/fonts/QPC1/';
+const UTHMANIC_BASE = 'https://raw.githubusercontent.com/quran/quran.com-frontend-next/master/public/fonts/quran/hafs/uthmanic_hafs/';
 
 function assertPublicHttps(urlStr) {
   const u = new URL(urlStr);
@@ -70,5 +72,16 @@ const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
     manifest.artifacts.push({ name, bytes: buf.length, sha256: sha256(buf) });
   }
   writeFileSync(join(DEST, 'manifest.json'), JSON.stringify({ ...manifest, totalBytes: bytes }, null, 2));
-  console.log(`OK: ${files.length} font files in ${DEST} (${(bytes / 1024 / 1024).toFixed(1)} MB, fetched ${fetched} this run)`);
+
+  // Canonical KFGQPC Uthmanic Hafs fallback + verse/citation font (Web woff2 + Native ttf)
+  mkdirSync(UTHMANIC_DEST, { recursive: true });
+  for (const uName of ['UthmanicHafs1Ver18.woff2', 'UthmanicHafs1Ver18.ttf']) {
+    const out = join(UTHMANIC_DEST, uName);
+    if (!existsSync(out) || statSync(out).size === 0) {
+      const buf = await fetchBinary(UTHMANIC_BASE + uName);
+      writeFileSync(out, buf);
+      fetched++;
+    }
+  }
+  console.log(`OK: ${files.length} QPC1 + UthmanicHafs1Ver18 font files (${(bytes / 1024 / 1024).toFixed(1)} MB, fetched ${fetched} this run)`);
 })().catch((e) => { console.error('FONT FETCH FAILED:', e.message); process.exit(1); });

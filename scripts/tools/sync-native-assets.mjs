@@ -32,6 +32,7 @@ const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 const SRC = {
   db: join(ROOT, 'packages', 'core-data', 'build', 'sadaqa.db'),
   fonts: join(ROOT, 'apps', 'web-desktop', 'assets', 'fonts', 'qpc1'),
+  uthmanicFont: join(ROOT, 'apps', 'web-desktop', 'assets', 'fonts', 'uthmanic', 'UthmanicHafs1Ver18.ttf'),
   tokens: join(ROOT, 'packages', 'design-tokens', 'tokens.json'),
   audioCatalog: join(ROOT, 'apps', 'web-desktop', 'assets', 'audio', 'catalog.json'),
   audioStarter: join(ROOT, 'apps', 'web-desktop', 'assets', 'audio', 'starter', 'alafasy'),
@@ -106,6 +107,16 @@ for (const target of TARGETS) {
     const st = syncFile(join(SRC.fonts, name), join(fontSrcDir, name));
     totals[target.key][st]++; bump(`fonts/${name}`, join(fontSrcDir, name));
     fontEntries[name] = { role: 'basmala', target: name };
+  }
+  if (existsSync(SRC.uthmanicFont)) {
+    const st = syncFile(SRC.uthmanicFont, join(fontSrcDir, 'UthmanicHafs1Ver18.ttf'));
+    totals[target.key][st]++; bump(`fonts/UthmanicHafs1Ver18.ttf`, SRC.uthmanicFont);
+    fontEntries['UthmanicHafs1Ver18.ttf'] = { role: 'uthmanic_fallback', target: 'UthmanicHafs1Ver18.ttf' };
+    if (target.key === 'android') {
+      const resFontDest = join(base, 'app', 'src', 'main', 'res', 'font', 'uthmanic_hafs.ttf');
+      const rSt = syncFile(SRC.uthmanicFont, resFontDest);
+      totals[target.key][rSt]++; bump('app/src/main/res/font/uthmanic_hafs.ttf', SRC.uthmanicFont);
+    }
   }
   for (let p = 1; p <= 604; p++) {
     const woffName = `p${String(p).padStart(3, '0')}.woff2`;

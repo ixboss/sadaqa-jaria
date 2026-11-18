@@ -83,7 +83,7 @@ fun RootScaffold(db: SadaqaDb) {
     Column(Modifier.fillMaxSize().background(LocalSadaqaTheme.current.bg)) {
         Box(Modifier.weight(1f)) {
             when (tab) {
-                "today" -> TodayScreen(db, onOpenTool = { tab = "tools" })
+                "today" -> TodayScreen(db, onOpenTool = { tab = "tools" }, onNavigate = { tab = it })
                 "mushaf" -> MushafScreen(db)
                 "athkar" -> AthkarScreen(db)
                 "tools" -> ToolsScreen(db)

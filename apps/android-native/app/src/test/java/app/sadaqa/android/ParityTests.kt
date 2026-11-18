@@ -444,3 +444,57 @@ class DbRoundTripTest {
             CanonicalJson.serialize(payload).startsWith("{\"reading\":"))
     }
 }
+
+// ---------------------------------------------------------------------------
+// 8. Write-path regression tests — adhkar tap, tasbih tap, bookmarks,
+//    and 0-byte database file self-healing.
+// ---------------------------------------------------------------------------
+
+class DatabaseWritePathTest {
+
+    private fun seedBytesOf(): ByteArray = sequenceOf(
+        File("src/main/assets/sadaqa.db"),
+        File("app/src/main/assets/sadaqa.db"),
+        File("../../../packages/core-data/build/sadaqa.db"),
+        File("../../packages/core-data/build/sadaqa.db"),
+        File("packages/core-data/build/sadaqa.db"),
+    ).firstOrNull { it.exists() }?.readBytes() ?: throw IllegalStateException("seed db missing")
+
+    @Test
+    fun zeroByteDbFileRecoversFromSeedAndHandlesWritePaths() {
+        val f = File("build/tmp-p5/writepath-${System.nanoTime()}.db")
+        f.parentFile?.mkdirs()
+        f.writeBytes(ByteArray(0)) // simulate corrupt 0-byte copy
+
+        val db = SadaqaDb.open(f, ::seedBytesOf)
+        try {
+            assertTrue("0-byte db must be replaced with full seed", f.length() > 1000)
+            val now = 1_794_988_800_000L
+            val day = "2026-11-18"
+
+            val item = db.queryOne("SELECT id, category_id, target FROM adhkar_items WHERE target > 0 LIMIT 1")!!
+            val itemId = item.longs["id"]!!
+            val catId = item.longs["category_id"]!!
+            val target = item.longs["target"]!!.toInt()
+
+            var cur = 0
+            for (step in 0 until target) {
+                cur = db.incrementDhikrTap(itemId, catId, cur, target, day, now + step * 100L)
+                assertEquals(step + 1, cur)
+            }
+            val stored = db.queryOne("SELECT count FROM adhkar_state WHERE item_id = ? AND day_key = ?", listOf(itemId, day))
+            assertEquals(target.toLong(), stored?.longs?.get("count"))
+
+            db.ensureDefaultTasbihPresets(now)
+            val counterUuid = db.queryOne("SELECT uuid FROM tasbih_counters WHERE deleted = 0 ORDER BY sort_order LIMIT 1")!!.strings["uuid"]!!
+            db.recordTasbihTap(counterUuid, 33, 33, day, now + 10L)
+            assertEquals(1L, db.queryOne("SELECT count FROM tasbih_counters WHERE uuid = ?", listOf(counterUuid))?.longs?.get("count"))
+            assertEquals(1L, db.queryOne("SELECT COUNT(*) AS n FROM streak_days WHERE kind = 'tasbih' AND day_key = ?", listOf(day))?.longs?.get("n"))
+
+            assertTrue(db.toggleBookmark(1, null, null, "الفاتحة", now + 20L))
+            assertTrue(!db.toggleBookmark(1, null, null, "الفاتحة", now + 30L))
+        } finally {
+            db.close()
+        }
+    }
+}

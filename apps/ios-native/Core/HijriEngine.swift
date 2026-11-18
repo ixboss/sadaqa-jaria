@@ -24,32 +24,38 @@ public enum HijriEngine {
 
     static let monthsAr = ["محرم", "صفر", "ربيع الأول", "ربيع الثاني", "جمادى الأولى", "جمادى الآخرة", "رجب", "شعبان", "رمضان", "شوال", "ذو القعدة", "ذو الحجة"]
 
+    static let utcTimeZone = TimeZone(secondsFromGMT: 0) ?? .current
+
     static func umalqura() -> Calendar {
         var cal = Calendar(identifier: .islamicUmmAlQura)
-        cal.timeZone = TimeZone(identifier: "UTC")!
+        cal.timeZone = utcTimeZone
         return cal
     }
 
     static func gregorianUTC() -> Calendar {
         var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "UTC")!
+        cal.timeZone = utcTimeZone
         return cal
     }
 
     static func noonUTC(_ iso: String) -> Date {
-        let p = iso.split(separator: "-").map { Int($0)! }
-        return gregorianUTC().date(from: DateComponents(year: p[0], month: p[1], day: p[2], hour: 12))!
+        let p = iso.split(separator: "-").compactMap { Int($0) }
+        guard p.count == 3,
+              let d = gregorianUTC().date(from: DateComponents(year: p[0], month: p[1], day: p[2], hour: 12)) else {
+            return Date()
+        }
+        return d
     }
 
     /** Hijri parts of a UTC-noon instant (web hijriParts parity). */
     static func hijriParts(_ instant: Date) -> HijriDate {
         let c = umalqura().dateComponents([.year, .month, .day], from: instant)
-        return HijriDate(y: c.year!, m: c.month!, d: c.day!)
+        return HijriDate(y: c.year ?? 1445, m: c.month ?? 1, d: c.day ?? 1)
     }
 
     static func isoOf(_ instant: Date) -> String {
         let c = gregorianUTC().dateComponents([.year, .month, .day], from: instant)
-        return String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
+        return String(format: "%04d-%02d-%02d", c.year ?? 1970, c.month ?? 1, c.day ?? 1)
     }
 
     /// Gregorian "YYYY-MM-DD" (UTC day) → Hijri.
@@ -61,7 +67,7 @@ public enum HijriEngine {
     public static func fromHijri(_ h: HijriDate) throws -> String {
         guard h.m >= 1 && h.m <= 12 && h.d >= 1 && h.d <= 30 else { throw HijriError.invalidDate("invalid hijri date: \(h.y)-\(h.m)-\(h.d)") }
         // Reference: Muharram 1, 1445 AH = 19 July 2023 (Umm al-Qura).
-        let ref = gregorianUTC().date(from: DateComponents(year: 2023, month: 7, day: 19, hour: 12))!
+        let ref = gregorianUTC().date(from: DateComponents(year: 2023, month: 7, day: 19, hour: 12)) ?? Date(timeIntervalSince1970: 1689768000)
         let yearStart = ref.addingTimeInterval(Double(Int64((Double(h.y - 1445) * 354.36707).rounded())) * 86_400)
         let anchor = yearStart.addingTimeInterval(Double(Int64((Double(h.m - 1) * 29.53).rounded()) - 14) * 86_400)
         var first: Date?
@@ -92,8 +98,10 @@ public enum HijriEngine {
     /// cursor once a match is found — 20 for single-day events, 1 for clusters).
     static func scanYear(_ year: Int, predicate: (HijriDate) -> Bool, skipAfterMatch: Int = 20) -> [(instant: Date, hijri: HijriDate)] {
         var out: [(Date, HijriDate)] = []
-        var t = gregorianUTC().date(from: DateComponents(year: year, month: 1, day: 1, hour: 12))!
-        let end = gregorianUTC().date(from: DateComponents(year: year + 1, month: 1, day: 1, hour: 12))!
+        guard var t = gregorianUTC().date(from: DateComponents(year: year, month: 1, day: 1, hour: 12)),
+              let end = gregorianUTC().date(from: DateComponents(year: year + 1, month: 1, day: 1, hour: 12)) else {
+            return out
+        }
         while t < end {
             let h = hijriParts(t)
             if predicate(h) {

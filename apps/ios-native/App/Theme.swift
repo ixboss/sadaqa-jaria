@@ -36,22 +36,26 @@ struct TokensFile: Codable {
 enum SadaqaTheme {
     static let offeredKeys = ["dark", "light", "sepia", "night"] // settings-screen parity with web
 
+    static let fallbackDarkTheme = TokenTheme(
+        bg: "#07161B", surface: "#0E2228", surfaceRaised: "#17333B",
+        textPrimary: "#E8EEF2", textSecondary: "#A7B7BD", accent: "#E7C14C",
+        accentContrast: "#1A1206", border: "#1E3A44", mushafText: "#F2EFE6", mushafBg: "#0A1C22"
+    )
+
     static func loadFile() -> TokensFile {
-        guard let url = Bundle.main.url(forResource: "tokens", withExtension: "json"),
+        let url = Bundle.main.url(forResource: "tokens", withExtension: "json", subdirectory: "Resources")
+            ?? Bundle.main.url(forResource: "tokens", withExtension: "json")
+        guard let url,
               let data = try? Data(contentsOf: url),
               let tokens = try? JSONDecoder().decode(TokensFile.self, from: data) else {
-            // minimal dark fallback if the synced file is missing (never in CI)
-            let dark = TokenTheme(bg: "#07161B", surface: "#0E2228", surfaceRaised: "#17333B",
-                                  textPrimary: "#E8EEF2", textSecondary: "#A7B7BD", accent: "#E7C14C",
-                                  accentContrast: "#1A1206", border: "#1E3A44", mushafText: "#F2EFE6", mushafBg: "#0A1C22")
-            return TokensFile(themes: ["dark": dark], glass: nil, motion: nil, haptics: nil, typography: nil)
+            return TokensFile(themes: ["dark": fallbackDarkTheme], glass: nil, motion: nil, haptics: nil, typography: nil)
         }
         return tokens
     }
 
     static func load(key: String) -> SadaqaThemeColors {
         let file = loadFile()
-        let t = file.themes[key] ?? file.themes["dark"]!
+        let t = file.themes[key] ?? file.themes["dark"] ?? fallbackDarkTheme
         return SadaqaThemeColors(token: t, all: file)
     }
 }
@@ -103,56 +107,98 @@ extension UIColor {
 
 // ============================================================================
 // FontRegistry — per-page QPC1 subset TTFs (Resources/fonts/pNNN.ttf) +
-// QPC1BSML.ttf. Fonts are converted from the web woff2 subsets by the sync
-// script — codepoint parity by construction (same PUA glyphs, same fonts).
+// QPC1BSML.ttf + canonical KFGQPC UthmanicHafs1Ver18.ttf fallback.
+// Resolving via CTFontManagerCreateFontDescriptorsFromURL guarantees the exact
+// internal PostScript name (QCF_P001..QCF_P604, QCF_BSML, KFGQPC...) and
+// runtime CTFontGetGlyphsForCharacters prevents any PUA tofu/gibberish.
 // ============================================================================
 
 enum FontRegistry {
-    static var registeredPages = Set<Int>()
+    private static var registeredPostScriptNames: [String: String] = [:]
+
+    static func fontURL(named resource: String) -> URL? {
+        let base = (resource as NSString).deletingPathExtension
+        let ext = (resource as NSString).pathExtension
+        return Bundle.main.url(forResource: base, withExtension: ext, subdirectory: "Resources/fonts")
+            ?? Bundle.main.url(forResource: base, withExtension: ext, subdirectory: "fonts")
+            ?? Bundle.main.url(forResource: base, withExtension: ext, subdirectory: "Resources")
+            ?? Bundle.main.url(forResource: base, withExtension: ext)
+    }
+
+    @discardableResult
+    static func registerAndResolveName(named resource: String) -> String? {
+        if let cached = registeredPostScriptNames[resource] { return cached }
+        guard let url = fontURL(named: resource) else { return nil }
+        CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        if let descs = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor],
+           let first = descs.first,
+           let psName = CTFontDescriptorCopyAttribute(first, kCTFontNameAttribute) as? String,
+           !psName.isEmpty {
+            registeredPostScriptNames[resource] = psName
+            return psName
+        }
+        return nil
+    }
 
     static func registerBasmala() {
-        register(named: "QPC1BSML.ttf")
+        _ = registerAndResolveName(named: "QPC1BSML.ttf")
+        _ = registerAndResolveName(named: "UthmanicHafs1Ver18.ttf")
     }
 
-    /// Register the page's QPC1 subset lazily (eviction unnecessary on iOS —
-    /// CTFontManager caches; 605 small subsets ≈ tens of MB worst case).
     static func registerPage(_ page: Int) {
-        guard !registeredPages.contains(page) else { return }
         let name = String(format: "p%03d.ttf", page)
-        if register(named: name) {
-            registeredPages.insert(page)
-        }
+        _ = registerAndResolveName(named: name)
     }
 
-    /// CTFontManager registration is idempotent per process — the completion
-    /// handler returns true for already-registered URLs, so failures are the
-    /// only false path (missing resource file).
-    @discardableResult
-    static func register(named resource: String) -> Bool {
-        guard let url = Bundle.main.url(forResource: (resource as NSString).deletingPathExtension, withExtension: (resource as NSString).pathExtension) else { return false }
-        let done = UnsafeMutablePointer<Bool>.allocate(capacity: 1)
-        done.initialize(to: false)
-        CTFontManagerRegisterFontURLs([url] as CFArray, .process, true) { _, _ in
-            done.pointee = true
-            return true
+    /// Verify every non-whitespace UTF-16 code unit maps to a non-zero glyph.
+    static func coversText(_ font: UIFont, sample: String) -> Bool {
+        let trimmed = sample.unicodeScalars.filter { !$0.properties.isWhitespace }
+        guard !trimmed.isEmpty else { return false }
+        let utf16 = Array(String(trimmed).utf16)
+        var glyphs = [CGGlyph](repeating: 0, count: utf16.count)
+        let ctFont = font as CTFont
+        guard CTFontGetGlyphsForCharacters(ctFont, utf16, &glyphs, utf16.count) else {
+            return false
         }
-        let ok = done.pointee
-        done.deinitialize(count: 1)
-        done.deallocate()
-        return ok
+        return glyphs.allSatisfy { $0 != 0 }
     }
 
-    /// The mushaf page font — per-page family fallback chain.
-    static func mushafFont(page: Int, size: CGFloat) -> UIFont {
-        registerPage(page)
-        let name = "QPC1-\(page)"
-        if let f = UIFont(name: name, size: size) { return f }
+    static func uthmanicFont(size: CGFloat) -> UIFont {
+        if let ps = registerAndResolveName(named: "UthmanicHafs1Ver18.ttf"),
+           let f = UIFont(name: ps, size: size) {
+            return f
+        }
+        if let f = UIFont(name: "KFGQPCHAFSUthmanicScript-Regula", size: size) { return f }
+        if let f = UIFont(name: "KFGQPC HAFS Uthmanic Script", size: size) { return f }
         return UIFont.systemFont(ofSize: size)
     }
 
-    /// Basmala (BSML) font — visual-ORDER glyphs, must render LTR-isolated.
-    static func basmalaFont(size: CGFloat) -> UIFont {
-        registerBasmala()
-        return UIFont(name: "QPC1BSML", size: size) ?? UIFont.systemFont(ofSize: size)
+    /// Returns verified per-page QCF font if registered AND covers `sample`;
+    /// nil tells the caller to render plain `word_text`/`text_uthmani` instead.
+    static func verifiedMushafFont(page: Int, size: CGFloat, sample: String) -> UIFont? {
+        let res = String(format: "p%03d.ttf", page)
+        if let ps = registerAndResolveName(named: res),
+           let f = UIFont(name: ps, size: size),
+           coversText(f, sample: sample) {
+            return f
+        }
+        let fallbackName = String(format: "QCF_P%03d", page)
+        if let f = UIFont(name: fallbackName, size: size), coversText(f, sample: sample) {
+            return f
+        }
+        return nil
+    }
+
+    /// Verified BSML font — nil triggers Arabic UthmanicHafs Basmala fallback.
+    static func verifiedBasmalaFont(size: CGFloat, sample: String) -> UIFont? {
+        if let ps = registerAndResolveName(named: "QPC1BSML.ttf"),
+           let f = UIFont(name: ps, size: size),
+           coversText(f, sample: sample) {
+            return f
+        }
+        if let f = UIFont(name: "QCF_BSML", size: size), coversText(f, sample: sample) {
+            return f
+        }
+        return nil
     }
 }

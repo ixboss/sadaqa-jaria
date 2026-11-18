@@ -17,7 +17,30 @@ import GRDB
 struct AthkarCategory: Identifiable {
     let id: String
     let nameAr: String
-    let icon: String
+    let solarWindow: String?
+    let itemCount: Int
+
+    var displayIcon: String {
+        switch solarWindow {
+        case "fajr": return "🌅"
+        case "asr": return "🌇"
+        case "night": return "🌙"
+        case "duha": return "☀️"
+        case "after_prayer": return "🕌"
+        default: return "📿"
+        }
+    }
+
+    var windowBadge: String? {
+        switch solarWindow {
+        case "fajr": return "الصباح"
+        case "asr": return "المساء"
+        case "night": return "الليل"
+        case "duha": return "الضحى"
+        case "after_prayer": return "بعد الصلاة"
+        default: return nil
+        }
+    }
 }
 
 struct AthkarItemData: Identifiable {
@@ -32,29 +55,47 @@ struct AthkarItemData: Identifiable {
 struct AthkarView: View {
     @EnvironmentObject var appState: AppState
     @State private var categories: [AthkarCategory] = []
+    @State private var query = ""
+    @State private var windowFilter = "all"
+
+    private var filtered: [AthkarCategory] {
+        categories.filter { c in
+            let winOk = windowFilter == "all" || c.solarWindow == windowFilter
+            let qOk = query.isEmpty || c.nameAr.contains(query)
+            return winOk && qOk
+        }
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 10) {
-                    ForEach(categories) { cat in
+                VStack(spacing: 12) {
+                    featuredGrid
+                    searchAndFilters
+                    ForEach(filtered) { cat in
                         NavigationLink(value: cat.id) {
-                            HStack {
-                                Text(cat.icon).font(.system(size: 22))
-                                Text(cat.nameAr).font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(appState.theme.textPrimary)
-                                    .lineSpacing(6)
+                            HStack(spacing: 12) {
+                                Text(cat.displayIcon).font(.system(size: 22))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(cat.nameAr).font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(appState.theme.textPrimary)
+                                        .lineSpacing(4)
+                                    Text("\(cat.windowBadge.map { "\($0) · " } ?? "")\(cat.itemCount) \(cat.itemCount == 1 ? "ذكر" : "أذكار")")
+                                        .font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary)
+                                }
                                 Spacer()
                                 Image(systemName: "chevron.backward")
                                     .font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary)
                             }
                             .padding(14)
                             .background(appState.theme.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(appState.theme.border))
                         }
                     }
                 }
                 .padding(.horizontal, 16)
+                .padding(.bottom, 24)
             }
             .background(appState.theme.bg)
             .navigationTitle("الأذكار")
@@ -65,13 +106,79 @@ struct AthkarView: View {
         }
     }
 
+    private var featuredGrid: some View {
+        let morning = categories.first { $0.solarWindow == "fajr" }
+        let evening = categories.first { $0.solarWindow == "asr" && $0.nameAr.contains("المَسَاء") } ?? categories.first { $0.solarWindow == "asr" }
+        let afterPrayer = categories.first { $0.solarWindow == "after_prayer" }
+        let sleep = categories.first { $0.nameAr.contains("النَّوْم") || $0.nameAr.contains("النوم") } ?? categories.first { $0.solarWindow == "night" }
+        let cols = [GridItem(.flexible()), GridItem(.flexible())]
+        return LazyVGrid(columns: cols, spacing: 10) {
+            if let m = morning {
+                NavigationLink(value: m.id) { featuredCard("🌅", "أذكار الصباح", "\(m.itemCount) ذكراً") }
+            }
+            if let e = evening {
+                NavigationLink(value: e.id) { featuredCard("🌇", "أذكار المساء", "\(e.itemCount) ذكراً") }
+            }
+            if let a = afterPrayer {
+                NavigationLink(value: a.id) { featuredCard("🕌", "أذكار بعد الصلاة", "\(a.itemCount) ذكراً") }
+            }
+            if let s = sleep {
+                NavigationLink(value: s.id) { featuredCard("🌙", "أذكار النوم", "\(s.itemCount) ذكراً") }
+            }
+            NavigationLink { TasbihView() } label: { featuredCard("📿", "السبحة الإلكترونية", "التسبيح والأوراد") }
+            NavigationLink { AudioView() } label: { featuredCard("🎧", "التلاوة الصوتية", "استماع دون اتصال") }
+        }
+    }
+
+    private func featuredCard(_ icon: String, _ title: String, _ sub: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(icon).font(.system(size: 22))
+            Text(title).font(.system(size: 14, weight: .bold)).foregroundStyle(appState.theme.textPrimary)
+            Text(sub).font(.system(size: 11)).foregroundStyle(appState.theme.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(appState.theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(appState.theme.border))
+    }
+
+    private var searchAndFilters: some View {
+        VStack(spacing: 8) {
+            TextField("ابحث في أقسام حصن المسلم…", text: $query)
+                .padding(10)
+                .background(appState.theme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(appState.theme.border))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach([("all", "الكل"), ("fajr", "الصباح"), ("asr", "المساء"), ("after_prayer", "بعد الصلاة"), ("night", "النوم والليل")], id: \.0) { k, label in
+                        Button(label) { windowFilter = k }
+                            .font(.system(size: 12, weight: .semibold))
+                            .padding(.horizontal, 12).padding(.vertical, 6)
+                            .background(windowFilter == k ? appState.theme.accent : appState.theme.surface)
+                            .foregroundStyle(windowFilter == k ? appState.theme.accentContrast : appState.theme.textSecondary)
+                            .clipShape(Capsule())
+                    }
+                }
+            }
+        }
+    }
+
     private func loadCategories() {
         var out: [AthkarCategory] = []
         try? appState.db.queue.read { db in
-            for r in try Row.fetchAll(db, sql: "SELECT * FROM athkar_categories ORDER BY sort_order") {
-                out.append(AthkarCategory(id: r["category_id"] as String? ?? "",
-                                          nameAr: r["name_ar"] as String? ?? "",
-                                          icon: r["icon"] as String? ?? "dhikr"))
+            for r in try Row.fetchAll(db, sql: """
+                SELECT c.category_id, c.name_ar, c.solar_window,
+                       (SELECT COUNT(*) FROM athkar_items i WHERE i.category_id = c.category_id) AS items
+                FROM athkar_categories c ORDER BY c.sort_order
+                """) {
+                out.append(AthkarCategory(
+                    id: r["category_id"] as String? ?? "",
+                    nameAr: r["name_ar"] as String? ?? "",
+                    solarWindow: r["solar_window"] as String?,
+                    itemCount: r["items"] as Int? ?? 0
+                ))
             }
         }
         categories = out
@@ -81,21 +188,46 @@ struct AthkarView: View {
 struct AthkarReaderView: View {
     @EnvironmentObject var appState: AppState
     let categoryId: String
+    @State private var categoryName = ""
     @State private var items: [AthkarItemData] = []
     @State private var counts: [String: Int] = [:]
     @State private var autoMode = false
 
+    private var completedCount: Int {
+        items.filter { it in
+            let c = counts[it.id] ?? 0
+            return it.countTarget > 0 ? c >= it.countTarget : c > 0
+        }.count
+    }
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
+                // Progress summary bar
+                VStack(spacing: 6) {
+                    HStack {
+                        Text("\(completedCount) / \(items.count)").font(.system(size: 13, weight: .bold)).monospacedDigit()
+                            .foregroundStyle(appState.theme.accent)
+                        Spacer()
+                        Toggle("بدون يدين", isOn: $autoMode).labelsHidden()
+                        Text("بدون يدين").font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary)
+                    }
+                    ProgressView(value: items.isEmpty ? 0 : Double(completedCount) / Double(items.count))
+                        .tint(appState.theme.accent)
+                }
+                .padding(14)
+                .background(appState.theme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+
                 ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
                     dhikrCard(item, index: idx)
                 }
             }
             .padding(.horizontal, 16)
+            .padding(.bottom, 24)
         }
         .background(appState.theme.bg)
-        .navigationTitle("")
+        .navigationTitle(categoryName)
         .onAppear {
             loadItems()
             HapticsEngine.shared.prepare()
@@ -103,14 +235,15 @@ struct AthkarReaderView: View {
     }
 
     private var dayKey: String {
-        var cal = Calendar(identifier: .gregorian)
+        let cal = Calendar(identifier: .gregorian)
         let c = cal.dateComponents([.year, .month, .day], from: Date())
-        return String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
+        return String(format: "%04d-%02d-%02d", c.year ?? 1970, c.month ?? 1, c.day ?? 1)
     }
 
     private func loadItems() {
         var out: [AthkarItemData] = []
         try? appState.db.queue.read { db in
+            categoryName = (try String.fetchOne(db, sql: "SELECT name_ar FROM athkar_categories WHERE category_id = ?", arguments: [categoryId])) ?? "الأذكار"
             for r in try Row.fetchAll(db, sql: "SELECT * FROM athkar_items WHERE category_id = ? ORDER BY sort_order", arguments: [categoryId]) {
                 out.append(AthkarItemData(
                     id: r["item_id"] as String? ?? "",
@@ -129,11 +262,11 @@ struct AthkarReaderView: View {
 
     private func dhikrCard(_ item: AthkarItemData, index: Int) -> some View {
         let count = counts[item.id] ?? 0
-        let done = item.countTarget > 0 && count >= item.countTarget
-        let progress = item.countTarget > 0 ? Double(count) / Double(item.countTarget) : 0
-        return VStack(alignment: .leading, spacing: 10) {
+        let done = item.countTarget > 0 ? count >= item.countTarget : count > 0
+        let progress = item.countTarget > 0 ? min(1.0, Double(count) / Double(item.countTarget)) : (done ? 1.0 : 0.0)
+        return VStack(alignment: .leading, spacing: 12) {
             Text(item.textAr)
-                .font(.system(size: 19)).lineSpacing(10)
+                .font(.system(size: 22)).lineSpacing(12)
                 .foregroundStyle(appState.theme.textPrimary)
             if item.countTarget > 0 {
                 HStack {
@@ -146,62 +279,52 @@ struct AthkarReaderView: View {
                         Circle().stroke(appState.theme.surfaceRaised, lineWidth: 6)
                         Circle().trim(to: progress).stroke(appState.theme.accent, lineWidth: 6)
                             .rotationEffect(.degrees(-90))
-                        Text(item.countTarget > 0 ? "\(min(count, item.countTarget))/\(item.countTarget)" : "✓")
+                        Text("\(min(count, item.countTarget))/\(item.countTarget)")
                             .font(.system(size: 11, weight: .bold)).monospacedDigit()
                     }
                     .frame(width: 46, height: 46)
                 }
             }
+            if let fadl = item.fadlAr, !fadl.isEmpty {
+                Text(fadl).font(.system(size: 12)).foregroundStyle(appState.theme.accent)
+            }
             if let src = item.sourceAr, !src.isEmpty {
                 (Text("التحقق: ").font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary)
                  + Text(src).font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary))
-                    .lineLimit(2)
+                    .lineLimit(3)
             }
         }
-        .padding(16)
+        .padding(18)
+        .frame(maxWidth: .infinity, minHeight: 160, alignment: .leading)
         .background(appState.theme.surface)
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(done ? appState.theme.accent.opacity(0.55) : appState.theme.border))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(done ? appState.theme.accent.opacity(0.6) : appState.theme.border))
         .contentShape(Rectangle())
         .onTapGesture { tap(item) }
     }
 
     private func tap(_ item: AthkarItemData) {
         let target = item.countTarget
-        var c = counts[item.id] ?? 0
-        guard target == 0 || c < target else { return }
-        c += 1 // synchronous local increment (rapid-tap contract)
+        let current = counts[item.id] ?? 0
+        guard target == 0 || current < target else { return }
+        let c = current + 1 // synchronous local increment (rapid-tap contract)
         counts[item.id] = c
-        if c == target {
+        if target > 0 && c == target {
             HapticsEngine.shared.complete()
         } else {
             HapticsEngine.shared.tick()
         }
         let now = Date.nowMs
-        try? appState.db.queue.write { db in
-            try db.execute(sql: """
-                INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(item_id, day_key) DO UPDATE SET count = excluded.count, completed_at = excluded.completed_at, updated_at = excluded.updated_at
-                """, arguments: [item.id, dayKey, c, c >= target && target > 0 ? now : nil, now])
-            // streak write for window-tagged categories (morning/evening parity)
-            if c >= target && target > 0, let kind = streakKind(for: categoryId) {
-                try db.execute(sql: "INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)",
-                               arguments: [kind, dayKey, now])
-            }
-        }
-    }
-
-    /// solar-window → streak kind (web: fajr→adhkar_morning, asr→adhkar_evening).
-    private func streakKind(for categoryId: String) -> String? {
-        var kind: String?
-        try? appState.db.queue.read { db in
-            let row = try Row.fetchOne(db, sql: "SELECT solar_window FROM athkar_categories WHERE category_id = ?", arguments: [categoryId])
-            switch row?["solar_window"] as String? {
-            case "fajr": kind = "adhkar_morning"
-            case "asr": kind = "adhkar_evening"
-            default: kind = nil
-            }
-        }
-        return kind
+        let day = dayKey
+        // Single non-reentrant atomic GRDB write (fixes instant crash on card tap)
+        _ = try? appState.db.incrementDhikrTap(
+            itemId: item.id,
+            categoryId: categoryId,
+            currentCount: current,
+            target: target,
+            dayKey: day,
+            now: now
+        )
     }
 }
 
@@ -241,36 +364,18 @@ struct TasbihView: View {
     }
 
     private func reload() {
-        var out: [TasbihCounter] = []
-        try? appState.db.queue.read { db in
-            let rows = try Row.fetchAll(db, sql: "SELECT * FROM tasbih_counters WHERE deleted = 0 ORDER BY sort_order")
-            if rows.isEmpty {
-                // first-run presets (web parity: 33/33/34 lazily created)
-                try db.execute(sql: """
-                    INSERT OR IGNORE INTO tasbih_counters (uuid, label_ar, dhikr_text, target, count, total_lifetime, sort_order, updated_at, deleted)
-                    VALUES (?, ?, ?, ?, 0, 0, 0, ?, 0)
-                    """, arguments: [UUIDv7.uuid7(), "سبحان الله", "سبحان الله", 33, Date.nowMs])
-                try db.execute(sql: """
-                    INSERT OR IGNORE INTO tasbih_counters (uuid, label_ar, dhikr_text, target, count, total_lifetime, sort_order, updated_at, deleted)
-                    VALUES (?, ?, ?, ?, 0, 0, 1, ?, 0)
-                    """, arguments: [UUIDv7.uuid7(), "الحمد لله", "الحمد لله", 33, Date.nowMs])
-                try db.execute(sql: """
-                    INSERT OR IGNORE INTO tasbih_counters (uuid, label_ar, dhikr_text, target, count, total_lifetime, sort_order, updated_at, deleted)
-                    VALUES (?, ?, ?, ?, 0, 0, 2, ?, 0)
-                    """, arguments: [UUIDv7.uuid7(), "الله أكبر", "الله أكبر", 34, Date.nowMs])
-            }
-            for r in try Row.fetchAll(db, sql: "SELECT * FROM tasbih_counters WHERE deleted = 0 ORDER BY sort_order") {
-                out.append(TasbihCounter(
-                    uuid: r["uuid"] as String? ?? "",
-                    labelAr: r["label_ar"] as String? ?? "",
-                    dhikrText: r["dhikr_text"] as String? ?? "",
-                    target: r["target"] as Int?,
-                    count: (r["count"] as Int?) ?? 0,
-                    totalLifetime: (r["total_lifetime"] as Int?) ?? 0))
-            }
+        let rows = (try? appState.db.ensureDefaultTasbihPresets(now: Date.nowMs)) ?? []
+        counters = rows.map {
+            TasbihCounter(
+                uuid: $0.uuid,
+                labelAr: $0.labelAr,
+                dhikrText: $0.dhikrText,
+                target: $0.target,
+                count: $0.count,
+                totalLifetime: $0.totalLifetime
+            )
         }
-        counters = out
-        if selected >= out.count { selected = 0 }
+        if selected >= counters.count { selected = 0 }
     }
 
     private func dial(_ c: TasbihCounter) -> some View {
@@ -307,16 +412,7 @@ struct TasbihView: View {
         if let t = c.target, newCount == t { HapticsEngine.shared.complete() } else { HapticsEngine.shared.tick() }
 
         let now = Date.nowMs
-        try? appState.db.queue.write { db in
-            try db.execute(sql: "UPDATE tasbih_counters SET count = count + 1, total_lifetime = total_lifetime + 1, updated_at = ? WHERE uuid = ?",
-                           arguments: [now, c.uuid])
-            try db.execute(sql: "INSERT INTO tasbih_sessions (uuid, counter_uuid, count_delta, occurred_at) VALUES (?, ?, 1, ?)",
-                           arguments: [UUIDv7.uuid7(), c.uuid, now])
-            if let t = c.target, newCount == t {
-                try db.execute(sql: "INSERT OR IGNORE INTO streak_days (kind, day_key, done_at) VALUES ('tasbih', ?, ?)",
-                               arguments: [dayKeyOf(now), now])
-            }
-        }
+        try? appState.db.recordTasbihTap(counterUuid: c.uuid, target: c.target, newCount: newCount, dayKey: dayKeyOf(now), now: now)
         WidgetStateBridge.prayersChanged() // cheap: refresh widget timeline data
     }
 
@@ -365,10 +461,10 @@ struct TasbihView: View {
 }
 
 func dayKeyOf(_ ms: Int64) -> String {
-    var cal = Calendar(identifier: .gregorian)
+    let cal = Calendar(identifier: .gregorian)
     let d = Date(ms: ms)
     let c = cal.dateComponents([.year, .month, .day], from: d)
-    return String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
+    return String(format: "%04d-%02d-%02d", c.year ?? 1970, c.month ?? 1, c.day ?? 1)
 }
 
 extension String {

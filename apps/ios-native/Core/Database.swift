@@ -14,32 +14,65 @@ import CryptoKit
 
 public final class SadaqaDatabase: @unchecked Sendable {
 
-    public static let shared = try! SadaqaDatabase.open()
+    public static let shared: SadaqaDatabase = SadaqaDatabase.openOrFallback()
 
     public let queue: DatabaseQueue
+    public let loadError: String?
 
     /// Internal (not private) so the parity test target can open isolated
     /// temp copies of the bundled db for round-trip tests.
-    init(queue: DatabaseQueue) { self.queue = queue }
+    init(queue: DatabaseQueue, loadError: String? = nil) {
+        self.queue = queue
+        self.loadError = loadError
+    }
 
-    /// Copy the bundled seed (Resources/sadaqa.db) to Application Support and open.
+    static func openOrFallback() -> SadaqaDatabase {
+        do {
+            return try open()
+        } catch {
+            // Never crash on launch even if bundle or filesystem fails; surface loadError safely.
+            let memQueue = (try? DatabaseQueue()) ?? DatabaseQueue()
+            return SadaqaDatabase(queue: memQueue, loadError: error.localizedDescription)
+        }
+    }
+
+    /// Resolve a resource in either the Resources folder-reference or bundle root.
+    static func bundledDbUrl() -> URL? {
+        let bundles = [Bundle.main, Bundle(for: SadaqaDatabase.self)]
+        for b in bundles {
+            if let u = b.url(forResource: "sadaqa", withExtension: "db", subdirectory: "Resources") { return u }
+            if let u = b.url(forResource: "sadaqa", withExtension: "db") { return u }
+        }
+        return nil
+    }
+
+    /// Copy the bundled seed (Resources/sadaqa.db) to Application Support and open read-write.
     static func open() throws -> SadaqaDatabase {
         let fm = FileManager.default
         let dir = try fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             .appendingPathComponent("SadaqaJaria", isDirectory: true)
         try fm.createDirectory(at: dir, withIntermediateDirectories: true)
         let dbUrl = dir.appendingPathComponent("sadaqa.db")
-        if !FileManager.default.fileExists(atPath: dbUrl.path) {
-            let bundled = Bundle.main.url(forResource: "sadaqa", withExtension: "db")
-            guard let src = bundled else {
+        let existingSize = (try? fm.attributesOfItem(atPath: dbUrl.path)[.size] as? NSNumber)?.intValue ?? 0
+        if !fm.fileExists(atPath: dbUrl.path) || existingSize == 0 {
+            if fm.fileExists(atPath: dbUrl.path) {
+                try? fm.removeItem(at: dbUrl)
+            }
+            guard let src = bundledDbUrl() else {
                 throw NSError(domain: "SadaqaDB", code: 1,
                               userInfo: [NSLocalizedDescriptionKey: "bundled sadaqa.db missing — run scripts/tools/sync-native-assets.mjs"])
             }
             try fm.copyItem(at: src, to: dbUrl)
         }
-        let queue = try DatabaseQueue(path: dbUrl.path)
+        if !fm.isWritableFile(atPath: dbUrl.path) {
+            try? fm.setAttributes([.posixPermissions: 0o644], ofItemAtPath: dbUrl.path)
+        }
+        var config = Configuration()
+        config.readonly = false
+        config.foreignKeysEnabled = true
+        let queue = try DatabaseQueue(path: dbUrl.path, configuration: config)
         try queue.writeWithoutTransaction { db in
-            try db.execute(sql: "PRAGMA journal_mode = WAL") // FK enforcement is per-connection: GRDB enables it via configuration
+            try db.execute(sql: "PRAGMA journal_mode = WAL")
         }
         return SadaqaDatabase(queue: queue)
     }
@@ -94,6 +127,115 @@ public final class SadaqaDatabase: @unchecked Sendable {
     }
 
     public func hijriAdjust() -> Int { setting("hijri_adjust")?.intValue ?? 0 }
+
+    // ------------------------------------------------------------------
+    // Safe atomic UI write paths (no nested queue.read inside queue.write!)
+    // ------------------------------------------------------------------
+    public struct TasbihRowData: Sendable {
+        public let uuid: String
+        public let labelAr: String
+        public let dhikrText: String
+        public let target: Int?
+        public var count: Int
+        public let totalLifetime: Int
+    }
+
+    @discardableResult
+    public func incrementDhikrTap(itemId: String, categoryId: String, currentCount: Int, target: Int, dayKey: String, now: Int64 = Date.nowMs) throws -> Int {
+        guard target == 0 || currentCount < target else { return currentCount }
+        let nextCount = currentCount + 1
+        let isDone = target > 0 && nextCount >= target
+        try queue.write { db in
+            try db.execute(sql: """
+                INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(item_id, day_key) DO UPDATE SET count = excluded.count, completed_at = excluded.completed_at, updated_at = excluded.updated_at
+                """, arguments: [itemId, dayKey, nextCount, isDone ? now : nil, now])
+            if isDone {
+                let row = try Row.fetchOne(db, sql: "SELECT solar_window FROM athkar_categories WHERE category_id = ?", arguments: [categoryId])
+                let solarWindow = Self.strOf(row?["solar_window"] ?? DatabaseValue.null)
+                let kind: String? = switch solarWindow {
+                case "fajr": "adhkar_morning"
+                case "asr": "adhkar_evening"
+                default: nil
+                }
+                if let kind {
+                    try db.execute(sql: "INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)",
+                                   arguments: [kind, dayKey, now])
+                }
+            }
+        }
+        return nextCount
+    }
+
+    public func ensureDefaultTasbihPresets(now: Int64 = Date.nowMs) throws -> [TasbihRowData] {
+        try queue.write { db in
+            var rows = try Row.fetchAll(db, sql: "SELECT * FROM tasbih_counters WHERE deleted = 0 ORDER BY sort_order")
+            if rows.isEmpty {
+                let presets: [(String, Int, Int)] = [
+                    ("سبحان الله", 33, 0),
+                    ("الحمد لله", 33, 1),
+                    ("الله أكبر", 34, 2),
+                ]
+                for (label, target, order) in presets {
+                    try db.execute(sql: """
+                        INSERT OR IGNORE INTO tasbih_counters (uuid, label_ar, dhikr_text, target, count, total_lifetime, sort_order, updated_at, deleted)
+                        VALUES (?, ?, ?, ?, 0, 0, ?, ?, 0)
+                        """, arguments: [UUIDv7.uuid7(now: now), label, label, target, order, now])
+                }
+                rows = try Row.fetchAll(db, sql: "SELECT * FROM tasbih_counters WHERE deleted = 0 ORDER BY sort_order")
+            }
+            return rows.map { r in
+                TasbihRowData(
+                    uuid: Self.strOf(r["uuid"]) ?? "",
+                    labelAr: Self.strOf(r["label_ar"]) ?? "",
+                    dhikrText: Self.strOf(r["dhikr_text"]) ?? "",
+                    target: Self.intOf(r["target"]).map(Int.init),
+                    count: Self.intOf(r["count"]).map(Int.init) ?? 0,
+                    totalLifetime: Self.intOf(r["total_lifetime"]).map(Int.init) ?? 0
+                )
+            }
+        }
+    }
+
+    public func recordTasbihTap(counterUuid: String, target: Int?, newCount: Int, dayKey: String, now: Int64 = Date.nowMs) throws {
+        try queue.write { db in
+            try db.execute(sql: "UPDATE tasbih_counters SET count = count + 1, total_lifetime = total_lifetime + 1, updated_at = ? WHERE uuid = ?",
+                           arguments: [now, counterUuid])
+            try db.execute(sql: "INSERT INTO tasbih_sessions (uuid, counter_uuid, count_delta, occurred_at) VALUES (?, ?, 1, ?)",
+                           arguments: [UUIDv7.uuid7(now: now), counterUuid, now])
+            if let t = target, newCount == t {
+                try db.execute(sql: "INSERT OR IGNORE INTO streak_days (kind, day_key, done_at) VALUES ('tasbih', ?, ?)",
+                               arguments: [dayKey, now])
+            }
+        }
+    }
+
+    @discardableResult
+    public func toggleBookmark(page: Int, lineNumber: Int = 1, ayahNumber: Int? = nil, labelAr: String, now: Int64 = Date.nowMs) throws -> Bool {
+        var added = false
+        try queue.write { db in
+            let existing: Row?
+            if let ayah = ayahNumber {
+                existing = try Row.fetchOne(db, sql: "SELECT uuid, deleted FROM bookmarks WHERE ayah_number = ? LIMIT 1", arguments: [ayah])
+            } else {
+                existing = try Row.fetchOne(db, sql: "SELECT uuid, deleted FROM bookmarks WHERE page = ? AND ayah_number IS NULL LIMIT 1", arguments: [page])
+            }
+            if let existing, let uuid = Self.strOf(existing["uuid"]) {
+                let wasDeleted = Self.flagOf(existing["deleted"])
+                let nextDeleted = wasDeleted ? 0 : 1
+                try db.execute(sql: "UPDATE bookmarks SET deleted = ?, updated_at = ?, label_ar = ? WHERE uuid = ?",
+                               arguments: [nextDeleted, now, labelAr, uuid])
+                added = wasDeleted
+            } else {
+                try db.execute(sql: """
+                    INSERT INTO bookmarks (uuid, page, line_number, ayah_number, label_ar, created_at, updated_at, deleted)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+                    """, arguments: [UUIDv7.uuid7(now: now), page, lineNumber, ayahNumber, labelAr, now, now])
+                added = true
+            }
+        }
+        return added
+    }
 
     // ------------------------------------------------------------------
     // device id (same contract as backup.js deviceId())
@@ -235,7 +377,13 @@ public final class SadaqaDatabase: @unchecked Sendable {
         }
 
         func mapOf(_ arr: [JSONValue]) -> [String: JSONValue] {
-            Dictionary(arr.map { ($0["uuid"]!.stringValue!, $0) }, uniquingKeysWith: { a, _ in a })
+            var out: [String: JSONValue] = [:]
+            for item in arr {
+                if let uuid = item["uuid"]?.stringValue, out[uuid] == nil {
+                    out[uuid] = item
+                }
+            }
+            return out
         }
         let payload = BackupCodec.toPayloadGroups([
             "reading": mapOf(reading), "dhikr": mapOf(dhikr), "prefs": mapOf(prefs), "meta": mapOf(meta),
@@ -272,7 +420,7 @@ public final class SadaqaDatabase: @unchecked Sendable {
 
         try queue.read { db in
             func put(_ group: String, _ uuidRaw: String, _ e: JSONValue) {
-                local[group]![remap(uuidRaw)] = e
+                local[group, default: [:]][remap(uuidRaw)] = e
             }
             for r in try Row.fetchAll(db, sql: "SELECT * FROM bookmarks") {
                 put("reading", Self.strOf(r["uuid"]) ?? "", .object([
@@ -312,13 +460,14 @@ public final class SadaqaDatabase: @unchecked Sendable {
             for r in try Row.fetchAll(db, sql: "SELECT * FROM adhkar_state") {
                 let itemId = Self.strOf(r["item_id"]) ?? ""
                 let dayKey = Self.strOf(r["day_key"]) ?? ""
+                let synthUuid = UUIDv7.synthUuid7("adhkar:\(itemId):\(dayKey)", now: now)
                 let e = JSONValue.object([
-                    "uuid": .string(UUIDv7.synthUuid7("adhkar:\(itemId):\(dayKey)", now: now)),
+                    "uuid": .string(synthUuid),
                     "type": .string("adhkarState"), "updatedAt": Self.jsonOf(r["updated_at"]),
                     "itemId": .string(itemId), "dayKey": .string(dayKey),
                     "count": Self.jsonOf(r["count"]), "completedAt": Self.jsonOf(r["completed_at"]),
                 ])
-                local["dhikr"]![e["uuid"]!.stringValue!] = e
+                local["dhikr", default: [:]][synthUuid] = e
             }
             for r in try Row.fetchAll(db, sql: "SELECT * FROM tasbih_counters") {
                 put("dhikr", Self.strOf(r["uuid"]) ?? "", .object([
@@ -339,22 +488,24 @@ public final class SadaqaDatabase: @unchecked Sendable {
             for r in try Row.fetchAll(db, sql: "SELECT * FROM user_settings WHERE key != 'device_id'") {
                 let key = Self.strOf(r["key"]) ?? ""
                 let value = Self.strOf(r["value"]).map { raw in (try? JSONValue.parse(raw)) ?? .string(raw) } ?? .null
+                let synthUuid = UUIDv7.synthUuid7("setting:\(key)", now: now)
                 let e = JSONValue.object([
-                    "uuid": .string(UUIDv7.synthUuid7("setting:\(key)", now: now)),
+                    "uuid": .string(synthUuid),
                     "type": .string("setting"), "updatedAt": Self.jsonOf(r["updated_at"]),
                     "key": .string(key), "value": value,
                 ])
-                local["prefs"]![e["uuid"]!.stringValue!] = e
+                local["prefs", default: [:]][synthUuid] = e
             }
             for r in try Row.fetchAll(db, sql: "SELECT * FROM streak_days") {
                 let kind = Self.strOf(r["kind"]) ?? ""
                 let dayKey = Self.strOf(r["day_key"]) ?? ""
+                let synthUuid = UUIDv7.synthUuid7("streak:\(kind):\(dayKey)", now: now)
                 let e = JSONValue.object([
-                    "uuid": .string(UUIDv7.synthUuid7("streak:\(kind):\(dayKey)", now: now)),
+                    "uuid": .string(synthUuid),
                     "type": .string("streakDay"), "updatedAt": Self.jsonOf(r["done_at"]),
                     "kind": .string(kind), "dayKey": .string(dayKey),
                 ])
-                local["meta"]![e["uuid"]!.stringValue!] = e
+                local["meta", default: [:]][synthUuid] = e
             }
         }
 
