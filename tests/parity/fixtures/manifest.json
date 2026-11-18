@@ -29,7 +29,7 @@
   },
   {
    "path": "tests/parity/fixtures/prayer/london_2026-03_contrast.json",
-   "sha256": "1dc872997061b2072d74eb48a8af60c96f72f21d7481dad02486b8671a4f5f22"
+   "sha256": "cd4c9595f6a917a30c414cc2d1c8a9b2f4d081aaf8853291c42609944d31def3"
   },
   {
    "path": "tests/parity/fixtures/prayer/london_2026-10_default.json",
@@ -37,7 +37,7 @@
   },
   {
    "path": "tests/parity/fixtures/prayer/london_2026-10_contrast.json",
-   "sha256": "07ef66ae96e9f4834ae411cab7cc635fbc725f0625eb13be415170a9a4313771"
+   "sha256": "723a5d6ff9baf6ce40d65996a6c3f5b527fecc4926e64dd5442b65cad6da5f3b"
   },
   {
    "path": "tests/parity/fixtures/prayer/anchorage_2026-03_default.json",
@@ -45,7 +45,7 @@
   },
   {
    "path": "tests/parity/fixtures/prayer/anchorage_2026-03_contrast.json",
-   "sha256": "b582e862116b4d8f579acce21d9f417342bfa22f932ba9c6e9a4b3b2c7ac4ea0"
+   "sha256": "4d076ad93ee613560174011e8b7e1901a429146b07b579a21a2ae4c71d8e0344"
   },
   {
    "path": "tests/parity/fixtures/prayer/anchorage_2026-10_default.json",
@@ -53,7 +53,7 @@
   },
   {
    "path": "tests/parity/fixtures/prayer/anchorage_2026-10_contrast.json",
-   "sha256": "1bd2b214631e1bc226c3d7121ea9982cd6e795a1a6e2db53b5d92c22a01730ef"
+   "sha256": "b482b767e3b832eabf563668654caea914d12d48001a1735e39b3db75d76717b"
   },
   {
    "path": "tests/parity/fixtures/prayer/auckland_2026-03_default.json",
@@ -69,7 +69,7 @@
   },
   {
    "path": "tests/parity/fixtures/prayer/auckland_2026-10_contrast.json",
-   "sha256": "11c216346145cd44dd719d66307b7b1cbe873a8cedf91de1ac52517f1e5d70e6"
+   "sha256": "1f000014110a65beb65157c3da200ed4540b62c5b7f8db17277a94245898da11"
   },
   {
    "path": "tests/parity/fixtures/prayer/losangeles_2026-03_default.json",

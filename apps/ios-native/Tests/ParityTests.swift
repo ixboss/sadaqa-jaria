@@ -245,7 +245,7 @@ final class HijriQiblaParityTests: XCTestCase {
         for t in fx["mustThrow"]!.arrayValue! {
             XCTAssertThrowsError(try HijriEngine.fromHijri(HijriDate(y: t["hijri"]!["y"]!.intValue!, m: t["hijri"]!["m"]!.intValue!, d: t["hijri"]!["d"]!.intValue!)), "\(t["hijri"]!) must throw")
         }
-        for a in fx["adjusts"]! {
+        for a in fx["adjusts"]!.arrayValue! {
             if case .object(let o) = a {
                 let adjust = o["adjust"]!.intValue!
                 let got = HijriEngine.withAdjust("2026-11-17", adjust)

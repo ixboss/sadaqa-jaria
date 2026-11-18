@@ -67,8 +67,10 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
-    // KMP jvm variant resolves automatically via Gradle module metadata
-    testImplementation("androidx.sqlite:sqlite-bundled:2.5.2")
+    // Force the KMP JVM sqlite-bundled artifact (embeds host native libsqliteJni)
+    // instead of the Android AAR stub on JVM unit test classpaths.
+    testImplementation("androidx.sqlite:sqlite-bundled-jvm:2.5.2")
+    testImplementation("androidx.sqlite:sqlite-jvm:2.5.2")
     testImplementation("com.batoulapps.adhan:adhan:1.2.1")
 
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
@@ -76,4 +78,9 @@ dependencies {
     androidTestImplementation(composeBom)
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
+}
+
+configurations.matching { it.name.contains("UnitTest") }.configureEach {
+    exclude(group = "androidx.sqlite", module = "sqlite-bundled-android")
+    exclude(group = "androidx.sqlite", module = "sqlite-android")
 }

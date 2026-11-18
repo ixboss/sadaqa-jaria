@@ -353,9 +353,11 @@ class SchemaContractTest {
         }
     }
 
-    /** Seed db resolved from the synced asset tree (repo-root relative). */
+    /** Seed db resolved from the synced asset tree (Gradle test CWD is app/). */
     private fun seedBytes(): ByteArray = sequenceOf(
+        File("src/main/assets/sadaqa.db"),
         File("app/src/main/assets/sadaqa.db"),
+        File("../../../packages/core-data/build/sadaqa.db"),
         File("../../packages/core-data/build/sadaqa.db"),
     ).firstOrNull { it.exists() }?.readBytes()
         ?: throw IllegalStateException("sadaqa.db not found — run npm run native:sync")
@@ -376,7 +378,9 @@ class DbRoundTripTest {
     }
 
     private fun seedBytesOf(): ByteArray = sequenceOf(
+        File("src/main/assets/sadaqa.db"),
         File("app/src/main/assets/sadaqa.db"),
+        File("../../../packages/core-data/build/sadaqa.db"),
         File("../../packages/core-data/build/sadaqa.db"),
         File("../../ios-native/Resources/sadaqa.db"),
         File("packages/core-data/build/sadaqa.db"),

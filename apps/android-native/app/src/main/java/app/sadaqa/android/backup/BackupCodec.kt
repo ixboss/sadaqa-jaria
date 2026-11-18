@@ -86,7 +86,7 @@ object BackupCodec {
                     errors.add("payload.$group[$uuid].updatedAt: must be epoch ms")
                     continue
                 }
-                val deleted = obj["deleted"]
+                val deleted = obj.obj?.get("deleted")
                 if (deleted != null && deleted !is JsonValue.Bool) {
                     errors.add("payload.$group[$uuid].deleted: must be boolean when present")
                     continue
