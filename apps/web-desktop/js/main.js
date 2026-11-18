@@ -19,9 +19,11 @@ import { renderTasbih } from './ui/screens/tasbih.js';
 import { renderTools, renderQibla, renderHijriCalendar, renderZakat, renderQiyam, renderSettings } from './ui/screens/tools.js';
 import { renderBackup } from './ui/screens/backup.js';
 import { renderSurahIndex } from './ui/screens/surah-index.js';
+import { autoLocateCity } from './ui/geo.js';
 
 const root = document.getElementById('screen-root');
 let routeSeq = 0;
+let lastRoute = null;
 
 export function mountTheme() {
   const raw = state.settings.theme ?? 'dark';
@@ -59,8 +61,10 @@ const SCREENS = {
 
 function renderRoute({ screen, args }) {
   const seq = ++routeSeq;
+  lastRoute = { screen, args };
   document.body.classList.toggle('reading', screen.startsWith('mushaf'));
   if (screen !== 'mushaf-page') document.body.classList.remove('chrome-hidden');
+  document.body.classList.remove('dock-min');
   const tab = SCREEN_TAB[screen] ?? 'today';
   for (const btn of document.querySelectorAll('.glass-tabbar .tab-btn')) {
     btn.getAttribute('data-tab') === tab ? btn.setAttribute('aria-current', 'page') : btn.removeAttribute('aria-current');
@@ -94,9 +98,26 @@ function wireNav() {
       navigate(targets[tab]);
     });
   }
-  const pill = document.getElementById('searchpill');
-  pill.addEventListener('click', renderSearchSheet);
-  pill.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); renderSearchSheet(); } });
+}
+
+// Dock minimize on scroll-down; auto-restores on scroll-up, at the top, or
+// ~320ms after scrolling settles (user mandate: never tap-to-restore).
+function wireDockScroll() {
+  let lastY = 0;
+  let idleTimer = null;
+  const minimize = () => document.body.classList.add('dock-min');
+  const restore = () => document.body.classList.remove('dock-min');
+  document.addEventListener('scroll', (e) => {
+    const t = e.target;
+    if (!(t instanceof Element) || !t.closest('#screen-root')) return;
+    if (document.body.classList.contains('reading')) { restore(); return; }
+    const y = t.scrollTop ?? 0;
+    if (y <= 64 || y < lastY - 6) restore();
+    else if (y > lastY + 6) minimize();
+    lastY = y;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(restore, 320);
+  }, true);
 }
 
 function renderBootProgress(loaded = 0, total = 0, phase = 'wasm') {
@@ -171,11 +192,17 @@ async function boot() {
   syncReciters(db).catch((e) => console.warn('[audio-catalog]', e.message));
   mountTheme();
   wireNav();
+  wireDockScroll();
   onNavigate(renderRoute);
   bootRouter();
   // test/debug hook (v1 harness pattern): observable state + db proxy
   window.__sadaqa = { state, db, navigate, renderSearchSheet };
   window.__sadaqaReady = true;
+  // Launch auto-city: silent, runs only when permission is already granted
+  // and no city was ever chosen; re-renders the hub on success.
+  autoLocateCity(db).then((city) => {
+    if (city && lastRoute) renderRoute(lastRoute);
+  }).catch(() => {});
 }
 
 boot().catch((e) => {

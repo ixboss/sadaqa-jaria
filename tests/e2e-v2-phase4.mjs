@@ -125,7 +125,7 @@ async function main() {
       qiyam: document.body.textContent.includes('الثلث الأخير') })`);
     ok('hub: hero countdown + schedule (6 rows) + qiyam windows', hub.hero && hub.schedule === 6 && hub.qiyam, `schedule=${hub.schedule}`);
     ok('hub: Hijri date in header (عام هـ)', /\d+\s+.+?\s+\d+\s+هـ/.test(hub.hijri), hub.hijri);
-    ok('hub: smart card rendered with a §9 kind', ['kahf', 'after_prayer', 'qiyam', 'morning', 'evening', 'next_prayer'].includes(hub.smart), hub.smart);
+    ok('hub: smart card rendered with a §9 kind', ['kahf', 'after_prayer', 'qiyam', 'morning', 'evening', 'daily_morning', 'daily_hijri', 'daily_evening', 'daily_sleep'].includes(hub.smart), hub.smart);
     await screenshot('v2p4-today.png');
 
     // 4. Smart Context-Aware Card matrix — real resolution order, synthetic instants

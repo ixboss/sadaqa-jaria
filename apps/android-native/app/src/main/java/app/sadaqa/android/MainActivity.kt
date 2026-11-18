@@ -1,6 +1,6 @@
 // ============================================================================
 // MainActivity.kt — Compose entry: floating glass pill nav (control layer
-// only) + trailing Search pill + screens. RTL-first.
+// only) + screens. RTL-first.
 // ============================================================================
 
 package app.sadaqa.android
@@ -24,12 +24,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.MenuBook
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.outlined.Today
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -105,32 +101,30 @@ fun RootScaffold(db: SadaqaDb) {
         Box(Modifier.weight(1f)) {
             when (tab) {
                 "today" -> TodayScreen(db, onOpenTool = { navigate("tools") }, onNavigate = navigate)
-                "mushaf" -> MushafScreen(db)
+                "mushaf" -> MushafScreen(db, onNavigateMain = navigate, onOpenSearch = { searchOpen = true })
                 "athkar" -> AthkarScreen(db)
                 "tools" -> ToolsScreen(db, initialSub = pendingTool, onClearInitial = { pendingTool = null })
             }
         }
-        GlassPillNav(selected = tab, onSelect = { pendingTool = null; tab = it }, onSearch = { searchOpen = true })
+        GlassPillNav(selected = tab, onSelect = { pendingTool = null; tab = it })
     }
     if (searchOpen) SearchSheet(db) { searchOpen = false }
 }
 
 /**
- * Floating glass pill navigation — translucent rounded bar + separated
- * circular Search orb. Approximation of iOS 26 Liquid Glass.
+ * Floating glass pill navigation — single translucent 4-tab capsule.
+ * Search lives in the screen headers / Mushaf HUD, not a separate orb.
  */
 @Composable
-fun GlassPillNav(selected: String, onSelect: (String) -> Unit, onSearch: () -> Unit) {
+fun GlassPillNav(selected: String, onSelect: (String) -> Unit) {
     val shape = RoundedCornerShape(28.dp)
-    val theme = LocalSadaqaTheme.current
-    val isDark = theme.bg.luminance() < 0.4f
+    val isDark = LocalSadaqaTheme.current.bg.luminance() < 0.4f
     val glassBg = if (isDark) {
         Brush.verticalGradient(listOf(Color(0xCC122521), Color(0xB8091513)))
     } else {
         Brush.verticalGradient(listOf(Color(0xE6FAF7F0), Color(0xD8F1ECE1)))
     }
     val glassBorder = if (isDark) Color(0x28FFFFFF) else Color(0x22000000)
-    val searchBg = if (isDark) Color(0xCC122521) else Color(0xE6FAF7F0)
 
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
@@ -150,16 +144,6 @@ fun GlassPillNav(selected: String, onSelect: (String) -> Unit, onSearch: () -> U
             NavItem(Icons.Outlined.MenuBook, "المصحف", "mushaf", selected, isDark, Modifier.weight(1f), onSelect)
             NavItem(Icons.Outlined.Spa, "الأذكار", "athkar", selected, isDark, Modifier.weight(1f), onSelect)
             NavItem(Icons.Outlined.GridView, "الأدوات", "tools", selected, isDark, Modifier.weight(1f), onSelect)
-        }
-        FloatingActionButton(
-            onClick = onSearch,
-            modifier = Modifier.size(54.dp).border(1.dp, glassBorder, CircleShape),
-            shape = CircleShape,
-            containerColor = searchBg,
-            contentColor = theme.textPrimary,
-            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
-        ) {
-            Icon(Icons.Outlined.Search, contentDescription = "بحث", modifier = Modifier.size(21.dp))
         }
     }
 }

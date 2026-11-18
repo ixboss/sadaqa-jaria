@@ -25,8 +25,9 @@ struct MushafPageView: View {
     @State private var hudVisible = false
     @State private var meta = MushafRepository.PageMeta(surahName: "", juz: 1, hizb: 1)
     @State private var isBookmarked = false
-    @State private var selectedAyahNumber: Int?
-    @State private var showAyahSheet = false
+@State private var selectedAyahNumber: Int?
+@State private var showAyahSheet = false
+@State private var showAppearanceSheet = false
     @State private var surahQuery = ""
     @State private var surahs: [MushafRepository.SurahItem] = []
     @State private var juzStarts: [(juz: Int, page: Int)] = []
@@ -60,6 +61,8 @@ struct MushafPageView: View {
                 }
             }
             .background(hubTab == .reader ? appState.theme.mushafBg : appState.theme.bg)
+            // Full-screen reader: hide the system tab bar while reading
+            .toolbar(hubTab == .reader ? .hidden : .visible, for: .tabBar)
             .onAppear {
                 if let target = appState.targetMushafPage, (1...604).contains(target) {
                     page = target
@@ -90,6 +93,11 @@ struct MushafPageView: View {
                     .environmentObject(appState)
                 }
             }
+            .sheet(isPresented: $showAppearanceSheet) {
+                MushafAppearanceSheet()
+                    .environmentObject(appState)
+                    .presentationDetents([.medium])
+            }
             .sheet(isPresented: $showAudioSheet) {
                 NavigationStack {
                     AudioView()
@@ -105,23 +113,26 @@ struct MushafPageView: View {
     private var readerBody: some View {
         ZStack {
             VStack(spacing: 0) {
-                // Minimal unobtrusive top metadata strip
-                HStack {
-                    Text(meta.surahName.isEmpty ? "المصحف الشريف" : meta.surahName)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(appState.theme.textSecondary)
-                    Spacer()
-                    Text("ص \(page) · الجزء \(meta.juz) · الحزب \(meta.hizb)")
-                        .font(.system(size: 11))
-                        .monospacedDigit()
-                        .foregroundStyle(appState.theme.textSecondary)
-                }
-                .padding(.horizontal, 18)
-                .padding(.top, 6)
-                .padding(.bottom, 2)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation(.easeOut(duration: 0.22)) { hudVisible.toggle() }
+                // Minimal unobtrusive top metadata strip (hidden while the HUD
+                // is up — the HUD bar carries the same meta, never double-rendered)
+                if !hudVisible {
+                    HStack {
+                        Text(meta.surahName.isEmpty ? "المصحف الشريف" : meta.surahName)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(appState.theme.textSecondary)
+                        Spacer()
+                        Text("ص \(page) · الجزء \(meta.juz) · الحزب \(meta.hizb)")
+                            .font(.system(size: 11))
+                            .monospacedDigit()
+                            .foregroundStyle(appState.theme.textSecondary)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 6)
+                    .padding(.bottom, 2)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.easeOut(duration: 0.22)) { hudVisible = true }
+                    }
                 }
 
                 // True RTL horizontal paged Mushaf (RootView enforces .rightToLeft,
@@ -134,7 +145,7 @@ struct MushafPageView: View {
                             cache: pageCache,
                             db: appState.db,
                             theme: appState.theme,
-                            fontScale: appState.fontScale,
+                            mushafScale: appState.mushafScale,
                             selectedAyah: selectedAyahNumber,
                             onSelectAyah: { ayahNumber in
                                 selectedAyahNumber = ayahNumber
@@ -215,8 +226,7 @@ struct MushafPageView: View {
             }
             Spacer()
             Button {
-                let nextScale = appState.fontScale >= 1.6 ? 1.0 : appState.fontScale + 0.15
-                appState.setSetting("font_scale", .number(nextScale))
+                showAppearanceSheet = true
             } label: {
                 Image(systemName: "textformat.size")
                     .font(.system(size: 15, weight: .semibold))
@@ -310,6 +320,22 @@ struct MushafPageView: View {
                 }
                 hudButton("إخفاء", icon: "eye.slash") {
                     withAnimation(.easeOut(duration: 0.2)) { hudVisible = false }
+                }
+            }
+
+            // Main-nav escape hatch — jump straight to a tab from the reader
+            HStack(spacing: 8) {
+                hudButton("اليوم", icon: "sun.max") {
+                    hudVisible = false
+                    appState.tab = .today
+                }
+                hudButton("الأذكار", icon: "hands.sparkles") {
+                    hudVisible = false
+                    appState.tab = .athkar
+                }
+                hudButton("الأدوات", icon: "square.grid.2x2") {
+                    hudVisible = false
+                    appState.tab = .tools
                 }
             }
         }
@@ -678,7 +704,7 @@ struct MushafLazyPageSlot: View {
     @ObservedObject var cache: MushafPageCache
     let db: SadaqaDatabase
     let theme: SadaqaThemeColors
-    let fontScale: Double
+    let mushafScale: Double
     let selectedAyah: Int?
     let onSelectAyah: (Int) -> Void
     let onToggleHud: () -> Void
@@ -690,7 +716,7 @@ struct MushafLazyPageSlot: View {
                 page: slotPage,
                 lines: pageLines,
                 theme: theme,
-                fontScale: fontScale,
+                mushafScale: mushafScale,
                 selectedAyah: selectedAyah,
                 onSelectAyah: onSelectAyah,
                 onToggleHud: onToggleHud
@@ -706,7 +732,7 @@ struct MushafPlate: View {
     let page: Int
     let lines: [MushafRepository.MushafLine]
     let theme: SadaqaThemeColors
-    let fontScale: Double
+    let mushafScale: Double
     let selectedAyah: Int?
     let onSelectAyah: (Int) -> Void
     let onToggleHud: () -> Void
@@ -747,8 +773,9 @@ struct MushafPlate: View {
     }
 
     private func computeUniformFontSize(availW: CGFloat, slotH: CGFloat, isQpc: Bool) -> CGFloat {
-        let prefFactor = CGFloat(min(max(fontScale / 1.3, 0.82), 1.15))
-        var size = min(slotH * 0.74, 28) * prefFactor
+        // mushaf_scale is the reader's own zoom (0.8–2.0), independent of app font_scale
+        let prefFactor = CGFloat(min(max(mushafScale, 0.8), 2.0))
+        var size = min(slotH * 0.80, 34) * prefFactor
         let probeFont = isQpc
             ? (FontRegistry.verifiedMushafFont(page: page, size: size, sample: lines.first(where: { !$0.words.isEmpty })?.words.map(\.glyphs).joined() ?? "") ?? FontRegistry.uthmanicFont(size: size))
             : FontRegistry.uthmanicFont(size: size)
@@ -764,6 +791,8 @@ struct MushafPlate: View {
         if maxLineW > availW && maxLineW > 0 {
             size *= (availW / maxLineW) * 0.94
         }
+        // zoom must never overflow the 15-slot page grid
+        size = min(size, slotH * 0.90)
         return max(12, size)
     }
 
@@ -835,11 +864,102 @@ struct MushafPlate: View {
                         .padding(.horizontal, 1)
                         .background(selectedAyah == seg.ayah ? theme.accent.opacity(0.22) : Color.clear)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
-                        .onTapGesture { onSelectAyah(seg.ayah) }
+                        // Long-press (≈0.45s) is the ONLY way to select an ayah —
+                        // a quick tap anywhere falls through to the plate (HUD toggle)
+                        .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 18) {
+                            HapticsEngine.shared.play(pattern: [20])
+                            onSelectAyah(seg.ayah)
+                        }
                 }
             }
             .frame(maxWidth: .infinity, minHeight: slotH, maxHeight: slotH, alignment: .center)
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Reader Appearance — Mushaf font-scale slider (0.8×–2.0×) with live preview
+// ---------------------------------------------------------------------------
+
+struct MushafAppearanceSheet: View {
+    @EnvironmentObject var appState: AppState
+    @State private var scale: Double
+
+    init() {
+        _scale = State(initialValue: SadaqaDatabase.shared.setting("mushaf_scale")?.doubleValue ?? 1.0)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("مظهر القراءة")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(appState.theme.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            HStack(spacing: 14) {
+                Button {
+                    setScale(scale - 0.05)
+                } label: {
+                    Image(systemName: "minus")
+                        .font(.system(size: 15, weight: .bold))
+                        .frame(width: 40, height: 40)
+                        .background(appState.theme.surface)
+                        .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(appState.theme.border))
+                }
+                .accessibilityLabel("تصغير الخط")
+
+                Slider(value: Binding(
+                    get: { scale },
+                    set: { setScale($0) }
+                ), in: 0.8...2.0, step: 0.05)
+                .tint(appState.theme.accent)
+
+                Button {
+                    setScale(scale + 0.05)
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 15, weight: .bold))
+                        .frame(width: 40, height: 40)
+                        .background(appState.theme.surface)
+                        .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(appState.theme.border))
+                }
+                .accessibilityLabel("تكبير الخط")
+            }
+
+            HStack {
+                Text("حجم خط المصحف")
+                    .font(.system(size: 13))
+                    .foregroundStyle(appState.theme.textSecondary)
+                Spacer()
+                Text("\(Int((scale * 100).rounded()))٪")
+                    .font(.system(size: 13, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(appState.theme.accent)
+            }
+
+            // Live preview — the same uthmanic font the plate renders with
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(appState.theme.mushafBg)
+                    .frame(height: 92)
+                Text("وَمَنْ أَعْرَضَ عَن ذِكْرِي فَإِنَّ لَهُ مَعِيشَةً ضَنكًا")
+                    .font(Font(FontRegistry.uthmanicFont(size: CGFloat(16 * scale))))
+                    .foregroundStyle(appState.theme.mushafText)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.6)
+                    .padding(.horizontal, 18)
+            }
+        }
+        .padding(20)
+    }
+
+    private func setScale(_ v: Double) {
+        let clamped = min(max(v, 0.8), 2.0)
+        scale = (clamped * 20).rounded() / 20
+        appState.setSetting("mushaf_scale", .number(scale))
     }
 }
 

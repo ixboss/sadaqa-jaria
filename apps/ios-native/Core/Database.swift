@@ -271,15 +271,20 @@ public final class SadaqaDatabase: @unchecked Sendable {
     }
 
     @discardableResult
-    public func selectCity(_ city: CityRow, now: Int64 = Date.nowMs) throws -> JSONValue {
-        let loc = JSONValue.object([
+    public func selectCity(_ city: CityRow, gpsLat: Double? = nil, gpsLng: Double? = nil, now: Int64 = Date.nowMs) throws -> JSONValue {
+        var fields: [String: JSONValue] = [
             "lat": .number(city.lat),
             "lng": .number(city.lng),
             "timeZone": .string(city.timeZone),
             "cityId": .number(Double(city.id)),
             "name_ar": .string(city.nameAr),
             "name_en": .string(city.nameEn),
-        ])
+        ]
+        // persist the exact live GPS fix alongside the city (Qibla source)
+        if let gl = gpsLat, let gn = gpsLng {
+            fields["gps"] = .object(["lat": .number(gl), "lng": .number(gn), "at": .number(Double(now))])
+        }
+        let loc = JSONValue.object(fields)
         try setSetting("location", loc, now: now)
         return loc
     }

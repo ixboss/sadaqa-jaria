@@ -7,9 +7,10 @@
 // engine values never recompute inside the 1 Hz loop. e2e clock hook:
 // window.__sadaqa.state.clockOverride.
 // ============================================================================
-import { state, nowMs, haptic, saveSetting, prayerEngineForSettings, HAPTICS } from '../../app-state.js';
+import { state, nowMs, haptic, prayerEngineForSettings, HAPTICS } from '../../app-state.js';
 import { monthNameAr, withAdjust } from '../../../../../packages/core-data/engines/hijri.js';
 import { resolveSmartCard } from '../../../../../packages/core-data/engines/smart-card.js';
+import { getGpsFix, findNearestCity, persistLocation } from '../geo.js';
 import { navigate } from '../router.js';
 import { iconSvg, prayerIconName, smartCardIconName } from '../icons.js';
 
@@ -41,16 +42,7 @@ async function resolveAdhkarCategory(db, kind) {
   return null;
 }
 
-export async function findNearestCity(db, lat, lng) {
-  const cosLat2 = Math.pow(Math.cos((lat * Math.PI) / 180), 2);
-  return db.queryOne(
-    `SELECT city_id, name_ar, country_ar, lat, lng, timezone
-     FROM cities
-     ORDER BY ((lat - ?) * (lat - ?)) + ((lng - ?) * (lng - ?) * ?) ASC
-     LIMIT 1`,
-    [lat, lat, lng, lng, cosLat2],
-  );
-}
+export { findNearestCity };
 
 export async function searchCitiesOffline(db, rawQuery) {
   const q = String(rawQuery ?? '').trim();
@@ -87,6 +79,28 @@ export async function searchCitiesOffline(db, rawQuery) {
   return rows;
 }
 
+/**
+ * UI-layer fallback swap (the §9 engine stays parity-golden): when the
+ * resolver would return next-prayer details — a duplicate of the hero
+ * countdown directly above it — render a contextual daily action card.
+ */
+function contextualDailyCard(now, engine) {
+  const card = resolveSmartCard(now, engine);
+  if (card.kind !== 'next_prayer') return card;
+  const tz = engine.opts.timeZone;
+  const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', hourCycle: 'h23' }).format(now));
+  if (hour >= 4 && hour < 11) {
+    return { kind: 'daily_morning', adhkar: 'morning', badge: 'ورد اليوم', title: 'أذكار الصباح', sub: 'ما تيسّر من أذكار الصباح قبل انشغال النهار', action: { label: 'ابدأ أذكار الصباح', screen: 'adhkar-cat', args: {} } };
+  }
+  if (hour >= 11 && hour < 16) {
+    return { kind: 'daily_hijri', badge: 'ورد اليوم', title: 'التقويم الهجري والأيام البيض', sub: 'الأشهر والمناسبات والأيام البيض من كل شهر هجري', action: { label: 'افتح التقويم', screen: 'tools-hijri', args: {} } };
+  }
+  if (hour >= 16 && hour < 20) {
+    return { kind: 'daily_evening', adhkar: 'evening', badge: 'ورد اليوم', title: 'أذكار المساء', sub: 'ما تيسّر من أذكار المساء قبل غروب الشمس', action: { label: 'ابدأ أذكار المساء', screen: 'adhkar-cat', args: {} } };
+  }
+  return { kind: 'daily_sleep', badge: 'قبل النوم', title: 'أذكار النوم', sub: 'الاستغفار والآيات الواقية قبل أن تنام', action: { label: 'افتح الأذكار', screen: 'adhkar-screen', args: {} } };
+}
+
 export function renderToday(root) {
   const engine = prayerEngineForSettings();
   const tz = engine.opts.timeZone;
@@ -105,7 +119,7 @@ export function renderToday(root) {
   const gregText = new Intl.DateTimeFormat('ar', { timeZone: tz, day: 'numeric', month: 'long' }).format(now);
   const nextLabel = nextIso !== dateIso ? `${PRAYER_LABELS[next.name]} (غداً)` : PRAYER_LABELS[next.name];
 
-  const card = resolveSmartCard(now, engine);
+  const card = contextualDailyCard(now, engine);
   root.innerHTML = `
   <div class="screen">
     <div class="screen-header">
@@ -114,7 +128,10 @@ export function renderToday(root) {
           <h1>اليوم</h1>
           <div class="sub">${DAY_LABELS[dowEn]} · ${hijri.d} ${monthNameAr(hijri.m)} ${hijri.y} هـ · ${gregText}</div>
         </div>
-        <button class="city-pill" id="today-city-btn" aria-label="تغيير المدينة">${iconSvg('location', 14)}<span>${locName}</span></button>
+        <div class="today-actions">
+          <button class="city-pill icon-pill" id="today-search-btn" aria-label="بحث شامل" title="بحث في القرآن والأذكار">${iconSvg('search', 15)}</button>
+          <button class="city-pill" id="today-city-btn" aria-label="تغيير المدينة">${iconSvg('location', 14)}<span>${locName}</span></button>
+        </div>
       </div>
     </div>
 
@@ -191,8 +208,8 @@ export function renderToday(root) {
       navigate('mushaf-page', { page: s?.start_page ?? 301 });
       return;
     }
-    if (['morning', 'evening', 'after_prayer'].includes(card.kind)) {
-      const cat = await resolveAdhkarCategory(state.db, card.kind);
+    if (['morning', 'evening', 'after_prayer'].includes(card.kind) || card.adhkar) {
+      const cat = await resolveAdhkarCategory(state.db, card.adhkar ?? card.kind);
       if (cat) { navigate('adhkar-cat', { id: cat.category_id }); return; }
       haptic(HAPTICS.pageFlipSettle); // fall through to the generic route below
     }
@@ -205,6 +222,10 @@ export function renderToday(root) {
   root.querySelector('#t-khatmah').addEventListener('click', () => navigate('mushaf-khatmah'));
   root.querySelector('#t-settings').addEventListener('click', () => navigate('tools-settings'));
   root.querySelector('#today-city-btn')?.addEventListener('click', () => openCityPicker(root));
+  root.querySelector('#today-search-btn')?.addEventListener('click', async () => {
+    const { renderSearchSheet } = await import('./search.js');
+    renderSearchSheet();
+  });
   root.querySelector('#today-month-btn')?.addEventListener('click', () => openMonthSchedule(engine, dateIso, tz));
 
   // 1 Hz ticker — formats only, never recomputes times (deterministic, cheap)
@@ -246,14 +267,8 @@ function openCityPicker(root) {
   const gpsBtn = host.querySelector('#city-gps-btn');
   const gpsStatus = host.querySelector('#city-gps-status');
 
-  const chooseCity = async (row) => {
-    await saveSetting('location', {
-      cityId: row.city_id,
-      lat: row.lat,
-      lng: row.lng,
-      tz: row.timezone,
-      name_ar: row.name_ar,
-    });
+  const chooseCity = async (row, gps = null) => {
+    await persistLocation(row, gps);
     haptic([15, 40, 15]);
     close();
     renderToday(root);
@@ -281,36 +296,23 @@ function openCityPicker(root) {
     }
   };
 
-  gpsBtn.addEventListener('click', () => {
-    if (!navigator.geolocation) {
-      gpsStatus.hidden = false;
-      gpsStatus.textContent = 'الموقع التلقائي غير مدعوم في هذا المتصفح — اختر مدينتك من القائمة.';
-      return;
-    }
+  gpsBtn.addEventListener('click', async () => {
     gpsBtn.disabled = true;
     gpsStatus.hidden = false;
     gpsStatus.textContent = 'جاري تحديد موقعك…';
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const nearest = await findNearestCity(state.db, pos.coords.latitude, pos.coords.longitude);
-          if (nearest) {
-            await chooseCity(nearest);
-            return;
-          }
-          gpsStatus.textContent = 'تعذر مطابقة الإحداثيات مع قاعدة المدن.';
-        } catch (err) {
-          gpsStatus.textContent = `خطأ أثناء تحديد المدينة: ${err.message}`;
-        } finally {
-          gpsBtn.disabled = false;
-        }
-      },
-      () => {
-        gpsBtn.disabled = false;
-        gpsStatus.textContent = 'تعذر الحصول على إذن الموقع — يمكنك البحث أو الاختيار من القائمة أدناه.';
-      },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
-    );
+    try {
+      const fix = await getGpsFix();
+      const nearest = await findNearestCity(state.db, fix.lat, fix.lng);
+      if (!nearest) {
+        gpsStatus.textContent = 'تعذر مطابقة الإحداثيات مع قاعدة المدن — اختر مدينتك من القائمة.';
+        return;
+      }
+      await chooseCity(nearest, fix);
+    } catch (err) {
+      gpsStatus.textContent = err?.message ?? 'تعذر تحديد الموقع — يمكنك البحث أو الاختيار من القائمة أدناه.';
+    } finally {
+      gpsBtn.disabled = false;
+    }
   });
 
   loadList('');
