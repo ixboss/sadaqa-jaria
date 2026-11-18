@@ -174,7 +174,7 @@ struct AudioReciter: Identifiable {
 }
 
 struct AudioCatalog: Codable {
-    struct Entry: Codable {
+    struct Entry: Codable, Identifiable {
         let id: String
         let nameAr: String
         let nameEn: String
@@ -214,25 +214,7 @@ struct AudioView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 ForEach(catalog?.reciters ?? []) { r in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(r.nameAr).font(.system(size: 15, weight: .semibold))
-                            Text(r.style == "murattal" ? "مرتّل" : "مجوَّد").font(.system(size: 12))
-                                .foregroundStyle(appState.theme.textSecondary)
-                        }
-                        Spacer()
-                        if let p = progress[r.id] {
-                            Text("\(Int(p * 100))٪").monospacedDigit().font(.system(size: 12))
-                                .foregroundStyle(appState.theme.accent)
-                        }
-                        Button("تشغيل") { play(surah: surahPick, ayah: 1, reciter: r) }
-                            .font(.system(size: 13))
-                        Button("تنزيل السورة") { download(surah: surahPick, reciter: r) }
-                            .font(.system(size: 13)).foregroundStyle(appState.theme.accent)
-                    }
-                    .padding(12)
-                    .background(appState.theme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    reciterRow(r)
                 }
             }
             .padding(16)
@@ -240,6 +222,29 @@ struct AudioView: View {
         .background(appState.theme.bg)
         .navigationTitle("التلاوة")
         .onAppear { loadCatalog() }
+    }
+
+    private func reciterRow(_ r: AudioCatalog.Entry) -> some View {
+        let pct = progress[r.id].map { Int($0 * 100) }
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(r.nameAr).font(.system(size: 15, weight: .semibold))
+                Text(r.style == "murattal" ? "مرتّل" : "مجوَّد").font(.system(size: 12))
+                    .foregroundStyle(appState.theme.textSecondary)
+            }
+            Spacer()
+            if let pct {
+                Text("\(pct)٪").monospacedDigit().font(.system(size: 12))
+                    .foregroundStyle(appState.theme.accent)
+            }
+            Button("تشغيل") { play(surah: surahPick, ayah: 1, reciter: r) }
+                .font(.system(size: 13))
+            Button("تنزيل السورة") { download(surah: surahPick, reciter: r) }
+                .font(.system(size: 13)).foregroundStyle(appState.theme.accent)
+        }
+        .padding(12)
+        .background(appState.theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private func loadCatalog() {
@@ -258,9 +263,9 @@ struct AudioView: View {
         playing = (surah, ayah, reciter.id)
         player.play(url: url) {
             // onended chain — next ayah (web player parity)
-            guard let n = try? appState.db.queue.read({ db in
+            guard let nextAyah = try? appState.db.queue.read({ db in
                 try Int.fetchOne(db, sql: "SELECT number_in_surah FROM ayahs WHERE surah = ? AND ayah_number = (SELECT ayah_number FROM ayahs WHERE surah = ? AND number_in_surah = ? LIMIT 1)", arguments: [surah, surah, ayah + 1])
-            }), let nextAyah = n, ayah < nextAyah + 1 else { return }
+            }), ayah < nextAyah + 1 else { return }
             if let u = AudioStore.shared.localURL(reciter: reciter.id, surah: surah, ayah: ayah + 1) {
                 playing = (surah, ayah + 1, reciter.id)
                 player.play(url: u) { self.play(surah: surah, ayah: ayah + 1, reciter: reciter) }
@@ -274,9 +279,9 @@ struct AudioView: View {
             var ayah = 1
             var total = 0
             while true {
-                guard let count = try? appState.db.queue.read({ db in
+                guard let ayahCount = try? await appState.db.queue.read({ db in
                     try Int.fetchOne(db, sql: "SELECT ayah_count FROM surahs WHERE number = ?", arguments: [surah])
-                }), let ayahCount = count, ayah <= ayahCount else { break }
+                }), ayah <= ayahCount else { break }
                 let urlString = reciter.audioUrlTemplate
                     .replacingOccurrences(of: "{SSSAAA}", with: String(format: "%03d%03d", surah, ayah))
                 guard let url = URL(string: urlString) else { break }

@@ -440,5 +440,5 @@ public final class SadaqaDatabase: @unchecked Sendable {
 }
 
 public extension Date {
-    static var nowMs: Int64 { Int64(timeIntervalSince1970 * 1000) }
+    static var nowMs: Int64 { Int64(Date().timeIntervalSince1970 * 1000) }
 }
