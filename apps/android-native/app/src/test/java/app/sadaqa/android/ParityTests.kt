@@ -510,7 +510,7 @@ class DatabaseWritePathTest {
             } ?: throw AssertionError("expected الزقازيق in cities search")
             assertEquals("Africa/Cairo", zagazig.timeZone)
 
-            db.selectCity(zagazig, 1_794_988_800_000L)
+            db.selectCity(zagazig, now = 1_794_988_800_000L)
             val opts = db.engineOptions()
             assertEquals("Africa/Cairo", opts.timeZone)
             assertEquals(zagazig.lat, opts.lat, 1e-4)
