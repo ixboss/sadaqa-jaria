@@ -91,7 +91,7 @@ final class AppState: ObservableObject {
 
     let db = SadaqaDatabase.shared
 
-    var theme: SadaqaTheme {
+    var theme: SadaqaThemeColors {
         SadaqaTheme.load(key: currentThemeKey)
     }
 

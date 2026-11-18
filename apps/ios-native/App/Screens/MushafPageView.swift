@@ -6,6 +6,7 @@
 // ============================================================================
 
 import SwiftUI
+import GRDB
 
 struct MushafPageView: View {
     @EnvironmentObject var appState: AppState
