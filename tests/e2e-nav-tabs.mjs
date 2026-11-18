@@ -126,7 +126,15 @@ async function main() {
 
   try {
     await sleep(1800);
-    const targets = await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`)).json();
+    let targets = null;
+    for (let i = 0; i < 60; i++) {
+      try {
+        const res = await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`);
+        targets = await res.json();
+        if (targets.length) break;
+      } catch { /* browser CDP not up yet — poll */ }
+      await sleep(250);
+    }
     const page = targets.find(t => t.type === 'page');
     if (!page) throw new Error('no page target');
     await connect(page.webSocketDebuggerUrl);
