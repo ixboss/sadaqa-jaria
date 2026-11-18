@@ -471,7 +471,7 @@ body.theme-light #ayah-bar { background: rgba(255, 253, 247, 0.97); box-shadow: 
 #app-toast.visible { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); transition: visibility 0s linear 0s, transform 280ms var(--ease-spring-snap), opacity 220ms var(--ease-out-quart); }
 
 /* ==================== بطاقة تحديث الـService Worker (Prompt — بلا مقاطعة) ==================== */
-#sw-update-toast {
+#sw-update-toast, #sw-precache-toast {
   position: fixed; bottom: calc(var(--nav-clearance-safe, 90px) + 16px); left: 50%;
   transform: translateX(-50%) translateY(16px) scale(0.97);
   z-index: 250; display: flex; align-items: center; gap: 12px;
@@ -484,8 +484,8 @@ body.theme-light #ayah-bar { background: rgba(255, 253, 247, 0.97); box-shadow: 
   visibility: hidden; opacity: 0;
   transition: transform 320ms var(--ease-premium), opacity 240ms var(--ease-out-quart), visibility 0s linear 320ms;
 }
-#sw-update-toast.visible { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0) scale(1); transition: transform 320ms var(--ease-premium), opacity 240ms var(--ease-out-quart); }
-body.theme-light #sw-update-toast {
+#sw-update-toast.visible, #sw-precache-toast.visible { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0) scale(1); transition: transform 320ms var(--ease-premium), opacity 240ms var(--ease-out-quart); }
+body.theme-light #sw-update-toast, body.theme-light #sw-precache-toast {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 253, 248, 0.9) 100%);
   border-top: 1px solid rgba(255, 255, 255, 0.8);
 }
@@ -813,3 +813,6 @@ body.theme-light #tasbih-count-num { color: var(--color-on-accent); }
 .audio-play { position: absolute; top: 10px; right: 10px; left: auto; background: rgba(255,255,255,0.2); border: none; color: var(--color-on-accent); font-size: calc(var(--font-size) * 0.6); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
 .audio-play:active { transform: scale(0.85); }
 
+
+/* بطاقة الأوفلاين الجزئي (v57): تُنقر للإخفاء */
+#sw-precache-toast { cursor: pointer; }

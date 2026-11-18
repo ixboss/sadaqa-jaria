@@ -197,6 +197,11 @@ const Settings = {
         <input type="file" id="backup-file" accept="application/json,.json" style="display:none">
       </div>
 
+      <div class="settings-card">
+        <div class="settings-label" style="margin-bottom:6px">عن التطبيق</div>
+        <div class="surah-meta" style="line-height:1.9">«إسلامي» — مصحف وأذكار ومواقيت وختمة تعمل دون اتصال، وبياناتك على جهازك فقط.<br>هذا المشروع صدقة جارية وليّةً لله تعالى، مُهداة عن المطوّر <strong>ixboss</strong> ووالديه وأحبته جميعاً — فمن انتفع به فليدعُ لهم بالثواب والأجر.</div>
+      </div>
+
       <div class="occasion-note" style="margin-top:16px">تطبيق «إسلامي» — صدقة جارية. جميع بياناتك تبقى على جهازك.</div>`;
 
     const tgl = el.querySelector('#settings-reminders');
@@ -1362,130 +1367,122 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-/* ==================== 12) PrayerEngine — محرك مواقيت الصلاة والقبلة الفلكي (100% أوفلاين — مستوحى من بلال وأذكار) ==================== */
-// يحسب مواقيت الصلوات الخمس + الشروق + الضحى + منتصف الليل + الثلث الأخير من الليل + زاوية القبلة
-// بمعادلات فلكية دقيقة على الجهاز مباشرة دون الحاجة لأي خادم أو اتصال بالإنترنت.
+/* ==================== 12) PrayerEngine — محرك مواقيت الصلاة والقبلة الفلكي (100% أوفلاين) ==================== */
+// منذ 2026-11 يحسب هذا المحرك عبر محرك v2 الذهبي (CoreData — js/core-data.bundle.js،
+// نفس محرك web-desktop/Electron/iOS/Android) بدل الحسابات الفلكية الموازية القديمة.
+// هذا يصلح خلل خطير: كان الحساب القديم يستخدم إزاحة توقيت الجهاز مع إحداثيات
+// المدينة المختارة (جهاز لندن + مدينة مكة ⇒ خطأ ~ساعتين في كل مواقيت).
+// المواقيت تُعرض بتوقيت المدينة (tz عبر اسم IANA لكل مدينة)، والعد التنازلي
+// يعمل على لحظات مطلقة (epoch ms) فلا اختلاط بين ساعة الجهاز وساعة المدينة.
 const PrayerEngine = {
   STORAGE_KEY: 'prayer_config',
   CITIES: [
-    { id: 'cairo',     name: 'القاهرة / الجيزة، مصر',   lat: 30.0444, lng: 31.2357, tz: 2, method: 'egypt' },
-    { id: 'alex',      name: 'الإسكندرية، مصر',         lat: 31.2001, lng: 29.9187, tz: 2, method: 'egypt' },
-    { id: 'makkah',    name: 'مكة المكرمة، السعودية',    lat: 21.4225, lng: 39.8262, tz: 3, method: 'makkah' },
-    { id: 'madinah',   name: 'المدينة المنورة، السعودية', lat: 24.4672, lng: 39.6112, tz: 3, method: 'makkah' },
-    { id: 'riyadh',    name: 'الرياض، السعودية',        lat: 24.7136, lng: 46.6753, tz: 3, method: 'makkah' },
-    { id: 'jeddah',    name: 'جدة، السعودية',           lat: 21.5433, lng: 39.1728, tz: 3, method: 'makkah' },
-    { id: 'jerusalem', name: 'القدس، فلسطين',           lat: 31.7683, lng: 35.2137, tz: 2, method: 'mwl' },
-    { id: 'amman',     name: 'عمّان، الأردن',            lat: 31.9454, lng: 35.9284, tz: 3, method: 'mwl' },
-    { id: 'damascus',  name: 'دمشق، سوريا',             lat: 33.5138, lng: 36.2765, tz: 3, method: 'mwl' },
-    { id: 'baghdad',   name: 'بغداد، العراق',           lat: 33.3152, lng: 44.3661, tz: 3, method: 'mwl' },
-    { id: 'kuwait',    name: 'الكويت',                  lat: 29.3759, lng: 47.9774, tz: 3, method: 'makkah' },
-    { id: 'doha',      name: 'الدوحة، قطر',             lat: 25.2854, lng: 51.5310, tz: 3, method: 'makkah' },
-    { id: 'dubai',     name: 'دبي / أبوظبي، الإمارات',  lat: 25.2048, lng: 55.2708, tz: 4, method: 'makkah' },
-    { id: 'khartoum',  name: 'الخرطوم، السودان',        lat: 15.5007, lng: 32.5599, tz: 2, method: 'egypt' },
-    { id: 'casablanca',name: 'الدار البيضاء / الرباط، المغرب', lat: 33.5731, lng: -7.5898, tz: 1, method: 'mwl' },
-    { id: 'algiers',   name: 'الجزائر العاصمة',         lat: 36.7538, lng: 3.0588,  tz: 1, method: 'mwl' },
-    { id: 'tunis',     name: 'تونس العاصمة',            lat: 36.8065, lng: 10.1815, tz: 1, method: 'mwl' }
+    { id: 'cairo',     name: 'القاهرة / الجيزة، مصر',   lat: 30.0444, lng: 31.2357, iana: 'Africa/Cairo',      method: 'egypt' },
+    { id: 'alex',      name: 'الإسكندرية، مصر',         lat: 31.2001, lng: 29.9187, iana: 'Africa/Cairo',      method: 'egypt' },
+    { id: 'makkah',    name: 'مكة المكرمة، السعودية',    lat: 21.4225, lng: 39.8262, iana: 'Asia/Riyadh',       method: 'makkah' },
+    { id: 'madinah',   name: 'المدينة المنورة، السعودية', lat: 24.4672, lng: 39.6112, iana: 'Asia/Riyadh',       method: 'makkah' },
+    { id: 'riyadh',    name: 'الرياض، السعودية',        lat: 24.7136, lng: 46.6753, iana: 'Asia/Riyadh',       method: 'makkah' },
+    { id: 'jeddah',    name: 'جدة، السعودية',           lat: 21.5433, lng: 39.1728, iana: 'Asia/Riyadh',       method: 'makkah' },
+    { id: 'jerusalem', name: 'القدس، فلسطين',           lat: 31.7683, lng: 35.2137, iana: 'Asia/Jerusalem',    method: 'mwl' },
+    { id: 'amman',     name: 'عمّان، الأردن',            lat: 31.9454, lng: 35.9284, iana: 'Asia/Amman',        method: 'mwl' },
+    { id: 'damascus',  name: 'دمشق، سوريا',             lat: 33.5138, lng: 36.2765, iana: 'Asia/Damascus',     method: 'mwl' },
+    { id: 'baghdad',   name: 'بغداد، العراق',           lat: 33.3152, lng: 44.3661, iana: 'Asia/Baghdad',      method: 'mwl' },
+    { id: 'kuwait',    name: 'الكويت',                  lat: 29.3759, lng: 47.9774, iana: 'Asia/Kuwait',       method: 'makkah' },
+    { id: 'doha',      name: 'الدوحة، قطر',             lat: 25.2854, lng: 51.5310, iana: 'Asia/Qatar',        method: 'makkah' },
+    { id: 'dubai',     name: 'دبي / أبوظبي، الإمارات',  lat: 25.2048, lng: 55.2708, iana: 'Asia/Dubai',        method: 'makkah' },
+    { id: 'khartoum',  name: 'الخرطوم، السودان',        lat: 15.5007, lng: 32.5599, iana: 'Africa/Khartoum',   method: 'egypt' },
+    { id: 'casablanca',name: 'الدار البيضاء / الرباط، المغرب', lat: 33.5731, lng: -7.5898, iana: 'Africa/Casablanca', method: 'mwl' },
+    { id: 'algiers',   name: 'الجزائر العاصمة',         lat: 36.7538, lng: 3.0588,  iana: 'Africa/Algiers',    method: 'mwl' },
+    { id: 'tunis',     name: 'تونس العاصمة',            lat: 36.8065, lng: 10.1815, iana: 'Africa/Tunis',      method: 'mwl' }
   ],
   METHODS: {
-    egypt:  { name: 'الهيئة المصرية العامة للمساحة', fajrAngle: 19.5, ishaAngle: 17.5, ishaMin: 0 },
-    makkah: { name: 'تقويم أم القرى (مكة المكرمة)', fajrAngle: 18.5, ishaAngle: 0,    ishaMin: 90 },
-    mwl:    { name: 'رابطة العالم الإسلامي',        fajrAngle: 18.0, ishaAngle: 17.0, ishaMin: 0 },
-    isna:   { name: 'الجمعية الإسلامية لأمريكا الشمالية (ISNA)', fajrAngle: 15.0, ishaAngle: 15.0, ishaMin: 0 }
+    egypt:  { name: 'الهيئة المصرية العامة للمساحة' },
+    makkah: { name: 'تقويم أم القرى (مكة المكرمة)' },
+    mwl:    { name: 'رابطة العالم الإسلامي' },
+    isna:   { name: 'الجمعية الإسلامية لأمريكا الشمالية (ISNA)' }
   },
+  // مفاتيح طرق الحساب في محرك v2 الذهبي (MethodMap في core-data)
+  METHOD_V2: { egypt: 'egyptian', makkah: 'umm_al_qura', mwl: 'muslim_world_league', isna: 'north_america' },
+  PRAYER_NAMES_AR: { fajr: 'الفجر', sunrise: 'الشروق', dhuhr: 'الظهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء' },
+  PRAYER_ICONS: { fajr: '🌌', sunrise: '🌅', dhuhr: '☀️', asr: '🌤️', maghrib: '🌇', isha: '🌙' },
   _timer: null,
+  _infoCache: null,
+
+  // خيارات محرك v2 من إعدادات v1 (المدينة عبر اسم IANA؛ GPS ⇒ منطقة الجهاز)
+  _engineOpts(cfg = this.getConfig()) {
+    return {
+      lat: cfg.lat,
+      lng: cfg.lng,
+      timeZone: cfg.iana || (Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone) || 'UTC',
+      method: this.METHOD_V2[cfg.method] || 'umm_al_qura',
+      madhab: 'shafi',
+      highLatitudeRule: 'middle_of_the_night',
+    };
+  },
+
+  // ترقية الإعدادات القديمة المحفوظة (قبل حقل iana) بدل إهمالها
+  _withIana(cfg) {
+    if (cfg && typeof cfg.lat === 'number' && !cfg.iana) {
+      const city = this.CITIES.find(c => c.id === cfg.id);
+      cfg.iana = city ? city.iana : ((Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone) || 'UTC');
+    }
+    return cfg;
+  },
 
   getConfig() {
     try {
       const raw = localStorage.getItem(this.STORAGE_KEY);
       if (raw) {
         const p = JSON.parse(raw);
-        if (p && typeof p.lat === 'number' && typeof p.lng === 'number') return p;
+        if (p && typeof p.lat === 'number' && typeof p.lng === 'number') return this._withIana(p);
       }
     } catch (e) {}
-    return { ...this.CITIES[0] };
+    return this._withIana({ ...this.CITIES[0] });
   },
 
   saveConfig(cfg) {
     try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(cfg)); } catch (e) {}
+    this._infoCache = null;
     this.renderWidget();
   },
 
   // حساب زاوية القبلة من الموقع الحالي إلى الكعبة المشرفة (21.4225°N, 39.8262°E)
   getQiblaBearing(lat, lng) {
-    const kaabaLat = 21.4225 * Math.PI / 180;
-    const kaabaLng = 39.8262 * Math.PI / 180;
-    const phi = lat * Math.PI / 180;
-    const dLng = kaabaLng - (lng * Math.PI / 180);
-    const y = Math.sin(dLng);
-    const x = Math.cos(phi) * Math.tan(kaabaLat) - Math.sin(phi) * Math.cos(dLng);
-    let brng = Math.atan2(y, x) * 180 / Math.PI;
-    return Math.round((brng + 360) % 360);
+    return Math.round(CoreData.qibla.qiblaBearing({ lat, lng }));
   },
 
-  // الحساب الفلكي اليومي لمواقيت الصلاة وأوقات النوافل
+  // الحساب اليومي لمواقيت الصلاة وأوقات النوافل — بتوقيت المدينة (دقائق اليوم)
+  // + اللحظات المطلقة (_instants) لمنطق العد التنازلي والاقتراح الذكي.
   computeForDate(date = new Date(), cfg = this.getConfig()) {
-    const rad = d => d * Math.PI / 180;
-    const deg = r => r * 180 / Math.PI;
-    const year = date.getFullYear(), month = date.getMonth() + 1, day = date.getDate();
-
-    // Julian Date
-    let Y = year, M = month;
-    if (M <= 2) { Y -= 1; M += 12; }
-    const A = Math.floor(Y / 100);
-    const B = 2 - A + Math.floor(A / 4);
-    const JD = Math.floor(365.25 * (Y + 4716)) + Math.floor(30.6001 * (M + 1)) + day + B - 1524.5;
-    const d = JD - 2451545.0;
-
-    // زاوية الشمس ومعادلة الوقت
-    const g = (357.529 + 0.98560028 * d) % 360;
-    const q = (280.459 + 0.98564736 * d) % 360;
-    const L = (q + 1.915 * Math.sin(rad(g)) + 0.020 * Math.sin(rad(2 * g))) % 360;
-    const e = 23.439 - 0.00000036 * d;
-    const RA = deg(Math.atan2(Math.cos(rad(e)) * Math.sin(rad(L)), Math.cos(rad(L)))) / 15;
-    const decl = deg(Math.asin(Math.sin(rad(e)) * Math.sin(rad(L))));
-    let EqT = q / 15 - ((RA + 24) % 24);
-    if (EqT > 12) EqT -= 24;
-    if (EqT < -12) EqT += 24;
-
-    // فرق التوقيت المحلي الفعلي للجهاز بالساعات
-    const tz = -date.getTimezoneOffset() / 60;
-    const dhuhr = 12 + tz - (cfg.lng / 15) - EqT;
-
-    const hourAngle = (angle) => {
-      const num = -Math.sin(rad(angle)) - Math.sin(rad(cfg.lat)) * Math.sin(rad(decl));
-      const den = Math.cos(rad(cfg.lat)) * Math.cos(rad(decl));
-      const c = Math.max(-1, Math.min(1, num / den));
-      return deg(Math.acos(c)) / 15;
+    const opts = this._engineOpts(cfg);
+    const tz = opts.timeZone;
+    // التاريخ المدني لمدينة المختارة لحظة `date` (سفر: قد يختلف عن تاريخ الجهاز)
+    const dp = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+    const gv = (t) => dp.find((p) => p.type === t).value;
+    const dateIso = `${gv('year')}-${gv('month')}-${gv('day')}`;
+    const sched = CoreData.prayer.daySchedule(dateIso, opts);
+    const sun = CoreData.prayer.sunnahWindows(dateIso, opts);
+    const toMin = (ms) => {
+      const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ms));
+      const hh = Number(p.find((x) => x.type === 'hour').value);
+      const mm = Number(p.find((x) => x.type === 'minute').value);
+      return hh * 60 + mm;
     };
-
-    // زاوية العصر القياسية (الشافعي/المالكي/الحنبلي: مثل ظل الشيء = 1)
-    const asrAlt = deg(Math.atan(1 / (1 + Math.tan(Math.abs(rad(cfg.lat - decl))))));
-    const asrHA = hourAngle(-asrAlt);
-
-    const mSpec = this.METHODS[cfg.method] || this.METHODS.egypt;
-    const sunrise = dhuhr - hourAngle(0.833);
-    const maghrib = dhuhr + hourAngle(0.833);
-    const fajr = dhuhr - hourAngle(mSpec.fajrAngle);
-    const asr = dhuhr + asrHA;
-    const isha = mSpec.ishaMin > 0 ? (maghrib + mSpec.ishaMin / 60) : (dhuhr + hourAngle(mSpec.ishaAngle));
-
-    // حساب النوافل: الضحى (بعد الشروق بـ 20 دقيقة)، منتصف الليل الشرعي، والثلث الأخير من الليل
-    const duha = sunrise + (20 / 60);
-    const nightDuration = (fajr + 24) - maghrib;
-    const midnight = (maghrib + nightDuration / 2) % 24;
-    const lastThird = (maghrib + (nightDuration * 2 / 3)) % 24;
-
-    const toMin = h => Math.round(((h + 24) % 24) * 60);
     return {
-      fajr: toMin(fajr),
-      sunrise: toMin(sunrise),
-      duha: toMin(duha),
-      dhuhr: toMin(dhuhr) + 1, // دقيقة احتياط للزوال
-      asr: toMin(asr),
-      maghrib: toMin(maghrib),
-      isha: toMin(isha),
-      midnight: toMin(midnight),
-      lastThird: toMin(lastThird)
+      fajr: toMin(sched.prayers.fajr),
+      sunrise: toMin(sched.prayers.sunrise),
+      duha: toMin(sun.duha),
+      dhuhr: toMin(sched.prayers.dhuhr) + 1, // دقيقة احتياط للزوال (عرض فقط)
+      asr: toMin(sched.prayers.asr),
+      maghrib: toMin(sched.prayers.maghrib),
+      isha: toMin(sched.prayers.isha),
+      midnight: toMin(sun.midnight),
+      lastThird: toMin(sun.lastThird),
+      _instants: {
+        fajr: sched.prayers.fajr, sunrise: sched.prayers.sunrise, dhuhr: sched.prayers.dhuhr,
+        asr: sched.prayers.asr, maghrib: sched.prayers.maghrib, isha: sched.prayers.isha,
+        duha: sun.duha, midnight: sun.midnight, lastThird: sun.lastThird, nextFajr: sun.nextFajr,
+      },
     };
   },
 
@@ -1499,49 +1496,69 @@ const PrayerEngine = {
     return `${ar(h12)}:${ar(String(min).padStart(2, '0'))} ${period}`;
   },
 
+  // العد التنازلي التالي: لحظات مطلقة من محرك v2 (next) — تُحسب مجدولة مرة
+  // كل دقيقة وتُشتق الثواني منها كل ثانية (بلا إعادة حساب فلكي لكل تكة).
   getNextPrayerInfo(now = new Date()) {
-    const times = this.computeForDate(now);
-    const curMin = now.getHours() * 60 + now.getMinutes();
-    const curSec = now.getSeconds();
-    const order = [
-      { key: 'fajr',    name: 'الفجر',   icon: '🌌', min: times.fajr },
-      { key: 'sunrise', name: 'الشروق',  icon: '🌅', min: times.sunrise },
-      { key: 'dhuhr',   name: 'الظهر',   icon: '☀️', min: times.dhuhr },
-      { key: 'asr',     name: 'العصر',   icon: '🌤️', min: times.asr },
-      { key: 'maghrib', name: 'المغرب',  icon: '🌇', min: times.maghrib },
-      { key: 'isha',    name: 'العشاء',  icon: '🌙', min: times.isha }
-    ];
-
-    // فحص ما إذا كنا في وقت ما بين الأذان والإقامة (أول ٢٠ دقيقة بعد أذان الفريضة — ميزة تطبيق بلال)
-    let iqamahActive = null;
-    for (const p of order) {
-      if (p.key !== 'sunrise' && curMin >= p.min && curMin < p.min + 20) {
-        iqamahActive = { ...p, elapsedMin: curMin - p.min, remainIqamah: 20 - (curMin - p.min) };
-        break;
-      }
+    const cfg = this.getConfig();
+    const nowMs = now.getTime();
+    const minuteKey = `${Math.floor(nowMs / 60000)}|${JSON.stringify(cfg)}`;
+    if (!this._infoCache || this._infoCache.key !== minuteKey) {
+      this._infoCache = { key: minuteKey, info: this._computeInfo(nowMs, cfg) };
     }
-
-    let next = order.find(p => p.min > curMin);
-    let diffSec = 0;
-    if (next) {
-      diffSec = (next.min - curMin) * 60 - curSec;
-    } else {
-      next = order[0];
-      diffSec = ((1440 - curMin) + next.min) * 60 - curSec;
-    }
+    const base = this._infoCache.info;
+    // مشتقات كل ثانية من اللحظات المخبأة
+    const diffSec = Math.max(0, Math.floor((base.next.at - nowMs) / 1000));
     const hh = Math.floor(diffSec / 3600);
     const mm = Math.floor((diffSec % 3600) / 60);
     const ss = diffSec % 60;
     const ar = window.toArabicNum || (x => String(x));
     const countdown = `${ar(String(hh).padStart(2, '0'))}:${ar(String(mm).padStart(2, '0'))}:${ar(String(ss).padStart(2, '0'))}`;
-    return { times, order, next, countdown, diffSec, iqamahActive };
+    let iqamahActive = null;
+    if (base.iqamah) {
+      const elapsedMin = Math.floor((nowMs - base.iqamah.at) / 60000);
+      if (elapsedMin < 20) {
+        iqamahActive = { ...base.iqamah, elapsedMin, remainIqamah: 20 - elapsedMin };
+      }
+    }
+    return { ...base, countdown, diffSec, iqamahActive };
+  },
+
+  _computeInfo(nowMs, cfg) {
+    const times = this.computeForDate(new Date(nowMs), cfg);
+    const opts = this._engineOpts(cfg);
+    const next = CoreData.prayer.next(nowMs, opts); // { name, at, previous }
+    const order = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'].map(key => ({
+      key,
+      name: this.PRAYER_NAMES_AR[key],
+      icon: this.PRAYER_ICONS[key],
+      min: times[key],
+    }));
+    const nextInfo = { key: next.name, name: this.PRAYER_NAMES_AR[next.name], icon: this.PRAYER_ICONS[next.name], min: times[next.name], at: next.at };
+    // بين الأذان والإقامة: أول ٢٠ دقيقة بعد الفريضة السابقة (الشروق لا يُحتسب)
+    let iqamah = null;
+    const prev = next.previous;
+    if (prev && prev.name !== 'sunrise' && prev.name !== undefined) {
+      const elapsedMin = Math.floor((nowMs - prev.at) / 60000);
+      if (elapsedMin >= 0 && elapsedMin < 20) {
+        iqamah = { key: prev.name, name: this.PRAYER_NAMES_AR[prev.name], icon: this.PRAYER_ICONS[prev.name], min: times[prev.name], at: prev.at };
+      }
+    }
+    return { times, order, next: nextInfo, iqamah };
   },
 
   // اقتراح ذكي للعبادة حسب الوقت الحالي ومواقيت الصلاة (مستوحى من الواجهة المبسطة في تطبيق أذكار)
+  // المقارنات على لحظات مطلقة بتوقيت المدينة عبر محرك v2 — لا خلط مع ساعة الجهاز.
   getSmartSuggestion(now = new Date()) {
     const { times, iqamahActive } = this.getNextPrayerInfo(now);
-    const curMin = now.getHours() * 60 + now.getMinutes();
-    const isFriday = now.getDay() === 5;
+    const t = times._instants;
+    const cur = now.getTime();
+    const MIN = 60000;
+    const isFriday = (() => {
+      try {
+        const wd = new Intl.DateTimeFormat('en-US', { timeZone: this._engineOpts().timeZone, weekday: 'short' }).format(now);
+        return wd === 'Fri';
+      } catch (e) { return now.getDay() === 5; }
+    })();
 
     if (iqamahActive) {
       return {
@@ -1552,7 +1569,7 @@ const PrayerEngine = {
         action: () => { if (window.openCategory) window.openCategory(6); }
       };
     }
-    if (curMin >= times.fajr && curMin <= times.sunrise + 45) {
+    if (cur >= t.fajr && cur <= t.sunrise + 45 * MIN) {
       return {
         badge: 'وقت الصباح المبارك',
         title: 'أذكار الصباح حصنك اليومي',
@@ -1561,7 +1578,7 @@ const PrayerEngine = {
         action: () => { if (window.openCategory) window.openCategory(0); }
       };
     }
-    if (isFriday && curMin >= times.sunrise && curMin < times.maghrib) {
+    if (isFriday && cur >= t.sunrise && cur < t.maghrib) {
       return {
         badge: '🕌 سنن يوم الجمعة',
         title: 'نورٌ ما بين الجمعتين',
@@ -1570,7 +1587,7 @@ const PrayerEngine = {
         action: () => { if (window.switchTab && window.openSurah) { window.switchTab('quran'); window.openSurah(18); } }
       };
     }
-    if (curMin >= times.duha && curMin < times.dhuhr - 15) {
+    if (cur >= t.duha && cur < t.dhuhr - 15 * MIN) {
       return {
         badge: '☀️ وقت صلاة الضحى',
         title: 'صلاة الأوابين — صدقة عن كل مفصل',
@@ -1579,7 +1596,7 @@ const PrayerEngine = {
         action: () => { if (window.openTasbih) window.openTasbih(); }
       };
     }
-    if (curMin >= times.asr && curMin <= times.maghrib + 45) {
+    if (cur >= t.asr && cur <= t.maghrib + 45 * MIN) {
       return {
         badge: 'وقت المساء',
         title: 'أذكار المساء والسكينة',
@@ -1588,7 +1605,7 @@ const PrayerEngine = {
         action: () => { if (window.openCategory) window.openCategory(1); }
       };
     }
-    if ((times.lastThird > times.isha && curMin >= times.lastThird) || (times.lastThird < times.fajr && (curMin >= times.lastThird && curMin < times.fajr))) {
+    if (cur >= t.lastThird && cur < t.nextFajr) {
       return {
         badge: 'الثلث الأخير من الليل',
         title: 'ساعة التنزّل الإلهي والاستغفار بالأسحار',
@@ -1619,6 +1636,8 @@ const PrayerEngine = {
         cfg.name = 'موقعي الحالي (GPS)';
         cfg.lat = +pos.coords.latitude.toFixed(4);
         cfg.lng = +pos.coords.longitude.toFixed(4);
+        // أنت هناك فعلاً — منطقة الجهاز هي المنطقة الصحيحة للمواقيت
+        cfg.iana = (Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone) || cfg.iana || 'UTC';
         this.saveConfig(cfg);
         if (window.Toast) Toast.show('تم تحديث المواقيت واتجاه القبلة حسب موقعك ✓');
       },

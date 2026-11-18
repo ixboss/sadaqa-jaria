@@ -258,9 +258,19 @@ object WidgetStateBridge {
         val opts = db.engineOptions()
         val now = System.currentTimeMillis()
         val next = runCatching { PrayerEngine.next(now, opts) }.getOrNull()
+        // Daily dhikr pick lives in the app process (2026-11 audit fix): the
+        // widget process must never open the app's WAL db — the first
+        // morning-window item is queried HERE and handed over via prefs.
+        val dhikr = runCatching {
+            db.queryOne(
+                "SELECT text_ar FROM athkar_items WHERE category_id = (SELECT category_id FROM athkar_categories WHERE solar_window = ? LIMIT 1) ORDER BY sort_order LIMIT 1",
+                listOf("fajr"),
+            )?.strings?.get("text_ar")
+        }.getOrNull() ?: ""
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("location", "%f;%f;%s;%s;%s;%s".format(opts.lat, opts.lng, opts.timeZone, opts.method, opts.madhab, opts.highLatitudeRule))
             .putString("next", next?.let { "${it.name.key};${it.at}" })
+            .putString("dhikr", dhikr)
             .putLong("publishedAt", now)
             .putString("day", AdhanScheduler.isoOf(now, opts.timeZone))
             .apply()

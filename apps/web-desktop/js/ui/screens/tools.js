@@ -404,8 +404,10 @@ export async function renderSettings(root) {
     <div class="card">
       <div class="field"><label>السمة</label>
         <select id="s-theme">${THEMES.map((t) => `<option value="${t}" ${s.theme === t ? 'selected' : ''}>${{ dark: 'داكنة', light: 'فاتحة', sepia: 'ورقية', night: 'ليلية' }[t]}</option>`).join('')}</select></div>
-      <div class="field"><label>حجم الخط (${(s.font_scale ?? 1.3).toFixed(1)}×)</label>
+      <div class="field"><label>حجم خط الواجهة (${(s.font_scale ?? 1.3).toFixed(1)}×)</label>
         <input id="s-font" type="range" min="1" max="2" step="0.1" value="${s.font_scale ?? 1.3}"></div>
+      <div class="field"><label>حجم خط المصحف — يُطبَّق على صفحات القراءة (${(s.mushaf_scale ?? 1).toFixed(2)}×)</label>
+        <input id="s-mushaf-font" type="range" min="0.8" max="2" step="0.05" value="${s.mushaf_scale ?? 1}"></div>
       <div class="field"><label>طريقة الحساب</label>
         <select id="s-method">${CALC_METHODS.map((m) => `<option value="${m}" ${s.calc_method === m ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
       <div class="field"><label>المذهب (العصر)</label>
@@ -427,11 +429,24 @@ export async function renderSettings(root) {
       <h3 style="margin:0 0 8px;font-size:15px">بيانات الإصدار الأول</h3>
       <div class="mode-note">الترحيل لمرة واحدة من تطبيق v1 (السمة، الخط، السبحة) يتم تلقائياً عند أول تشغيل. سلسلة الختمة القديمة تُعاد إعدادها يدوياً — النموذج تغيّر.</div>
     </div>
+    <div class="card">
+      <h3 style="margin:0 0 8px;font-size:15px">عن التطبيق</h3>
+      <div class="mode-note">«إسلامي» — مصحف كامل وأذكار ومواقيت وختمة تعمل دون اتصال، وبياناتك تبقى على جهازك.</div>
+      <div style="font-size:13px;color:var(--color-text-secondary);line-height:var(--lh-arabic,1.9);margin-top:8px">
+        هذا المشروع صدقة جارية وليّةً لله تعالى، مُهداة عن المطوّر <strong style="color:var(--color-accent)">ixboss</strong> ووالديه وأحبته جميعاً — فمن انتفع به فليدعُ لهم بالثواب والأجر.
+      </div>
+    </div>
   </div>`;
 
   const rerender = () => { mountTheme(); };
   root.querySelector('#s-theme').addEventListener('change', async (e) => { await saveSetting('theme', e.target.value); rerender(); });
   root.querySelector('#s-font').addEventListener('input', async (e) => { await saveSetting('font_scale', Number(e.target.value)); rerender(); });
+  root.querySelector('#s-mushaf-font').addEventListener('input', async (e) => {
+    const v = Number(e.target.value);
+    await saveSetting('mushaf_scale', v);
+    const label = e.target.closest('.field')?.querySelector('label');
+    if (label) label.textContent = `حجم خط المصحف — يُطبَّق على صفحات القراءة (${v.toFixed(2)}×)`;
+  });
   root.querySelector('#s-method').addEventListener('change', async (e) => { await saveSetting('calc_method', e.target.value); });
   root.querySelector('#s-madhab').addEventListener('change', async (e) => { await saveSetting('madhab', e.target.value); });
   root.querySelector('#s-hlr').addEventListener('change', async (e) => { await saveSetting('high_latitude_rule', e.target.value); });

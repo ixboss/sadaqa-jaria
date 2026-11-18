@@ -18,26 +18,62 @@ public final class SadaqaDatabase: @unchecked Sendable {
 
     public let queue: DatabaseQueue
     public let loadError: String?
+    /// True when running on the read-only or in-memory recovery queues — the
+    /// app shows the blocking recovery screen (SadaqaApp.RootView) instead of
+    /// silently browsing an empty copy of the user's data (2026-11 audit fix:
+    /// the old behavior swapped to an in-memory queue invisibly, so user data
+    /// disappeared and session writes were lost on exit).
+    public let isReadOnly: Bool
 
     /// Internal (not private) so the parity test target can open isolated
     /// temp copies of the bundled db for round-trip tests.
-    init(queue: DatabaseQueue, loadError: String? = nil) {
+    init(queue: DatabaseQueue, loadError: String? = nil, isReadOnly: Bool = false) {
         self.queue = queue
         self.loadError = loadError
+        self.isReadOnly = isReadOnly
     }
 
     static func openOrFallback() -> SadaqaDatabase {
         do {
             return try open()
         } catch {
-            // Never crash on launch even if bundle or filesystem fails; surface loadError safely.
+            // Never crash on launch — but never pretend everything is fine
+            // either. Recovery ladder:
+            //   1. re-open the EXISTING file read-only (user data stays visible)
+            //   2. in-memory queue as the last resort; both surface loadError,
+            //      and the app gates the UI behind the recovery screen.
+            if let roQueue = try? openReadOnly() {
+                return SadaqaDatabase(queue: roQueue, loadError: error.localizedDescription, isReadOnly: true)
+            }
             do {
                 let memQueue = try DatabaseQueue()
-                return SadaqaDatabase(queue: memQueue, loadError: error.localizedDescription)
+                return SadaqaDatabase(queue: memQueue, loadError: error.localizedDescription, isReadOnly: true)
             } catch {
                 fatalError("Failed to open in-memory fallback database: \(error)")
             }
         }
+    }
+
+    /// Application Support copy of sadaqa.db (no seed copy side effects).
+    static func resolveDbUrl() throws -> URL {
+        let fm = FileManager.default
+        let dir = try fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+            .appendingPathComponent("SadaqaJaria", isDirectory: true)
+        return dir.appendingPathComponent("sadaqa.db")
+    }
+
+    /// Read-only re-open of the existing db file (recovery step 1). No WAL
+    /// pragma switch — a read-only connection cannot change journal mode.
+    static func openReadOnly() throws -> DatabaseQueue {
+        let dbUrl = try resolveDbUrl()
+        guard FileManager.default.fileExists(atPath: dbUrl.path) else {
+            throw NSError(domain: "SadaqaDB", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "no existing sadaqa.db to open read-only"])
+        }
+        var config = Configuration()
+        config.readonly = true
+        config.foreignKeysEnabled = true
+        return try DatabaseQueue(path: dbUrl.path, configuration: config)
     }
 
     /// Resolve a resource in either the Resources folder-reference or bundle root.
@@ -56,7 +92,7 @@ public final class SadaqaDatabase: @unchecked Sendable {
         let dir = try fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             .appendingPathComponent("SadaqaJaria", isDirectory: true)
         try fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        let dbUrl = dir.appendingPathComponent("sadaqa.db")
+        let dbUrl = try resolveDbUrl()
         let existingSize = (try? fm.attributesOfItem(atPath: dbUrl.path)[.size] as? NSNumber)?.intValue ?? 0
         if !fm.fileExists(atPath: dbUrl.path) || existingSize == 0 {
             if fm.fileExists(atPath: dbUrl.path) {
@@ -77,8 +113,28 @@ public final class SadaqaDatabase: @unchecked Sendable {
         let queue = try DatabaseQueue(path: dbUrl.path, configuration: config)
         try queue.writeWithoutTransaction { db in
             try db.execute(sql: "PRAGMA journal_mode = WAL")
+            try Self.migrate(db)
         }
         return SadaqaDatabase(queue: queue)
+    }
+
+    /// meta.schema_version (schema.sql:42) baseline — now read on every open;
+    /// a db written by a NEWER build refuses to open (downgrade protection,
+    /// 2026-11 audit) and lands on the recovery screen instead of misreading rows.
+    static let schemaVersion = 1
+
+    static func migrate(_ db: Database) throws {
+        let row = try Row.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'schema_version'")
+        var v = 0
+        if let raw = row.flatMap({ strOf($0["value"]) }) { v = Int(Double(raw)) ?? 0 }
+        if v > schemaVersion {
+            NSLog("[SadaqaDB] sadaqa.db schema_version \(v) is newer than this build (\(schemaVersion)) — update the app")
+            throw NSError(domain: "SadaqaDB", code: 10,
+                          userInfo: [NSLocalizedDescriptionKey: "database schema \(v) is newer than the app (\(schemaVersion)) — update the app"])
+        }
+        if v < schemaVersion {
+            try db.execute(sql: "UPDATE meta SET value = ? WHERE key = 'schema_version'", arguments: [String(schemaVersion)])
+        }
     }
 
     // ------------------------------------------------------------------
@@ -588,6 +644,16 @@ public final class SadaqaDatabase: @unchecked Sendable {
         let (manifest, payload) = try BackupCodec.parseFile(text)
         let verdict = BackupCodec.validateBackup(manifest: manifest, payload: payload)
         guard verdict.ok else { throw BackupCodecError.refused(verdict.errors.prefix(3).joined(separator: " · ")) }
+        // Recompute manifest.integrity over the payload bytes BEFORE any write
+        // (parity with packages/core-data/engines/backup-validate.js
+        // integrityMatches). Re-serialization reorders keys, so the digest is
+        // taken over CanonicalJSON.serialize(payload) — byte-identical to what
+        // every exporter (web/Kotlin/Swift) hashed at export time.
+        let expectedDigest = manifest["integrity"]?.stringValue
+        let actualDigest = BackupCodec.integrityOf(payloadJson: CanonicalJSON.serialize(payload))
+        guard expectedDigest?.lowercased() == actualDigest.lowercased() else {
+            throw BackupCodecError.refused("manifest.integrity — البصمة لا تطابق محتوى الملف (تلف أو تلاعب)")
+        }
 
         // local snapshots keyed by payload uuid (same remap as export)
         let remap: (String) -> String = { UUIDv7.isUUIDv7Shape($0) ? $0 : UUIDv7.synthUuid7("row:" + $0, now: now) }

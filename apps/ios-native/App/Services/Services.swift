@@ -186,7 +186,9 @@ enum WidgetStateBridge {
     static func writeShared(_ json: String, as name: String) {
         guard let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId)?
             .appendingPathComponent(name) else { return }
-        try? json.data(using: .utf8)?.write(to: url)
+        // .atomic: temp file + rename — the widget process may read this file
+        // at any instant; a torn half-written JSON would render nothing.
+        try? json.data(using: .utf8)?.write(to: url, options: [.atomic])
     }
 
     static func prayersChanged() { /* timeline invalidation happens in publish */ }

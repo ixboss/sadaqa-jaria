@@ -3,7 +3,7 @@
 // Gate: validates every declared contrast pair with the WCAG 2.1 relative
 // luminance formula; a failing pair exits non-zero (build stops, theme ships
 // broken never). Emits :root (light) + [data-theme=…] blocks.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 
@@ -88,3 +88,38 @@ ${cssVars(tokens.themes.oled)}
 `;
 writeFileSync(outPath, css);
 console.log(`wrote ${outPath} (${Buffer.byteLength(css)} bytes)`);
+
+// --- cross-version drift report --------------------------------------------
+// css/tokens.css (v1 PWA) is a hand-maintained palette that EVOLVED separately
+// from the v2 tokens (the 2026 v2 redesign changed both palette and variable
+// vocabulary, so emitting the generated file would rewrite v1's identity).
+// The gate instead makes the coupling explicit: every generation reports where
+// the shared semantic roles diverge, so a palette change can never silently
+// skip the v1 PWA (2026-11 audit finding 13).
+const v1Path = join(here, '..', '..', 'css', 'tokens.css');
+if (existsSync(v1Path)) {
+  const v1 = readFileSync(v1Path, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''); // strip comments
+  const grab = (css, name) => {
+    const m = css.match(new RegExp(name.replace(/-/g, '\\-') + ':\\s*([^;]+);'));
+    return m ? m[1].trim() : null;
+  };
+  const darkBlock = v1.slice(0, v1.indexOf('body.theme-light'));
+  const roles = [
+    ['bg (dark)', tokens.themes.dark['bg'] ?? tokens.themes.dark['colorBg'], '--bg'],
+    ['accent (dark)', tokens.themes.dark['accent'] ?? tokens.themes.dark['colorAccent'], '--accent'],
+    ['ease (primary)', tokens.motion.easing, '--ease-premium'],
+  ];
+  const drift = [];
+  for (const [label, upstream, v1Var] of roles) {
+    const local = grab(darkBlock, v1Var);
+    if (upstream && local && upstream !== local) {
+      drift.push(`${label}: v1=${local} vs tokens.json=${upstream}`);
+    }
+  }
+  if (drift.length) {
+    console.warn('tokens drift (v1 css/tokens.css vs tokens.json — deliberate post-redesign divergence, keep both files in mind):');
+    for (const d of drift) console.warn('  ~ ' + d);
+  } else {
+    console.log('tokens drift: v1 css/tokens.css matches tokens.json on shared roles');
+  }
+}

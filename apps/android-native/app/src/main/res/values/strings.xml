@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">صدقة جارية</string>
+    <string name="app_name">إسلامي</string>
     <string name="prayer_widget_label">عدّاد الصلاة</string>
     <string name="prayer_widget_desc">الوقت المتبقي للصلاة القادمة — بدون إنترنت</string>
     <string name="dhikr_widget_label">ذكر اليوم</string>

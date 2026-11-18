@@ -9,7 +9,7 @@
 // Legacy (v4) row uuids are remapped deterministically at export time so
 // Phase-3-era rows merge cleanly (same row → same payload id, every time).
 // ============================================================================
-import { validateBackup, SUPPORTED_FORMAT_VERSION } from '../../../../packages/core-data/engines/backup-validate.js';
+import { validateBackup, integrityMatches, SUPPORTED_FORMAT_VERSION } from '../../../../packages/core-data/engines/backup-validate.js';
 import { mergePayload, toPayloadGroups } from '../../../../packages/core-data/engines/backup-merge.js';
 import { uuid7, synthUuid7 } from './uuid7.js';
 
@@ -110,6 +110,11 @@ export async function importBackup(db, bytes, mode, now = Date.now()) {
   const { manifest, payload } = file ?? {};
   const verdict = validateBackup(manifest, payload);
   if (!verdict.ok) throw new Error('فشل التحقق: ' + verdict.errors.slice(0, 3).join(' · '));
+  // مطلوب قبل أي كتابة: إعادة حساب بصمة sha-256 على بايتات الملف نفسها —
+  // عدم التطابق يعني تلفاً أو تلاعباً بعد التصدير، فيُرفض الملف كاملاً.
+  if (!(await integrityMatches(manifest, payload))) {
+    throw new Error('فشل التحقق: manifest.integrity — البصمة لا تطابق محتوى الملف (تلف أو تلاعب)');
+  }
 
   // local snapshots for the merge engine (Maps keyed by uuid — same clock so
   // legacy-remap ids match what this device would export at the same instant)
@@ -210,5 +215,11 @@ export async function peekBackup(bytes) {
   const text = new TextDecoder().decode(bytes);
   const file = JSON.parse(text);
   const verdict = validateBackup(file.manifest, file.payload);
-  return { ok: verdict.ok, errors: verdict.errors ?? [], counts: verdict.counts ?? {}, manifest: file.manifest };
+  const integrityOk = await integrityMatches(file.manifest, file.payload);
+  return {
+    ok: verdict.ok && integrityOk,
+    errors: [...(verdict.errors ?? []), ...(integrityOk ? [] : ['manifest.integrity — البصمة لا تطابق محتوى الملف'])],
+    counts: verdict.counts ?? {},
+    manifest: file.manifest,
+  };
 }

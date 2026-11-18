@@ -85,6 +85,30 @@ function registerAppProtocol() {
 // ---------------------------------------------------------------------------
 let db = null;
 
+// schema_version (meta table, schema.sql:42) is now read on every open —
+// migrations run keyed on it; a db written by a NEWER build is never touched.
+const SCHEMA_VERSION = 1;
+
+function migrateDb(database) {
+  let v = 0;
+  try {
+    const row = database.prepare(`SELECT value FROM meta WHERE key = 'schema_version'`).get();
+    v = Number(JSON.parse(row?.value ?? ''));
+  } catch { /* absent/invalid meta row → treated as baseline */ }
+  if (!Number.isInteger(v) || v <= 0) v = SCHEMA_VERSION;
+  if (v > SCHEMA_VERSION) {
+    console.error(`[db] sadaqa.db schema_version ${v} is newer than this build (${SCHEMA_VERSION}) — update the app; leaving the db untouched`);
+    return v;
+  }
+  database.transaction(() => {
+    // while (v < SCHEMA_VERSION) { …future migration steps…; v++; }
+    if (v < SCHEMA_VERSION) {
+      database.prepare(`UPDATE meta SET value = ? WHERE key = 'schema_version'`).run(String(SCHEMA_VERSION));
+    }
+  })();
+  return SCHEMA_VERSION;
+}
+
 function openDatabase() {
   const Database = require('better-sqlite3');
   const userDb = path.join(app.getPath('userData'), 'sadaqa.db');
@@ -92,6 +116,7 @@ function openDatabase() {
   db = new Database(userDb);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
+  migrateDb(db);
   return db;
 }
 
@@ -105,10 +130,12 @@ function guardParams(params) {
 function registerIpc() {
   ipcMain.handle('db:query', (_e, { sql, params }) => db.prepare(String(sql)).all(...guardParams(params)));
   ipcMain.handle('db:queryOne', (_e, { sql, params }) => db.prepare(String(sql)).get(...guardParams(params)) ?? null);
-  ipcMain.handle('db:write', (_e, { sql, params }) => {
+  ipcMain.handle('db:write', (_e, { sql, params, engineReload }) => {
     const s = String(sql);
     db.prepare(s).run(...guardParams(params));
-    if (s.includes('user_settings')) loadEngine().catch(() => {});
+    // explicit flag from the renderer's settings writer (no SQL sniffing —
+    // 2026-11 audit): settings changes rebind the tray/adhan engine
+    if (engineReload === true) loadEngine().catch(() => {});
     return { ok: true };
   });
   ipcMain.handle('db:batch', (_e, { stmts }) => {
@@ -123,10 +150,9 @@ function registerIpc() {
     });
     return { ok: true, count: runAll() };
   });
-  ipcMain.handle('db:export', () => {
-    db.pragma('wal_checkpoint(TRUNCATE)');
-    return fs.readFileSync(path.join(app.getPath('userData'), 'sadaqa.db'));
-  });
+  // (db:export IPC حُذف 2026-11: لا يستدعيه أي كود واجهة — سلسلة exportDb
+  // الميتة exportDb→db:export قراءةً للملف الخام أثناء قفل WAL. التصدير
+  // الرسمي هو ملف .sadaqa عبر file:save.)
 
   // audio store → userData/audio/<reciter>/<key>.mp3 (local filesystem pack cache)
   const audioDirFor = (reciter, key) => {
@@ -259,7 +285,7 @@ function encodePng(raw, w, h) {
 
 function createTray() {
   tray = new Tray(trayIcon());
-  tray.setToolTip('صدقة جارية');
+  tray.setToolTip('إسلامي');
   rebuildTrayMenu();
 }
 

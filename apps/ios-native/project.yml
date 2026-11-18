@@ -41,7 +41,7 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: صدقة جارية
+        CFBundleDisplayName: إسلامي
         CFBundleShortVersionString: "2.1.0"
         CFBundleVersion: "5"
         UILaunchScreen: {}

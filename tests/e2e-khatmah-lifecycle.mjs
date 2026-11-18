@@ -196,6 +196,35 @@ async function main() {
       JSON.stringify(st && { s: st.todayWirdStart, e: st.todayWirdEnd, last: st.lastActiveDate }));
     ok('(f) opens on the bookmarked page', st && st.currentPage === 10, `currentPage=${st && st.currentPage}`);
 
+    // ─── (h) true local-midnight rollover ────────────────────
+    // (b) simulates a missed day by writing a stale lastActiveDate; this case
+    // SHIFTS the page clock past midnight instead — proving getLocalToday() +
+    // checkMissedDays() roll the wird on a real day change (audit 2026-11:
+    // the suite never crossed midnight before).
+    console.log('\n(h) local-midnight rollover...');
+    const shifted = await evaljs(`(() => {
+      const RealDate = Date;
+      const SHIFT_MS = 24 * 60 * 60 * 1000; // tomorrow
+      class ShiftedDate extends RealDate {
+        constructor(...args) {
+          if (args.length === 0) super(RealDate.now() + SHIFT_MS);
+          else super(...args);
+        }
+        static now() { return RealDate.now() + SHIFT_MS; }
+      }
+      window.Date = ShiftedDate;
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    })()`);
+    await evaljs(`window.state.khatmah = { active: true, method: 'pages', totalDays: null, pagesPerDay: 20, currentPage: 1, todayWirdStart: 1, todayWirdEnd: 20, lastPageRead: 10, lastActiveDate: '${today}' }; window.saveState()`);
+    await evaljs(`window.checkMissedDays()`);
+    st = await k();
+    ok('(h) crossed midnight reschedules the wird', st && st.todayWirdStart === 11 && st.currentPage === 11,
+      JSON.stringify(st && { s: st.todayWirdStart, cur: st.currentPage }));
+    ok('(h) stamps the shifted day key', st && st.lastActiveDate === shifted, `${st && st.lastActiveDate} vs shifted ${shifted}`);
+    // restore the real clock (window.Date.__proto__ IS RealDate on the subclass)
+    await evaljs(`window.Date = window.Date.__proto__; window.state.khatmah = null; window.saveState()`);
+
     // ─── (g) Tasbih count survives a reload ──────────────────
     console.log('\n(g) Tasbih persistence...');
     await evaljs(`localStorage.setItem('tasbihCount', '17'); localStorage.setItem('tasbihLap', '1')`);

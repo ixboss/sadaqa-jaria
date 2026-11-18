@@ -60,6 +60,39 @@ export function validateBackup(manifest, payload) {
   return errors.length === 0 ? { ok: true, counts } : { ok: false, errors };
 }
 
+// ---------------------------------------------------------------------------
+// integrity — manifest.integrity is REQUIRED and is now actually verified on
+// import (it was computed at export and never recomputed before 2026-11).
+// Contract: digest = sha-256 over the payload's exact serialized bytes.
+//   JS export/import hash `JSON.stringify(payload)` — parse→stringify is
+//   order-stable, so the file's payload bytes are reproduced exactly.
+//   Native mirrors (BackupCodec.kt / BackupCodec.swift) hash their canonical
+//   serializers' output — byte-identical to the web exporter for files any
+//   target produced (groups in priority order, entity keys recursively sorted).
+// ---------------------------------------------------------------------------
+
+/** sha-256 hex digest of a UTF-8 string (crypto.subtle — worker/window/node). */
+export async function sha256Hex(str) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * integrityMatches(manifest, payload) → boolean.
+ * Recomputes the digest over the payload's bytes and compares with
+ * manifest.integrity. A mismatch means the payload was corrupted or tampered
+ * with after export — callers must refuse the whole file BEFORE any write.
+ */
+export async function integrityMatches(manifest, payload) {
+  if (!manifest || typeof manifest.integrity !== 'string' || manifest.integrity.length !== 64) return false;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  try {
+    return manifest.integrity === (await sha256Hex(JSON.stringify(payload)));
+  } catch {
+    return false;
+  }
+}
+
 function validateEntityBody(group, e) {
   switch (`${group}/${e.type}`) {
     case 'reading/bookmark':

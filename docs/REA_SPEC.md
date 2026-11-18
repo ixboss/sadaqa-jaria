@@ -1,7 +1,7 @@
 # REA_SPEC.md — Sadaqa Jaria v2 · Full-Spectrum Reverse-Engineering Specification
 
 > Status: **Phase 1 deliverable** (v1.0, 2026-11-17) · Golden targets: **Ayah (آية)**, **Athkar (أذكار)**, **Ameen (أمين)**
-> Companion documents: [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) · [`packages/core-data/schema.sql`](../packages/core-data/schema.sql) · [`TASK_PLAN.md`](../TASK_PLAN.md)
+> Companion documents: [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) · [`packages/core-data/schema.sql`](../packages/core-data/schema.sql) · [`TASK_PLAN-v2.md`](archive/TASK_PLAN-v2.md) (archived)
 
 ---
 

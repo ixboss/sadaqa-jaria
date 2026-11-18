@@ -15,11 +15,28 @@ const StatsManager = {
           if (!p.athkarDays || typeof p.athkarDays !== 'object') p.athkarDays = {};
           if (!Array.isArray(p.khatmahHistory)) p.khatmahHistory = [];
           if (typeof p.completedKhatmahs !== 'number') p.completedKhatmahs = p.khatmahHistory.length;
-          return p;
+          return this.prune(p);
         }
       }
     } catch (e) {}
     return JSON.parse(JSON.stringify(this.DEFAULT));
+  },
+  // تقليم سجلات الأيام الأقدم من سنتين (2026-11 audit): days/athkarDays كانت
+  // تنمو بلا حدود وتُسلسل مع كل حفظ — ما بعد سنتين لا قيمة إحصائية له.
+  PRUNE_DAYS: 730,
+  prune(s) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - this.PRUNE_DAYS);
+    const cutKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+    for (const field of ['days', 'athkarDays']) {
+      if (s[field] && typeof s[field] === 'object') {
+        for (const k of Object.keys(s[field])) if (k < cutKey) delete s[field][k];
+      }
+    }
+    if (Array.isArray(s.khatmahHistory) && s.khatmahHistory.length > 500) {
+      s.khatmahHistory = s.khatmahHistory.slice(-500);
+    }
+    return s;
   },
   save(s) { try { localStorage.setItem(this.KEY, JSON.stringify(s)); } catch (e) {} },
   today() {

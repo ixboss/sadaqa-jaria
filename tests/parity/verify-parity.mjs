@@ -65,6 +65,17 @@ const { validateBackup } = await import(validatorUrl.href);
 const verdict = validateBackup(sample.manifest, sample.payload);
 check('sample-export validates', verdict.ok, verdict.errors?.join(' · '));
 
+// 3b. v1 classic bundle freshness — js/core-data.bundle.js is generated from
+// the same engines; a committed file that no longer matches a fresh compile
+// means an engine edit skipped regeneration (2026-11 unification gate).
+const bundlePath = join(ROOT, 'js', 'core-data.bundle.js');
+const { execFileSync } = await import('node:child_process');
+const committedBundle = readFileSync(bundlePath, 'utf8');
+execFileSync(process.execPath, [join(ROOT, 'scripts', 'tools', 'build-engines-bundle.mjs')], { stdio: 'pipe' });
+check('core-data.bundle.js is fresh (regenerated == committed)',
+    readFileSync(bundlePath, 'utf8') === committedBundle,
+    'run: node scripts/tools/build-engines-bundle.mjs');
+
 // 4. schema contract coverage
 const contract = JSON.parse(readFileSync(join(FIX, 'schema', 'tableinfo.json'), 'utf8'));
 const tableNames = Object.keys(contract.tables);

@@ -19,12 +19,6 @@ export async function renderSurahIndex(root) {
       <h1>المصحف الشريف</h1>
       <div class="sub">١١٤ سورة · ٣٠ جزءاً — انقر للانتقال الفوري</div>
     </div>
-    <div class="mushaf-subtabs">
-      <button class="stab" data-go="mushaf-page">القراءة</button>
-      <button class="stab on" data-go="mushaf-surah-index">الفهرس</button>
-      <button class="stab" data-go="mushaf-khatmah">الختمة</button>
-      <button class="stab" data-go="mushaf-audio">التلاوة</button>
-    </div>
     <div style="padding:8px 16px 2px">
       <input class="search-input" id="surah-filter" type="search" placeholder="ابحث باسم السورة أو رقمها…" autocomplete="off">
     </div>

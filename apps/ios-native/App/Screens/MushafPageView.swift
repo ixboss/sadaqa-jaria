@@ -40,6 +40,17 @@ struct MushafPageView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                switch hubTab {
+                case .reader:
+                    readerBody
+                case .reading:
+                    readingBody
+                case .index:
+                    indexBody
+                }
+
+                // Mushaf Hub segmented bar — bottom thumb zone (above the tab
+                // bar), hidden in full-screen reader mode where the HUD covers it
                 if hubTab != .reader {
                     Picker("وضع المصحف", selection: $hubTab) {
                         ForEach(MushafHubTab.allCases) { t in
@@ -49,15 +60,6 @@ struct MushafPageView: View {
                     .pickerStyle(.segmented)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                }
-
-                switch hubTab {
-                case .reader:
-                    readerBody
-                case .reading:
-                    readingBody
-                case .index:
-                    indexBody
                 }
             }
             .background(hubTab == .reader ? appState.theme.mushafBg : appState.theme.bg)

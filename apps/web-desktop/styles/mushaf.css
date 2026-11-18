@@ -340,19 +340,67 @@ body.chrome-hidden .mushaf-hud {
   .mushaf-hud { bottom: 20px; }
 }
 
-/* Mushaf Hub segmented sub-navigation */
-.mushaf-subtabs {
-  display: flex; gap: 6px; padding: 10px 16px 4px; flex-wrap: wrap;
+/* Mushaf Hub — floating thumb-zone dock above the main dock (surah index,
+   khatmah, audio screens of the Quran section; hidden on the reader itself) */
+.mushaf-hub-dock {
+  position: fixed;
+  inset-inline: 16px;
+  bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+  z-index: 39;
+  max-width: 380px;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  background: var(--glass-surface);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-rim);
+  box-shadow: inset 0 1px 0 var(--glass-specular), var(--glass-shadow);
+  border-radius: var(--radius-pill);
+  padding: 5px;
 }
-.mushaf-subtabs .stab {
-  appearance: none; border: 1px solid var(--color-border);
-  background: var(--color-surface); color: var(--color-text-secondary);
-  font-family: var(--font-ui); font-size: 13px; font-weight: 600;
-  padding: 7px 14px; border-radius: var(--radius-pill); cursor: pointer;
+.mushaf-hub-dock[hidden] { display: none; }
+.mushaf-hub-dock button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 42px;
+  padding: 6px 4px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+  transition: transform 140ms var(--ease-standard), background-color 180ms var(--ease-standard), color 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard);
 }
-.mushaf-subtabs .stab.on {
-  background: var(--color-accent); color: var(--color-accent-contrast); border-color: var(--color-accent);
+.mushaf-hub-dock button .hub-ico { display: grid; place-items: center; flex: none; }
+.mushaf-hub-dock button:active { transform: scale(0.95); }
+.mushaf-hub-dock button.on {
+  background: var(--glass-active-bg);
+  color: var(--glass-active-fg);
+  box-shadow: inset 0 0 0 1px var(--glass-active-border);
 }
+@media (min-width: 1024px) {
+  .mushaf-hub-dock { bottom: 84px; }
+}
+/* مشغّل التلاوة يحتلّ نفس النطاق — ارفع الشريط فوقه عند التشغيل */
+body:has(.miniplayer.visible) .mushaf-hub-dock {
+  bottom: calc(144px + env(safe-area-inset-bottom, 0px));
+}
+@media (hover: hover) and (pointer: fine) {
+  .mushaf-hub-dock button:not(.on):hover {
+    color: var(--color-text-primary);
+    background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  }
+}
+
 .juz-strip {
   display: flex; gap: 6px; overflow-x: auto; padding: 6px 16px 10px;
   scrollbar-width: none;

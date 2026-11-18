@@ -1,7 +1,7 @@
 {
-  "name": "صدقة جارية — إسلامي",
+  "name": "إسلامي — المصحف والأذكار والمواقيت",
   "short_name": "إسلامي",
-  "description": "مصحف أوفلاين كامل (604 صفحات بخط المدى)، أذكار، تلاوات، ختمة — صدقة جارية",
+  "description": "مصحف أوفلاين كامل (604 صفحات بخط المدى)، أذكار، تلاوات، ختمة — تطبيق إسلامي",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -11,8 +11,23 @@
   "lang": "ar",
   "dir": "rtl",
   "icons": [
-    { "src": "../../icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "../../icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "../../icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "../../icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../../icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../../icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
