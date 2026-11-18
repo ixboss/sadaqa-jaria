@@ -6,10 +6,10 @@
 
 package app.sadaqa.android
 
-import androidx.sqlite.BundledSQLiteDriver
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import app.sadaqa.android.backup.BackupCodec
 import app.sadaqa.android.backup.CanonicalJson
-import app.sdaqa.android.backup.JsonValue
+import app.sadaqa.android.backup.JsonValue
 import app.sadaqa.android.backup.JsonValue.Arr
 import app.sadaqa.android.backup.JsonValue.Bool
 import app.sadaqa.android.backup.JsonValue.Num
