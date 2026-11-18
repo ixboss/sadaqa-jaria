@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.outlined.Today
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
