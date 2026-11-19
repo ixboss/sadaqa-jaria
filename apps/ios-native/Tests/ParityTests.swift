@@ -588,9 +588,8 @@ final class DatabaseWritePathTests: XCTestCase {
         let manifest: JSONValue = .object([
             "format": .string("sadaqa-backup"),
             "formatVersion": .number(1),
-            "exportedAt": .string("2026-11-18T00:00:00Z"),
-            "appVersion": .string("2.3.0"),
-            "deviceId": .string("other"),
+            "createdAt": .number(Double(now)),
+            "deviceId": .string("other-device-0001"),
             "integrity": .string(integrity),
             "entities": .object(["reading": .number(0), "dhikr": .number(2), "prefs": .number(1), "meta": .number(0)]),
         ])
