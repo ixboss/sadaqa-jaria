@@ -275,17 +275,29 @@ public enum PrayerEngine {
         return DaySchedule(date: dateIso, prayers: times, previousIsha: prevTimes[.isha] ?? 0)
     }
 
+    /// Shift a civil "yyyy-MM-dd" date by deltaDays without DST 86400s drift.
+    public static func shiftCivilIso(_ dateIso: String, by deltaDays: Int) -> String {
+        let parts = dateIso.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return dateIso }
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        var comps = DateComponents()
+        comps.year = parts[0]; comps.month = parts[1]; comps.day = parts[2]; comps.hour = 12
+        guard let base = cal.date(from: comps),
+              let shifted = cal.date(byAdding: .day, value: deltaDays, to: base) else {
+            return dateIso
+        }
+        let c = cal.dateComponents([.year, .month, .day], from: shifted)
+        return String(format: "%04d-%02d-%02d", c.year ?? parts[0], c.month ?? parts[1], c.day ?? parts[2])
+    }
+
     /** next(nowEpochMs, opts) — scans yesterday/today/tomorrow in the city tz. */
     public static func next(_ nowMs: Int64, _ opts: EngineOptions) throws -> NextPrayer {
         let parts = try civilParts(nowMs, timeZone: opts.timeZone)
-        func iso(_ p: CivilParts) -> String {
-            String(format: "%04d-%02d-%02d", p.y, p.mo + 1, p.d)
-        }
-        let yP = try civilParts(nowMs - 86_400_000, timeZone: opts.timeZone)
-        let nP = try civilParts(nowMs + 86_400_000, timeZone: opts.timeZone)
-        let yesterday = try daySchedule(iso(yP), opts)
-        let today = try daySchedule(iso(parts), opts)
-        let tomorrow = try daySchedule(iso(nP), opts)
+        let todayIso = String(format: "%04d-%02d-%02d", parts.y, parts.mo + 1, parts.d)
+        let yesterday = try daySchedule(shiftCivilIso(todayIso, by: -1), opts)
+        let today = try daySchedule(todayIso, opts)
+        let tomorrow = try daySchedule(shiftCivilIso(todayIso, by: 1), opts)
 
         struct Flat { let name: PrayerName; let at: Int64 }
         let flat: [Flat] =

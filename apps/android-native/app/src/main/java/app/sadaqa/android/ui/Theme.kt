@@ -137,9 +137,6 @@ object QpcFonts {
         return family
     }
 
-    fun mushaf(context: Context, page: Int): FontFamily =
-        loadPagePair(context, page)?.first ?: uthmanic(context)
-
     fun verifiedMushaf(context: Context, page: Int, sample: String): FontFamily? {
         val pair = loadPagePair(context, page) ?: return null
         return if (coversText(pair.second, sample)) pair.first else null
@@ -155,10 +152,6 @@ object QpcFonts {
             val file = ensureExtracted(context, "fonts/UthmanicHafs1Ver18.ttf")
             if (file != null) android.graphics.Typeface.createFromFile(file) else android.graphics.Typeface.DEFAULT
         }.getOrDefault(android.graphics.Typeface.DEFAULT)
-
-    /** BSML basmala font — visual-ORDER glyphs, must render LTR-isolated. */
-    fun basmala(context: Context): FontFamily =
-        loadBasmalaPair(context)?.first ?: uthmanic(context)
 
     fun verifiedBasmala(context: Context, sample: String): FontFamily? {
         val pair = loadBasmalaPair(context) ?: return null

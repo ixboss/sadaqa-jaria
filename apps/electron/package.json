@@ -20,7 +20,7 @@
     "electron-builder": "^26.0.12"
   },
   "allowScripts": {
-    "better-sqlite3@12.11.1": true,
-    "electron@38.8.6": true
+    "better-sqlite3@13.2.0": true,
+    "electron@45.3.2": true
   }
 }

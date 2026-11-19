@@ -10,10 +10,11 @@ import GRDB
 
 struct ToolsView: View {
     @EnvironmentObject var appState: AppState
+    @State private var navPath = NavigationPath()
 
     var body: some View {
         let cols = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
-        NavigationStack {
+        NavigationStack(path: $navPath) {
             ScrollView {
                 LazyVGrid(columns: cols, spacing: 10) {
                     toolTile("القبلة", "بوصلة محددة القبلة", "safari") { QiblaView() }
@@ -28,7 +29,22 @@ struct ToolsView: View {
             }
             .background(appState.theme.bg)
             .navigationTitle("الأدوات")
+            .navigationDestination(for: String.self) { tool in
+                switch tool {
+                case "qiyam": QiyamView()
+                case "hijri": HijriCalendarView()
+                default: EmptyView()
+                }
+            }
+            .onAppear { openTargetToolIfNeeded() }
+            .onChange(of: appState.targetTool) { _ in openTargetToolIfNeeded() }
         }
+    }
+
+    private func openTargetToolIfNeeded() {
+        guard let tool = appState.targetTool else { return }
+        navPath = NavigationPath([tool])
+        appState.targetTool = nil
     }
 
     @ViewBuilder
@@ -310,11 +326,13 @@ struct HijriCalendarView: View {
     }
 
     init() {
-        _hijriMonth = State(initialValue: HijriEngine.withAdjust(Self.todayIso(), 0))
+        _hijriMonth = State(initialValue: HijriEngine.withAdjust(Self.todayIso(tz: "Asia/Riyadh"), 0))
     }
 
-    static func todayIso() -> String {
-        let c = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+    static func todayIso(tz: String) -> String {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: tz) ?? .current
+        let c = cal.dateComponents([.year, .month, .day], from: Date())
         return String(format: "%04d-%02d-%02d", c.year ?? 1970, c.month ?? 1, c.day ?? 1)
     }
 
@@ -366,7 +384,10 @@ struct HijriCalendarView: View {
         }
         .background(appState.theme.bg)
         .navigationTitle("التقويم الهجري")
-        .onAppear { rebuild() }
+        .onAppear {
+            hijriMonth = HijriEngine.withAdjust(Self.todayIso(tz: appState.engineOptions.timeZone), appState.hijriAdjust)
+            rebuild()
+        }
     }
 
     private func shift(_ dir: Int) {
@@ -385,19 +406,31 @@ struct HijriCalendarView: View {
         guard let first = try? HijriEngine.fromHijri(HijriDate(y: hijriMonth.y, m: hijriMonth.m, d: 1)) else { return }
         // weekday of day 1 (0=Sunday) — the web uses UTC dow of the gregorian iso
         let firstDow = HijriEngine.weekdayOf(first)
-        let todayIso = Self.todayIso()
+        let todayIso = Self.todayIso(tz: appState.engineOptions.timeZone)
         let adjust = appState.hijriAdjust
+        let todayHijri = HijriEngine.withAdjust(todayIso, adjust)
         var length = 29
         if (try? HijriEngine.fromHijri(HijriDate(y: hijriMonth.y, m: hijriMonth.m, d: 30))) != nil { length = 30 }
         for i in 0..<firstDow { cells.append(HijriCell(id: -i - 1, day: 0, gregorianIso: "", isToday: false, isWhiteDay: false)) }
         for d in 1...length {
             guard let g = try? HijriEngine.fromHijri(HijriDate(y: hijriMonth.y, m: hijriMonth.m, d: d)) else { continue }
-            let h = HijriEngine.withAdjust(g, -adjust) // compare in unadjusted space
-            let isToday = h == HijriEngine.withAdjust(todayIso, adjust)
+            let isToday = (hijriMonth.y == todayHijri.y && hijriMonth.m == todayHijri.m && d == todayHijri.d)
             cells.append(HijriCell(id: d, day: d, gregorianIso: g, isToday: isToday, isWhiteDay: d >= 13 && d <= 15))
         }
-        events = HijriEngine.events(Calendar.current.component(.year, from: Date()))
-            .filter { HijriEngine.withAdjust($0.gregorian, adjust).m == hijriMonth.m }
+        let lastIso = (try? HijriEngine.fromHijri(HijriDate(y: hijriMonth.y, m: hijriMonth.m, d: length))) ?? first
+        let startYear = Int(first.prefix(4)) ?? Calendar.current.component(.year, from: Date())
+        let endYear = Int(lastIso.prefix(4)) ?? startYear
+        var seen = Set<String>()
+        var allEvents: [HijriEngine.IslamicEvent] = []
+        for yr in min(startYear, endYear)...max(startYear, endYear) {
+            for ev in HijriEngine.events(yr) where seen.insert("\(ev.key)|\(ev.gregorian)").inserted {
+                allEvents.append(ev)
+            }
+        }
+        events = allEvents.filter {
+            let h = HijriEngine.withAdjust($0.gregorian, adjust)
+            return h.y == hijriMonth.y && h.m == hijriMonth.m
+        }
     }
 
     private func eventNameAr(_ key: String) -> String {
@@ -523,7 +556,7 @@ struct QiyamView: View {
         let now = Date.nowMs
         // tonight = the night whose fajr hasn't passed yet (web parity)
         let dateIso = TodayView.iso(now, tz: tz)
-        let yIso = TodayView.iso(now - 86_400_000, tz: tz)
+        let yIso = PrayerEngine.shiftCivilIso(dateIso, by: -1)
         let today = try? PrayerEngine.sunnahWindows(dateIso, appState.engineOptions)
         let yest = try? PrayerEngine.sunnahWindows(yIso, appState.engineOptions)
         let tonight = now < (yest?.nextFajr ?? 0) ? yest : today

@@ -1284,21 +1284,30 @@ function daySchedule(dateIso, opts) {
   };
 }
 
+/** Civil "YYYY-MM-DD" of an instant in a timezone. */
+function civilIso(instant, timeZone) {
+  const p = civilParts(instant, timeZone);
+  return `${p.y}-${String(p.mo + 1).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`;
+}
+
+/** Shift a civil "YYYY-MM-DD" date by deltaDays without DST 86400s drift. */
+function shiftCivilIso(dateIso, deltaDays) {
+  const [y, mo, d] = dateIso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, mo - 1, d + deltaDays));
+  const p = civilParts(dt, 'UTC');
+  return `${p.y}-${String(p.mo + 1).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`;
+}
+
 /**
  * next(nowEpochMs, opts) → { name, at, previous: { name, at } }
  * Scans yesterday/today/tomorrow in the city timezone; `now` may belong to the
  * city's next civil day (travel). Deterministic, no recomputation loops.
  */
 function next(nowEpochMs, opts) {
-  const parts = civilParts(nowEpochMs, opts.timeZone);
-  const iso = (y, mo, d) => `${y}-${String(mo + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-  const mk = (y, mo, d) => daySchedule(iso(y, mo, d), opts);
-  const yP = civilParts(nowEpochMs - 86_400_000, opts.timeZone);
-  const tP = parts;
-  const t = mk(tP.y, tP.mo, tP.d);
-  const y = mk(yP.y, yP.mo, yP.d);
-  const nP = civilParts(nowEpochMs + 86_400_000, opts.timeZone);
-  const n = mk(nP.y, nP.mo, nP.d);
+  const todayIso = civilIso(nowEpochMs, opts.timeZone);
+  const y = daySchedule(shiftCivilIso(todayIso, -1), opts);
+  const t = daySchedule(todayIso, opts);
+  const n = daySchedule(shiftCivilIso(todayIso, 1), opts);
 
   const flat = [];
   for (const sched of [y, t, n]) {
@@ -1369,6 +1378,20 @@ function bindPrayerEngine(opts) {
     next: (now) => next(now, opts),
   };
 }
+
+/** Bind a prayer engine from a persisted user_settings map (shared by web + Electron). */
+function bindPrayerEngineFromSettings(settings = {}) {
+  const loc = settings.location ?? { lat: 21.4225, lng: 39.8262, tz: 'Asia/Riyadh' };
+  return bindPrayerEngine({
+    lat: Number(loc.lat ?? 21.4225),
+    lng: Number(loc.lng ?? 39.8262),
+    timeZone: loc.timeZone || loc.tz || 'Asia/Riyadh',
+    method: settings.calc_method ?? 'umm_al_qura',
+    madhab: settings.madhab ?? 'shafi',
+    highLatitudeRule: settings.high_latitude_rule ?? 'middle_of_the_night',
+    offsets: settings.prayer_offsets ?? {},
+  });
+}
   exports["rawQibla"] = adhanQibla;
   exports["RawCoordinates"] = Coordinates;
   exports["RawParameters"] = CalculationParameters;
@@ -1381,10 +1404,13 @@ function bindPrayerEngine(opts) {
   exports["wallClockToInstant"] = wallClockToInstant;
   exports["computeForDate"] = computeForDate;
   exports["daySchedule"] = daySchedule;
+  exports["civilIso"] = civilIso;
+  exports["shiftCivilIso"] = shiftCivilIso;
   exports["next"] = next;
   exports["schedule"] = schedule;
   exports["sunnahWindows"] = sunnahWindows;
   exports["bindPrayerEngine"] = bindPrayerEngine;
+  exports["bindPrayerEngineFromSettings"] = bindPrayerEngineFromSettings;
 });
 
 __define("packages/core-data/engines/qibla.js", [], function (exports, __deps) {

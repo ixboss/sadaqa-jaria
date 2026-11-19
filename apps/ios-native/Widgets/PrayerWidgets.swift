@@ -95,7 +95,7 @@ struct PrayerProvider: TimelineProvider {
         if let state {
             let opts = state.options()
             let todayIso = isoToday(now, tz: opts.timeZone)
-            let tomorrowIso = isoToday(now + 86_400_000, tz: opts.timeZone)
+            let tomorrowIso = PrayerEngine.shiftCivilIso(todayIso, by: 1)
             var upcoming: [(name: PrayerName, at: Int64)] = []
             for dayIso in [todayIso, tomorrowIso] {
                 if let sched = try? PrayerEngine.daySchedule(dayIso, opts) {
@@ -107,11 +107,13 @@ struct PrayerProvider: TimelineProvider {
                 }
             }
             upcoming.sort { $0.at < $1.at }
+            var windowStart = now
             for p in upcoming {
-                entries.append(PrayerEntry(date: Date(ms: max(p.at - 1, now)),
+                entries.append(PrayerEntry(date: Date(ms: windowStart),
                                            state: state,
                                            next: NextPrayer(name: p.name, at: p.at, previousName: nil, previousAt: nil),
                                            dhikr: state.dailyDhikr ?? ""))
+                windowStart = max(windowStart, p.at)
             }
         }
         if entries.isEmpty {
@@ -153,7 +155,7 @@ struct PrayerCountdownWidgetView: View {
                     .font(.system(size: 22, weight: .bold))
                 Text(clock(n.at, tz: entry.state?.location.timeZone ?? "UTC"))
                     .font(.system(size: 15)).monospacedDigit()
-                Text(Self.hms(n.at - Int64(entry.date.timeIntervalSince1970 * 1000)))
+                Text(Date(ms: n.at), style: .timer)
                     .font(.system(size: 13)).monospacedDigit().foregroundStyle(.secondary)
             } else {
                 Text("افتح التطبيق لضبط الموقع").font(.system(size: 13))
@@ -174,11 +176,6 @@ struct PrayerCountdownWidgetView: View {
                     .font(.system(size: 13)).monospacedDigit()
             }
         }
-    }
-
-    static func hms(_ msLeft: Int64) -> String {
-        let s = max(0, Int(msLeft / 1000))
-        return String(format: "%02d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
     }
 }
 

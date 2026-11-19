@@ -37,20 +37,26 @@ import app.sadaqa.android.engine.PrayerName
 object WidgetData {
     private fun prefs(context: Context) = context.getSharedPreferences("widget-state", Context.MODE_PRIVATE)
 
-    private fun readState(context: Context): Triple<Double, Double, String>? {
-        val loc = prefs(context).getString("location", null) ?: return null
+    internal fun parseLocation(loc: String): EngineOptions? {
         val parts = loc.split(";")
         if (parts.size < 3) return null
-        return Triple(parts[0].toDoubleOrNull() ?: return null, parts[1].toDoubleOrNull() ?: return null, parts[2])
+        val lat = parts[0].replace(',', '.').toDoubleOrNull() ?: return null
+        val lng = parts[1].replace(',', '.').toDoubleOrNull() ?: return null
+        val tz = parts[2].ifBlank { return null }
+        val method = parts.getOrNull(3)?.takeIf { it.isNotBlank() } ?: "umm_al_qura"
+        val madhab = parts.getOrNull(4)?.takeIf { it.isNotBlank() } ?: "shafi"
+        val hlr = parts.getOrNull(5)?.takeIf { it.isNotBlank() } ?: "middle_of_the_night"
+        return EngineOptions(lat = lat, lng = lng, timeZone = tz, method = method, madhab = madhab, highLatitudeRule = hlr)
     }
 
     fun nextPrayer(context: Context): Triple<PrayerName, Long, String>? {
-        val (lat, lng, tz) = readState(context) ?: return null
+        val loc = prefs(context).getString("location", null) ?: return null
+        val opts = parseLocation(loc) ?: return null
         val now = System.currentTimeMillis()
         val next = runCatching {
-            PrayerEngine.next(now, EngineOptions(lat, lng, tz))
+            PrayerEngine.next(now, opts)
         }.getOrNull() ?: return null
-        return Triple(next.name, next.at, tz)
+        return Triple(next.name, next.at, opts.timeZone)
     }
 
     /** App-published daily dhikr pick (empty until the app first publishes). */
@@ -91,7 +97,8 @@ object PrayerCountdownWidget : GlanceAppWidget() {
                         next.first.labelAr,
                         style = TextStyle(color = ColorProvider(Color(0xFFE5C158)), fontSize = 20.sp),
                     )
-                    val zdt = java.time.Instant.ofEpochMilli(next.second).atZone(java.time.ZoneId.of(next.third))
+                    val zone = runCatching { java.time.ZoneId.of(next.third) }.getOrElse { java.time.ZoneId.of("Asia/Riyadh") }
+                    val zdt = java.time.Instant.ofEpochMilli(next.second).atZone(zone)
                     Text(
                         "%02d:%02d".format(zdt.hour, zdt.minute),
                         style = TextStyle(color = ColorProvider(Color.White), fontSize = 15.sp),

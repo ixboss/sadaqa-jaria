@@ -821,10 +821,12 @@ public final class SadaqaDatabase: @unchecked Sendable {
             try db.execute(sql: "INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)",
                            arguments: [e["kind"]?.stringValue ?? "", e["dayKey"]?.stringValue ?? "", e["updatedAt"]?.int64Value ?? 0])
         case "setting":
+            let key = e["key"]?.stringValue ?? ""
+            if key == "device_id" { return }
             try db.execute(sql: """
                 INSERT INTO user_settings (key, value, updated_at) VALUES (?, ?, ?)
                 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-                """, arguments: [e["key"]?.stringValue ?? "", CanonicalJSON.serialize(e["value"] ?? .null), e["updatedAt"]?.int64Value ?? 0])
+                """, arguments: [key, CanonicalJSON.serialize(e["value"] ?? .null), e["updatedAt"]?.int64Value ?? 0])
         default:
             throw BackupCodecError.refused("unsupported entity type: \(type)")
         }

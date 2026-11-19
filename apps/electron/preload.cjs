@@ -35,7 +35,7 @@ contextBridge.exposeInMainWorld('sadaqaBridge', {
       query: (sql, params = []) => invoke('db:query', { sql, params }),
       queryOne: (sql, params = []) => invoke('db:queryOne', { sql, params }),
       write: (sql, params = [], opts = {}) => invoke('db:write', { sql, params, engineReload: opts?.engineReload === true }),
-      batch: (stmts) => invoke('db:batch', { stmts }),
+      batch: (stmts, opts = {}) => invoke('db:batch', { stmts, engineReload: opts?.engineReload === true }),
     };
   },
 

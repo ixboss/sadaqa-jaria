@@ -140,6 +140,8 @@ final class AppState: ObservableObject {
     @Published var tab: RootTab = .today
     @Published var searchPresented = false
     @Published var targetMushafPage: Int?
+    @Published var targetAthkarWindow: String?
+    @Published var targetTool: String?
     @Published var fontScale: Double = 1.3
     @Published var mushafScale: Double = 1.0
     @Published var hijriAdjust: Int = 0
@@ -156,15 +158,20 @@ final class AppState: ObservableObject {
     @Published var currentThemeKey: String = "dark"
 
     func bootstrap() async {
-        if let t = db.setting("theme")?.stringValue { currentThemeKey = t }
+        reloadFromDatabase()
+        FontRegistry.registerBasmala()
+        autoDetectCityIfNeeded()
+    }
+
+    /// Refresh in-memory AppState + widgets + Adhan schedule from SQLite without bumping updated_at.
+    func reloadFromDatabase() {
+        currentThemeKey = db.setting("theme")?.stringValue ?? "dark"
         fontScale = db.setting("font_scale")?.doubleValue ?? 1.3
         mushafScale = db.setting("mushaf_scale")?.doubleValue ?? 1.0
         hijriAdjust = db.hijriAdjust()
         engineOptions = db.engineOptions()
         WidgetStateBridge.publishWidgetState(db: db)
         AdhanScheduler.shared.reschedule(db: db)
-        FontRegistry.registerBasmala()
-        autoDetectCityIfNeeded()
     }
 
     /// Launch auto-city: only when location permission is ALREADY granted and

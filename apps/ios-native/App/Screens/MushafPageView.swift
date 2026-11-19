@@ -38,7 +38,7 @@ struct MushafPageView: View {
     @State private var showAudioSheet = false
     @State private var activeRecitation: (surah: Int, ayah: Int)?
     @StateObject private var pageCache = MushafPageCache()
-    private let player = AudioPlayerChain()
+    @StateObject private var player = AudioPlayerChain()
 
     var body: some View {
         NavigationStack {
@@ -78,6 +78,10 @@ struct MushafPageView: View {
                 sliderPage = Double(page)
                 reloadPage()
                 loadHubData()
+            }
+            .onDisappear {
+                player.stop()
+                activeRecitation = nil
             }
             .onChange(of: appState.targetMushafPage) { target in
                 if let target, (1...604).contains(target) {

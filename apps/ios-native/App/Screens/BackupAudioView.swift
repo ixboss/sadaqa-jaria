@@ -15,6 +15,7 @@ struct BackupView: View {
     @State private var importMode: String = "merge"
     @State private var importReport: String?
     @State private var showImporter = false
+    @State private var confirmReplace = false
     @State private var lastError: String?
 
     var body: some View {
@@ -58,12 +59,26 @@ struct BackupView: View {
                     .foregroundStyle(appState.theme.textSecondary)
 
                 Button {
-                    showImporter = true
+                    if importMode == "replace" {
+                        confirmReplace = true
+                    } else {
+                        showImporter = true
+                    }
                 } label: {
                     Label("استيراد ملف .sadaqa", systemImage: "square.and.arrow.down")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
+                .confirmationDialog(
+                    "تأكيد الاستبدال الكامل",
+                    isPresented: $confirmReplace,
+                    titleVisibility: .visible
+                ) {
+                    Button("استبدال", role: .destructive) { showImporter = true }
+                    Button("إلغاء", role: .cancel) {}
+                } message: {
+                    Text("سيتم مسح جميع بيانات القراءة والأذكار والتسبيح والإعدادات المحلية واستبدالها بمحتوى الملف.")
+                }
 
                 if let report = importReport { Text(report).font(.system(size: 13)) }
                 if let err = lastError { Text(err).font(.system(size: 13)).foregroundStyle(.red) }
@@ -115,9 +130,10 @@ struct BackupView: View {
             guard let url = BackupIO.writeTempSadaqa(payloadJson: payloadJson, manifest: manifest, now: now) else {
                 lastError = "تعذّر تجهيز الملف"; return
             }
+            let countsJson = CanonicalJSON.serialize(manifest["entities"] ?? .object([:]))
             try appState.db.queue.write { db in
                 try db.execute(sql: "INSERT INTO backup_log (direction, mode, format_version, counts_json, created_at) VALUES ('export', NULL, 1, ?, ?)",
-                               arguments: ["{}", now])
+                               arguments: [countsJson, now])
             }
             shareURL = url
             showShare = true
@@ -134,12 +150,16 @@ struct BackupView: View {
             do {
                 let secured = url.startAccessingSecurityScopedResource()
                 defer { if secured { url.stopAccessingSecurityScopedResource() } }
+                let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+                if let size = (attrs?[.size] as? NSNumber)?.int64Value, size > 16 * 1024 * 1024 {
+                    throw BackupCodecError.refused("حجم ملف النسخة يتجاوز الحد المسموح (16 ميجابايت)")
+                }
                 let text = try String(contentsOf: url, encoding: .utf8)
                 let report = try appState.db.importBackup(text: text, mode: importMode)
                 importReport = "تم الاستيراد: أُضيف \(report.added)، حُدِّث \(report.updated)، تعارض \(report.conflicts)، تخطي \(report.skipped)"
                 lastError = nil
+                appState.reloadFromDatabase()
                 refreshCounts()
-                AdhanScheduler.shared.reschedule(db: appState.db)
             } catch {
                 lastError = String(describing: error)
             }
@@ -166,12 +186,6 @@ extension UTType {
 // into the AudioStore. Player chains ayahs with next-ayah preload.
 // ---------------------------------------------------------------------------
 
-struct AudioReciter: Identifiable {
-    let id: String
-    let nameAr: String
-    let style: String
-}
-
 struct AudioCatalog: Codable {
     struct Entry: Codable, Identifiable {
         let id: String
@@ -179,6 +193,14 @@ struct AudioCatalog: Codable {
         let nameEn: String
         let style: String
         let audioUrlTemplate: String
+
+        enum CodingKeys: String, CodingKey {
+            case id = "reciter_id"
+            case nameAr = "name_ar"
+            case nameEn = "name_en"
+            case style
+            case audioUrlTemplate = "audio_url_template"
+        }
     }
     let formatVersion: Int
     let reciters: [Entry]
@@ -189,8 +211,9 @@ struct AudioView: View {
     @State private var catalog: AudioCatalog?
     @State private var playing: (surah: Int, ayah: Int, reciter: String)?
     @State private var progress: [String: Double] = [:]
+    @State private var activeDownloads: Set<String> = []
     @State private var surahPick = 1
-    private let player = AudioPlayerChain()
+    @StateObject private var player = AudioPlayerChain()
 
     var body: some View {
         ScrollView {
@@ -221,6 +244,10 @@ struct AudioView: View {
         .background(appState.theme.bg)
         .navigationTitle("التلاوة")
         .onAppear { loadCatalog() }
+        .onDisappear {
+            player.stop()
+            playing = nil
+        }
     }
 
     private func reciterRow(_ r: AudioCatalog.Entry) -> some View {
@@ -277,7 +304,11 @@ struct AudioView: View {
 
     /// Per-surah pack download into the AudioStore (EveryAyah `{SSS}{AAA}.mp3`).
     private func download(surah: Int, reciter: AudioCatalog.Entry) {
+        let dlKey = "\(reciter.id):\(surah)"
+        guard !activeDownloads.contains(dlKey) else { return }
+        activeDownloads.insert(dlKey)
         Task {
+            defer { activeDownloads.remove(dlKey) }
             let ayahCount = (try? await appState.db.queue.read { db in
                 try Int.fetchOne(db, sql: "SELECT ayah_count FROM surahs WHERE number = ?", arguments: [surah])
             }) ?? 0
@@ -303,10 +334,11 @@ struct AudioView: View {
 }
 
 /// AVAudioPlayer chain with next-ayah preload slot.
-final class AudioPlayerChain: NSObject, AVAudioPlayerDelegate {
+final class AudioPlayerChain: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private var current: AVAudioPlayer?
 
     func play(url: URL, onEnd: @escaping () -> Void) {
+        stop()
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
             try AVAudioSession.sharedInstance().setActive(true)
@@ -319,10 +351,16 @@ final class AudioPlayerChain: NSObject, AVAudioPlayerDelegate {
         } catch { onFinish = nil }
     }
 
-    func stop() { current?.stop(); current = nil }
+    func stop() {
+        onFinish = nil
+        current?.stop()
+        current = nil
+    }
 
     private var onFinish: (() -> Void)?
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        onFinish?()
+        let cb = onFinish
+        onFinish = nil
+        if flag { cb?() }
     }
 }

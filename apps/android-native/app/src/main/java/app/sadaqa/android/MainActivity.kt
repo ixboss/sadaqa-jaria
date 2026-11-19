@@ -36,9 +36,11 @@ import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.outlined.Today
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -77,10 +79,43 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val app = application as SadaqaApp
         setContent {
+            val dbState by app.dbState.collectAsState()
             val themeKey by app.themeKey.collectAsState()
             val fontScale by app.fontScale.collectAsState()
             MaterialTheme(colorScheme = SadaqaTheme.colorScheme(themeKey)) {
-                CompositionLocalRoot(db = app.db, themeKey = themeKey, fontScale = fontScale)
+                val colors = SadaqaTheme.colors(themeKey)
+                when (val state = dbState) {
+                    SadaqaApp.DbState.Loading -> Box(
+                        Modifier.fillMaxSize().background(colors.bg).safeDrawingPadding(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            CircularProgressIndicator(color = colors.accent)
+                            Text("جارٍ تهيئة المصحف والبيانات…", color = colors.textSecondary, fontSize = 14.sp)
+                        }
+                    }
+                    is SadaqaApp.DbState.Failed -> Box(
+                        Modifier.fillMaxSize().background(colors.bg).safeDrawingPadding().padding(24.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text("تعذر فتح قاعدة البيانات", color = Color(0xFFE5636F), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                "قاعدة البيانات من إصدار أحدث أو غير متوافقة مع هذه النسخة. يرجى تحديث التطبيق.\n(${state.message})",
+                                color = colors.textSecondary,
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                    is SadaqaApp.DbState.Ready -> CompositionLocalRoot(db = state.db, themeKey = themeKey, fontScale = fontScale)
+                }
             }
         }
     }

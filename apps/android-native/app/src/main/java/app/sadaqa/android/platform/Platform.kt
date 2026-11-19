@@ -26,12 +26,17 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import androidx.core.app.NotificationCompat
 import app.sadaqa.android.R
+import app.sadaqa.android.SadaqaApp
 import app.sadaqa.android.data.SadaqaDb
 import app.sadaqa.android.engine.PrayerName
 import app.sadaqa.android.engine.PrayerEngine
 import app.sadaqa.android.engine.PrayerEngine.daySchedule
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 // ---------------------------------------------------------------------------
 // Haptics — token patterns (ms arrays) → VibrationEffect timings.
@@ -69,8 +74,8 @@ object AdhanScheduler {
     fun scheduleNext(context: Context, db: SadaqaDb) {
         val opts = db.engineOptions()
         val now = System.currentTimeMillis()
-        val iso = isoOf(now, opts.timeZone)
-        val sched = runCatching { daySchedule(iso, opts) }.getOrNull() ?: return
+        val todayIso = isoOf(now, opts.timeZone)
+        val tomorrowIso = PrayerEngine.shiftCivilIso(todayIso, 1)
         val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
 
         // notifications permission (API 33+) — requested by the UI at first run
@@ -79,19 +84,25 @@ object AdhanScheduler {
             NotificationChannel(CHANNEL_ID, context.getString(R.string.adhan_channel), NotificationManager.IMPORTANCE_HIGH),
         )
 
-        val upcoming = PrayerName.entries
-            .map { it to (sched.prayers[it] ?: 0L) }
-            .filter { it.second > now }
-            .sortedBy { it.second }
-        for ((name, at) in upcoming) {
+        cancelAll(context)
+        val upcoming = listOf(todayIso, tomorrowIso).withIndex().flatMap { (dayOffset, iso) ->
+            val sched = runCatching { daySchedule(iso, opts) }.getOrNull() ?: return@flatMap emptyList()
+            PrayerName.entries
+                .filter { it != PrayerName.SUNRISE }
+                .mapNotNull { name ->
+                    val at = sched.prayers[name] ?: return@mapNotNull null
+                    if (at > now) Triple(dayOffset, name, at) else null
+                }
+        }.sortedBy { it.third }
+
+        val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || am.canScheduleExactAlarms()
+        for ((dayOffset, name, at) in upcoming) {
             val pi = PendingIntent.getBroadcast(
                 context,
-                REQUEST_BASE + name.ordinal,
+                REQUEST_BASE + dayOffset * 16 + name.ordinal,
                 Intent(context, AdhanReceiver::class.java).putExtra("prayer", name.key),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            // exact alarm when the platform grants it; inexact fallback otherwise
-            val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || am.canScheduleExactAlarms()
             if (exact) {
                 am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
             } else {
@@ -100,20 +111,45 @@ object AdhanScheduler {
         }
     }
 
-    fun isoOf(ms: Long, tz: String): String =
-        DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(java.time.ZoneId.of(tz))
+    fun isoOf(ms: Long, tz: String): String {
+        val zone = runCatching { java.time.ZoneId.of(tz) }.getOrElse { java.time.ZoneId.of("Asia/Riyadh") }
+        return DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(zone)
             .format(java.time.Instant.ofEpochMilli(ms))
+    }
 
     fun cancelAll(context: Context) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        for (name in PrayerName.entries) {
-            val pi = PendingIntent.getBroadcast(
-                context,
-                REQUEST_BASE + name.ordinal,
-                Intent(context, AdhanReceiver::class.java),
-                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
-            )
-            if (pi != null) am.cancel(pi)
+        for (dayOffset in 0..1) {
+            for (name in PrayerName.entries) {
+                val pi = PendingIntent.getBroadcast(
+                    context,
+                    REQUEST_BASE + dayOffset * 16 + name.ordinal,
+                    Intent(context, AdhanReceiver::class.java),
+                    PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+                )
+                if (pi != null) am.cancel(pi)
+            }
+        }
+    }
+}
+
+class BootTimeReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent?) {
+        val action = intent?.action ?: return
+        if (action != Intent.ACTION_BOOT_COMPLETED &&
+            action != Intent.ACTION_TIME_CHANGED &&
+            action != Intent.ACTION_TIMEZONE_CHANGED
+        ) return
+        val app = context.applicationContext as? SadaqaApp ?: return
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val db = app.awaitDbOrNull() ?: return@launch
+                AdhanScheduler.scheduleNext(context, db)
+                WidgetStateBridge.publish(context, db)
+            } finally {
+                pending.finish()
+            }
         }
     }
 }
@@ -132,25 +168,40 @@ class AdhanService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val prayer = intent?.getStringExtra("prayer") ?: "fajr"
-        startForeground(NOTIF_ID, buildNotification(prayer))
-        playAdhan()
+        startForeground(NOTIF_ID, buildNotification(prayer, ongoing = true))
+        playAdhan(prayer)
         return START_NOT_STICKY
     }
 
-    private fun buildNotification(prayer: String): Notification {
+    private fun buildNotification(prayer: String, ongoing: Boolean): Notification {
         val label = PrayerName.of(prayer)?.labelAr ?: prayer
-        return NotificationCompat.Builder(this, AdhanScheduler.CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, AdhanScheduler.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("الأذان — $label")
             .setContentText("حان الآن وقت صلاة $label")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setOngoing(true)
-            .build()
+            .setOngoing(ongoing)
+            .setAutoCancel(!ongoing)
+        if (!ongoing) builder.setDefaults(NotificationCompat.DEFAULT_SOUND)
+        return builder.build()
     }
 
-    private fun playAdhan() {
-        val uri = bundledAdhanUri() ?: return
+    private fun playAdhan(prayer: String) {
+        val uri = bundledAdhanUri()
+        if (uri == null) {
+            // No bundled audio clip — detach FGS, post a dismissible notification with default sound, and exit.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_DETACH)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(false)
+            }
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            nm?.notify(NOTIF_ID, buildNotification(prayer, ongoing = false))
+            stopSelf()
+            return
+        }
         player = MediaPlayer().apply {
             setAudioAttributes(
                 AudioAttributes.Builder()
@@ -159,9 +210,8 @@ class AdhanService : Service() {
                     .build(),
             )
             setDataSource(this@AdhanService, uri)
-            setOnCompletionListener {
-                stopSelf()
-            }
+            setOnCompletionListener { stopSelf() }
+            setOnErrorListener { _, _, _ -> stopSelf(); true }
             runCatching { prepare(); start() }.onFailure { stopSelf() }
         }
     }
@@ -210,11 +260,6 @@ object AudioStore {
         }
         return starter.takeIf { it.exists() }
     }
-
-    fun store(context: Context, data: ByteArray, reciter: String, surah: Int, ayah: Int) {
-        val dir = File(baseDir(context), reciter).apply { mkdirs() }
-        File(dir, "%03d%03d.mp3".format(surah, ayah)).writeBytes(data)
-    }
 }
 
 /** MediaPlayer chain with next-ayah callback (web player parity). */
@@ -233,16 +278,17 @@ class PlayerChain {
                     .build(),
             )
             setDataSource(file.absolutePath)
-            setOnCompletionListener { onEnd() }
+            setOnCompletionListener { this@PlayerChain.onEnd?.invoke() }
+            setOnErrorListener { _, _, _ -> stop(); true }
             prepareAsync()
             setOnPreparedListener { it.start() }
         }
     }
 
     fun stop() {
+        this.onEnd = null
         player?.run { runCatching { stop(); release() } }
         player = null
-        this.onEnd = null
     }
 }
 
@@ -268,7 +314,7 @@ object WidgetStateBridge {
             )?.strings?.get("text_ar")
         }.getOrNull() ?: ""
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString("location", "%f;%f;%s;%s;%s;%s".format(opts.lat, opts.lng, opts.timeZone, opts.method, opts.madhab, opts.highLatitudeRule))
+            .putString("location", "%f;%f;%s;%s;%s;%s".format(Locale.US, opts.lat, opts.lng, opts.timeZone, opts.method, opts.madhab, opts.highLatitudeRule))
             .putString("next", next?.let { "${it.name.key};${it.at}" })
             .putString("dhikr", dhikr)
             .putLong("publishedAt", now)

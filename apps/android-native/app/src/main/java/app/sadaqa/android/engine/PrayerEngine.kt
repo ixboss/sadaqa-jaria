@@ -186,16 +186,18 @@ object PrayerEngine {
         return DaySchedule(dateIso, times, prevTimes.getValue(PrayerName.ISHA))
     }
 
+    /** Shift a civil "yyyy-MM-dd" date by deltaDays without DST 86400s drift. */
+    fun shiftCivilIso(dateIso: String, deltaDays: Long): String =
+        java.time.LocalDate.parse(dateIso).plusDays(deltaDays).toString()
+
     /** next(nowEpochMs) — scans yesterday/today/tomorrow in the city tz. */
     fun next(nowMs: Long, opts: EngineOptions): NextPrayer {
-        fun isoOf(ms: Long): String {
-            val fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
-                .withZone(java.time.ZoneId.of(opts.timeZone))
-            return fmt.format(java.time.Instant.ofEpochMilli(ms))
-        }
-        val yesterday = daySchedule(isoOf(nowMs - 86_400_000), opts)
-        val today = daySchedule(isoOf(nowMs), opts)
-        val tomorrow = daySchedule(isoOf(nowMs + 86_400_000), opts)
+        val fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
+            .withZone(java.time.ZoneId.of(opts.timeZone))
+        val todayIso = fmt.format(java.time.Instant.ofEpochMilli(nowMs))
+        val yesterday = daySchedule(shiftCivilIso(todayIso, -1), opts)
+        val today = daySchedule(todayIso, opts)
+        val tomorrow = daySchedule(shiftCivilIso(todayIso, 1), opts)
 
         data class Flat(val name: PrayerName, val at: Long)
         val flat = PrayerName.entries.map { Flat(it, yesterday.prayers.getValue(it)) } +

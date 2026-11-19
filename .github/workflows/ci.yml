@@ -45,6 +45,23 @@ jobs:
           npm run test:core
           npm run parity:verify
 
+      - name: Build v2 offline assets & Electron deps
+        run: |
+          npm ci --no-audit --no-fund
+          npm run seeds:fetch
+          npm run db:build
+          npm run fonts:fetch
+          npm run audio:fetch
+          npm --prefix apps/electron ci --no-audit --no-fund
+
+      - name: Run v2 browser E2E & Electron smoke probe
+        env:
+          E2E_BROWSER: ${{ env.E2E_BROWSER }}
+        run: |
+          npm run test:v2
+          npm run test:v2:p4
+          xvfb-run -a npm run test:electron
+
   build-android:
     name: Build Android APK
     needs: test

@@ -14,11 +14,6 @@ import java.time.format.DateTimeFormatter
 enum class SmartCardKind(val key: String) {
     KAHF("kahf"), AFTER_PRAYER("after_prayer"), QIYAM("qiyam"),
     MORNING("morning"), EVENING("evening"), NEXT_PRAYER("next_prayer");
-
-    val arabic: String
-        get() = when (this) {
-            KAHF -> "kahf"; else -> key
-        }
 }
 
 data class SmartCard(
@@ -43,7 +38,7 @@ object SmartCardResolver {
         val dateIso = isoFmt.withZone(tz).format(instant)
         val sched = engine.daySchedule(dateIso)
         val wsToday = engine.sunnahWindows(dateIso)
-        val yIso = isoFmt.withZone(tz).format(Instant.ofEpochMilli(now - 86_400_000))
+        val yIso = PrayerEngine.shiftCivilIso(dateIso, -1)
         val wsNight = engine.sunnahWindows(yIso) // the night in progress (maghrib → fajr)
         val dow = DateTimeFormatter.ofPattern("EEE", java.util.Locale.US).withZone(tz).format(instant)
 

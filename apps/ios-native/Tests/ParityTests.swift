@@ -529,4 +529,82 @@ final class DatabaseWritePathTests: XCTestCase {
             XCTAssertEqual(card.actionScreen, "tools-hijri")
         }
     }
+
+    func testAudioCatalogDecodesSnakeCaseKeys() throws {
+        let json = """
+        {
+          "formatVersion": 1,
+          "reciters": [
+            {
+              "folder": "Alafasy_128kbps",
+              "reciter_id": "alafasy",
+              "name_ar": "مشاري راشد العفاسي",
+              "name_en": "Mishary Rashid Alafasy",
+              "style": "murattal",
+              "bitrate_kbps": 128,
+              "word_segments_available": 0,
+              "audio_url_template": "https://everyayah.com/data/Alafasy_128kbps/{SSSAAA}.mp3"
+            }
+          ]
+        }
+        """
+        let cat = try JSONDecoder().decode(AudioCatalog.self, from: Data(json.utf8))
+        XCTAssertEqual(cat.formatVersion, 1)
+        XCTAssertEqual(cat.reciters.count, 1)
+        XCTAssertEqual(cat.reciters[0].id, "alafasy")
+        XCTAssertEqual(cat.reciters[0].nameAr, "مشاري راشد العفاسي")
+        XCTAssertEqual(cat.reciters[0].audioUrlTemplate, "https://everyayah.com/data/Alafasy_128kbps/{SSSAAA}.mp3")
+    }
+
+    func testImportPreservesDeviceIdAndOrdersTasbihSessionAfterCounter() throws {
+        let db = try makeDb()
+        let localDeviceId = try db.deviceId()
+        let now: Int64 = 1_764_300_000_000
+        let counterUuid = "01933c9e-1111-7000-8000-000000000001"
+        let sessionUuid = "01933c9e-2222-7000-8000-000000000002"
+        let settingUuid = "01933c9e-3333-7000-8000-000000000003"
+        let payload: JSONValue = .object([
+            "reading": .array([]),
+            "dhikr": .array([
+                .object([
+                    "uuid": .string(sessionUuid), "type": .string("tasbihSession"), "updatedAt": .number(Double(now)),
+                    "counterUuid": .string(counterUuid), "countDelta": .number(3), "occurredAt": .number(Double(now)),
+                ]),
+                .object([
+                    "uuid": .string(counterUuid), "type": .string("tasbihCounter"), "updatedAt": .number(Double(now)),
+                    "deleted": .bool(false), "labelAr": .string("سبحان الله"), "dhikrText": .string("سبحان الله"),
+                    "target": .number(33), "count": .number(3), "totalLifetime": .number(3), "sortOrder": .number(0),
+                ]),
+            ]),
+            "prefs": .array([
+                .object([
+                    "uuid": .string(settingUuid), "type": .string("setting"), "updatedAt": .number(Double(now + 10_000)),
+                    "key": .string("device_id"), "value": .string("attacker-device-id"),
+                ]),
+            ]),
+            "meta": .array([]),
+        ])
+        let integrity = sha256Hex(CanonicalJSON.serialize(payload))
+        let manifest: JSONValue = .object([
+            "format": .string("sadaqa-backup"),
+            "formatVersion": .number(1),
+            "exportedAt": .string("2026-11-18T00:00:00Z"),
+            "appVersion": .string("2.3.0"),
+            "deviceId": .string("other"),
+            "integrity": .string(integrity),
+            "entities": .object(["reading": .number(0), "dhikr": .number(2), "prefs": .number(1), "meta": .number(0)]),
+        ])
+        let text = CanonicalJSON.serialize(.object(["manifest": manifest, "payload": payload]))
+        _ = try db.importBackup(text: text, mode: "merge")
+        XCTAssertEqual(try db.deviceId(), localDeviceId)
+        try db.queue.read { q in
+            XCTAssertEqual(try Int.fetchOne(q, sql: "SELECT COUNT(*) FROM tasbih_sessions WHERE uuid = ?", arguments: [sessionUuid]), 1)
+        }
+    }
+
+    func testHijriIsTodayAdjustmentMatchesEngine() {
+        let adjusted = HijriEngine.withAdjust("2026-11-18", 1)
+        let unadjusted = HijriEngine.withAdjust("2026-11-18", 0)
+        XCTAssertNotEqual(adjusted, unadjusted)
+    }
 }

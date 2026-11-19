@@ -34,7 +34,7 @@ export async function runV1Migration(db) {
   const target = num(localStorage.getItem('tasbih_target'));
   if (tasbihCount !== null || phrase) {
     const count = Math.max(0, tasbihCount ?? 0);
-    const uuid = 'v1-' + (uuid7());
+    const uuid = uuid7();
     await db.write(
       `INSERT INTO tasbih_counters (uuid, label_ar, dhikr_text, target, count, total_lifetime, sort_order, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, 99, ?)`,
@@ -43,7 +43,7 @@ export async function runV1Migration(db) {
     if (count > 0) {
       await db.write(
         `INSERT INTO tasbih_sessions (uuid, counter_uuid, count_delta, occurred_at) VALUES (?, ?, ?, ?)`,
-        ['v1-' + (uuid7()), uuid, count, Date.now()],
+        [uuid7(), uuid, count, Date.now()],
       );
       await db.write(
         `INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES ('tasbih', ?, ?)`,

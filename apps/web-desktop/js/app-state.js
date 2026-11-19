@@ -3,7 +3,7 @@
 // mushaf position (user_progress singleton), haptics from design tokens.
 // Every write is a prepared statement through the db proxy.
 // ============================================================================
-import { bindPrayerEngine } from '../../../packages/core-data/engines/prayer.js';
+import { bindPrayerEngineFromSettings } from '../../../packages/core-data/engines/prayer.js';
 
 export const state = {
   bridge: null,
@@ -62,9 +62,7 @@ export async function saveProgress(page, line = 1) {
 
 /** Bound prayer engine from current settings (Today screen + reminders). */
 export function prayerEngineForSettings() {
-  const s = state.settings;
-  const loc = s.location ?? { lat: 21.4225, lng: 39.8262, tz: 'Asia/Riyadh' };
-  return bindPrayerEngine({ lat: loc.lat, lng: loc.lng, timeZone: loc.tz, method: s.calc_method, madhab: s.madhab, highLatitudeRule: s.high_latitude_rule });
+  return bindPrayerEngineFromSettings(state.settings);
 }
 
 /** Test/e2e hook: deterministic clock override (null = real time). */

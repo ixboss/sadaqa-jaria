@@ -87,11 +87,14 @@ import java.time.format.DateTimeFormatter
 // formatters (same shapes as the web screens)
 // ---------------------------------------------------------------------------
 
-fun isoOf(ms: Long, tz: String): String =
-    DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.of(tz)).format(Instant.ofEpochMilli(ms))
+fun isoOf(ms: Long, tz: String): String {
+    val zone = runCatching { ZoneId.of(tz) }.getOrElse { ZoneId.of("Asia/Riyadh") }
+    return DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(zone).format(Instant.ofEpochMilli(ms))
+}
 
 fun clockOf(ms: Long, tz: String): String {
-    val zdt = Instant.ofEpochMilli(ms).atZone(ZoneId.of(tz))
+    val zone = runCatching { ZoneId.of(tz) }.getOrElse { ZoneId.of("Asia/Riyadh") }
+    val zdt = Instant.ofEpochMilli(ms).atZone(zone)
     return "%02d:%02d".format(zdt.hour, zdt.minute)
 }
 
@@ -168,9 +171,14 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
             }
         }
 
-        // hero — next prayer
+        // hero — next prayer (recomputes cleanly at each prayer boundary so countdown never freezes at 00:00:00)
         val todayIso = isoOf(now, opts.timeZone)
-        val next = remember(opts, todayIso) { runCatching { engine.next(now) }.getOrNull() }
+        var nextEpoch by remember(opts, todayIso) { mutableIntStateOf(0) }
+        val next = remember(opts, todayIso, nextEpoch) { runCatching { engine.next(now) }.getOrNull() }
+        val nextExpired = next != null && now >= next.at
+        LaunchedEffect(nextExpired) {
+            if (nextExpired) nextEpoch += 1
+        }
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
                 .background(Brush.verticalGradient(listOf(theme.accent.copy(alpha = 0.12f), theme.surface)))

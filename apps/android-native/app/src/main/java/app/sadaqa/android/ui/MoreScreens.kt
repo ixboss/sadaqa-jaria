@@ -14,6 +14,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -65,6 +66,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
@@ -97,6 +99,7 @@ import kotlin.math.sin
 import app.sadaqa.android.backup.CanonicalJson
 import app.sadaqa.android.backup.JsonValue
 import app.sadaqa.android.data.SadaqaDb
+import app.sadaqa.android.data.WidgetNotifier
 import app.sadaqa.android.engine.*
 import app.sadaqa.android.platform.AudioStore
 import app.sadaqa.android.platform.Haptics
@@ -151,6 +154,9 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val player = remember { PlayerChain() }
+    DisposableEffect(player) {
+        onDispose { player.stop() }
+    }
 
     var hubTab by remember { mutableStateOf("reader") } // reader | reading | index
     var page by remember { mutableIntStateOf((db.setting("mushaf_page")?.dbl?.toInt() ?: 1).coerceIn(1, 604)) }
@@ -1171,7 +1177,10 @@ fun QiblaScreen(db: SadaqaDb, onBack: () -> Unit) {
         mutableStateOf(if (loc?.get("gps") != null) "$name · GPS" else name)
     }
 
-    DisposableEffect(context, qLat, qLng) {
+    val declination = remember(qLat, qLng) {
+        android.hardware.GeomagneticField(qLat.toFloat(), qLng.toFloat(), 0f, System.currentTimeMillis()).declination
+    }
+    DisposableEffect(context, qLat, qLng, declination) {
         val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
         val rot = sm?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
         val listener = object : SensorEventListener {
@@ -1180,22 +1189,25 @@ fun QiblaScreen(db: SadaqaDb, onBack: () -> Unit) {
             private val ori = FloatArray(3)
             override fun onSensorChanged(event: SensorEvent) {
                 SensorManager.getRotationMatrixFromVector(rMat, event.values)
-                // Map the device frame to the screen frame so azimuth stays true
+                // Map the device frame to the flat screen frame so azimuth stays true
                 // regardless of display rotation.
-                val rotation = (context.getSystemService(Context.WINDOW_SERVICE) as? android.view.WindowManager)
-                    ?.defaultDisplay?.rotation ?: android.view.Surface.ROTATION_0
+                val rotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    runCatching { context.display?.rotation }.getOrNull()
+                } else {
+                    @Suppress("DEPRECATION")
+                    (context.getSystemService(Context.WINDOW_SERVICE) as? android.view.WindowManager)?.defaultDisplay?.rotation
+                } ?: android.view.Surface.ROTATION_0
                 when (rotation) {
                     android.view.Surface.ROTATION_90 -> SensorManager.remapCoordinateSystem(rMat, SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X, mapped)
-                    android.view.Surface.ROTATION_180 -> SensorManager.remapCoordinateSystem(rMat, SensorManager.AXIS_MINUS_X, SensorManager.AXIS_MINUS_Z, mapped)
+                    android.view.Surface.ROTATION_180 -> SensorManager.remapCoordinateSystem(rMat, SensorManager.AXIS_MINUS_X, SensorManager.AXIS_MINUS_Y, mapped)
                     android.view.Surface.ROTATION_270 -> SensorManager.remapCoordinateSystem(rMat, SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_X, mapped)
-                    else -> SensorManager.remapCoordinateSystem(rMat, SensorManager.AXIS_X, SensorManager.AXIS_Z, mapped)
+                    else -> SensorManager.remapCoordinateSystem(rMat, SensorManager.AXIS_X, SensorManager.AXIS_Y, mapped)
                 }
                 SensorManager.getOrientation(mapped, ori)
                 var deg = (Math.toDegrees(ori[0].toDouble()) + 360.0) % 360.0
                 // getOrientation azimuth is relative to MAGNETIC north — convert
                 // to true north with the local declination (east-positive)
-                val gf = android.hardware.GeomagneticField(qLat.toFloat(), qLng.toFloat(), 0f, System.currentTimeMillis())
-                deg = (deg + gf.declination + 360.0) % 360.0
+                deg = (deg + declination + 360.0) % 360.0
                 northDeg = deg
             }
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
@@ -1366,7 +1378,8 @@ fun HijriScreen(db: SadaqaDb, onBack: () -> Unit) {
         val firstIso = runCatching { HijriEngine.fromHijri(HijriEngine.HijriDate(month.y, month.m, 1)) }.getOrNull()
         if (firstIso != null) {
             val firstDow = HijriEngine.weekdayOf(firstIso)
-            val todayIso = isoOf(System.currentTimeMillis(), ZoneId.systemDefault().id)
+            val todayIso = isoOf(System.currentTimeMillis(), tzId)
+            val todayHijri = HijriEngine.withAdjust(todayIso, adjust)
             var length = 29
             if (runCatching { HijriEngine.fromHijri(HijriEngine.HijriDate(month.y, month.m, 30)) }.isSuccess) length = 30
             val dows = listOf("ح", "ن", "ث", "ر", "خ", "ج", "س")
@@ -1374,8 +1387,7 @@ fun HijriScreen(db: SadaqaDb, onBack: () -> Unit) {
                 for (d in dows) Text(d, fontSize = 11.sp, color = theme.textSecondary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
             }
             val cells = (1 until firstDow + 1).map { null } + (1..length).map { d ->
-                val g = runCatching { HijriEngine.fromHijri(HijriEngine.HijriDate(month.y, month.m, d)) }.getOrNull()
-                val isToday = g != null && HijriEngine.withAdjust(g, adjust) == HijriEngine.toHijri(todayIso)
+                val isToday = HijriEngine.HijriDate(month.y, month.m, d) == todayHijri
                 Triple(d, isToday, d in 13..15)
             }
             for (row in cells.chunked(7)) {
@@ -1398,9 +1410,12 @@ fun HijriScreen(db: SadaqaDb, onBack: () -> Unit) {
                     }
                 }
             }
-            // derived events of the current Gregorian year
-            val events = HijriEngine.events(LocalDate.now().year)
-            for (ev in events.filter { HijriEngine.withAdjust(it.gregorian, adjust).m == month.m }) {
+            // derived events of the Gregorian year(s) overlapping this Hijri month
+            val lastIso = runCatching { HijriEngine.fromHijri(HijriEngine.HijriDate(month.y, month.m, length)) }.getOrNull() ?: firstIso
+            val startYear = firstIso.substring(0, 4).toIntOrNull() ?: LocalDate.now().year
+            val endYear = lastIso.substring(0, 4).toIntOrNull() ?: startYear
+            val events = (startYear..endYear).flatMap { HijriEngine.events(it) }.distinctBy { it.key to it.gregorian }
+            for (ev in events.filter { HijriEngine.withAdjust(it.gregorian, adjust) == HijriEngine.HijriDate(month.y, month.m, HijriEngine.withAdjust(it.gregorian, adjust).d) }) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
                     Text(eventNameAr(ev.key), fontSize = 13.sp, color = theme.textPrimary, modifier = Modifier.weight(1f))
                     Text(ev.gregorian, fontSize = 13.sp, color = theme.textSecondary)
@@ -1727,24 +1742,65 @@ fun BackupScreen(db: SadaqaDb, onBack: () -> Unit) {
             }
         }
     }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            scope.launch {
-                runCatching {
-                    withContext(Dispatchers.IO) {
-                        val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-                        db.importBackup(text, importMode)
-                    }
-                }.onSuccess { r ->
-                    error = null
-                    report = "تم الاستيراد: أُضيف ${r.added}، حُدِّث ${r.updated}، تعارض ${r.conflicts}، تخطي ${r.skipped}"
-                    db.setting("theme")?.str?.let { app.setTheme(it) }
-                    refreshCounts()
-                }.onFailure { e ->
-                    error = e.message ?: "تعذر الاستيراد"
+    var pendingReplaceUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    fun runImport(uri: android.net.Uri) {
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val maxBytes = 16L * 1024 * 1024
+                    val size = context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
+                    if (size > maxBytes) throw IllegalArgumentException("حجم ملف النسخة يتجاوز الحد المسموح (16 ميجابايت)")
+                    val text = context.contentResolver.openInputStream(uri)?.use { stream ->
+                        val limited = ByteArray(maxBytes.toInt() + 1)
+                        var total = 0
+                        while (total < limited.size) {
+                            val n = stream.read(limited, total, limited.size - total)
+                            if (n <= 0) break
+                            total += n
+                        }
+                        if (total > maxBytes) throw IllegalArgumentException("حجم ملف النسخة يتجاوز الحد المسموح (16 ميجابايت)")
+                        String(limited, 0, total, Charsets.UTF_8)
+                    } ?: ""
+                    db.importBackup(text, importMode)
                 }
+            }.onSuccess { r ->
+                error = null
+                report = "تم الاستيراد: أُضيف ${r.added}، حُدِّث ${r.updated}، تعارض ${r.conflicts}، تخطي ${r.skipped}"
+                app.refreshPreferencesFromDb(db)
+                WidgetNotifier.prayersChanged()
+                refreshCounts()
+            }.onFailure { e ->
+                error = e.message ?: "تعذر الاستيراد"
             }
         }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            if (importMode == "replace") {
+                pendingReplaceUri = uri
+            } else {
+                runImport(uri)
+            }
+        }
+    }
+
+    pendingReplaceUri?.let { confirmUri ->
+        AlertDialog(
+            onDismissRequest = { pendingReplaceUri = null },
+            title = { Text("تأكيد الاستبدال الكامل") },
+            text = { Text("سيتم مسح جميع بيانات القراءة والأذكار والتسبيح والإعدادات المحلية واستبدالها بمحتوى هذا الملف. هل تريد المتابعة؟") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingReplaceUri = null
+                    runImport(confirmUri)
+                }) { Text("استبدال", color = Color(0xFFE5636F)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingReplaceUri = null }) { Text("إلغاء") }
+            },
+        )
     }
 
     Column(
@@ -1809,8 +1865,12 @@ fun AudioScreen(db: SadaqaDb, onBack: () -> Unit) {
     val theme = LocalSadaqaTheme.current
     val context = LocalContext.current
     val player = remember { PlayerChain() }
+    DisposableEffect(player) {
+        onDispose { player.stop() }
+    }
     var surah by remember { mutableIntStateOf(1) }
     var playing by remember { mutableStateOf<String?>(null) }
+    var audioNote by remember { mutableStateOf<String?>(null) }
     data class Reciter(val id: String, val nameAr: String, val style: String, val template: String)
     var reciters by remember { mutableStateOf(listOf<Reciter>()) }
 
@@ -1823,7 +1883,9 @@ fun AudioScreen(db: SadaqaDb, onBack: () -> Unit) {
                 reciters = arr.mapNotNull { e ->
                     val o = e as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
                     fun s(k: String) = (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: ""
-                    Reciter(s("id"), s("nameAr"), s("style"), s("audio_url_template").replace("{SSSAAA}", ""))
+                    val id = s("reciter_id").ifEmpty { s("id") }
+                    val nameAr = s("name_ar").ifEmpty { s("nameAr") }
+                    Reciter(id, nameAr, s("style"), s("audio_url_template").replace("{SSSAAA}", ""))
                 }
             }
         }
@@ -1844,6 +1906,7 @@ fun AudioScreen(db: SadaqaDb, onBack: () -> Unit) {
             Text("آية 1 — سورة $surah يعمل الآن", fontSize = 14.sp, color = theme.accent)
             Button(onClick = { player.stop(); playing = null }) { Text("إيقاف") }
         }
+        audioNote?.let { Text(it, fontSize = 12.sp, color = theme.textSecondary) }
         for (r in reciters) {
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
@@ -1860,8 +1923,11 @@ fun AudioScreen(db: SadaqaDb, onBack: () -> Unit) {
                     modifier = Modifier.clickable {
                         val file = AudioStore.localFile(context, r.id, surah, 1)
                         if (file != null) {
+                            audioNote = null
                             playing = r.id
                             player.play(file) { playing = null }
+                        } else {
+                            audioNote = "التلاوة غير محمّلة محلياً (الحزمة المدمجة تغطي سورة الفاتحة — العفاسي)"
                         }
                     }.padding(8.dp),
                 )
