@@ -83,7 +83,10 @@ export async function resolveBridge() {
       a.download = name;
       a.click();
       URL.revokeObjectURL(a.href);
-      return false; // downloaded, not picked
+      // الملف نزل فعلاً إلى مجلد التنزيلات — نجاح حفظ من منظور سجل التصدير
+      // (كان يُعاد false فتُسجَّل عمليات التنزيل الحقيقية كأنها لم تُحفظ،
+      // audit 2026-11). false محجوز لإلغاء المستخدم للحفظ فعلاً (AbortError).
+      return true;
     },
 
     async importFile(accept = '.sadaqa') {

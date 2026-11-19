@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    dataExtractionRules (API 31+) — cloud backup + device-to-device transfer.
+    The `.sadaqa` backup file is the user's data path; the raw sqlite db (WAL
+    files), the extracted mushaf fonts and the audio caches stay device-local.
+    Shared prefs (widget-state bridge + settings UI cache) remain included.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="databases/" />
+        <exclude domain="file" path="fonts/" />
+        <exclude domain="file" path="audio/" />
+        <exclude domain="file" path="starter/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="databases/" />
+        <exclude domain="file" path="fonts/" />
+        <exclude domain="file" path="audio/" />
+        <exclude domain="file" path="starter/" />
+    </device-transfer>
+</data-extraction-rules>

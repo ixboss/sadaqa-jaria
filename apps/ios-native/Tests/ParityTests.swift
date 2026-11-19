@@ -385,10 +385,11 @@ final class ExportImportRoundTripTests: XCTestCase {
 
         // 1. Merge into the empty seed → all inserts
         let merge = try db.importBackup(text: text, mode: "merge")
-        XCTAssertEqual(merge.added, 16, "merge adds every fixture entity (5+7+2+2)")
+        XCTAssertEqual(merge.added, 18, "merge adds every fixture entity (7+7+2+2; 2026-11: +2 khatmahPageLog)")
         try db.queue.read { db in
             XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM bookmarks"), 2)
             XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM tasbih_sessions"), 3)
+            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM khatmah_page_log"), 2)
             let theme = try Row.fetchOne(db, sql: "SELECT value FROM user_settings WHERE key = 'theme'")
             XCTAssertEqual(theme?["value"] as String?, "\"dark\"")
         }
@@ -403,7 +404,7 @@ final class ExportImportRoundTripTests: XCTestCase {
 
         // 3. Full Replace wipes and restores exactly the payload
         let replace = try db.importBackup(text: text, mode: "replace")
-        XCTAssertEqual(replace.added, 16, "replace inserts all payload entities")
+        XCTAssertEqual(replace.added, 18, "replace inserts all payload entities")
         try db.queue.read { db in
             XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM bookmarks"), 2)
             let page = try Int.fetchOne(db, sql: "SELECT page FROM bookmarks WHERE label_ar = 'الفاتحة'")

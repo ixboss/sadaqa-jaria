@@ -11,6 +11,7 @@ import CoreLocation
 @main
 struct SadaqaApp: App {
     @StateObject private var appState = AppState()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -19,6 +20,13 @@ struct SadaqaApp: App {
                 .environment(\.layoutDirection, .rightToLeft) // RTL-first app
                 .preferredColorScheme(appState.theme.colorScheme)
                 .task { await appState.bootstrap() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Re-arm the adhan window on every foreground: the triggers are
+            // non-repeating and cold launch alone left later days unarmed.
+            if phase == .active {
+                AdhanScheduler.shared.reschedule(db: appState.db)
+            }
         }
     }
 }

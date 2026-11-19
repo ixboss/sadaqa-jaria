@@ -202,7 +202,26 @@ function renderBootProgress(loaded = 0, total = 0, phase = 'wasm') {
   if (barEl) barEl.style.width = `${phase === 'importing' ? 100 : pct}%`;
 }
 
+/** إعادة المحاولة فقط: إعادة تحميل بلا أي حذف — أكثر إخفاقات الإقلاع عابرة
+ * (قفل OPFS من تبويب آخر، ارتجاج wasm) والبيانات يجب أن تبقى (audit 2026-11). */
+async function retryBootAndReload() {
+  location.reload();
+}
+
+/** إعادة تهيئة كاملة: حاجز تأكيد من خطوتين قبل مسح OPFS — الخطوة الأولى تحذير
+ * صريح بخطوات أهدأ، والثانية تأكيد. في Electron لا يوجد window.prompt إطلاقاً
+ * (يرمي ويترك الزر ميتاً — review 2026-11) فتُستخدم سلسلة confirm() بدله. */
 async function resetAppStorageAndReload() {
+  const warned = window.confirm(
+    'الإعادة الكاملة ستحذف جميع بياناتك المحلية نهائياً (الختمة، المرجعيات، الملاحظات، العدّادات).\n\n' +
+    'جرّب «إعادة المحاولة» أولاً — أكثر إخفاقات الإقلاع عابرة (قفل من تبويب آخر أو ارتجاج مؤقت). هل تريد المتابعة إلى الحذف؟'
+  );
+  if (!warned) return;
+  const isElectron = Boolean(window.sadaqaBridge);
+  const typed = isElectron
+    ? (window.confirm('خطوة أخيرة: اضغط «موافق» لحذف جميع البيانات نهائياً وغير القابل للاسترجاع.') ? 'امسح' : null)
+    : window.prompt('خطوة أخيرة للتأكيد: اكتب «امسح» دون اقتباس');
+  if (typed === null || String(typed).trim() !== 'امسح') return;
   try {
     if ('serviceWorker' in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations();
@@ -246,7 +265,10 @@ async function boot() {
     renderBootProgress(d.loaded ?? 0, d.total ?? 0, d.phase ?? 'wasm');
   });
 
-  if ('serviceWorker' in navigator) {
+  state.bridge = await resolveBridge();
+  // سجل SW فقط على الويب: داخل Electron كان يخزّن أصول مثبّتة مكررة في
+  // userData ويقدم نسخة قديمة من الواجهة بعد تحديث المثبِّت (audit 2026-11)
+  if (state.bridge.kind === 'web' && 'serviceWorker' in navigator) {
     const hadController = Boolean(navigator.serviceWorker.controller);
     let reloading = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -256,9 +278,11 @@ async function boot() {
     });
     navigator.serviceWorker.register('sw.js').then((reg) => reg.update().catch(() => {})).catch((e) => console.warn('[sw]', e.message));
   }
-  state.bridge = await resolveBridge();
   const db = await state.bridge.dbHost();
   registerWrite((sql, params, opts) => db.write(sql, params, opts));
+  // اطلب التخزين الدائم: بلا persist() قد يجلي المتصفح OPFS بالكامل تحت ضغط
+  // القرص وتضيع قاعدة البيانات (audit 2026-11) — الأوفلاين أولاً يستحق المنح.
+  try { navigator.storage?.persist?.().then((ok) => console.info('[storage] persisted:', ok)).catch(() => {}); } catch { /* ignore */ }
   await loadState(db);
   // one-time v1 localStorage migration + reciter catalog sync (both idempotent)
   state.v1Migration = await maybeMigrateV1(db);
@@ -283,8 +307,12 @@ async function boot() {
 
 boot().catch((e) => {
   console.error('[boot]', e);
+  // زران منفصلان: المحاولة الآمنة أولاً — الحذف الكامل يتطلب تأكيداً مزدوجاً
+  // ولا يُعرض إلا كخيار ثانوي (audit 2026-11)
   root.innerHTML = `<div class="screen"><div class="empty-state"><div class="icon">${iconSvg('alert', 24)}</div>
     <h2>تعذر تشغيل التطبيق</h2><p style="margin-bottom:16px">${escapeHtml(e.message ?? e)}</p>
-    <button class="btn primary" id="boot-retry-btn">إعادة تهيئة التطبيق</button></div></div>`;
-  document.getElementById('boot-retry-btn')?.addEventListener('click', resetAppStorageAndReload);
+    <button class="btn primary" id="boot-retry-btn">إعادة المحاولة (تبقى بياناتك)</button>
+    <button class="btn" id="boot-reset-btn" style="margin-top:10px">إعادة تهيئة كاملة (حذف البيانات)</button></div></div>`;
+  document.getElementById('boot-retry-btn')?.addEventListener('click', retryBootAndReload);
+  document.getElementById('boot-reset-btn')?.addEventListener('click', resetAppStorageAndReload);
 });

@@ -170,6 +170,29 @@ function main() {
   ok('apply: quota error on one key does not abort others', blocked && res8.failed.includes('app_stats_v1') && res8.applied.includes('theme'));
   ok('apply: other keys still written', localStorage.getItem('theme') === 'dark');
 
+  // ── 2026-11 audit: سيناريو XSS عبر مفاتيح المرجعيات وحقن النصوص ──
+  // المفتاح النصي كان يصل onclick حرفياً في BookmarksView.render — يجب أن يُرفض
+  ok('validValue: bookmark surah key injection rejected',
+    !BM.validValue('islamic_bookmarks', { surahs: { '<img src=x onerror=alert(1)>': { name: 'x', timestamp: 1 } }, verses: [] }));
+  ok('validValue: bookmark non-numeric surah key rejected',
+    !BM.validValue('islamic_bookmarks', { surahs: { '1);alert(1)': { name: 'x', timestamp: 1 } }, verses: [] }));
+  ok('validValue: bookmark surah key >114 rejected',
+    !BM.validValue('islamic_bookmarks', { surahs: { '115': { name: 'x', timestamp: 1 } }, verses: [] }));
+  ok('validValue: verse ayah injection rejected',
+    !BM.validValue('islamic_bookmarks', { surahs: {}, verses: [{ surah: 2, ayah: '255);alert(document.cookie)//' }] }));
+  ok('validValue: valid bookmarks accepted',
+    BM.validValue('islamic_bookmarks', { surahs: { '2': { name: 'سورة البقرة', timestamp: 1 } }, verses: [{ surah: 2, ayah: 255, text: 'آية الكرسي', timestamp: 1 }] }));
+  ok('validValue: custom_athkar string count rejected',
+    !BM.validValue('custom_athkar', [{ text: 'دعاء', tag: 'ليلي', count: '<svg onload=alert(1)>' }]));
+  ok('validValue: custom_athkar numeric count accepted',
+    BM.validValue('custom_athkar', [{ text: 'دعاء', tag: 'ليلي', count: '7' }]));
+  ok('validValue: prayer_config NaN lat rejected',
+    !BM.validValue('prayer_config', { lat: 999, lng: 39.8, iana: 'Asia/Riyadh' }));
+  ok('validValue: prayer_config bogus iana rejected',
+    !BM.validValue('prayer_config', { lat: 21.4, lng: 39.8, iana: 'Bogus/Zone' }));
+  ok('validValue: prayer_config sane accepted',
+    BM.validValue('prayer_config', { lat: 21.4225, lng: 39.8262, iana: 'Asia/Riyadh' }));
+
   // ── report ──
   const failed2 = results.filter(r => !r.pass);
   for (const r of results) console.log((r.pass ? '  ✓ ' : '  ✗ ') + r.name + (r.detail ? '  — ' + r.detail : ''));

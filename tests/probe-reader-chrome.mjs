@@ -63,18 +63,35 @@ async function main() {
   await evaljs(`document.getElementById('occasion-modal-ok')?.click()`);
   await sleep(200);
   await evaljs(`window.openSurah(2, 1)`);
-  for (let i = 0; i < 60; i++) { if (await evaljs(`!!document.querySelector('#verses-container .ayah')`)) break; await sleep(300); }
+  let versesLoaded = false;
+  for (let i = 0; i < 60; i++) { if (await evaljs(`!!document.querySelector('#verses-container .ayah')`)) { versesLoaded = true; break; } await sleep(300); }
   await sleep(800);
 
   console.log('ZEN  →', JSON.stringify(await geom(), null, 1));
+  const zen = await geom();
   await evaljs(`window.toggleMushafHUD()`);
   await sleep(700);
   console.log('HUD  →', JSON.stringify(await geom(), null, 1));
+  const hud = await geom();
   await evaljs(`window.toggleMushafHUD()`);
   await sleep(700);
   console.log('ZEN2 →', JSON.stringify(await geom(), null, 1));
+  const zen2 = await geom();
 
+  // كان يطبع الهندسة ثم exit(0) دائماً — الآن يفشل فعلياً عند كسر الشروط
+  // (audit 2026-11)
+  const checks = [
+    ['verses rendered', versesLoaded],
+    ['currentScreen is mushaf/surah view', typeof zen.currentScreen === 'string' && zen.currentScreen.length > 0],
+    ['HUD toggle changes chrome', JSON.stringify(zen) !== JSON.stringify(hud)],
+    ['HUD toggles back to ZEN', JSON.stringify(zen) === JSON.stringify(zen2)],
+  ];
+  let failures = 0;
+  for (const [name, ok] of checks) {
+    console.log(`${ok ? '✓' : '✗'} ${name}`);
+    if (!ok) failures++;
+  }
   browser.kill();
-  process.exit(0);
+  process.exit(failures ? 1 : 0);
 }
 main().catch(e => { console.error('PROBE FAILED:', e.message); process.exit(1); });

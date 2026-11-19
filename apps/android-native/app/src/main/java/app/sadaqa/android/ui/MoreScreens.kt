@@ -8,13 +8,16 @@
 package app.sadaqa.android.ui
 
 import android.Manifest
+import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings as AndroidSettings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -1634,6 +1637,7 @@ fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
     val theme = LocalSadaqaTheme.current
     val context = LocalContext.current
     val app = context.applicationContext as app.sadaqa.android.SadaqaApp
+    val scope = rememberCoroutineScope()
     val fontScale by app.fontScale.collectAsState()
     var mushafScale by remember { mutableFloatStateOf((db.setting("mushaf_scale")?.dbl ?: 1.0).toFloat().coerceIn(0.8f, 2.0f)) }
     var opts by remember { mutableStateOf(db.engineOptions()) }
@@ -1641,6 +1645,8 @@ fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
     var showCityPicker by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var method by remember { mutableStateOf(db.setting("calc_method")?.str ?: "umm_al_qura") }
+    val exactAlarmsBlocked = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+        (context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager)?.canScheduleExactAlarms() == false
 
     val fontPresets = listOf(
         0.85f to "صغير",
@@ -1667,6 +1673,30 @@ fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
                 Text("${opts.timeZone} · ${"%.2f".format(opts.lat)}, ${"%.2f".format(opts.lng)}", fontSize = 11.sp, color = theme.textSecondary)
             }
             Text("تغيير / GPS", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.accent)
+        }
+        // Android 14+ revokes SCHEDULE_EXACT_ALARM by default — the adhan
+        // chain degrades to inexact alarms, so deep-link the user to the
+        // system grant (audit 2026-11).
+        if (exactAlarmsBlocked) {
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(theme.surface)
+                    .border(1.dp, theme.border, RoundedCornerShape(12.dp))
+                    .clickable {
+                        runCatching {
+                            context.startActivity(
+                                Intent(AndroidSettings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                                    .setData(Uri.fromParts("package", context.packageName, null)),
+                            )
+                        }
+                    }.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("تنبيهات الأذان الدقيقة معطّلة", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
+                    Text("اسمح للتطبيق بجدولة التنبيهات بدقة من إعدادات النظام", fontSize = 11.sp, color = theme.textSecondary)
+                }
+                Text("تفعيل", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.accent)
+            }
         }
         Text("السمة", fontSize = 13.sp, color = theme.textSecondary)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1705,7 +1735,9 @@ fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
             onValueChange = {
                 val stepped = ((it * 20f).roundToInt().toFloat() / 20f).coerceIn(0.8f, 2.0f)
                 mushafScale = stepped
-                db.setSetting("mushaf_scale", JsonValue.Num(stepped.toDouble()))
+                // IO dispatcher + gated widget refresh (HUD parity + audit 2026-11
+                // write-storm: every tick re-scheduled exact alarms on main)
+                scope.launch { withContext(Dispatchers.IO) { db.setSetting("mushaf_scale", JsonValue.Num(stepped.toDouble())) } }
             },
             valueRange = 0.8f..2.0f,
             steps = 23,

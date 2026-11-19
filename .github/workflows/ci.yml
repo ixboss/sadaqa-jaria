@@ -35,9 +35,8 @@ jobs:
         env:
           E2E_BROWSER: ${{ env.E2E_BROWSER }}
         run: |
-          # شغّل الخادم ثم الحزمة كاملة
-          node tests/run-server.mjs 8123 &
-          sleep 1
+          # run-all يشغّل خادم الاختبار بنفسه — خادم مزدوج هنا كان يقتل
+          # المنفذ الداخلي بـ EADDRINUSE صامتة (audit 2026-11)
           npm test
 
       - name: v2 engine + parity checks

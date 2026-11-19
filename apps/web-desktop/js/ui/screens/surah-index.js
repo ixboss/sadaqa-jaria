@@ -6,6 +6,12 @@ import { state } from '../../app-state.js';
 import { navigate } from '../router.js';
 import { iconSvg } from '../icons.js';
 
+/** تهريب نصوص قد تأتي من استيراد نسخة احتياطية (label_ar للمستخدم) قبل قالب
+ * innerHTML — تسمية bookmark تُكتب بحرية (audit 2026-11). */
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 export async function renderSurahIndex(root) {
   const [rows, juzRows, bookmarks] = await Promise.all([
     state.db.query(`SELECT number, name_ar, name_translit, ayah_count, start_page, revelation_type FROM surahs ORDER BY number`),
@@ -27,7 +33,7 @@ export async function renderSurahIndex(root) {
     </div>
     ${bookmarks.length ? `
       <div style="padding:4px 16px 6px;display:flex;gap:6px;flex-wrap:wrap">
-        ${bookmarks.map((b) => `<button class="juz-pill" data-page="${b.page}" style="border-color:var(--color-accent);color:var(--color-accent)">${iconSvg('bookmark-filled', 13)}<span>${b.label_ar || `ص ${b.page}`}</span></button>`).join('')}
+        ${bookmarks.map((b) => `<button class="juz-pill" data-page="${b.page}" style="border-color:var(--color-accent);color:var(--color-accent)">${iconSvg('bookmark-filled', 13)}<span>${escapeHtml(b.label_ar) || `ص ${b.page}`}</span></button>`).join('')}
       </div>` : ''}
     <div id="surah-list">${rows.map((s) => `
       <div class="cat-tile" data-page="${s.start_page}" data-search="${s.number} ${s.name_ar} ${s.name_translit}" role="button" tabindex="0" aria-label="${s.name_ar}">

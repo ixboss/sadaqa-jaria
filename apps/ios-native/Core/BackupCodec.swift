@@ -56,10 +56,12 @@ public enum BackupCodec {
 
     public static let supportedFormatVersion = 1
     public static let backupGroups = ["reading", "dhikr", "prefs", "meta"]
+    /// سقف إجمالي الكيانات — مطابق لـ MAX_ENTITIES في backup-validate.js (review 2026-11)
+    public static let maxEntities = 50_000
 
     /// Which entity types may appear under each group (ARCHITECTURE §8.2 table).
     public static let groupEntityTypes: [String: [String]] = [
-        "reading": ["khatmahPlan", "bookmark", "highlight", "note"],
+        "reading": ["khatmahPlan", "khatmahPageLog", "bookmark", "highlight", "note"],
         "dhikr": ["adhkarState", "tasbihCounter", "tasbihSession"],
         "prefs": ["setting"],
         "meta": ["streakDay"],
@@ -112,11 +114,19 @@ public enum BackupCodec {
         }
 
         var counts: [String: Int] = [:]
+        // خطة الملف نفسها: سجل صفحة بلا أب داخل الملف كان يمرّ على الويب وينفجر
+        // FK على الأهداف الأصلية — تُرفض هنا لتطابق backup-validate.js (review 2026-11)
+        let planUuids: Set<String> = Set(((groups["reading"] ?? .null).arrayValue ?? []).compactMap { e -> String? in
+            if case .object(let o) = e, o["type"]?.stringValue == "khatmahPlan" { return o["uuid"]?.stringValue }
+            return nil
+        })
+        var totalEntities = 0
         for (group, groupValue) in groups {
             guard case .array(let entities) = groupValue else {
                 errors.append("payload.\(group): must be an array")
                 continue
             }
+            totalEntities += entities.count
             guard backupGroups.contains(group) else {
                 errors.append("payload.\(group): unknown group (allowed: \(backupGroups.joined(separator: ", ")))")
                 continue
@@ -138,24 +148,36 @@ public enum BackupCodec {
                     errors.append("payload.\(group)[\(uuid)].updatedAt: must be epoch ms")
                     continue
                 }
+                // حد زمني مستقبلي: طابع بعيد في المستقبل كان يتفوق على كل الصفوف
+                // المحلية في الدمج فيرجّع البيانات طواعية (backup-validate.js audit 2026-11)
+                if let ts = obj["updatedAt"]?.int64Value, ts > Date.nowMs + 2 * 86_400_000 {
+                    errors.append("payload.\(group)[\(uuid)].updatedAt: too far in the future")
+                    continue
+                }
                 if let deletedVal = obj["deleted"], deletedVal.boolValue == nil {
                     errors.append("payload.\(group)[\(uuid)].deleted: must be boolean when present")
                     continue
                 }
                 counts[group, default: 0] += 1
-                if let typeErr = validateEntityBody(group: group, type: type, obj: obj) {
+                if let typeErr = validateEntityBody(group: group, type: type, obj: obj, planUuids: planUuids) {
                     errors.append("payload.\(group)[\(uuid)]: \(typeErr)")
                 }
             }
         }
+        if totalEntities > maxEntities { errors.append("payload: \(totalEntities) entities exceeds the \(maxEntities) cap") }
         return ValidationVerdict(ok: errors.isEmpty, errors: errors, counts: counts)
     }
 
-    /// Type-specific required payload fields (validateEntityBody port).
-    static func validateEntityBody(group: String, type: String, obj: [String: JSONValue]) -> String? {
+    /// Type-specific required payload fields (validateEntityBody port —
+    /// mirrors packages/core-data/engines/backup-validate.js 2026-11 audit:
+    /// text caps, dangerous setting keys, page-log natural-key rules).
+    static func validateEntityBody(group: String, type: String, obj: [String: JSONValue], planUuids: Set<String> = []) -> String? {
         switch "\(group)/\(type)" {
         case "reading/bookmark":
             guard isInt(obj["page"]), let page = obj["page"]?.intValue, (1...604).contains(page) else { return "page must be 1..604" }
+            if let l = obj["labelAr"], !l.isNull {
+                guard let s = l.stringValue, s.count <= 200 else { return "labelAr must be a string <= 200 chars" }
+            }
             return nil
         case "reading/highlight":
             guard isInt(obj["ayahNumber"]), let ay = obj["ayahNumber"]?.intValue, (1...6236).contains(ay) else { return "ayahNumber must be 1..6236" }
@@ -171,19 +193,36 @@ public enum BackupCodec {
                 guard isInt(obj["dailyPages"]), let dp = obj["dailyPages"]?.intValue, (1...604).contains(dp) else { return "rate mode requires dailyPages 1..604" }
             }
             guard isDayKey(obj["startDate"]) else { return "startDate must be YYYY-MM-DD" }
+            if let n = obj["nameAr"] {
+                guard let s = n.stringValue, s.count <= 120 else { return "nameAr must be a string <= 120 chars" }
+            }
+            return nil
+        case "reading/khatmahPageLog":
+            // سجل تقدم الختمة: مفتاح طبيعي (plan_uuid, page) — الـ uuid مُصنَّع
+            // حتمياً من المفتاح عند التصدير (synthUuid7) فتميز جداول السحب/الدمج.
+            guard let p = obj["planUuid"]?.stringValue, p.count >= 8 else { return "planUuid required" }
+            guard planUuids.contains(p) else { return "planUuid must reference a khatmahPlan in this backup" }
+            guard isInt(obj["page"]), let page = obj["page"]?.intValue, (1...604).contains(page) else { return "page must be 1..604" }
+            guard isInt(obj["completedAt"]), let ca = obj["completedAt"]?.intValue, ca > 0 else { return "completedAt must be epoch ms" }
             return nil
         case "dhikr/tasbihCounter":
             guard let t = obj["dhikrText"]?.stringValue, !t.isEmpty else { return "dhikrText required" }
             if let targetVal = obj["target"], !targetVal.isNull {
                 guard isInt(targetVal), let target = targetVal.intValue, target >= 1 else { return "target must be >= 1 or null" }
             }
+            if let l = obj["labelAr"], !l.isNull {
+                guard let s = l.stringValue, s.count <= 120 else { return "labelAr must be a string <= 120 chars" }
+            }
             return nil
         case "dhikr/adhkarState":
+            guard let it = obj["itemId"]?.stringValue, !it.isEmpty else { return "itemId required" }
             guard isDayKey(obj["dayKey"]) else { return "dayKey must be YYYY-MM-DD" }
             guard isInt(obj["count"]), let count = obj["count"]?.intValue, count >= 0 else { return "count must be >= 0" }
             return nil
         case "prefs/setting":
             guard let k = obj["key"]?.stringValue, !k.isEmpty else { return "key required" }
+            if k.count > 64 { return "key must be <= 64 chars" }
+            if k == "__proto__" || k == "constructor" || k == "prototype" { return "key must not be a dangerous object-literal key" }
             if obj["value"] == nil { return "value required (may be null)" }
             return nil
         case "meta/streakDay":
@@ -191,11 +230,13 @@ public enum BackupCodec {
             guard isDayKey(obj["dayKey"]) else { return "dayKey must be YYYY-MM-DD" }
             return nil
         case "dhikr/tasbihSession":
-            guard isInt(obj["countDelta"]), let delta = obj["countDelta"]?.intValue, delta > 0 else { return "countDelta must be > 0" }
+            guard let cu = obj["counterUuid"]?.stringValue, cu.count >= 8 else { return "counterUuid required" }
+            guard isInt(obj["countDelta"]), let delta = obj["countDelta"]?.intValue, delta > 0, delta <= 1_000_000 else { return "countDelta must be 1..1000000" }
             guard isFinitePositive(obj["occurredAt"]) else { return "occurredAt must be epoch ms" }
             return nil
         case "reading/note":
-            guard obj["body"]?.stringValue != nil else { return "body must be a string" }
+            guard let b = obj["body"]?.stringValue else { return "body must be a string" }
+            if b.count > 10_000 { return "body must be <= 10000 chars" }
             return nil
         default:
             return nil
@@ -209,6 +250,14 @@ public enum BackupCodec {
     // ------------------------------------------------------------------
     // mergePayload — backup-merge.js port
     // ------------------------------------------------------------------
+    /// FK-safe apply order (web backup.js rank): page_log after its parent
+    /// khatmah_plans and before tasbih_sessions, everything else first.
+    static func applyRank(_ type: String?) -> Int {
+        if type == "tasbihSession" { return 2 }
+        if type == "khatmahPageLog" { return 1 }
+        return 0
+    }
+
     public static func mergePayload(local: [String: [String: JSONValue]], payload: JSONValue?, mode: String, now: Int64) throws -> MergeResult {
         guard mode == "merge" || mode == "replace" else { throw BackupCodecError.refused("unknown merge mode: \(mode)") }
 
@@ -225,11 +274,7 @@ public enum BackupCodec {
                     }
                 }
             }
-            let sorted = mutations.sorted { a, b in
-                let aSess = a.entity["type"]?.stringValue == "tasbihSession"
-                let bSess = b.entity["type"]?.stringValue == "tasbihSession"
-                return !aSess && bSess
-            }
+            let sorted = mutations.sorted { applyRank($0.entity["type"]?.stringValue) < applyRank($1.entity["type"]?.stringValue) }
             return MergeResult(report: report, mutations: sorted, replaceMarkerAt: now)
         }
 
@@ -270,11 +315,7 @@ public enum BackupCodec {
                 }
             }
         }
-        let sorted = mutations.sorted { a, b in
-            let aSess = a.entity["type"]?.stringValue == "tasbihSession"
-            let bSess = b.entity["type"]?.stringValue == "tasbihSession"
-            return !aSess && bSess
-        }
+        let sorted = mutations.sorted { applyRank($0.entity["type"]?.stringValue) < applyRank($1.entity["type"]?.stringValue) }
         return MergeResult(report: report, mutations: sorted, replaceMarkerAt: nil)
     }
 

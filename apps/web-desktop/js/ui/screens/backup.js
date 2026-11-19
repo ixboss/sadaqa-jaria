@@ -19,6 +19,7 @@ export async function renderBackup(root) {
     tasbih: (await state.db.queryOne(`SELECT COUNT(*) n FROM tasbih_counters WHERE deleted = 0`))?.n ?? 0,
     sessions: (await state.db.queryOne(`SELECT COUNT(*) n FROM tasbih_sessions`))?.n ?? 0,
     streaks: (await state.db.queryOne(`SELECT COUNT(*) n FROM streak_days`))?.n ?? 0,
+    pageLogs: (await state.db.queryOne(`SELECT COUNT(*) n FROM khatmah_page_log`))?.n ?? 0,
     settings: (await state.db.queryOne(`SELECT COUNT(*) n FROM user_settings WHERE key != 'device_id'`))?.n ?? 0,
   };
   const logs = await state.db.query(`SELECT * FROM backup_log ORDER BY created_at DESC LIMIT 5`);
@@ -38,6 +39,8 @@ export async function renderBackup(root) {
         <div class="bc"><b>${counts.tasbih}</b>أوراد سبحة</div>
         <div class="bc"><b>${counts.sessions}</b>تسجيلات سبحة</div>
         <div class="bc"><b>${counts.streaks}</b>أيام سلاسل</div>
+        <div class="bc"><b>${counts.pageLogs}</b>صفحات الختمة</div>
+        <div class="bc"><b>${counts.settings}</b>إعدادات</div>
       </div>
       <button class="btn primary" id="bk-export" style="width:100%">تصدير ملف .sadaqa</button>
     </div>

@@ -33,6 +33,9 @@ export async function loadState(db) {
   const rows = await db.query(`SELECT key, value FROM user_settings`);
   state.settings = { ...SETTINGS_DEFAULTS };
   for (const r of rows) {
+    // مفاتيح الكائن الحرفي الخطرة تتجاوز القاعدة أيضاً (دفاع في العمق بعد
+    // صمّام backup-validate) حتى لا يُبدَّل نموذج state.settings (audit 2026-11)
+    if (r.key === '__proto__' || r.key === 'constructor' || r.key === 'prototype') continue;
     try { state.settings[r.key] = JSON.parse(r.value); } catch { state.settings[r.key] = r.value; }
   }
   const p = await db.queryOne(`SELECT page, line_number FROM user_progress WHERE uuid = 'resume'`);

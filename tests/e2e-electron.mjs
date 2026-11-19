@@ -29,7 +29,14 @@ const electronBin = join(
 async function main() {
   console.log('═══ E2E: Electron desktop shell (IPC SQLite + protocol + tray + isolation) ═══\n');
   if (!existsSync(electronBin)) {
-    console.log(`(electron binary not found at ${electronBin}; skipped)`);
+    // "ناجح صامتاً" كان يخفي تراجعاً في تثبيت Electron داخل CI — يُتخطى فقط
+    // بتصريح صريح، وإلا يفشل (audit 2026-11)
+    if (process.env.SKIP_ELECTRON === '1') {
+      console.log(`(SKIP_ELECTRON=1 — electron binary not found at ${electronBin}; skipped)`);
+      return;
+    }
+    console.error(`✗ electron binary not found at ${electronBin} — run: cd apps/electron && npm install`);
+    process.exitCode = 1;
     return;
   }
 

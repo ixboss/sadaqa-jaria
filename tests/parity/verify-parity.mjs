@@ -9,7 +9,7 @@
 // Exit code 0 = the corpus is internally consistent and engine-fresh.
 // ============================================================================
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -68,12 +68,17 @@ check('sample-export validates', verdict.ok, verdict.errors?.join(' · '));
 // 3b. v1 classic bundle freshness — js/core-data.bundle.js is generated from
 // the same engines; a committed file that no longer matches a fresh compile
 // means an engine edit skipped regeneration (2026-11 unification gate).
+// المُتحقِّق يبقى نقياً: يعيد كتابة الملف المُلزَم كما كان بعد المقارنة حتى لا
+// يلوّث شجرة العمل عند العبث (كان يترك الملف مُعاد توليدها عند عدم التطابق،
+// audit 2026-11).
 const bundlePath = join(ROOT, 'js', 'core-data.bundle.js');
 const { execFileSync } = await import('node:child_process');
 const committedBundle = readFileSync(bundlePath, 'utf8');
 execFileSync(process.execPath, [join(ROOT, 'scripts', 'tools', 'build-engines-bundle.mjs')], { stdio: 'pipe' });
+const regenerated = readFileSync(bundlePath, 'utf8');
+if (regenerated !== committedBundle) writeFileSync(bundlePath, committedBundle);
 check('core-data.bundle.js is fresh (regenerated == committed)',
-    readFileSync(bundlePath, 'utf8') === committedBundle,
+    regenerated === committedBundle,
     'run: node scripts/tools/build-engines-bundle.mjs');
 
 // 4. schema contract coverage

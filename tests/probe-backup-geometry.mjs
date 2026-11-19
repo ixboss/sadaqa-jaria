@@ -31,6 +31,7 @@ try {
   const targets = await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`)).json();
   await connect(targets.find(t => t.type === 'page').webSocketDebuggerUrl);
   await send('Page.enable');
+  let geomFailures = 0;
   for (const width of [320, 390]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 2, mobile: true });
     await send('Page.navigate', { url: BASE });
@@ -56,7 +57,11 @@ try {
     const inCard = g.export && g.import && g.clear && g.card &&
       g.export.x >= g.card.x && g.clear.x + g.clear.w <= g.card.x + g.card.w;
     console.log(`  chips inside card: ${!!inCard} | no horizontal overflow: ${g.scrollOverflow === 0} | all on screen: ${g.clear.x + g.clear.w <= g.vw}`);
+    // كان يطبع النتائج فقط بلا أي تأكيد فلا يستطيع أن يفشل أبداً (audit 2026-11)
+    const okNow = Boolean(inCard) && g.scrollOverflow === 0 && g.clear.x + g.clear.w <= g.vw;
+    if (!okNow) { geomFailures++; console.error(`  ✗ backup-row geometry broken @${width}px`); }
   }
+  process.exitCode = geomFailures ? 1 : 0;
 } finally {
   browser.kill();
 }

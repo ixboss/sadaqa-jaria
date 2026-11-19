@@ -278,6 +278,9 @@ final class CompassLocator: NSObject, ObservableObject, CLLocationManagerDelegat
     func stop() {
         manager.stopUpdatingHeading()
         manager.stopUpdatingLocation()
+        // clear the last heading so northDeg falls back to manualOffset —
+        // the ±1° manual trim is dead while a stale heading still overrides it
+        heading = nil
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {

@@ -162,17 +162,21 @@ function guardSql(kind, sql) {
 }
 
 function registerIpc() {
-  ipcMain.handle('db:query', (_e, { sql, params }) => db.prepare(guardSql('read', sql)).all(...guardParams(params)));
-  ipcMain.handle('db:queryOne', (_e, { sql, params }) => db.prepare(guardSql('read', sql)).get(...guardParams(params)) ?? null);
+  // db قد تكون null إذا فشل الفتح عند الإقلاع — رسالة واضحة بدل TypeError غامض
+  // يصل الـ renderer كفشل إقلاع بلا سبب (audit 2026-11)
+  const requireDb = () => { if (!db) throw new Error('sadaqa.db unavailable — قاعدة البيانات غير مفتوحة (انظر سجل الإقلاع)'); return db; };
+  ipcMain.handle('db:query', (_e, { sql, params }) => requireDb().prepare(guardSql('read', sql)).all(...guardParams(params)));
+  ipcMain.handle('db:queryOne', (_e, { sql, params }) => requireDb().prepare(guardSql('read', sql)).get(...guardParams(params)) ?? null);
   ipcMain.handle('db:write', (_e, { sql, params, engineReload }) => {
     const s = guardSql('write', sql);
-    db.prepare(s).run(...guardParams(params));
+    requireDb().prepare(s).run(...guardParams(params));
     // explicit flag from the renderer's settings writer (no SQL sniffing —
     // 2026-11 audit): settings changes rebind the tray/adhan engine
     if (engineReload === true) loadEngine().catch(() => {});
     return { ok: true };
   });
   ipcMain.handle('db:batch', (_e, { stmts, engineReload }) => {
+    requireDb();
     if (!Array.isArray(stmts) || stmts.length === 0) throw new Error('batch: stmts required');
     const checked = stmts.map(({ sql, params }) => ({ sql: guardSql('write', sql), params: guardParams(params) }));
     const runAll = db.transaction(() => {
@@ -220,9 +224,13 @@ function registerIpc() {
     return { ok: true };
   });
 
-  // .sadaqa files via native dialogs
+  // .sadaqa files via native dialogs — defaultPath اسم ملف فقط (لا مسار مطلق
+  // من الـ renderer) وبمرشّح امتداد واحد (audit 2026-11)
   ipcMain.handle('file:save', async (_e, { bytes, name }) => {
-    const { canceled, filePath } = await dialog.showSaveDialog({ defaultPath: name });
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      defaultPath: path.basename(String(name ?? 'sadaqa-backup.sadaqa')),
+      filters: [{ name: 'Sadaqa Backup', extensions: ['sadaqa'] }],
+    });
     if (canceled || !filePath) return false;
     await fsp.writeFile(filePath, Buffer.from(bytes));
     return true;
@@ -379,6 +387,14 @@ function createWindow() {
   win.webContents.on('will-navigate', (e, url) => {
     if (!url.startsWith('app://sadaqa/')) e.preventDefault();
   });
+  // انهيار الـ renderer (OOM/wasm) كان يترك نافذة بيضاء مع close-to-tray
+  // فتبدو تعليقاً — أعد التحميل بميزانية بسيطة (audit 2026-11)
+  let goneReloads = 0;
+  win.webContents.on('render-process-gone', (_e, details) => {
+    if (details.reason === 'clean-exit') return;
+    if (++goneReloads > 3) return; // لا حلقة إعادة تحميل لا نهائية
+    setTimeout(() => { try { win.webContents.reload(); } catch { /* ignore */ } }, 500);
+  });
   win.once('ready-to-show', () => win.show());
   win.on('close', (e) => {
     if (!app.__quitting) { e.preventDefault(); win.hide(); } // tray-resident close
@@ -448,13 +464,19 @@ if (!isProbe) {
 }
 
 app.whenReady().then(async () => {
+  // هوية الإشعارات على Windows: بدون AUMID مطابق للاختصار يُسقط النظام
+  // الإشعارات بصمت على بعض الإعدادات، وتُنسب لـ Electron العام (audit 2026-11)
+  app.setAppUserModelId('app.sadaqa.desktop');
   registerAppProtocol();
   registerIpc();
   try { await openDatabase(); } catch (e) { console.error('[db]', e.message); }
   await loadEngine().catch(() => {});
   createTray();
-  setInterval(rebuildTrayMenu, 1000);
-  setInterval(checkAdhan, 10_000);
+  // حلقات الرئيسية لا تجوز أن تُسقط من استثناء واحد (إعداد موقع تالف كان يجمّد
+  // العدّاد والأذان للأبد — المحرك يتحقق من المنطقة الزمنية الآن، وهنا حزام
+  // ثانٍ) (audit 2026-11)
+  setInterval(() => { try { rebuildTrayMenu(); } catch (e) { console.error('[tray]', e.message); } }, 1000);
+  setInterval(() => { try { checkAdhan(); } catch (e) { console.error('[adhan]', e.message); } }, 10_000);
   if (isProbe) {
     setTimeout(runProbe, 300);
     return;

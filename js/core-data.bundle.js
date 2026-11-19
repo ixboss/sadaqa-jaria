@@ -1101,7 +1101,7 @@ __define("packages/core-data/vendor/adhan/Adhan.js", ["packages/core-data/vendor
 });
 
 __define("packages/core-data/engines/prayer.js", ["packages/core-data/vendor/adhan/Adhan.js"], function (exports, __deps) {
-  const { Coordinates, CalculationMethod, CalculationParameters, PrayerTimes, SunnahTimes, Prayer, HighLatitudeRule, Madhab, Qibla: adhanQibla } = __deps["packages/core-data/vendor/adhan/Adhan.js"];
+  const { Coordinates, CalculationMethod, CalculationParameters, PrayerTimes, SunnahTimes, Prayer, HighLatitudeRule, Madhab, PolarCircleResolution, Qibla: adhanQibla } = __deps["packages/core-data/vendor/adhan/Adhan.js"];
 // ============================================================================
 // prayer.js — Sadaqa Jaria v2 prayer-time engine (shared core, target-agnostic)
 // ---------------------------------------------------------------------------
@@ -1227,6 +1227,11 @@ function buildParams({ method = 'umm_al_qura', madhab = 'shafi', highLatitudeRul
   const factory = METHOD_MAP[method];
   if (!factory) throw new Error(`unknown calc method: ${method} (allowed: ${CALC_METHODS.join(', ')})`);
   const params = factory(); // CalculationParameters
+  // المدن القريبة من الدائرة القطبية (نورديث/مورمانسك في قاعدة المدن): بلا حلٍّ
+  // يعيد adhan أوقاتاً NaN في النهار القطبي/الليل القطبي — AqrabBalad يتدرج
+  // 0.5° نحو أقرب خط عرض صالح (audit 2026-11). لا أثر على المدن العادية:
+  // المسار يُفعَّل فقط عند غياب شروق/غروب صالحين.
+  params.polarCircleResolution = PolarCircleResolution.AqrabBalad;
   params.madhab = MADHAB_MAP[madhab] ?? null;
   if (params.madhab === null) throw new Error(`unknown madhab: ${madhab} (allowed: ${MADHABS.join(', ')})`);
   if (highLatitudeRule !== undefined && highLatitudeRule !== null) {
@@ -1260,7 +1265,11 @@ function computeForDate({ y, mo, d }, { lat, lng, timeZone, ...cfg } = {}) {
     // local-noon anchor guarantees the civil date was the city's. Floor to
     // whole seconds because adhan-js DateUtils.roundedMinute leaves sub-second
     // 1000/7 ms fractions on seventh_of_the_night whereas Adhan-Swift/Java do not.
-    times[name] = Math.floor(pt.timeForPrayer(name).getTime() / 1000) * 1000;
+    const ms = pt.timeForPrayer(name).getTime();
+    // أوقات غير منتهية (نهار/ليل قطبي لم يحلّه AqrabBalad): خطأ صريح بدل NaN
+    // صامت يتسلل إلى العدّادات والتنبيهات (audit 2026-11)
+    if (!Number.isFinite(ms)) throw new Error(`prayer time unresolved: ${name} at (${lat},${lng}) on ${y}-${mo + 1}-${d}`);
+    times[name] = Math.floor(ms / 1000) * 1000;
   }
   return { times };
 }
@@ -1385,12 +1394,26 @@ function bindPrayerEngineFromSettings(settings = {}) {
   return bindPrayerEngine({
     lat: Number(loc.lat ?? 21.4225),
     lng: Number(loc.lng ?? 39.8262),
-    timeZone: loc.timeZone || loc.tz || 'Asia/Riyadh',
+    timeZone: safeTimeZone(loc.timeZone || loc.tz),
     method: settings.calc_method ?? 'umm_al_qura',
     madhab: settings.madhab ?? 'shafi',
     highLatitudeRule: settings.high_latitude_rule ?? 'middle_of_the_night',
     offsets: settings.prayer_offsets ?? {},
   });
+}
+
+/**
+ * منطقة زمنية قابلة للحل فقط — إعداد تالف (استيراد قديم أو ملف مزيّف) كان
+ * يُسقط مستهلكي المحرك (Electron tray/adhan على setInterval) في حلقة أخطاء
+ * بلا نهاية (audit 2026-11). يعيد الاسم الطبيعي المحلول أو مكة افتراضاً.
+ */
+function safeTimeZone(tz, fallback = 'Asia/Riyadh') {
+  if (typeof tz !== 'string' || tz.length === 0) return fallback;
+  try {
+    return new Intl.DateTimeFormat('en-US', { timeZone: tz }).resolvedOptions().timeZone || fallback;
+  } catch {
+    return fallback;
+  }
 }
   exports["rawQibla"] = adhanQibla;
   exports["RawCoordinates"] = Coordinates;

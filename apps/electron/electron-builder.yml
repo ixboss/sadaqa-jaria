@@ -13,6 +13,9 @@ files:
 extraResources:
   - from: ../web-desktop
     to: web
+  # أيقونات الـ PWA (favicon/apple-touch/manifest تطلبها من نفس أصل app://sadaqa/)
+  - from: ../../icons
+    to: web/icons
   - from: ../../packages/core-data/engines
     to: packages/core-data/engines
   - from: ../../packages/core-data/vendor

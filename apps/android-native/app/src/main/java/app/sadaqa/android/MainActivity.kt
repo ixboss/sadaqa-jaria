@@ -5,9 +5,15 @@
 
 package app.sadaqa.android
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -43,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,6 +67,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -128,12 +136,31 @@ private fun CompositionLocalRoot(db: SadaqaDb, themeKey: String, fontScale: Floa
     val scaledDensity = remember(baseDensity, fontScale) {
         Density(density = baseDensity.density, fontScale = baseDensity.fontScale * fontScale)
     }
+    RequestNotificationsPermission()
     CompositionLocalProvider(
         LocalSadaqaTheme provides colors,
         LocalLayoutDirection provides LayoutDirection.Rtl,
         LocalDensity provides scaledDensity,
     ) {
         RootScaffold(db)
+    }
+}
+
+/** POST_NOTIFICATIONS runtime request (API 33+) — asked once at first run;
+ *  adhan/alarm notifications fail silently without it (audit 2026-11). */
+@Composable
+private fun RequestNotificationsPermission() {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("sadaqa-prefs", Context.MODE_PRIVATE) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
+            !prefs.getBoolean("notif_permission_asked", false)
+        ) {
+            prefs.edit().putBoolean("notif_permission_asked", true).apply()
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 }
 

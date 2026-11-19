@@ -117,7 +117,7 @@
   },
   {
    "path": "tests/parity/fixtures/backup/sample-export.json",
-   "sha256": "f9cd279753f185b39c8d5226554c2371330129e3d47d3a403b64e56919126538"
+   "sha256": "6dea369c7ccac036d25e8a89f6c91b52c8b416515beaf6a3dab6277c5c1b7634"
   },
   {
    "path": "tests/parity/fixtures/hijri/roundtrip.json",

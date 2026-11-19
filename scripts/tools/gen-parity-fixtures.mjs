@@ -303,6 +303,13 @@ for (const [cityKey, city] of Object.entries(CITIES)) {
     highlights: [{ uuid: '018f3f2e-7abc-7def-8abc-000000000101', ayah_number: 2, word_start: 1, word_end: 4, color_key: 'emerald', updated_at: T - 200, deleted: 0 }],
     notes: [{ uuid: '018f3f2e-7abc-7def-8abc-000000000102', ayah_number: null, body: 'دعاء عام', created_at: T - 900, updated_at: T - 100, deleted: 0 }],
     khatmah_plans: [{ uuid: '018f3f2e-7abc-7def-8abc-000000000103', name_ar: 'ختمتي', mode: 'deadline', start_date: '2026-11-01', end_date: '2027-01-31', daily_pages: null, active: 1, created_at: T - 9000, updated_at: T - 50, deleted: 0 }],
+    // سجل تقدم الختمة — كيان khatmahPageLog (2026-11): كان غائباً عن النسخ
+    // الاحتياطية فتضيع تقدم الختمة عند الاستعادة (audit 2026-11). يشير لخطة
+    // موجودة في khatmah_plans أعلاه حتى تجتاز قيود FK عند الاستيراد.
+    khatmah_page_log: [
+      { plan_uuid: '018f3f2e-7abc-7def-8abc-000000000103', page: 1, completed_at: T - 8000 },
+      { plan_uuid: '018f3f2e-7abc-7def-8abc-000000000103', page: 2, completed_at: T - 7000 },
+    ],
     adhkar_state: [
       { item_id: item1, day_key: '2026-11-17', count: 3, completed_at: T - 3600_000, updated_at: T - 3600_000 },
       { item_id: item2, day_key: '2026-11-16', count: 1, completed_at: null, updated_at: T - 90_000_000 },

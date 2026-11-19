@@ -4,9 +4,10 @@
 // CONTRACT (see prayer.js header): adhan's output Dates are true UTC instants;
 // the only device-dependent input is the civil date read from the anchor Date
 // via RUNTIME-LOCAL getters. Web anchors with `new Date(y, mo, d, 12)` — a
-// runtime-local noon. Swift equivalent: Calendar.current.date(from:) with
-// hour 12 — identical semantics (local calendar, local components). Output is
-// epoch ms, identical on every device for the same inputs. CI proves this by
+// runtime-local noon. Swift equivalent: Calendar(identifier: .gregorian) with
+// hour 12 at the runtime-local timezone — the gregorian calendar is explicit
+// so an Islamic/Hijri device calendar cannot shift the civil date by centuries.
+// Output is epoch ms, identical on every device for the same inputs. CI proves this by
 // replaying the web-generated fixtures (Fixtures/prayer/*.json) with 0 ms
 // tolerance for 6 cities × DST months × 2 method/madhab/HLR variants.
 //
@@ -92,6 +93,7 @@ public enum PrayerError: Error, CustomStringConvertible {
     case invalidCoords
     case invalidOffset(String)
     case cannotResolveOffset(String)
+    case unresolvedTime(String)
     public var description: String {
         switch self {
         case .unknownMethod(let m): return "unknown calc method: \(m)"
@@ -100,6 +102,7 @@ public enum PrayerError: Error, CustomStringConvertible {
         case .invalidCoords: return "invalid lat/lng"
         case .invalidOffset(let s): return s
         case .cannotResolveOffset(let s): return s
+        case .unresolvedTime(let s): return s
         }
     }
 }
@@ -233,10 +236,14 @@ public enum PrayerEngine {
     }
 
     /// Civil-date anchor in the city: RUNTIME-LOCAL noon (the parity anchor).
+    /// Gregorian explicitly — Calendar.current follows the device calendar, and
+    /// an Islamic/Hijri device calendar lands centuries off (audit 2026-11).
     static func localNoonAnchor(y: Int, mo: Int, d: Int) -> Date {
         var comps = DateComponents()
         comps.year = y; comps.month = mo + 1; comps.day = d; comps.hour = 12; comps.minute = 0; comps.second = 0
-        return Calendar.current.date(from: comps) ?? Date()
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = .current
+        return cal.date(from: comps) ?? Date()
     }
 
     // ------------------------------------------------------------------
@@ -258,7 +265,15 @@ public enum PrayerEngine {
         }
         var times: [PrayerName: Int64] = [:]
         for name in PrayerName.allCases {
-            times[name] = pt.time(for: name.adhan).ms
+            let instant = pt.time(for: name.adhan)
+            // أوقات غير منتهية (نهار/ليل قطبي لم يُحلّ): خطأ صريح بدل NaN صامت —
+            // mirror of prayer.js (golden). adhan-swift 1.3.0 has no
+            // polarCircleResolution parameter, so the golden's AqrabBalad
+            // fallback cannot be ported; the explicit error is the port.
+            guard instant.timeIntervalSince1970.isFinite else {
+                throw PrayerError.unresolvedTime("prayer time unresolved: \(name.rawValue) at (\(opts.lat),\(opts.lng)) on \(y)-\(mo + 1)-\(d)")
+            }
+            times[name] = instant.ms
         }
         return times
     }
@@ -361,5 +376,8 @@ public struct BoundPrayerEngine: Sendable {
 
 extension Date {
     init(ms: Int64) { self = Date(timeIntervalSince1970: Double(ms) / 1000) }
-    var ms: Int64 { Int64((timeIntervalSince1970 * 1000).rounded()) }
+    /// Golden parity: floor to whole seconds (prayer.js Math.floor(t/1000)*1000
+    /// — adhan-js DateUtils.roundedMinute leaves sub-second fractions on
+    /// seventh_of_the_night that adhan-swift does not).
+    var ms: Int64 { Int64((timeIntervalSince1970 * 1000).rounded(.down)) }
 }

@@ -4,10 +4,13 @@
  */
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
+// فحص الجذر بمحدد المسار: "sadaqa-jaria2" مجاور كان يجتاز startsWith(ROOT)
+// (audit 2026-11)
+const isUnderRoot = (p) => p === ROOT || p.startsWith(ROOT + sep);
 const PORT = Number(process.argv[2] || process.env.PORT || 8123);
 
 const MIME = {
@@ -35,7 +38,7 @@ createServer(async (req, res) => {
     let path = decodeURIComponent(u.pathname);
     if (path.endsWith('/')) path += 'index.html';
     const file = normalize(join(ROOT, path));
-    if (!file.startsWith(ROOT)) { res.writeHead(403); res.end(); return; }
+    if (!isUnderRoot(file)) { res.writeHead(403); res.end(); return; }
     let body = await readFile(file);
     // خطاف اختباري: ?update-test=N يجعل sw.js بايتات مختلفة لنفس المحتوى
     // لفرض دورة تحديث SW حقيقية في e2e-sw-update.mjs بلا تعديل ملفات على القرص

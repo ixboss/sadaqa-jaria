@@ -180,7 +180,8 @@ public final class SadaqaDatabase: @unchecked Sendable {
         return EngineOptions(
             lat: o["lat"]?.doubleValue ?? defaults.lat,
             lng: o["lng"]?.doubleValue ?? defaults.lng,
-            timeZone: o["timeZone"]?.stringValue ?? defaults.timeZone,
+            // web exports write `tz` (older keys write `timeZone`) — accept both.
+            timeZone: o["timeZone"]?.stringValue ?? o["tz"]?.stringValue ?? defaults.timeZone,
             method: setting("calc_method")?.stringValue ?? "umm_al_qura",
             madhab: setting("madhab")?.stringValue ?? "shafi",
             highLatitudeRule: setting("high_latitude_rule")?.stringValue ?? "middle_of_the_night")
@@ -544,6 +545,21 @@ public final class SadaqaDatabase: @unchecked Sendable {
                     "createdAt": Self.jsonOf(r["created_at"]),
                 ]))
             }
+            for r in try Row.fetchAll(db, sql: "SELECT * FROM khatmah_page_log") {
+                // natural key (plan_uuid, page) → deterministic synth uuid so
+                // drag/merge tables stay distinct (web backup.js pageLogEntity).
+                let planUuid = Self.strOf(r["plan_uuid"]) ?? ""
+                let page = Self.intOf(r["page"]).map(Int.init) ?? 0
+                let completedAt = Self.intOf(r["completed_at"]) ?? 0
+                reading.append(.object([
+                    "uuid": .string(UUIDv7.synthUuid7("pageLog:\(planUuid):\(page)", now: now)),
+                    "type": .string("khatmahPageLog"),
+                    "updatedAt": .number(Double(completedAt)),
+                    "planUuid": .string(planUuid),
+                    "page": .number(Double(page)),
+                    "completedAt": .number(Double(completedAt)),
+                ]))
+            }
             for r in try Row.fetchAll(db, sql: "SELECT * FROM adhkar_state") {
                 let itemId = Self.strOf(r["item_id"]) ?? ""
                 let dayKey = Self.strOf(r["day_key"]) ?? ""
@@ -585,7 +601,13 @@ public final class SadaqaDatabase: @unchecked Sendable {
                 let key = Self.strOf(r["key"]) ?? ""
                 // safeParse parity: unparseable stored values export as the raw
                 // STRING (web backup.js), never as null.
-                let value = Self.strOf(r["value"]).map { raw in (try? JSONValue.parse(raw)) ?? .string(raw) } ?? .null
+                var value = Self.strOf(r["value"]).map { raw in (try? JSONValue.parse(raw)) ?? .string(raw) } ?? .null
+                // Privacy: exact GPS coordinates never leave the device in a
+                // backup — the chosen city (cityId/lat/lng/tz/name_ar) exports
+                // as-is (web backup.js ENT.setting, audit 2026-11).
+                if key == "location", case .object(let fields) = value {
+                    value = .object(fields.filter { $0.key != "gps" })
+                }
                 prefs.append(.object([
                     "uuid": .string(UUIDv7.synthUuid7("setting:\(key)", now: now)),
                     "type": .string("setting"),
@@ -698,6 +720,19 @@ public final class SadaqaDatabase: @unchecked Sendable {
                     "createdAt": Self.jsonOf(r["created_at"]),
                 ]))
             }
+            for r in try Row.fetchAll(db, sql: "SELECT * FROM khatmah_page_log") {
+                let planUuid = Self.strOf(r["plan_uuid"]) ?? ""
+                let page = Self.intOf(r["page"]).map(Int.init) ?? 0
+                let completedAt = Self.intOf(r["completed_at"]) ?? 0
+                let synthUuid = UUIDv7.synthUuid7("pageLog:\(planUuid):\(page)", now: now)
+                let e = JSONValue.object([
+                    "uuid": .string(synthUuid),
+                    "type": .string("khatmahPageLog"), "updatedAt": .number(Double(completedAt)),
+                    "planUuid": .string(planUuid), "page": .number(Double(page)),
+                    "completedAt": .number(Double(completedAt)),
+                ])
+                local["reading", default: [:]][synthUuid] = e
+            }
             for r in try Row.fetchAll(db, sql: "SELECT * FROM adhkar_state") {
                 let itemId = Self.strOf(r["item_id"]) ?? ""
                 let dayKey = Self.strOf(r["day_key"]) ?? ""
@@ -728,7 +763,12 @@ public final class SadaqaDatabase: @unchecked Sendable {
             }
             for r in try Row.fetchAll(db, sql: "SELECT * FROM user_settings WHERE key != 'device_id'") {
                 let key = Self.strOf(r["key"]) ?? ""
-                let value = Self.strOf(r["value"]).map { raw in (try? JSONValue.parse(raw)) ?? .string(raw) } ?? .null
+                var value = Self.strOf(r["value"]).map { raw in (try? JSONValue.parse(raw)) ?? .string(raw) } ?? .null
+                // gps never enters the merge either (web ENT.setting strips it
+                // in both export and import snapshots).
+                if key == "location", case .object(let fields) = value {
+                    value = .object(fields.filter { $0.key != "gps" })
+                }
                 let synthUuid = UUIDv7.synthUuid7("setting:\(key)", now: now)
                 let e = JSONValue.object([
                     "uuid": .string(synthUuid),
@@ -756,7 +796,9 @@ public final class SadaqaDatabase: @unchecked Sendable {
             if mode == "replace" {
                 // Full Replace — fixed, parameterless wipe of every backed-up
                 // table (backup_log is device-local and survives by design).
-                for t in ["bookmarks", "highlights", "notes", "khatmah_plans", "adhkar_state", "tasbih_sessions", "tasbih_counters", "streak_days"] {
+                // page_log first: child of khatmah_plans, deleted before the
+                // parent (web backup.js wipe list, audit 2026-11).
+                for t in ["khatmah_page_log", "bookmarks", "highlights", "notes", "khatmah_plans", "adhkar_state", "tasbih_sessions", "tasbih_counters", "streak_days"] {
                     try db.execute(sql: "DELETE FROM \(t)")
                 }
                 try db.execute(sql: "DELETE FROM user_settings WHERE key != 'device_id'")
@@ -812,6 +854,11 @@ public final class SadaqaDatabase: @unchecked Sendable {
                 INSERT INTO tasbih_sessions (uuid, counter_uuid, count_delta, occurred_at) VALUES (?, ?, ?, ?)
                 ON CONFLICT(uuid) DO UPDATE SET count_delta = excluded.count_delta, occurred_at = excluded.occurred_at
                 """, arguments: [uuid, e["counterUuid"]?.stringValue ?? "", e["countDelta"]?.intValue ?? 1, e["occurredAt"]?.int64Value ?? 0])
+        case "khatmahPageLog":
+            try db.execute(sql: """
+                INSERT INTO khatmah_page_log (plan_uuid, page, completed_at) VALUES (?, ?, ?)
+                ON CONFLICT(plan_uuid, page) DO UPDATE SET completed_at = excluded.completed_at
+                """, arguments: [e["planUuid"]?.stringValue ?? "", e["page"]?.intValue ?? 1, e["completedAt"]?.int64Value ?? 0])
         case "adhkarState":
             try db.execute(sql: """
                 INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?)
