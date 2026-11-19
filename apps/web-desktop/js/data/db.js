@@ -6,11 +6,11 @@ let worker = null;
 let seq = 0;
 const pending = new Map();
 
-function call(op, { sql, params } = {}) {
+function call(op, { sql, params, engineReload } = {}) {
   return new Promise((resolve, reject) => {
     const id = ++seq;
     pending.set(id, { resolve, reject });
-    worker.postMessage({ id, op, sql, params });
+    worker.postMessage({ id, op, sql, params, engineReload });
   });
 }
 
@@ -40,7 +40,8 @@ export async function openDatabase() {
   };
   try {
     const info = await call('init');
-    console.info(`[db] ready (sqlite ${info.version}, mode=${info.mode ?? 'opfs-sahpool'}, capacity=${info.capacity}, existed=${info.existed})`);
+    api.mode = info.mode ?? 'opfs-sahpool';
+    console.info(`[db] ready (sqlite ${info.version}, mode=${api.mode}, capacity=${info.capacity}, existed=${info.existed})`);
     return api;
   } catch (err) {
     try { worker?.terminate?.(); } catch { /* ignore */ }
@@ -50,6 +51,7 @@ export async function openDatabase() {
 }
 
 const api = {
+  mode: 'opfs-sahpool',
   /** rows: array of objects */
   query: (sql, params = []) => call('query', { sql, params }),
   /** first row or null */
@@ -58,6 +60,6 @@ const api = {
    *  opts.engineReload: explicit flag — the Electron main process reloads its
    *  tray/adhan engine on settings writes (no string sniffing of the SQL). */
   write: (sql, params = [], opts = {}) => call('write', { sql, params, engineReload: opts?.engineReload === true }),
-  /** atomic multi-write in one transaction: batch({ stmts: [{sql, params}] }) */
-  batch: (stmts) => call('batch', { params: { stmts } }),
+  /** atomic multi-write in one transaction: batch(stmts, { engineReload? }) */
+  batch: (stmts, opts = {}) => call('batch', { params: { stmts }, engineReload: opts?.engineReload === true }),
 };

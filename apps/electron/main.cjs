@@ -55,6 +55,7 @@ function resolveUnder(root, urlPath) {
 }
 
 function registerAppProtocol() {
+  const CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob: https:; connect-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'none';";
   protocol.handle('app', async (request) => {
     try {
       const u = new URL(request.url);
@@ -67,11 +68,16 @@ function registerAppProtocol() {
         candidates.push(resolveUnder(PKG_DIR, u.pathname.slice('/packages'.length)));
       }
       for (const file of candidates) {
-        if (file && fs.existsSync(file) && fs.statSync(file).isFile()) {
-          return new Response(fs.readFileSync(file), {
-            headers: { 'content-type': MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream' },
-          });
-        }
+        if (!file) continue;
+        try {
+          const st = await fsp.stat(file);
+          if (!st.isFile()) continue;
+          const ext = path.extname(file).toLowerCase();
+          const headers = { 'content-type': MIME[ext] ?? 'application/octet-stream' };
+          if (ext === '.html') headers['content-security-policy'] = CSP;
+          const body = await fsp.readFile(file);
+          return new Response(body, { headers });
+        } catch { /* try next candidate */ }
       }
       return new Response('not found', { status: 404 });
     } catch {
@@ -90,33 +96,46 @@ let db = null;
 const SCHEMA_VERSION = 1;
 
 function migrateDb(database) {
-  let v = 0;
+  let raw = null;
   try {
     const row = database.prepare(`SELECT value FROM meta WHERE key = 'schema_version'`).get();
-    v = Number(JSON.parse(row?.value ?? ''));
-  } catch { /* absent/invalid meta row → treated as baseline */ }
-  if (!Number.isInteger(v) || v <= 0) v = SCHEMA_VERSION;
-  if (v > SCHEMA_VERSION) {
-    console.error(`[db] sadaqa.db schema_version ${v} is newer than this build (${SCHEMA_VERSION}) — update the app; leaving the db untouched`);
-    return v;
-  }
-  database.transaction(() => {
-    // while (v < SCHEMA_VERSION) { …future migration steps…; v++; }
-    if (v < SCHEMA_VERSION) {
-      database.prepare(`UPDATE meta SET value = ? WHERE key = 'schema_version'`).run(String(SCHEMA_VERSION));
+    raw = row?.value;
+  } catch { /* absent meta table/row */ }
+  let v = 0;
+  if (raw !== undefined && raw !== null) {
+    let parsed;
+    try { parsed = Number(JSON.parse(String(raw))); } catch { parsed = Number(raw); }
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      throw new Error(`sadaqa.db invalid schema_version: ${raw}`);
     }
-  })();
+    v = parsed;
+  }
+  if (v > SCHEMA_VERSION) {
+    throw new Error(`sadaqa.db schema_version ${v} is newer than this build (${SCHEMA_VERSION}) — update the app (data left untouched)`);
+  }
+  if (v < SCHEMA_VERSION) {
+    database.transaction(() => {
+      // future migration steps when SCHEMA_VERSION > 1
+      database.prepare(`INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?)`).run(String(SCHEMA_VERSION));
+    })();
+  }
   return SCHEMA_VERSION;
 }
 
-function openDatabase() {
+async function openDatabase() {
+  if (db) return db;
   const Database = require('better-sqlite3');
   const userDb = path.join(app.getPath('userData'), 'sadaqa.db');
-  if (!fs.existsSync(userDb)) fs.copyFileSync(SEED_DB, userDb);
-  db = new Database(userDb);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-  migrateDb(db);
+  try {
+    await fsp.access(userDb);
+  } catch {
+    await fsp.copyFile(SEED_DB, userDb);
+  }
+  const instance = new Database(userDb);
+  instance.pragma('journal_mode = WAL');
+  instance.pragma('foreign_keys = ON');
+  migrateDb(instance);
+  db = instance;
   return db;
 }
 
@@ -127,28 +146,46 @@ function guardParams(params) {
   return params;
 }
 
+function guardSql(kind, sql) {
+  const s = String(sql ?? '').trim();
+  if (!s) throw new Error('empty sql');
+  if (s.includes(';')) throw new Error('multi-statement sql forbidden');
+  if (/^\s*(SELECT|WITH)\b/i.test(s)) {
+    if (kind !== 'read') throw new Error('read query not allowed in write channel');
+    return s;
+  }
+  if (/^\s*(INSERT|UPDATE|DELETE)\b/i.test(s)) {
+    if (kind !== 'write') throw new Error('write statement not allowed in read channel');
+    return s;
+  }
+  throw new Error('disallowed sql operation');
+}
+
 function registerIpc() {
-  ipcMain.handle('db:query', (_e, { sql, params }) => db.prepare(String(sql)).all(...guardParams(params)));
-  ipcMain.handle('db:queryOne', (_e, { sql, params }) => db.prepare(String(sql)).get(...guardParams(params)) ?? null);
+  ipcMain.handle('db:query', (_e, { sql, params }) => db.prepare(guardSql('read', sql)).all(...guardParams(params)));
+  ipcMain.handle('db:queryOne', (_e, { sql, params }) => db.prepare(guardSql('read', sql)).get(...guardParams(params)) ?? null);
   ipcMain.handle('db:write', (_e, { sql, params, engineReload }) => {
-    const s = String(sql);
+    const s = guardSql('write', sql);
     db.prepare(s).run(...guardParams(params));
     // explicit flag from the renderer's settings writer (no SQL sniffing —
     // 2026-11 audit): settings changes rebind the tray/adhan engine
     if (engineReload === true) loadEngine().catch(() => {});
     return { ok: true };
   });
-  ipcMain.handle('db:batch', (_e, { stmts }) => {
+  ipcMain.handle('db:batch', (_e, { stmts, engineReload }) => {
     if (!Array.isArray(stmts) || stmts.length === 0) throw new Error('batch: stmts required');
+    const checked = stmts.map(({ sql, params }) => ({ sql: guardSql('write', sql), params: guardParams(params) }));
     const runAll = db.transaction(() => {
       let count = 0;
-      for (const { sql, params } of stmts) {
-        db.prepare(String(sql)).run(...guardParams(params));
+      for (const { sql, params } of checked) {
+        db.prepare(sql).run(...params);
         count++;
       }
       return count;
     });
-    return { ok: true, count: runAll() };
+    const count = runAll();
+    if (engineReload === true) loadEngine().catch(() => {});
+    return { ok: true, count };
   });
   // (db:export IPC حُذف 2026-11: لا يستدعيه أي كود واجهة — سلسلة exportDb
   // الميتة exportDb→db:export قراءةً للملف الخام أثناء قفل WAL. التصدير
@@ -162,20 +199,24 @@ function registerIpc() {
     const dir = path.join(app.getPath('userData'), 'audio', safeReciter);
     return { dir, file: path.join(dir, `${safeKey}.mp3`) };
   };
-  ipcMain.handle('audio:put', (_e, { reciter, key, bytes }) => {
+  ipcMain.handle('audio:put', async (_e, { reciter, key, bytes }) => {
     const { dir, file } = audioDirFor(reciter, key);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(file, Buffer.from(bytes));
+    await fsp.mkdir(dir, { recursive: true });
+    await fsp.writeFile(file, Buffer.from(bytes));
     return { ok: true };
   });
-  ipcMain.handle('audio:get', (_e, { reciter, key }) => {
+  ipcMain.handle('audio:get', async (_e, { reciter, key }) => {
     const { file } = audioDirFor(reciter, key);
-    if (!fs.existsSync(file)) return null;
-    return fs.readFileSync(file);
+    try {
+      return await fsp.readFile(file);
+    } catch (err) {
+      if (err?.code === 'ENOENT') return null;
+      throw err;
+    }
   });
-  ipcMain.handle('audio:delete', (_e, { reciter, key }) => {
+  ipcMain.handle('audio:delete', async (_e, { reciter, key }) => {
     const { file } = audioDirFor(reciter, key);
-    if (fs.existsSync(file)) fs.rmSync(file);
+    await fsp.rm(file, { force: true });
     return { ok: true };
   });
 
@@ -183,13 +224,13 @@ function registerIpc() {
   ipcMain.handle('file:save', async (_e, { bytes, name }) => {
     const { canceled, filePath } = await dialog.showSaveDialog({ defaultPath: name });
     if (canceled || !filePath) return false;
-    fs.writeFileSync(filePath, Buffer.from(bytes));
+    await fsp.writeFile(filePath, Buffer.from(bytes));
     return true;
   });
   ipcMain.handle('file:open', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'Sadaqa Backup', extensions: ['sadaqa'] }] });
     if (canceled || filePaths.length === 0) return null;
-    return fs.readFileSync(filePaths[0]);
+    return await fsp.readFile(filePaths[0]);
   });
   ipcMain.handle('notify', (_e, payload) => {
     if (!Notification.isSupported()) return false;
@@ -207,26 +248,14 @@ let engine = null;
 
 async function loadEngine() {
   const prayer = await import(pathToFileURL(path.join(PKG_DIR, 'core-data', 'engines', 'prayer.js')).href);
-  let loc = { lat: 21.4225, lng: 39.8262, tz: 'Asia/Riyadh', name_ar: 'مكة المكرمة' };
-  let method = 'umm_al_qura', madhab = 'shafi', hlr = 'middle_of_the_night';
+  const settings = {};
   try {
     const rows = db.prepare(`SELECT key, value FROM user_settings`).all();
     for (const r of rows) {
-      let v; try { v = JSON.parse(r.value); } catch { v = r.value; }
-      if (r.key === 'location' && v && Number.isFinite(v.lat)) loc = v;
-      if (r.key === 'calc_method') method = String(v);
-      if (r.key === 'madhab') madhab = String(v);
-      if (r.key === 'high_latitude_rule') hlr = String(v);
+      try { settings[r.key] = JSON.parse(r.value); } catch { settings[r.key] = r.value; }
     }
   } catch { /* defaults */ }
-  engine = prayer.bindPrayerEngine({
-    lat: loc.lat,
-    lng: loc.lng,
-    timeZone: loc.timeZone || loc.tz || 'Asia/Riyadh',
-    method,
-    madhab,
-    highLatitudeRule: hlr,
-  });
+  engine = prayer.bindPrayerEngineFromSettings(settings);
   return engine;
 }
 
@@ -289,20 +318,25 @@ function createTray() {
   rebuildTrayMenu();
 }
 
+let lastTrayMenuLabel = '';
 function rebuildTrayMenu() {
-  if (!engine) return;
+  if (!engine || !tray) return;
   const now = Date.now();
   const next = engine.next(now);
   const tz = engine.opts.timeZone;
   const clock = (ms) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
-  const items = [
-    { label: `الصلاة القادمة: ${PRAYER_AR[next.name]} ${clock(next.at)} — بعد ${fmtHMS(next.at - now)}`, enabled: false },
-    { type: 'separator' },
-    { label: 'فتح التطبيق', click: () => createWindow() },
-    { type: 'separator' },
-    { label: 'خروج', click: () => app.quit() },
-  ];
-  tray.setContextMenu(Menu.buildFromTemplate(items));
+  const menuLabel = `الصلاة القادمة: ${PRAYER_AR[next.name]} ${clock(next.at)}`;
+  if (menuLabel !== lastTrayMenuLabel) {
+    lastTrayMenuLabel = menuLabel;
+    const items = [
+      { label: menuLabel, enabled: false },
+      { type: 'separator' },
+      { label: 'فتح التطبيق', click: () => createWindow() },
+      { type: 'separator' },
+      { label: 'خروج', click: () => app.quit() },
+    ];
+    tray.setContextMenu(Menu.buildFromTemplate(items));
+  }
   tray.setToolTip(`الصلاة القادمة: ${PRAYER_AR[next.name]} بعد ${fmtHMS(next.at - now)}`);
 }
 
@@ -310,11 +344,13 @@ function checkAdhan() {
   if (!engine || !Notification.isSupported()) return;
   const now = Date.now();
   const n = engine.next(now);
-  if (n.name === 'sunrise' || now < n.at || now - n.at > 90_000) return;
-  const key = `${n.name}@${n.at}`;
+  const prev = n.previous;
+  if (!prev || prev.name === 'sunrise' || now - prev.at < 0 || now - prev.at > 90_000) return;
+  const key = `${prev.name}@${prev.at}`;
   if (firedAdhan.has(key)) return;
+  if (firedAdhan.size > 64) firedAdhan.clear();
   firedAdhan.add(key);
-  new Notification({ title: `حان الآن موعد أذان ${PRAYER_AR[n.name]}`, body: 'حي على الصلاة · حي على الفلاح', silent: false }).show();
+  new Notification({ title: `حان الآن موعد أذان ${PRAYER_AR[prev.name]}`, body: 'حي على الصلاة · حي على الفلاح', silent: false }).show();
 }
 
 // ---------------------------------------------------------------------------
@@ -339,6 +375,10 @@ function createWindow() {
     },
   });
   win.__sadaqaMain = true;
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (e, url) => {
+    if (!url.startsWith('app://sadaqa/')) e.preventDefault();
+  });
   win.once('ready-to-show', () => win.show());
   win.on('close', (e) => {
     if (!app.__quitting) { e.preventDefault(); win.hide(); } // tray-resident close
@@ -353,7 +393,7 @@ function createWindow() {
 async function runProbe() {
   const checks = {};
   try {
-    const d = openDatabase();
+    const d = await openDatabase();
     checks.sqlite = true;
     checks.fts5 = d.pragma('compile_options').some((r) => String(r.compile_options).includes('ENABLE_FTS5'));
     checks.ftsQuery = d.prepare("SELECT COUNT(*) n FROM fts_ayahs WHERE fts_ayahs MATCH ?").get('الله').n > 0;
@@ -398,15 +438,24 @@ async function runProbe() {
 }
 
 // ---------------------------------------------------------------------------
+const isProbe = process.env.SADAQA_PROBE === '1' || process.argv.includes('--probe');
+if (!isProbe) {
+  if (!app.requestSingleInstanceLock()) {
+    app.quit();
+  } else {
+    app.on('second-instance', () => { createWindow(); });
+  }
+}
+
 app.whenReady().then(async () => {
   registerAppProtocol();
   registerIpc();
-  try { openDatabase(); } catch (e) { console.error('[db]', e.message); }
+  try { await openDatabase(); } catch (e) { console.error('[db]', e.message); }
   await loadEngine().catch(() => {});
   createTray();
   setInterval(rebuildTrayMenu, 1000);
   setInterval(checkAdhan, 10_000);
-  if (process.env.SADAQA_PROBE === '1' || process.argv.includes('--probe')) {
+  if (isProbe) {
     setTimeout(runProbe, 300);
     return;
   }

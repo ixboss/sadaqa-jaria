@@ -8,6 +8,7 @@
 // window.__sadaqa.state.clockOverride.
 // ============================================================================
 import { state, nowMs, haptic, prayerEngineForSettings, HAPTICS } from '../../app-state.js';
+import { shiftCivilIso } from '../../../../../packages/core-data/engines/prayer.js';
 import { monthNameAr, withAdjust } from '../../../../../packages/core-data/engines/hijri.js';
 import { resolveSmartCard } from '../../../../../packages/core-data/engines/smart-card.js';
 import { getGpsFix, findNearestCity, persistLocation } from '../geo.js';
@@ -110,7 +111,7 @@ export function renderToday(root) {
   const nextIso = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(next.at);
   const day = engine.daySchedule(dateIso);
   const qiyamIso = now < day.prayers.fajr
-    ? new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now - 86_400_000)
+    ? shiftCivilIso(dateIso, -1)
     : dateIso;
   const windows = engine.sunnahWindows(qiyamIso);
   const locName = state.settings.location?.name_ar ?? 'مكة المكرمة';

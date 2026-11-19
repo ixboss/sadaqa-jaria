@@ -574,4 +574,88 @@ class DatabaseWritePathTest {
             db.close()
         }
     }
+
+    @Test
+    fun widgetLocationParsesCommaLocalesAndOptions() {
+        val parsed = app.sadaqa.android.widget.WidgetData.parseLocation(
+            "21,422500;39,826200;Asia/Riyadh;egyptian;hanafi;seventh_of_night",
+        )
+        requireNotNull(parsed)
+        assertEquals(21.4225, parsed.lat, 1e-6)
+        assertEquals(39.8262, parsed.lng, 1e-6)
+        assertEquals("Asia/Riyadh", parsed.timeZone)
+        assertEquals("egyptian", parsed.method)
+        assertEquals("hanafi", parsed.madhab)
+        assertEquals("seventh_of_night", parsed.highLatitudeRule)
+    }
+
+    @Test
+    fun schemaDowngradeThrowsInsteadOfContinuing() {
+        val f = File("build/tmp-p5/downgrade-${System.nanoTime()}.db")
+        f.parentFile?.mkdirs()
+        val db = SadaqaDb.open(f, ::seedBytesOf)
+        db.execute("UPDATE meta SET value = '999' WHERE key = 'schema_version'")
+        db.close()
+
+        val err = runCatching { SadaqaDb.open(f, ::seedBytesOf) }.exceptionOrNull()
+        assertTrue("expected IllegalStateException on schema downgrade, got: $err", err is IllegalStateException)
+    }
+
+    @Test
+    fun importPreservesDeviceIdAndOrdersTasbihSessionAfterCounter() {
+        val f = File("build/tmp-p5/fk-dev-${System.nanoTime()}.db")
+        f.parentFile?.mkdirs()
+        val db = SadaqaDb.open(f, ::seedBytesOf)
+        try {
+            val localDeviceId = db.deviceId()
+            val now = 1_764_300_000_000L
+            val counterUuid = "01933c9e-1111-7000-8000-000000000001"
+            val sessionUuid = "01933c9e-2222-7000-8000-000000000002"
+            val settingUuid = "01933c9e-3333-7000-8000-000000000003"
+            val payload = Obj(mapOf(
+                "reading" to Arr(emptyList()),
+                "dhikr" to Arr(listOf(
+                    Obj(mapOf(
+                        "uuid" to Str(sessionUuid), "type" to Str("tasbihSession"), "updatedAt" to Num(now.toDouble()),
+                        "counterUuid" to Str(counterUuid), "countDelta" to Num(3.0), "occurredAt" to Num(now.toDouble()),
+                    )),
+                    Obj(mapOf(
+                        "uuid" to Str(counterUuid), "type" to Str("tasbihCounter"), "updatedAt" to Num(now.toDouble()),
+                        "deleted" to Bool(false), "labelAr" to Str("سبحان الله"), "dhikrText" to Str("سبحان الله"),
+                        "target" to Num(33.0), "count" to Num(3.0), "totalLifetime" to Num(3.0), "sortOrder" to Num(0.0),
+                    )),
+                )),
+                "prefs" to Arr(listOf(
+                    Obj(mapOf(
+                        "uuid" to Str(settingUuid), "type" to Str("setting"), "updatedAt" to Num((now + 10_000).toDouble()),
+                        "key" to Str("device_id"), "value" to Str("attacker-device-id"),
+                    )),
+                )),
+                "meta" to Arr(emptyList()),
+            ))
+            val integrity = app.sadaqa.android.data.Sha256.hex(CanonicalJson.serialize(payload))
+            val manifest = Obj(mapOf(
+                "format" to Str("sadaqa-backup"),
+                "formatVersion" to Num(1.0),
+                "exportedAt" to Str("2026-11-18T00:00:00Z"),
+                "appVersion" to Str("2.3.0"),
+                "deviceId" to Str("other"),
+                "integrity" to Str(integrity),
+                "entities" to Obj(mapOf("reading" to Num(0.0), "dhikr" to Num(2.0), "prefs" to Num(1.0), "meta" to Num(0.0))),
+            ))
+            val doc = CanonicalJson.serialize(Obj(mapOf("manifest" to manifest, "payload" to payload)))
+            db.importBackup(doc, "merge")
+            assertEquals(localDeviceId, db.deviceId())
+            assertEquals(1L, db.queryOne("SELECT COUNT(*) AS n FROM tasbih_sessions WHERE uuid = ?", listOf(sessionUuid))!!.longs["n"])
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun hijriIsTodayAdjustmentMatchesEngine() {
+        val adjusted = HijriEngine.withAdjust("2026-11-18", 1)
+        val unadjusted = HijriEngine.withAdjust("2026-11-18", 0)
+        assertTrue("adjust=+1 must shift the Hijri day forward", adjusted != unadjusted)
+    }
 }

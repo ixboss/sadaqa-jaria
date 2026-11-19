@@ -222,6 +222,23 @@ async function resetAppStorageAndReload() {
   location.reload();
 }
 
+function mountMemoryStorageBanner() {
+  if (document.getElementById('storage-mode-banner')) return;
+  const bar = document.createElement('div');
+  bar.id = 'storage-mode-banner';
+  bar.setAttribute('role', 'status');
+  bar.style.cssText = 'position:fixed;top:0;inset-inline:0;z-index:9999;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 14px;background:#7c2d12;color:#fef3c7;font-size:12px;line-height:1.5;border-bottom:1px solid rgba(255,255,255,.15)';
+  const msg = document.createElement('span');
+  msg.textContent = 'تنبيه: التخزين المؤقت نشط الآن (تعذر فتح التخزين الدائم OPFS — قد يكون هناك تبويب آخر مفتوحاً أو وضع تصفح خاص). التغييرات لن تُحفظ بعد إغلاق التبويب.';
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.textContent = 'إغلاق';
+  close.style.cssText = 'background:rgba(255,255,255,.15);color:inherit;border:0;border-radius:6px;padding:4px 10px;cursor:pointer;flex-shrink:0';
+  close.addEventListener('click', () => bar.remove());
+  bar.append(msg, close);
+  document.body.prepend(bar);
+}
+
 async function boot() {
   renderBootProgress(0, 0, 'wasm');
   window.addEventListener('sadaqa:boot-progress', (ev) => {
@@ -251,6 +268,9 @@ async function boot() {
   wireDockScroll();
   onNavigate(renderRoute);
   bootRouter();
+  if (db.mode && db.mode !== 'opfs-sahpool') {
+    mountMemoryStorageBanner();
+  }
   // test/debug hook (v1 harness pattern): observable state + db proxy
   window.__sadaqa = { state, db, navigate, renderSearchSheet };
   window.__sadaqaReady = true;

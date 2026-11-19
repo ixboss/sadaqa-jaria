@@ -8,6 +8,7 @@
 // contextIsolation (no Node globals in the renderer).
 // ============================================================================
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,12 +18,18 @@ const ELECTRON_DIR = join(ROOT, 'apps', 'electron');
 const results = [];
 const ok = (name, cond, detail = '') => { results.push({ name, pass: !!cond, detail }); console.log(`${cond ? '✔' : '✘'} ${name}${detail ? ` — ${detail}` : ''}`); };
 
-const electronBin = join(ELECTRON_DIR, 'node_modules', 'electron', 'dist', 'electron.exe');
+const electronBin = join(
+  ELECTRON_DIR,
+  'node_modules',
+  'electron',
+  'dist',
+  process.platform === 'win32' ? 'electron.exe' : 'electron',
+);
 
 async function main() {
   console.log('═══ E2E: Electron desktop shell (IPC SQLite + protocol + tray + isolation) ═══\n');
-  if (process.platform !== 'win32') {
-    console.log('(electron binary path is Windows-specific in this workspace; skipped)');
+  if (!existsSync(electronBin)) {
+    console.log(`(electron binary not found at ${electronBin}; skipped)`);
     return;
   }
 

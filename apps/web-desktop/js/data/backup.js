@@ -148,9 +148,10 @@ export async function importBackup(db, bytes, mode, now = Date.now()) {
     }
     stmts.push({ sql: `DELETE FROM user_settings WHERE key != 'device_id'` });
   }
-  for (const m of mutations) stmts.push(...entityStmts(m.entity, mode === 'replace' ? 'insert' : m.action));
+  const ordered = [...mutations].sort((a, b) => (a.entity?.type === 'tasbihSession' ? 1 : 0) - (b.entity?.type === 'tasbihSession' ? 1 : 0));
+  for (const m of ordered) stmts.push(...entityStmts(m.entity, mode === 'replace' ? 'insert' : m.action));
 
-  if (stmts.length > 0) await db.batch(stmts);
+  if (stmts.length > 0) await db.batch(stmts, { engineReload: true });
   await db.write(
     `INSERT INTO backup_log (direction, mode, format_version, counts_json, created_at) VALUES ('import', ?, ?, ?, ?)`,
     [mode, manifest.formatVersion, JSON.stringify(report), now],
@@ -201,11 +202,14 @@ function entityStmts(e, action) {
       sql: `INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)`,
       params: [e.kind, e.dayKey, e.updatedAt],
     }];
-    case 'setting': return [{
-      sql: `INSERT INTO user_settings (key, value, updated_at) VALUES (?, ?, ?)
-            ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-      params: [e.key, JSON.stringify(e.value ?? null), e.updatedAt],
-    }];
+    case 'setting':
+      // device_id is local-only and must never be overwritten by an imported backup.
+      if (e.key === 'device_id') return [];
+      return [{
+        sql: `INSERT INTO user_settings (key, value, updated_at) VALUES (?, ?, ?)
+              ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+        params: [e.key, JSON.stringify(e.value ?? null), e.updatedAt],
+      }];
     default: throw new Error(`unsupported entity type: ${e.type}`);
   }
 }
@@ -213,12 +217,20 @@ function entityStmts(e, action) {
 /** For the UI confirm sheet: parse + validate + counts WITHOUT importing. */
 export async function peekBackup(bytes) {
   const text = new TextDecoder().decode(bytes);
-  const file = JSON.parse(text);
+  let file;
+  try {
+    file = JSON.parse(text);
+  } catch {
+    return { ok: false, errors: ['ملف غير صالح — ليس JSON'], counts: {}, manifest: null };
+  }
+  if (!file || typeof file !== 'object') {
+    return { ok: false, errors: ['ملف غير صالح — بنية غير متوقعة'], counts: {}, manifest: null };
+  }
   const verdict = validateBackup(file.manifest, file.payload);
-  const integrityOk = await integrityMatches(file.manifest, file.payload);
+  const integrityOk = verdict.ok ? await integrityMatches(file.manifest, file.payload) : false;
   return {
     ok: verdict.ok && integrityOk,
-    errors: [...(verdict.errors ?? []), ...(integrityOk ? [] : ['manifest.integrity — البصمة لا تطابق محتوى الملف'])],
+    errors: [...(verdict.errors ?? []), ...(verdict.ok && !integrityOk ? ['manifest.integrity — البصمة لا تطابق محتوى الملف'] : [])],
     counts: verdict.counts ?? {},
     manifest: file.manifest,
   };

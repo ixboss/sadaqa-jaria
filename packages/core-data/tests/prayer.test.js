@@ -148,3 +148,16 @@ test('bindPrayerEngine exposes daySchedule/sunnahWindows/next with bound opts', 
   const n = be.next(s.prayers.dhuhr - 1);
   assert.equal(n.name, 'dhuhr');
 });
+
+test('next(): DST spring-forward midnight uses civil yesterday (not now - 86400s)', () => {
+  // 2026-03-30 00:30 BST in Europe/London (one day after 23h spring-forward day).
+  // Subtracting 86_400_000 ms lands on 2026-03-28 23:30 GMT, skipping 2026-03-29!
+  const instant = Date.parse('2026-03-29T23:30:00Z');
+  const mar29 = daySchedule('2026-03-29', LONDON);
+  const mar30 = daySchedule('2026-03-30', LONDON);
+  const r = next(instant, LONDON);
+  assert.equal(r.name, 'fajr');
+  assert.equal(r.at, mar30.prayers.fajr);
+  assert.equal(r.previous.name, 'isha');
+  assert.equal(r.previous.at, mar29.prayers.isha);
+});

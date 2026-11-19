@@ -42,8 +42,7 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
                 if (stmt.step()) v = runCatching { stmt.getText(0).trim().toDouble().toInt() }.getOrDefault(0)
             }
             if (v > SCHEMA_VERSION) {
-                println("[SadaqaDb] sadaqa.db schema_version $v is newer than this build ($SCHEMA_VERSION) — leaving the db untouched")
-                return
+                throw IllegalStateException("sadaqa.db schema_version $v is newer than this build ($SCHEMA_VERSION)")
             }
             if (v < SCHEMA_VERSION) {
                 conn.prepare("UPDATE meta SET value = ? WHERE key = 'schema_version'").use {
@@ -55,23 +54,44 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
 
         /**
          * Open (copying the bundled seed on first run). `seedBytes` supplies
-         * assets/sadaqa.db on Android; JVM tests pass the file bytes directly.
+         * assets/sadaqa.db for JVM tests; Android startup uses `openWithStream`
+         * to stream-copy without allocating the full 42 MB file in RAM.
          */
-        fun open(dbFile: File, seedBytes: (() -> ByteArray)? = null): SadaqaDb {
+        fun open(dbFile: File, seedBytes: (() -> ByteArray)? = null): SadaqaDb =
+            openWithStream(dbFile, seedBytes?.let { fn -> { fn().inputStream() } })
+
+        fun openWithStream(dbFile: File, seedStream: (() -> java.io.InputStream)? = null): SadaqaDb {
             if (!dbFile.exists() || dbFile.length() == 0L) {
                 if (dbFile.exists()) dbFile.delete()
-                val bytes = seedBytes?.invoke()
+                val streamFn = seedStream
                     ?: throw IllegalStateException("bundled sadaqa.db missing — run scripts/tools/sync-native-assets.mjs")
                 dbFile.parentFile?.mkdirs()
-                dbFile.writeBytes(bytes)
+                val tmp = File(dbFile.parentFile, "${dbFile.name}.tmp")
+                try {
+                    streamFn().use { input ->
+                        tmp.outputStream().use { out -> input.copyTo(out, bufferSize = 64 * 1024) }
+                    }
+                    if (!tmp.renameTo(dbFile)) {
+                        tmp.copyTo(dbFile, overwrite = true)
+                        tmp.delete()
+                    }
+                } catch (t: Throwable) {
+                    tmp.delete()
+                    throw t
+                }
             }
             if (!dbFile.canWrite()) {
                 dbFile.setWritable(true, true)
             }
             val conn = BundledSQLiteDriver().open(dbFile.absolutePath)
-            conn.prepare("PRAGMA journal_mode = WAL").use { it.step() }
-            conn.prepare("PRAGMA foreign_keys = ON").use { it.step() }
-            migrate(conn)
+            try {
+                conn.prepare("PRAGMA journal_mode = WAL").use { it.step() }
+                conn.prepare("PRAGMA foreign_keys = ON").use { it.step() }
+                migrate(conn)
+            } catch (t: Throwable) {
+                runCatching { conn.close() }
+                throw t
+            }
             return SadaqaDb(conn)
         }
 
@@ -438,11 +458,14 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         connection.close()
     }
 
-    fun deviceId(): String {
-        setting("device_id")?.str?.let { return it }
+    fun deviceId(): String = transaction {
+        setting("device_id")?.str?.let { return@transaction it }
         val id = UUID7.uuid7()
-        execute("INSERT INTO user_settings (key, value, updated_at) VALUES (?, ?, ?)", listOf("device_id", CanonicalJson.serialize(Str(id)), System.currentTimeMillis()))
-        return id
+        execute(
+            "INSERT OR IGNORE INTO user_settings (key, value, updated_at) VALUES (?, ?, ?)",
+            listOf("device_id", CanonicalJson.serialize(Str(id)), System.currentTimeMillis()),
+        )
+        setting("device_id")?.str ?: id
     }
 
     // ------------------------------------------------------------------
@@ -696,7 +719,10 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
                 execute("DELETE FROM streak_days")
                 execute("DELETE FROM user_settings WHERE key <> ?", listOf("device_id"))
             }
-            for (m in result.mutations) apply(m.entity)
+            val orderedMutations = result.mutations.sortedBy {
+                if (it.entity["type"].str == "tasbihSession") 1 else 0
+            }
+            for (m in orderedMutations) apply(m.entity)
             val report = Obj(mapOf(
                 "added" to Num(result.report.added.toDouble()), "updated" to Num(result.report.updated.toDouble()),
                 "conflicts" to Num(result.report.conflicts.toDouble()), "skipped" to Num(result.report.skipped.toDouble()),
@@ -723,7 +749,11 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
             "tasbihSession" -> execute("INSERT INTO tasbih_sessions (uuid, counter_uuid, count_delta, occurred_at) VALUES (?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET count_delta = excluded.count_delta, occurred_at = excluded.occurred_at", listOf<Any?>(uuid, e["counterUuid"].str ?: "", (e["countDelta"].int ?: 1).toLong(), e["occurredAt"].long ?: 0L))
             "adhkarState" -> execute("INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(item_id, day_key) DO UPDATE SET count = excluded.count, completed_at = excluded.completed_at, updated_at = excluded.updated_at", listOf<Any?>(e["itemId"].str ?: "", e["dayKey"].str ?: "", (e["count"].int ?: 0).toLong(), e["completedAt"].long, updatedAt))
             "streakDay" -> execute("INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)", listOf<Any?>(e["kind"].str ?: "", e["dayKey"].str ?: "", updatedAt))
-            "setting" -> execute("INSERT INTO user_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", listOf<Any?>(e["key"].str ?: "", CanonicalJson.serialize(e["value"] ?: Null), updatedAt))
+            "setting" -> {
+                val key = e["key"].str ?: ""
+                if (key == "device_id") return
+                execute("INSERT INTO user_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", listOf<Any?>(key, CanonicalJson.serialize(e["value"] ?: Null), updatedAt))
+            }
             else -> throw IllegalArgumentException("unsupported entity type: $type")
         }
     }

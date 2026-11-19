@@ -225,7 +225,12 @@ public enum BackupCodec {
                     }
                 }
             }
-            return MergeResult(report: report, mutations: mutations, replaceMarkerAt: now)
+            let sorted = mutations.sorted { a, b in
+                let aSess = a.entity["type"]?.stringValue == "tasbihSession"
+                let bSess = b.entity["type"]?.stringValue == "tasbihSession"
+                return !aSess && bSess
+            }
+            return MergeResult(report: report, mutations: sorted, replaceMarkerAt: now)
         }
 
         var report = MergeReport(added: 0, updated: 0, conflicts: 0, skipped: 0, deleted: 0)
@@ -265,7 +270,12 @@ public enum BackupCodec {
                 }
             }
         }
-        return MergeResult(report: report, mutations: mutations, replaceMarkerAt: nil)
+        let sorted = mutations.sorted { a, b in
+            let aSess = a.entity["type"]?.stringValue == "tasbihSession"
+            let bSess = b.entity["type"]?.stringValue == "tasbihSession"
+            return !aSess && bSess
+        }
+        return MergeResult(report: report, mutations: sorted, replaceMarkerAt: nil)
     }
 
     /** Serialize entities into a stable payload grouping (keys sorted, uuid-ordered). */

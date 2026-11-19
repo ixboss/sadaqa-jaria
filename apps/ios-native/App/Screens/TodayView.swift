@@ -256,7 +256,7 @@ struct TodayView: View {
         let todayIso = Self.iso(now, tz: tz)
         let todaySched = try? engine.daySchedule(todayIso)
         let qiyamIso = (todaySched.flatMap { $0.prayers[.fajr] }.map { now < $0 } ?? false)
-            ? Self.iso(now - 86_400_000, tz: tz)
+            ? PrayerEngine.shiftCivilIso(todayIso, by: -1)
             : todayIso
         let ws = try? engine.sunnahWindows(qiyamIso)
         return VStack(alignment: .leading, spacing: 6) {
@@ -391,9 +391,18 @@ extension AppState {
     /// Smart-card action routing (screen names match the web contract).
     func openSmartCardAction(_ card: SmartCard) {
         switch card.actionScreen {
-        case "mushaf-page": tab = .mushaf
-        case "adhkar-cat": tab = .athkar
-        case "tools-qiyam", "tools-hijri": tab = .tools
+        case "mushaf-page":
+            targetMushafPage = 293 // سورة الكهف
+            tab = .mushaf
+        case "adhkar-cat":
+            targetAthkarWindow = card.kind == .after_prayer ? "after_prayer" : (card.kind == .evening ? "asr" : "fajr")
+            tab = .athkar
+        case "tools-qiyam":
+            targetTool = "qiyam"
+            tab = .tools
+        case "tools-hijri":
+            targetTool = "hijri"
+            tab = .tools
         default: break
         }
     }

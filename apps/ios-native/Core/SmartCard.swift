@@ -63,7 +63,7 @@ public enum SmartCardResolver {
     public static func resolve(now: Int64, engine: BoundPrayerEngine) -> SmartCard {
         let tz = engine.opts.timeZone
         let dateIso = isoDate(now, tz: tz)
-        let yIso = isoDate(now - 86_400_000, tz: tz)
+        let yIso = PrayerEngine.shiftCivilIso(dateIso, by: -1)
         guard let sched = try? engine.daySchedule(dateIso),
               let wsToday = try? engine.sunnahWindows(dateIso),
               let wsNight = try? engine.sunnahWindows(yIso),

@@ -105,7 +105,8 @@ export async function renderBackup(root) {
     box.hidden = false;
     if (!peek.ok) {
       box.innerHTML = `<div class="empty-state" style="padding:18px"><div class="icon">${iconSvg('alert', 22)}</div>
-        <h2>الملف مرفوض</h2><p>${peek.errors.slice(0, 3).join(' · ') || 'بنية غير صالحة'}</p></div>`;
+        <h2>الملف مرفوض</h2><p class="bk-err-msg"></p></div>`;
+      box.querySelector('.bk-err-msg').textContent = (peek.errors ?? []).slice(0, 3).join(' · ') || 'بنية غير صالحة';
       return;
     }
     const total = Object.values(peek.counts).reduce((a, b) => a + b, 0);

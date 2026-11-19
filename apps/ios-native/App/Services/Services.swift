@@ -90,33 +90,25 @@ struct AdhanScheduler {
         let opts = db.engineOptions()
         let tz = opts.timeZone
         let now = Date.nowMs
-        let iso = TodayView.iso(now, tz: tz)
-        let next = try? PrayerEngine.next(now, opts)
+        let todayIso = TodayView.iso(now, tz: tz)
+        let days = [todayIso, PrayerEngine.shiftCivilIso(todayIso, by: 1), PrayerEngine.shiftCivilIso(todayIso, by: 2)]
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
         let center = UNUserNotificationCenter.current()
         center.removeAllPendingNotificationRequests()
-        guard let n = next else { return }
-        let content = UNMutableNotificationContent()
-        content.title = "الأذان — \(n.name.labelAr)"
-        content.body = "حان الآن وقت صلاة \(n.name.labelAr)"
-        content.sound = UNNotificationSound(named: UNNotificationSoundName("adhan.caf"))
-        var comps = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day, .hour, .minute], from: Date(ms: n.at))
-        comps.timeZone = TimeZone(identifier: tz)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
-        let req = UNNotificationRequest(identifier: "adhan-\(n.name.rawValue)", content: content, trigger: trigger)
-        center.add(req)
-        // follow-on request for the day's remaining prayers (recomputed on app use)
-        if let sched = try? PrayerEngine.daySchedule(iso, opts) {
-            for name in PrayerName.allCases where name != n.name {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: tz) ?? .current
+        for dayIso in days {
+            guard let sched = try? PrayerEngine.daySchedule(dayIso, opts) else { continue }
+            for name in PrayerName.allCases where name != .sunrise {
                 guard let prayerAt = sched.prayers[name], prayerAt > now else { continue }
-                let c2 = UNMutableNotificationContent()
-                c2.title = "الأذان — \(name.labelAr)"
-                c2.body = "حان الآن وقت صلاة \(name.labelAr)"
-                c2.sound = UNNotificationSound(named: UNNotificationSoundName("adhan.caf"))
-                var c2d = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day, .hour, .minute], from: Date(ms: prayerAt))
-                c2d.timeZone = TimeZone(identifier: tz)
-                let t2 = UNCalendarNotificationTrigger(dateMatching: c2d, repeats: false)
-                center.add(UNNotificationRequest(identifier: "adhan-\(name.rawValue)", content: c2, trigger: t2))
+                let content = UNMutableNotificationContent()
+                content.title = "الأذان — \(name.labelAr)"
+                content.body = "حان الآن وقت صلاة \(name.labelAr)"
+                content.sound = .default
+                var comps = cal.dateComponents([.year, .month, .day, .hour, .minute], from: Date(ms: prayerAt))
+                comps.timeZone = TimeZone(identifier: tz)
+                let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+                center.add(UNNotificationRequest(identifier: "adhan-\(dayIso)-\(name.rawValue)", content: content, trigger: trigger))
             }
         }
     }
@@ -166,11 +158,17 @@ final class AudioStore {
 
 enum BackupIO {
     static func writeTempSadaqa(payloadJson: String, manifest: JSONValue, now: Int64) -> URL? {
+        let dir = FileManager.default.temporaryDirectory
+        if let items = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+            for old in items where old.lastPathComponent.hasPrefix("sadaqa-backup-") && old.pathExtension == "sadaqa" {
+                try? FileManager.default.removeItem(at: old)
+            }
+        }
         let name = "sadaqa-backup-\(TodayView.iso(now, tz: "UTC")).sadaqa"
-        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        let tmp = dir.appendingPathComponent(name)
         let doc = JSONValue.object(["manifest": manifest, "payload": (try? JSONValue.parse(payloadJson)) ?? .null])
         guard let data = CanonicalJSON.serialize(doc).data(using: .utf8) else { return nil }
-        try? data.write(to: tmp)
+        try? data.write(to: tmp, options: [.atomic])
         return tmp
     }
 }
@@ -191,7 +189,7 @@ enum WidgetStateBridge {
         try? json.data(using: .utf8)?.write(to: url, options: [.atomic])
     }
 
-    static func prayersChanged() { /* timeline invalidation happens in publish */ }
+    static func prayersChanged() { WidgetCenterWrapper.reloadAll() }
 
     /// Publish current settings + next prayer so widgets compute offline.
     static func publishWidgetState(db: SadaqaDatabase) {

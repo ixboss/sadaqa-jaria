@@ -57,6 +57,7 @@ struct AthkarView: View {
     @State private var categories: [AthkarCategory] = []
     @State private var query = ""
     @State private var windowFilter = "all"
+    @State private var navPath = NavigationPath()
 
     private var filtered: [AthkarCategory] {
         categories.filter { c in
@@ -67,7 +68,7 @@ struct AthkarView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navPath) {
             ScrollView {
                 VStack(spacing: 12) {
                     featuredGrid
@@ -111,8 +112,25 @@ struct AthkarView: View {
             .navigationDestination(for: String.self) { categoryId in
                 AthkarReaderView(categoryId: categoryId)
             }
-            .onAppear { loadCategories() }
+            .onAppear {
+                loadCategories()
+                openTargetWindowIfNeeded()
+            }
+            .onChange(of: appState.targetAthkarWindow) { _ in
+                openTargetWindowIfNeeded()
+            }
         }
+    }
+
+    private func openTargetWindowIfNeeded() {
+        guard let win = appState.targetAthkarWindow else { return }
+        if categories.isEmpty { loadCategories() }
+        if let cat = categories.first(where: { $0.solarWindow == win }) {
+            navPath = NavigationPath([cat.id])
+        } else {
+            windowFilter = win
+        }
+        appState.targetAthkarWindow = nil
     }
 
     private var featuredGrid: some View {

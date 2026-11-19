@@ -20,6 +20,8 @@
 // `now` is epoch ms. Pure — no clock reads, no DOM, no settings access.
 // ============================================================================
 
+import { shiftCivilIso } from './prayer.js';
+
 const MIN = 60_000;
 
 const PRAYER_LABELS = { fajr: 'الفجر', sunrise: 'الشروق', dhuhr: 'الظهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء' };
@@ -38,7 +40,7 @@ export function resolveSmartCard(now, engine) {
   const dateIso = iso(now);
   const sched = engine.daySchedule(dateIso);
   const wsToday = engine.sunnahWindows(dateIso);
-  const yIso = iso(now - 86_400_000);
+  const yIso = shiftCivilIso(dateIso, -1);
   const wsNight = engine.sunnahWindows(yIso); // the night currently in progress (maghrib → fajr)
   const dow = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(now);
 
