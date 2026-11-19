@@ -52,6 +52,17 @@ jobs:
           npm run fonts:fetch
           npm run audio:fetch
           npm --prefix apps/electron ci --no-audit --no-fund
+          # تنزيل ثنائي electron كان يتخطى بصمت على عدّاءات ubuntu الجديدة
+          # (postinstall لا يعمل — 312 حزمة في 7 ثوانٍ بلا تنزيل) فبقي البروب
+          # يتخطى نفسه بلا ثنائي طوال تاريخ CI — أعد التشغيل صراحةً وافحص
+          # الوجود هنا بدل فشل غامض لاحقاً (audit 2026-11)
+          if [ ! -f apps/electron/node_modules/electron/dist/electron ]; then
+            npm --prefix apps/electron rebuild electron --no-audit --no-fund
+          fi
+          if [ ! -f apps/electron/node_modules/electron/dist/electron ]; then
+            (cd apps/electron && node node_modules/electron/install.js)
+          fi
+          test -f apps/electron/node_modules/electron/dist/electron || { echo "::error::electron binary missing after install"; exit 1; }
 
       - name: Run v2 browser E2E & Electron smoke probe
         env:
