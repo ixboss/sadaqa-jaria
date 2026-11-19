@@ -17,6 +17,7 @@ import app.sadaqa.android.backup.JsonValue.Obj
 import app.sadaqa.android.backup.JsonValue.Str
 import app.sadaqa.android.backup.UUID7
 import app.sadaqa.android.data.SadaqaDb
+import app.sadaqa.android.data.TodayProgress
 import app.sadaqa.android.engine.EngineOptions
 import app.sadaqa.android.engine.HijriEngine
 import app.sadaqa.android.engine.PrayerEngine
@@ -657,5 +658,42 @@ class DatabaseWritePathTest {
         val adjusted = HijriEngine.withAdjust("2026-11-18", 1)
         val unadjusted = HijriEngine.withAdjust("2026-11-18", 0)
         assertTrue("adjust=+1 must shift the Hijri day forward", adjusted != unadjusted)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Today ورد اليوم — athkar-window progress aggregation (pure port of
+// packages/core-data/engines/today-progress.js)
+// ---------------------------------------------------------------------------
+
+class TodayProgressTests {
+    private fun cat(id: String, window: String?) = TodayProgress.Category(id, window)
+    private fun item(id: String, categoryId: String, target: Int) = TodayProgress.Item(id, categoryId, target)
+    private fun st(itemId: String, count: Int) = TodayProgress.StateRow(itemId, count)
+
+    @Test
+    fun windowsAggregateCompletedCountsInFixedOrder() {
+        val categories = listOf(cat("c1", "fajr"), cat("c2", "asr"), cat("c3", "isha"))
+        val items = listOf(item("i10", "c1", 10), item("i11", "c1", 7), item("i20", "c2", 5), item("i30", "c3", 4))
+        val states = listOf(st("i10", 10), st("i11", 3), st("i20", 5))
+        val windows = TodayProgress.compute(categories, items, states)
+
+        assertEquals(3, windows.size)
+        assertEquals(listOf("الصباح", "المساء", "النوم"), windows.map { it.titleAr })
+        assertEquals(1 to 2, windows[0].completed to windows[0].total, "i10 done (count==target), i11 3/7 not")
+        assertEquals(1 to 1, windows[1].completed to windows[1].total)
+        assertEquals(0 to 1, windows[2].completed to windows[2].total, "i30 has no state row yet")
+    }
+
+    @Test
+    fun unknownWindowsDroppedAndTargetZeroCompletesOnAnyTap() {
+        val categories = listOf(cat("c1", "isha"), cat("c9", "noon"))
+        val items = listOf(item("i10", "c1", 0), item("i90", "c9", 2))
+        val states = listOf(st("i10", 2), st("i90", 2))
+        val windows = TodayProgress.compute(categories, items, states)
+
+        assertEquals(1, windows.size, "only fajr/asr/isha windows with items are shown")
+        assertEquals(1, windows[0].completed, "count_target 0 -> any tap completes")
+        assertEquals(1, windows[0].total)
     }
 }

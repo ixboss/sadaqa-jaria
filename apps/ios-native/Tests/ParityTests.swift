@@ -608,3 +608,79 @@ final class DatabaseWritePathTests: XCTestCase {
         XCTAssertNotEqual(adjusted, unadjusted)
     }
 }
+
+// ---------------------------------------------------------------------------
+// Mushaf zoomed flow — ayah-grouped paragraph blocks for the >100% mode.
+// One block per ayah so the block-level long-press selects exactly that ayah.
+// ---------------------------------------------------------------------------
+
+final class MushafFlowTests: XCTestCase {
+    private func word(_ ayah: Int, _ seq: Int) -> MushafRepository.WordPlate {
+        MushafRepository.WordPlate(glyphs: "ٱ", wordText: "كلمة", surah: 1, ayah: ayah, wordSeq: seq, numberInSurah: seq)
+    }
+
+    func testZoomedFlowGroupsByAyahParagraph() {
+        let lines: [MushafRepository.MushafLine] = [
+            MushafRepository.MushafLine(kind: "surah_name", glyphs: "", textAr: "سورة الفاتحة", words: []),
+            MushafRepository.MushafLine(kind: "bismillah", glyphs: "", textAr: nil, words: []),
+            MushafRepository.MushafLine(kind: "text", glyphs: "", textAr: nil, words: [word(1, 1), word(1, 2)]),
+            MushafRepository.MushafLine(kind: "text", glyphs: "", textAr: nil, words: [word(1, 3)]),
+            MushafRepository.MushafLine(kind: "text", glyphs: "", textAr: nil, words: [word(2, 4), word(2, 5)]),
+            MushafRepository.MushafLine(kind: "text", glyphs: "", textAr: nil, words: [word(3, 6)]),
+        ]
+        let blocks = MushafFlowModel.buildBlocks(from: lines)
+        XCTAssertEqual(blocks.count, 5, "2 decorations + one paragraph per ayah")
+        guard case .surahName(_, let name)? = blocks.first else { return XCTFail("expected surah_name first") }
+        XCTAssertEqual(name, "سورة الفاتحة")
+        guard case .bismillah(_, let bsml)? = blocks[1] else { return XCTFail("expected bismillah second") }
+        XCTAssertEqual(bsml, MushafFlowModel.bismillahFallback)
+        for (index, expectedAyah) in [1, 2, 3].enumerated() {
+            guard case .words(_, let items)? = blocks[2 + index] else { return XCTFail("expected words block \(index)") }
+            XCTAssertTrue(items.allSatisfy { $0.ayah == expectedAyah }, "block \(index) must hold only ayah \(expectedAyah)")
+        }
+        XCTAssertEqual(Set(blocks.map(\.id)).count, blocks.count, "block ids must be unique")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Today ورد اليوم — athkar-window + khatmah daily progress aggregation.
+// ---------------------------------------------------------------------------
+
+final class TodayProgressTests: XCTestCase {
+    private func category(_ id: Int, _ window: String) -> AthkarProgress.Category {
+        AthkarProgress.Category(id: String(id), titleAr: "أذكار", solarWindow: window)
+    }
+    private func item(_ id: Int, _ categoryId: Int, target: Int) -> AthkarProgress.Item {
+        AthkarProgress.Item(id: String(id), categoryId: String(categoryId), target: target)
+    }
+    private func stateRow(_ itemId: Int, _ count: Int, completed: Bool = true) -> AthkarProgress.StateRow {
+        AthkarProgress.StateRow(itemId: String(itemId), count: count, completedAt: completed ? 1_763_600_000_000 : nil)
+    }
+
+    func testWindowsAggregateCompletedCountsForToday() {
+        let categories = [category(1, "fajr"), category(2, "asr"), category(3, "isha")]
+        let items = [item(10, 1, target: 10), item(11, 1, target: 7), item(20, 2, target: 5), item(30, 3, target: 4)]
+        let states = [stateRow(10, 10), stateRow(11, 3, completed: false), stateRow(20, 5)]
+        let progress = AthkarProgress.compute(categories: categories, items: items, states: states)
+
+        XCTAssertEqual(progress.windows.count, 3)
+        XCTAssertEqual(progress.windows[0].titleAr, "الصباح")
+        XCTAssertEqual(progress.windows[0].completed, 1, "item 10 completed (count == target)")
+        XCTAssertEqual(progress.windows[0].total, 2)
+        XCTAssertEqual(progress.windows[1].titleAr, "المساء")
+        XCTAssertEqual(progress.windows[1].completed, 1)
+        XCTAssertEqual(progress.windows[1].total, 1)
+        XCTAssertEqual(progress.windows[2].titleAr, "النوم")
+        XCTAssertEqual(progress.windows[2].completed, 0, "item 30 has no state row")
+        XCTAssertEqual(progress.windows[2].total, 1)
+    }
+
+    func testUnknownWindowIsDroppedAndCountBelowTargetIsIncomplete() {
+        let categories = [category(1, "isha"), category(9, "noon")]
+        let items = [item(10, 1, target: 4), item(90, 9, target: 2)]
+        let states = [stateRow(10, 2), stateRow(90, 2)]
+        let progress = AthkarProgress.compute(categories: categories, items: items, states: states)
+        XCTAssertEqual(progress.windows.count, 1, "only known solar windows are shown")
+        XCTAssertEqual(progress.windows[0].completed, 0, "2/4 below target is not complete")
+    }
+}

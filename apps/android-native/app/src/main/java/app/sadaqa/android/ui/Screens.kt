@@ -77,6 +77,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.sadaqa.android.backup.JsonValue
 import app.sadaqa.android.data.SadaqaDb
+import app.sadaqa.android.data.TodayProgress
 import app.sadaqa.android.engine.*
 import app.sadaqa.android.platform.Haptics
 import kotlinx.coroutines.Dispatchers
@@ -187,12 +188,31 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
         )
     }
     val currentPage = remember { (db.setting("mushaf_page")?.dbl?.toInt() ?: 1).coerceIn(1, 604) }
+    var dailyWindows by remember { mutableStateOf(listOf<TodayProgress.WindowProgress>()) }
 
     LaunchedEffect(Unit) {
         while (true) {
             kotlinx.coroutines.delay(1000)
             now = System.currentTimeMillis() // format-only; engine values stay fixed
         }
+    }
+
+    // ورد اليوم — athkar-window completion for today (reload on tab entry)
+    LaunchedEffect(Unit) {
+        val loaded = withContext(Dispatchers.IO) {
+            val day = dayKeyOf(System.currentTimeMillis(), ZoneId.systemDefault().id)
+            val cats = db.query("SELECT category_id, solar_window FROM athkar_categories").map {
+                TodayProgress.Category(it.strings["category_id"] ?: "", it.strings["solar_window"])
+            }
+            val items = db.query("SELECT item_id, category_id, count_target FROM athkar_items").map {
+                TodayProgress.Item(it.strings["item_id"] ?: "", it.strings["category_id"] ?: "", it.longs["count_target"]?.toInt() ?: 1)
+            }
+            val states = db.query("SELECT item_id, count FROM adhkar_state WHERE day_key = ?", listOf(day)).map {
+                TodayProgress.StateRow(it.strings["item_id"] ?: "", it.longs["count"]?.toInt() ?: 0)
+            }
+            TodayProgress.compute(cats, items, states)
+        }
+        dailyWindows = loaded
     }
 
     Column(
@@ -395,6 +415,41 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                     Text("قيام الليل", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
                     Text("منتصف الليل: ${clockOf(wsNight.midnight, opts.timeZone)}", fontSize = 13.sp, color = theme.textSecondary)
                     Text("الثلث الأخير: ${clockOf(wsNight.lastThird, opts.timeZone)} — حتى الفجر ${clockOf(wsNight.nextFajr, opts.timeZone)}", fontSize = 13.sp, color = theme.textSecondary)
+                }
+            }
+        }
+
+        // ورد اليوم — compact daily progress (athkar windows + khatmah position)
+        if (dailyWindows.isNotEmpty()) {
+            val doneCount = dailyWindows.count { it.completed >= it.total }
+            CardBox {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("ورد اليوم", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary, modifier = Modifier.weight(1f))
+                        Text("$doneCount / ${dailyWindows.size} أوراد", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.accent)
+                    }
+                    for (w in dailyWindows) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(w.titleAr, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = theme.textPrimary, modifier = Modifier.width(52.dp))
+                            Box(
+                                Modifier
+                                    .weight(1f)
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(theme.surfaceRaised)
+                            ) {
+                                Box(
+                                    Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(if (w.total > 0) (w.completed.toFloat() / w.total).coerceIn(0f, 1f) else 0f)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(theme.accent)
+                                )
+                            }
+                            Text("${w.completed}/${w.total}", fontSize = 12.sp, color = theme.textSecondary, modifier = Modifier.width(40.dp))
+                        }
+                    }
+                    Text("الختمة: ${((currentPage / 604.0) * 100).toInt()}٪ (صفحة $currentPage)", fontSize = 12.sp, color = theme.textSecondary)
                 }
             }
         }
