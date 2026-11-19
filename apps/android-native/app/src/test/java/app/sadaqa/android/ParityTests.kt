@@ -637,9 +637,8 @@ class DatabaseWritePathTest {
             val manifest = Obj(mapOf(
                 "format" to Str("sadaqa-backup"),
                 "formatVersion" to Num(1.0),
-                "exportedAt" to Str("2026-11-18T00:00:00Z"),
-                "appVersion" to Str("2.3.0"),
-                "deviceId" to Str("other"),
+                "createdAt" to Num(now.toDouble()),
+                "deviceId" to Str("other-device-0001"),
                 "integrity" to Str(integrity),
                 "entities" to Obj(mapOf("reading" to Num(0.0), "dhikr" to Num(2.0), "prefs" to Num(1.0), "meta" to Num(0.0))),
             ))
