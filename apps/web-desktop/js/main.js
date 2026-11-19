@@ -127,6 +127,7 @@ function wireNav() {
   for (const btn of document.querySelectorAll('.glass-tabbar .tab-btn')) {
     btn.addEventListener('click', () => {
       const tab = btn.dataset.tab;
+      if (!tab) return; // rail extras (بحث) carry no route — wired below
       const targets = {
         today: 'today',
         mushaf: 'mushaf-page',
@@ -136,6 +137,17 @@ function wireNav() {
       navigate(targets[tab]);
     });
   }
+  // Desktop rail: search entry + collapse/restore handle
+  document.getElementById('rail-search')?.addEventListener('click', async () => {
+    const { renderSearchSheet } = await import('./ui/screens/search.js');
+    renderSearchSheet();
+  });
+  document.getElementById('rail-collapse')?.addEventListener('click', () => {
+    document.body.classList.add('rail-collapsed');
+  });
+  document.getElementById('rail-restore')?.addEventListener('click', () => {
+    document.body.classList.remove('rail-collapsed');
+  });
   // شريط قسم المصحف الطافي: زر واحد لكل شاشة من شاشات القسم
   document.getElementById('mushaf-hub-dock')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-go]');

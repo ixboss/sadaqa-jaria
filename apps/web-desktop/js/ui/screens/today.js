@@ -9,6 +9,7 @@
 // ============================================================================
 import { state, nowMs, haptic, prayerEngineForSettings, HAPTICS } from '../../app-state.js';
 import { shiftCivilIso } from '../../../../../packages/core-data/engines/prayer.js';
+import { computeDailyProgress } from '../../../../../packages/core-data/engines/today-progress.js';
 import { monthNameAr, withAdjust } from '../../../../../packages/core-data/engines/hijri.js';
 import { resolveSmartCard } from '../../../../../packages/core-data/engines/smart-card.js';
 import { getGpsFix, findNearestCity, persistLocation } from '../geo.js';
@@ -106,10 +107,24 @@ function contextualDailyCard(now, engine) {
   return { kind: 'daily_sleep', badge: 'قبل النوم', title: 'أذكار النوم', sub: 'الاستغفار والآيات الواقية قبل أن تنام', action: { label: 'افتح الأذكار', screen: 'adhkar-screen', args: {} } };
 }
 
-export function renderToday(root) {
+/** ورد اليوم — athkar-window completion for today via the shared golden engine. */
+async function loadDailyProgress(db, now) {
+  const dayKey = new Intl.DateTimeFormat('en-CA').format(now);
+  const [categories, items, states] = await Promise.all([
+    db.query(`SELECT category_id, solar_window FROM athkar_categories`),
+    db.query(`SELECT item_id, category_id, count_target FROM athkar_items`),
+    db.query(`SELECT item_id, count FROM adhkar_state WHERE day_key = ?`, [dayKey]),
+  ]);
+  return computeDailyProgress(categories, items, states).windows;
+}
+
+export async function renderToday(root) {
   const engine = prayerEngineForSettings();
   const tz = engine.opts.timeZone;
   const now = nowMs();
+  const daily = await loadDailyProgress(state.db, now);
+  const windowsDone = daily.filter((w) => w.completed >= w.total).length;
+  const khatmahPct = Math.round((state.progress.page / 604) * 100);
   const next = engine.next(now);
   const dateIso = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now);
   const nextIso = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(next.at);
@@ -189,6 +204,20 @@ export function renderToday(root) {
         منتصف الليل: <strong style="font-variant-numeric:tabular-nums">${fmtClock(windows.midnight, tz)}</strong><br>
         الثلث الأخير: <strong style="font-variant-numeric:tabular-nums">${fmtClock(windows.lastThird, tz)}</strong> — حتى الفجر ${fmtClock(windows.nextFajr, tz)}
       </div>
+    </div>
+
+    <div class="card" id="daily-progress-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3 style="margin:0;font-size:15px">ورد اليوم</h3>
+        <span class="badge on">${windowsDone} / ${daily.length} أوراد</span>
+      </div>
+      ${daily.map((w) => `
+      <div class="dp-row">
+        <span class="dp-title">${w.titleAr}</span>
+        <span class="dp-bar"><span class="dp-fill" style="width:${w.total > 0 ? Math.round((w.completed / w.total) * 100) : 0}%"></span></span>
+        <span class="dp-count">${w.completed}/${w.total}</span>
+      </div>`).join('')}
+      <div class="dp-khatmah">الختمة: ${khatmahPct}٪ (صفحة ${state.progress.page} من ٦٠٤)</div>
     </div>
 
     <div class="card">

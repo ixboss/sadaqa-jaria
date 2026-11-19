@@ -142,6 +142,52 @@ async function main() {
       { timeout: 3000 });
     ok('today: tapping the dhikr pill advances to the next dhikr', Boolean(d1) && DHIKR_PILL_TEXTS.includes(d1) && d1 !== d0, `${d0} → ${d1 ?? '(no change)'}`);
 
+    // 3c. ورد اليوم — daily progress card (athkar windows + khatmah line)
+    const seeded = await evaljs(`(async () => {
+      const dayKey = new Intl.DateTimeFormat('en-CA').format(Date.now());
+      const rows = await window.__sadaqa.db.query("SELECT i.item_id, i.count_target FROM athkar_items i JOIN athkar_categories c ON c.category_id = i.category_id WHERE c.solar_window = 'fajr' LIMIT 2");
+      for (const r of rows) {
+        await window.__sadaqa.db.write(
+          "INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?) " +
+          "ON CONFLICT(item_id, day_key) DO UPDATE SET count = excluded.count, updated_at = excluded.updated_at",
+          [r.item_id, dayKey, r.count_target ?? 1, Date.now(), Date.now()]);
+      }
+      return rows.length;
+    })()`);
+    await evaljs(`(async () => {
+      const m = await import(new URL('./js/ui/screens/today.js', location.href));
+      await m.renderToday(document.getElementById('screen-root'));
+      return true;
+    })()`);
+    const daily = await evaljs(`(async () => {
+      const card = document.getElementById('daily-progress-card');
+      const rows = [...card?.querySelectorAll('.dp-row') ?? []].map((r) => ({
+        title: r.querySelector('.dp-title')?.textContent ?? '',
+        count: r.querySelector('.dp-count')?.textContent ?? '',
+        fillW: parseFloat(r.querySelector('.dp-fill')?.style.width) || 0,
+      }));
+      const cats = await window.__sadaqa.db.query("SELECT category_id, solar_window FROM athkar_categories");
+      const items = await window.__sadaqa.db.query("SELECT item_id, category_id, count_target FROM athkar_items");
+      const { computeDailyProgress } = await import(new URL('../../packages/core-data/engines/today-progress.js', location.href));
+      return {
+        present: !!card,
+        rows,
+        expectedTitles: computeDailyProgress(cats, items, []).windows.map((w) => w.titleAr),
+        badge: card?.querySelector('.badge')?.textContent ?? '',
+        khatmah: card?.querySelector('.dp-khatmah')?.textContent ?? '',
+        bottomPad: parseFloat(getComputedStyle(document.querySelector('.screen')).paddingBottom) || 0,
+      };
+    })()`);
+    ok('today: ورد اليوم card renders the engine-derived window rows + khatmah line',
+      daily.present && JSON.stringify(daily.rows.map((r) => r.title)) === JSON.stringify(daily.expectedTitles) && daily.rows.length >= 2 && daily.khatmah.includes('الختمة'),
+      `rows=[${daily.rows.map((r) => r.title).join(',')}] expected=[${daily.expectedTitles.join(',')}]`);
+    ok('today: morning window reflects seeded completion (2/… + fill bar)',
+      daily.rows.some((r) => r.title === 'الصباح' && r.count.startsWith('2/') && r.fillW > 0),
+      JSON.stringify(daily.rows));
+    ok('today: badge shows completed windows out of the athkar windows',
+      new RegExp(`^\\d+ / ${daily.rows.length} أوراد$`).test(daily.badge.replace(/\s+/g, ' ')), daily.badge);
+    ok('today: screen bottom padding clears the dock (~96px)', daily.bottomPad > 80 && daily.bottomPad <= 110, `${daily.bottomPad}px`);
+
     // 4. Smart Context-Aware Card matrix — real resolution order, synthetic instants
     const matrix = await evaljs(`(async () => {
       const { prayerEngineForSettings } = await import(new URL('./js/app-state.js', location.href));
@@ -171,7 +217,10 @@ async function main() {
         ['kahf', friday],
         ['after_prayer', sched.prayers.maghrib + 5 * 60000],
         ['qiyam', y.lastThird + 5 * 60000],
-        ['morning', sched.prayers.fajr + 30 * 60000],   // past the ±20 min post-prayer window
+        // §9 precedence: Friday kahf (rule 1) outranks the morning window (rule 4) —
+        // on Fridays the fajr+30m probe correctly resolves kahf, not morning.
+        [new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(Date.now()) === 'Fri' ? 'kahf' : 'morning',
+         sched.prayers.fajr + 30 * 60000],   // past the ±20 min post-prayer window
         ['evening', sched.prayers.asr + 45 * 60000],
         ['next_prayer', sched.prayers.dhuhr + 45 * 60000], // between duha and asr
       ];
