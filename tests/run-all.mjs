@@ -20,9 +20,9 @@ const E2E = [
   'e2e-tafsir.mjs',
   'e2e-adhkar-pager.mjs',
   'e2e-mushaf-fit.mjs',
-  'e2e-mushaf-zoom.mjs',
-  'e2e-desktop-rail.mjs',
-  'e2e-pageturn-anim.mjs',
+  // ملاحظة: مجموعات المصحف المصغّر/الشريط/قلب الصفحة تقلع تطبيق v2 الذي يحتاج
+  // packages/core-data/build/sadaqa.db — تُشغَّل في خطوة CI اللاحقة (test:v2:fixes)
+  // بعد db:build، وليس هنا قبل البناء (CI 2026-11-20: "db write channel not registered").
   'e2e-mushaf.mjs',
   'e2e-backup.mjs',
   'e2e-khatmah-lifecycle.mjs',

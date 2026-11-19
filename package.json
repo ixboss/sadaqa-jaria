@@ -30,6 +30,7 @@
     "test:core": "node --test \"packages/core-data/tests/*.test.js\" tests/parity/verify-parity.mjs",
     "test:v2": "node tests/e2e-v2-shell.mjs",
     "test:v2:p4": "node tests/e2e-v2-phase4.mjs",
+    "test:v2:fixes": "node tests/e2e-mushaf-zoom.mjs && node tests/e2e-desktop-rail.mjs && node tests/e2e-pageturn-anim.mjs",
     "test:electron": "node tests/e2e-electron.mjs",
     "fonts:fetch": "node scripts/tools/fetch-fonts.mjs",
     "seeds:fetch": "node packages/core-data/tools/fetch-seeds.mjs",

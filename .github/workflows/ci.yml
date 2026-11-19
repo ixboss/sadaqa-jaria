@@ -70,6 +70,9 @@ jobs:
         run: |
           npm run test:v2
           npm run test:v2:p4
+          # مجموعات CHAT-1 (zoom/rail/pageturn) تقلع تطبيق v2 — تحتاج sadaqa.db
+          # المبني في الخطوة السابقة، لذا تُشغَّل هنا لا داخل npm test المبكر
+          npm run test:v2:fixes
           # SADAQA_REQUIRE_ELECTRON=1: تبعيات Electron مثبتة في الخطوة السابقة —
           # غياب الملف الثنائي هنا تراجعٌ حقيقي يجب أن يُفشل CI (audit 2026-11)
           SADAQA_REQUIRE_ELECTRON=1 xvfb-run -a npm run test:electron
