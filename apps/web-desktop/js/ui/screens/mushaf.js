@@ -12,10 +12,33 @@ import { mountTheme } from '../../main.js';
 
 const pageCache = new Map(); // page -> { lines, words }
 const activeFaces = new Map(); // family -> { page, face, ok }
+let pageSurahMap = null; // page (1..604) -> surah name_ar
 let renderSeq = 0;
 let lastPositionBeforeJump = null;
 
 let keyHandler = null;
+
+async function ensurePageSurahMap() {
+  if (pageSurahMap) return pageSurahMap;
+  const rows = await state.db.query(`SELECT start_page, name_ar FROM surahs ORDER BY start_page ASC, number ASC`).catch(() => []);
+  const map = new Array(605).fill('المصحف الشريف');
+  let cur = 'المصحف الشريف';
+  let idx = 0;
+  for (let p = 1; p <= 604; p++) {
+    while (idx < rows.length && Number(rows[idx].start_page) <= p) {
+      cur = rows[idx].name_ar || cur;
+      idx++;
+    }
+    map[p] = cur;
+  }
+  pageSurahMap = map;
+  return map;
+}
+
+function surahNameForPage(p) {
+  const n = Math.min(604, Math.max(1, Math.round(Number(p) || 1)));
+  return pageSurahMap?.[n] ?? 'المصحف الشريف';
+}
 
 async function ensurePageFont(page, fam = 'QPC1-P') {
   const cur = activeFaces.get(fam);
@@ -71,14 +94,21 @@ export function renderMushaf(root, { page = null } = {}) {
 
   root.innerHTML = `
   <div class="mushaf-screen" id="mushaf-screen">
-    <div class="reader-topbar" id="reader-topbar">
-      <button class="rbtn" id="r-back" aria-label="رجوع">${iconSvg('arrow-right', 18)}</button>
-      <span class="title" id="reader-title">صفحة ${startPage}</span>
-      <div class="r-actions">
-        <button class="rbtn" id="r-index" aria-label="الفهرس" title="فهرس السور والأجزاء">${iconSvg('list', 18)}</button>
-        <button class="rbtn" id="r-bookmark" aria-label="علامة مرجعية" title="حفظ علامة">${iconSvg('bookmark', 18)}</button>
-        <button class="rbtn" id="r-audio" aria-label="التلاوة" title="التلاوة">${iconSvg('headphones', 18)}</button>
-        <button class="rbtn" id="r-khatmah" aria-label="الختمة" title="الختمة">${iconSvg('moon', 18)}</button>
+    <div class="reader-top-wrap" id="reader-top-wrap">
+      <div class="reader-topbar" id="reader-topbar">
+        <button class="rbtn" id="r-back" aria-label="رجوع">${iconSvg('arrow-right', 18)}</button>
+        <span class="title" id="reader-title">صفحة ${startPage}</span>
+        <div class="r-actions">
+          <button class="rbtn" id="r-index" aria-label="الفهرس" title="فهرس السور والأجزاء">${iconSvg('list', 18)}</button>
+          <button class="rbtn" id="r-bookmark" aria-label="علامة مرجعية" title="حفظ علامة">${iconSvg('bookmark', 18)}</button>
+          <button class="rbtn" id="r-audio" aria-label="التلاوة" title="التلاوة">${iconSvg('headphones', 18)}</button>
+          <button class="rbtn" id="r-khatmah" aria-label="الختمة" title="الختمة">${iconSvg('moon', 18)}</button>
+        </div>
+      </div>
+      <div class="reader-hub-seg" role="tablist" aria-label="أقسام المصحف">
+        <button type="button" class="seg-btn on" role="tab" aria-selected="true" id="seg-reader">المصحف</button>
+        <button type="button" class="seg-btn" role="tab" aria-selected="false" id="seg-reading">قراءاتي وختمتي</button>
+        <button type="button" class="seg-btn" role="tab" aria-selected="false" id="seg-index">الفهرس</button>
       </div>
     </div>
     <div class="mushaf-meta-strip" id="mushaf-meta-strip">
@@ -88,9 +118,12 @@ export function renderMushaf(root, { page = null } = {}) {
     <div class="mushaf-stage" id="mushaf-stage">${skeletonHtml()}</div>
     <div class="plate-foot" id="plate-foot"></div>
     <div class="mushaf-hud" id="mushaf-hud" role="region" aria-label="أدوات المصحف">
+      <div class="hud-slider-preview" id="hud-slider-preview" hidden>ص ${startPage}</div>
       <div class="hud-scrubber-row">
         <span class="hud-page-pill" id="hud-page-label">ص ${startPage} / ٦٠٤</span>
+        <button class="hud-step" id="hud-prev-page" aria-label="الصفحة السابقة" title="الصفحة السابقة">${iconSvg('chevron-right', 15)}</button>
         <input type="range" id="hud-page-slider" min="1" max="604" value="${startPage}" aria-label="شريط التنقل بين الصفحات">
+        <button class="hud-step" id="hud-next-page" aria-label="الصفحة التالية" title="الصفحة التالية">${iconSvg('chevron-left', 15)}</button>
         <button class="hud-aa" id="hud-look" aria-label="مظهر القراءة" title="حجم الخط ومظهر القراءة">${iconSvg('type', 16)}</button>
       </div>
       <div class="hud-actions-row">
@@ -112,6 +145,7 @@ export function renderMushaf(root, { page = null } = {}) {
   </div>`;
 
   document.body.classList.add('reading', 'chrome-hidden');
+  ensurePageSurahMap().catch(() => {});
   wireChrome(root);
   wireStageGestures(root);
   return showPage(root, startPage);
@@ -136,8 +170,14 @@ async function showPage(root, page, direction = 0) {
 
   const slider = root.querySelector('#hud-page-slider');
   const hudLbl = root.querySelector('#hud-page-label');
+  const preview = root.querySelector('#hud-slider-preview');
+  const prevStep = root.querySelector('#hud-prev-page');
+  const nextStep = root.querySelector('#hud-next-page');
   if (slider) slider.value = String(page);
   if (hudLbl) hudLbl.textContent = `ص ${page} / ٦٠٤`;
+  if (preview) preview.hidden = true;
+  if (prevStep) prevStep.disabled = page <= 1;
+  if (nextStep) nextStep.disabled = page >= 604;
   const titleEl = root.querySelector('#reader-title');
   if (titleEl) titleEl.textContent = `صفحة ${page}`;
   updateHudPrevButton(root, page);
@@ -269,21 +309,33 @@ function renderPlate(plate, page, { lines, words }, { pageFontOk = true, bsmlOk 
   }
 }
 
-/** Auto-fit: compute uniform plate font-size so all 15 lines fit vertically and horizontally with zero clipping. */
+/** Auto-fit: compute uniform plate font-size; when mushaf_scale > 1.05, switch
+ *  into zoomed reading layout (proportional scaling + line wrap + vertical scroll)
+ *  so verses never clip behind fixed 15-row slots. */
 function fitLines(plate) {
   if (!plate.isConnected) return;
   const rect = plate.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) { requestAnimationFrame(() => fitLines(plate)); return; }
-  // mushaf_scale (Reader Appearance AA + Settings slider) scales the base fit;
-  // the slot-height cap keeps a scaled-up font inside its 1fr row (width
-  // handled per-line below). 0.84/10.8 fill the plate fuller without clipping.
   const scale = Math.min(Math.max(Number(state.settings.mushaf_scale ?? 1) || 1, 0.8), 2);
   const slotH = rect.height / 15;
   const base = Math.min(slotH * 0.84, rect.width / 10.8);
+  const isZoomed = scale > 1.05;
+  plate.classList.toggle('zoomed', isZoomed);
+
+  const textLines = [...plate.querySelectorAll('.kind-text, .kind-bismillah')];
+  if (isZoomed) {
+    // Zoomed mode (>105%): direct proportional scaling without slotH/line-width clamping
+    const zoomedSize = Math.max(16, base * scale);
+    plate.style.setProperty('--plate-font-size', `${zoomedSize.toFixed(1)}px`);
+    for (const line of textLines) {
+      line.style.setProperty('--plate-font-size', `${zoomedSize.toFixed(1)}px`);
+    }
+    return;
+  }
+
   const plateSize = Math.max(14, Math.min(base * scale, slotH * 0.92));
   plate.style.setProperty('--plate-font-size', `${plateSize.toFixed(1)}px`);
 
-  const textLines = [...plate.querySelectorAll('.kind-text, .kind-bismillah')];
   for (const line of textLines) {
     line.style.setProperty('--plate-font-size', `${plateSize.toFixed(1)}px`);
     let size = plateSize;
@@ -433,7 +485,12 @@ function onAyahLongPress(root, mwEl) {
 }
 
 function wireChrome(root) {
-  root.querySelector('#r-back').addEventListener('click', () => history.back());
+  root.querySelector('#r-back').addEventListener('click', () => {
+    if (history.length > 1) history.back();
+    else navigate('mushaf-surah-index');
+  });
+  root.querySelector('#seg-reading')?.addEventListener('click', () => navigate('mushaf-khatmah'));
+  root.querySelector('#seg-index')?.addEventListener('click', () => navigate('mushaf-surah-index'));
   root.querySelector('#r-index')?.addEventListener('click', () => navigate('mushaf-surah-index'));
   root.querySelector('#r-audio')?.addEventListener('click', () => navigate('mushaf-audio'));
   root.querySelector('#r-khatmah').addEventListener('click', () => navigate('mushaf-khatmah'));
@@ -458,19 +515,32 @@ function wireChrome(root) {
   root.querySelector('#hud-tab-athkar')?.addEventListener('click', () => navigate('adhkar-screen'));
   root.querySelector('#hud-tab-tools')?.addEventListener('click', () => navigate('tools-phase4'));
 
+  root.querySelector('#hud-prev-page')?.addEventListener('click', () => flip(root, -1));
+  root.querySelector('#hud-next-page')?.addEventListener('click', () => flip(root, +1));
+
   const slider = root.querySelector('#hud-page-slider');
   const hudLbl = root.querySelector('#hud-page-label');
-  slider?.addEventListener('input', () => {
-    if (hudLbl) hudLbl.textContent = `ص ${slider.value} / ٦٠٤`;
-  });
-  slider?.addEventListener('change', () => {
+  const preview = root.querySelector('#hud-slider-preview');
+  const updatePreview = (val) => {
+    const p = Math.min(604, Math.max(1, Number(val) || 1));
+    if (hudLbl) hudLbl.textContent = `ص ${p} / ٦٠٤`;
+    if (preview) {
+      preview.textContent = `ص ${p} — ${surahNameForPage(p)}`;
+      preview.hidden = false;
+    }
+  };
+  const commitSlider = () => {
+    if (preview) preview.hidden = true;
     const cur = Number(root.querySelector('#mushaf-stage .mushaf-plate')?.dataset.page ?? 1);
-    const target = Number(slider.value);
+    const target = Number(slider?.value ?? cur);
     if (target >= 1 && target <= 604 && target !== cur) {
       lastPositionBeforeJump = cur;
       showPage(root, target);
     }
-  });
+  };
+  slider?.addEventListener('input', () => updatePreview(slider.value));
+  slider?.addEventListener('change', commitSlider);
+  slider?.addEventListener('pointercancel', () => { if (preview) preview.hidden = true; });
 
   if (keyHandler) removeEventListener('keydown', keyHandler);
   keyHandler = (e) => {
@@ -513,7 +583,7 @@ function openAppearanceSheet(root) {
     <div class="sheet-handle"></div>
     <div class="sheet-head"><h2>مظهر القراءة</h2><button class="sheet-close" id="sh-close" aria-label="إغلاق">${iconSvg('close', 18)}</button></div>
     <div class="sheet-body">
-      <div class="field"><label>حجم خط المصحف (<span id="look-scale-val">${cur.toFixed(2)}</span>×)</label>
+      <div class="field"><label>حجم خط المصحف (<span id="look-scale-val">${Math.round(cur * 100)}٪</span>)</label>
         <input id="look-scale" type="range" min="0.8" max="2" step="0.05" value="${cur}" aria-label="حجم خط المصحف"></div>
       <div class="field"><label>سمة القراءة</label>
         <div class="row-actions" id="look-themes">
@@ -521,14 +591,18 @@ function openAppearanceSheet(root) {
         </div></div>
     </div>
   </div>`;
-  const close = () => { host.innerHTML = ''; };
+  const close = () => {
+    host.querySelector('.sheet')?.classList.add('closing');
+    host.querySelector('.sheet-backdrop')?.classList.add('closing');
+    setTimeout(() => { host.innerHTML = ''; }, 180);
+  };
   host.querySelector('#sh-close').addEventListener('click', close);
   host.querySelector('#sh-backdrop').addEventListener('click', close);
   const slider = host.querySelector('#look-scale');
   const out = host.querySelector('#look-scale-val');
   slider.addEventListener('input', async () => {
     const v = Number(slider.value);
-    out.textContent = v.toFixed(2);
+    out.textContent = `${Math.round(v * 100)}٪`;
     await saveSetting('mushaf_scale', v);
     for (const plate of root.querySelectorAll('.mushaf-plate')) fitLines(plate);
   });
@@ -559,9 +633,13 @@ function animateFlip(plate, dir) {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduced) return;
   const w = plate.getBoundingClientRect().width || 300;
+  // RTL Arabic Mushaf: +1 enters from left (-w * 0.28), -1 enters from right (+w * 0.28)
   plate.animate(
-    [{ transform: `translateX(${-dir * w * 0.35}px)`, opacity: 0.55 }, { transform: 'translateX(0)', opacity: 1 }],
-    { duration: 340, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'backwards' },
+    [
+      { transform: `translateX(${-dir * w * 0.28}px) scale(0.988)`, opacity: 0.45 },
+      { transform: 'translateX(0) scale(1)', opacity: 1 },
+    ],
+    { duration: 280, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'backwards' },
   );
 }
 

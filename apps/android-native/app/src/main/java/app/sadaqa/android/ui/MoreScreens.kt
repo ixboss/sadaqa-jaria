@@ -16,6 +16,14 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -131,6 +139,8 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
 
     var hubTab by remember { mutableStateOf("reader") } // reader | reading | index
     var page by remember { mutableIntStateOf((db.setting("mushaf_page")?.dbl?.toInt() ?: 1).coerceIn(1, 604)) }
+    var sliderPage by remember { mutableFloatStateOf(page.toFloat()) }
+    var isSliding by remember { mutableStateOf(false) }
     var mushafScale by remember { mutableStateOf((db.setting("mushaf_scale")?.dbl ?: 1.0).toFloat().coerceIn(0.8f, 2.0f)) }
     var showAppearance by remember { mutableStateOf(false) }
     var hudVisible by remember { mutableStateOf(false) }
@@ -224,6 +234,7 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
     }
 
     LaunchedEffect(page) {
+        if (!isSliding) sliderPage = page.toFloat()
         loadPageData(page)
         pageMeta[page]?.let { (title, juz, hizb) ->
             surahTitle = title
@@ -321,97 +332,165 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
                         }
                     }
 
-                    // Tap-to-toggle Floating Liquid Glass HUD
-                    if (hudVisible) {
+                    // Tap-to-toggle Floating Liquid Glass HUD (spring transition)
+                    AnimatedVisibility(
+                        visible = hudVisible,
+                        enter = fadeIn(spring(stiffness = Spring.StiffnessMedium)) +
+                            scaleIn(initialScale = 0.96f, animationSpec = spring(stiffness = Spring.StiffnessMedium)),
+                        exit = fadeOut(spring(stiffness = Spring.StiffnessMediumLow)) +
+                            scaleOut(targetScale = 0.96f),
+                    ) {
+                        val previewPage = sliderPage.roundToInt().coerceIn(1, 604)
+                        val previewSurah = remember(previewPage, surahs) {
+                            (surahs.lastOrNull { (it["page"] as? Int ?: 1) <= previewPage }?.get("nameAr") as? String)
+                                ?: "المصحف الشريف"
+                        }
                         Column(
                             Modifier.fillMaxSize().padding(12.dp),
                             verticalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            // Top HUD capsule
-                            Row(
-                                Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
-                                    .background(theme.surface.copy(alpha = 0.94f))
-                                    .border(1.dp, theme.border, RoundedCornerShape(18.dp))
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(surahTitle, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
-                                    Text("ص $page · الجزء $juzNum · الحزب $hizbNum", fontSize = 11.sp, color = theme.textSecondary)
-                                }
-                                Text(
-                                    "أ±",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = theme.accent,
-                                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
-                                        .clickable { showAppearance = true }.padding(horizontal = 10.dp, vertical = 6.dp),
-                                )
-                                Box(
-                                    Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
-                                        .clickable {
-                                            scope.launch {
-                                                val added = withContext(Dispatchers.IO) {
-                                                    db.toggleBookmark(page, 1, null, "$surahTitle · ص $page", System.currentTimeMillis())
-                                                }
-                                                isBookmarked = added
-                                                Haptics.complete(context)
-                                                refreshBookmarks()
-                                            }
-                                        }.padding(horizontal = 10.dp, vertical = 6.dp),
+                            // Top HUD capsule + clean segmented hub pill stacked underneath
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(
+                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                                        .background(theme.surface.copy(alpha = 0.94f))
+                                        .border(1.dp, theme.border, RoundedCornerShape(18.dp))
+                                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 ) {
-                                    Icon(
-                                        if (isBookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
-                                        contentDescription = "علامة مرجعية",
-                                        tint = if (isBookmarked) theme.accent else theme.textSecondary,
-                                        modifier = Modifier.size(18.dp),
+                                    Box(
+                                        Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
+                                            .clickable { hudVisible = false; onNavigateMain("today") }
+                                            .padding(7.dp),
+                                    ) {
+                                        Icon(Icons.Outlined.ArrowForward, contentDescription = "رجوع", tint = theme.textSecondary, modifier = Modifier.size(16.dp))
+                                    }
+                                    Column(Modifier.weight(1f)) {
+                                        Text(surahTitle, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
+                                        Text("ص $page · الجزء $juzNum · الحزب $hizbNum", fontSize = 11.sp, color = theme.textSecondary)
+                                    }
+                                    Text(
+                                        "أ±",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = theme.accent,
+                                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
+                                            .clickable { showAppearance = true }.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    )
+                                    Box(
+                                        Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
+                                            .clickable {
+                                                scope.launch {
+                                                    val added = withContext(Dispatchers.IO) {
+                                                        db.toggleBookmark(page, 1, null, "$surahTitle · ص $page", System.currentTimeMillis())
+                                                    }
+                                                    isBookmarked = added
+                                                    Haptics.complete(context)
+                                                    refreshBookmarks()
+                                                }
+                                            }.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    ) {
+                                        Icon(
+                                            if (isBookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
+                                            contentDescription = "علامة مرجعية",
+                                            tint = if (isBookmarked) theme.accent else theme.textSecondary,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
+                                    Text(
+                                        "بحث",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = theme.textPrimary,
+                                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
+                                            .clickable { hudVisible = false; onOpenSearch() }
+                                            .padding(horizontal = 10.dp, vertical = 6.dp),
                                     )
                                 }
-                                Text(
-                                    "الفهرس",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = theme.textPrimary,
-                                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
-                                        .clickable { hudVisible = false; hubTab = "index" }
-                                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                                )
-                                Text(
-                                    "الختمة",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = theme.textPrimary,
-                                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
-                                        .clickable { hudVisible = false; hubTab = "reading" }
-                                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                                )
-                                Text(
-                                    "بحث",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = theme.textPrimary,
-                                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
-                                        .clickable { hudVisible = false; onOpenSearch() }
-                                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                                )
+
+                                Row(
+                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(50))
+                                        .background(theme.surface.copy(alpha = 0.92f))
+                                        .border(1.dp, theme.border, RoundedCornerShape(50))
+                                        .padding(4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    for ((k, label) in listOf("reader" to "المصحف", "reading" to "قراءاتي وختمتي", "index" to "الفهرس")) {
+                                        val active = hubTab == k
+                                        Text(
+                                            label,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (active) theme.accentContrast else theme.textSecondary,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(50))
+                                                .background(if (active) theme.accent else Color.Transparent)
+                                                .clickable { hudVisible = false; hubTab = k }
+                                                .padding(vertical = 6.dp),
+                                        )
+                                    }
+                                }
                             }
 
-                            // Bottom HUD capsule with RTL page slider
+                            // Bottom HUD capsule with floating preview pill + RTL page slider + ±1 buttons
                             Column(
                                 Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
                                     .background(theme.surface.copy(alpha = 0.94f))
                                     .border(1.dp, theme.border, RoundedCornerShape(18.dp))
                                     .padding(horizontal = 14.dp, vertical = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
-                                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                                    Slider(
-                                        value = page.toFloat(),
-                                        onValueChange = { page = it.roundToInt().coerceIn(1, 604) },
-                                        valueRange = 1f..604f,
-                                        colors = SliderDefaults.colors(thumbColor = theme.accent, activeTrackColor = theme.accent),
+                                if (isSliding) {
+                                    Text(
+                                        "ص $previewPage — $previewSurah",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = theme.accent,
+                                        modifier = Modifier.clip(RoundedCornerShape(50))
+                                            .background(theme.surfaceRaised)
+                                            .border(1.dp, theme.accent.copy(alpha = 0.45f), RoundedCornerShape(50))
+                                            .padding(horizontal = 12.dp, vertical = 4.dp),
                                     )
+                                }
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Box(
+                                        Modifier.size(32.dp).clip(CircleShape).background(theme.surfaceRaised)
+                                            .clickable(enabled = page > 1) { page -= 1 },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(Icons.Outlined.ChevronRight, contentDescription = "السابقة", tint = if (page > 1) theme.accent else theme.textSecondary, modifier = Modifier.size(18.dp))
+                                    }
+                                    Box(Modifier.weight(1f)) {
+                                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                                            Slider(
+                                                value = sliderPage,
+                                                onValueChange = {
+                                                    isSliding = true
+                                                    sliderPage = it
+                                                },
+                                                onValueChangeFinished = {
+                                                    isSliding = false
+                                                    val target = sliderPage.roundToInt().coerceIn(1, 604)
+                                                    if (target != page) page = target
+                                                },
+                                                valueRange = 1f..604f,
+                                                colors = SliderDefaults.colors(thumbColor = theme.accent, activeTrackColor = theme.accent),
+                                            )
+                                        }
+                                    }
+                                    Box(
+                                        Modifier.size(32.dp).clip(CircleShape).background(theme.surfaceRaised)
+                                            .clickable(enabled = page < 604) { page += 1 },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(Icons.Outlined.ChevronLeft, contentDescription = "التالية", tint = if (page < 604) theme.accent else theme.textSecondary, modifier = Modifier.size(18.dp))
+                                    }
                                 }
                                 Row(
                                     Modifier.fillMaxWidth(),
@@ -425,7 +504,7 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
                                         color = if (page > 1) theme.accent else theme.textSecondary,
                                         modifier = Modifier.clickable(enabled = page > 1) { page -= 1 }.padding(6.dp),
                                     )
-                                    Text("صفحة $page من 604", fontSize = 12.sp, color = theme.textSecondary)
+                                    Text("صفحة ${if (isSliding) previewPage else page} من 604", fontSize = 12.sp, color = theme.textSecondary)
                                     Text(
                                         "التالية",
                                         fontSize = 13.sp,
@@ -774,6 +853,7 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MushafPagePlate(
     page: Int,
@@ -797,12 +877,13 @@ private fun MushafPagePlate(
     }
     val uthmanicFont = remember(context) { QpcFonts.uthmanic(context) }
     val uthmanicTypeface = remember(context) { QpcFonts.uthmanicTypeface(context) }
+    val isZoomed = mushafScale > 1.05f
 
     BoxWithConstraints(
         Modifier.fillMaxSize()
             .pointerInput(Unit) { detectTapGestures { onToggleHud() } }
             .padding(horizontal = 12.dp, vertical = 4.dp),
-        contentAlignment = Alignment.Center,
+        contentAlignment = if (isZoomed) Alignment.TopCenter else Alignment.Center,
     ) {
         val availWidthPx = with(density) { (maxWidth - 8.dp).toPx() }.coerceAtLeast(100f)
         val slotCount = maxOf(lines.size, 15)
@@ -822,18 +903,24 @@ private fun MushafPagePlate(
                 if (w > maxLineW) maxLineW = w
             }
             val widthFitSp = (20f * (availWidthPx * 0.90f) / maxLineW).coerceIn(11f, 38f)
-            val heightFitSp = (slotHeightDp.value * 0.72f * mushafScale).coerceIn(11f, 38f)
-            // zoom must never overflow the 15-slot page grid
-            minOf(widthFitSp, heightFitSp).coerceAtMost(slotHeightDp.value * 0.90f)
+            if (mushafScale > 1.05f) {
+                // Zoomed mode (>105%): direct proportional scale with scroll+wrap fallback
+                val baseSp = minOf(widthFitSp, (slotHeightDp.value * 0.72f).coerceIn(11f, 38f))
+                (baseSp * mushafScale).coerceIn(14f, 56f)
+            } else {
+                val heightFitSp = (slotHeightDp.value * 0.72f * mushafScale).coerceIn(11f, 38f)
+                minOf(widthFitSp, heightFitSp).coerceAtMost(slotHeightDp.value * 0.90f)
+            }
         }
 
         Column(
-            Modifier.fillMaxSize(),
+            if (isZoomed) Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 8.dp)
+            else Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = if (page <= 2) Arrangement.Center else Arrangement.SpaceEvenly,
+            verticalArrangement = if (isZoomed) Arrangement.spacedBy((uniformSp * 0.28f).dp) else if (page <= 2) Arrangement.Center else Arrangement.SpaceEvenly,
         ) {
             for (item in lines) {
-                val rowMod = if (page <= 2) Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                val rowMod = if (isZoomed || page <= 2) Modifier.fillMaxWidth().padding(vertical = 4.dp)
                 else Modifier.weight(1f).fillMaxWidth()
                 Box(rowMod, contentAlignment = Alignment.Center) {
                     when (item.kind) {
@@ -855,9 +942,10 @@ private fun MushafPagePlate(
                                     item.textAr.ifEmpty { "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ" },
                                     fontFamily = uthmanicFont,
                                     fontSize = uniformSp.sp,
+                                    lineHeight = (uniformSp * 1.55f).sp,
                                     color = theme.mushafText,
                                     textAlign = TextAlign.Center,
-                                    maxLines = 1,
+                                    maxLines = if (isZoomed) Int.MAX_VALUE else 1,
                                 )
                             }
                         }
@@ -883,31 +971,60 @@ private fun MushafPagePlate(
                                     }
                                     segs
                                 }
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    for ((ayahNum, words) in segments) {
-                                        Text(
-                                            words.joinToString(" ") { it.glyphs },
-                                            fontFamily = verifiedPageFont,
-                                            fontSize = uniformSp.sp,
-                                            color = theme.mushafText,
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(4.dp))
-                                                .background(if (selectedAyah == ayahNum) theme.accent.copy(alpha = 0.20f) else Color.Transparent)
-                                                // Long-press is the ONLY way to select an ayah — a quick
-                                                // tap toggles the HUD, exactly like the plate around it
-                                                .pointerInput(ayahNum) {
-                                                    detectTapGestures(
-                                                        onTap = { onToggleHud() },
-                                                        onLongPress = { onSelectAyah(ayahNum) },
-                                                    )
-                                                },
-                                        )
+                                if (isZoomed) {
+                                    FlowRow(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        for ((ayahNum, words) in segments) {
+                                            Text(
+                                                words.joinToString(" ") { it.glyphs },
+                                                fontFamily = verifiedPageFont,
+                                                fontSize = uniformSp.sp,
+                                                lineHeight = (uniformSp * 1.55f).sp,
+                                                color = theme.mushafText,
+                                                textAlign = TextAlign.Center,
+                                                softWrap = true,
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(if (selectedAyah == ayahNum) theme.accent.copy(alpha = 0.20f) else Color.Transparent)
+                                                    .pointerInput(ayahNum) {
+                                                        detectTapGestures(
+                                                            onTap = { onToggleHud() },
+                                                            onLongPress = { onSelectAyah(ayahNum) },
+                                                        )
+                                                    },
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        for ((ayahNum, words) in segments) {
+                                            Text(
+                                                words.joinToString(" ") { it.glyphs },
+                                                fontFamily = verifiedPageFont,
+                                                fontSize = uniformSp.sp,
+                                                color = theme.mushafText,
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(if (selectedAyah == ayahNum) theme.accent.copy(alpha = 0.20f) else Color.Transparent)
+                                                    // Long-press is the ONLY way to select an ayah — a quick
+                                                    // tap toggles the HUD, exactly like the plate around it
+                                                    .pointerInput(ayahNum) {
+                                                        detectTapGestures(
+                                                            onTap = { onToggleHud() },
+                                                            onLongPress = { onSelectAyah(ayahNum) },
+                                                        )
+                                                    },
+                                            )
+                                        }
                                     }
                                 }
                             } else {
@@ -916,9 +1033,11 @@ private fun MushafPagePlate(
                                     item.textAr.ifEmpty { item.words.joinToString(" ") { it.wordText } },
                                     fontFamily = uthmanicFont,
                                     fontSize = uniformSp.sp,
+                                    lineHeight = (uniformSp * 1.55f).sp,
                                     color = theme.mushafText,
                                     textAlign = TextAlign.Center,
-                                    maxLines = 1,
+                                    maxLines = if (isZoomed) Int.MAX_VALUE else 1,
+                                    softWrap = isZoomed,
                                     modifier = Modifier.fillMaxWidth()
                                         .clip(RoundedCornerShape(4.dp))
                                         .background(if (firstAyah != null && selectedAyah == firstAyah) theme.accent.copy(alpha = 0.20f) else Color.Transparent)
@@ -987,7 +1106,7 @@ fun ToolsScreen(db: SadaqaDb, initialSub: String? = null, onClearInitial: () -> 
                     Column(
                         Modifier.weight(1f).defaultMinSize(minHeight = 122.dp).clip(RoundedCornerShape(16.dp))
                             .background(theme.surface).border(1.dp, theme.border, RoundedCornerShape(16.dp))
-                            .clickable { sub = t.key }.padding(14.dp),
+                            .tactilePress { sub = t.key }.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Box(
@@ -1002,7 +1121,7 @@ fun ToolsScreen(db: SadaqaDb, initialSub: String? = null, onClearInitial: () -> 
                 }
             }
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(36.dp))
     }
 }
 
@@ -1093,6 +1212,26 @@ fun QiblaScreen(db: SadaqaDb, onBack: () -> Unit) {
     val dialAngle = (((bearing - northDeg) % 360.0) + 360.0) % 360.0
     val diff = abs(((dialAngle + 540.0) % 360.0) - 180.0)
     val aligned = diff <= 5.0
+    var animNorth by remember { mutableFloatStateOf(northDeg.toFloat()) }
+    var animDial by remember { mutableFloatStateOf(dialAngle.toFloat()) }
+    LaunchedEffect(northDeg) {
+        val delta = (((northDeg - animNorth) % 360.0 + 540.0) % 360.0) - 180.0
+        animNorth += delta.toFloat()
+    }
+    LaunchedEffect(dialAngle) {
+        val delta = (((dialAngle - animDial) % 360.0 + 540.0) % 360.0) - 180.0
+        animDial += delta.toFloat()
+    }
+    val smoothNorth by animateFloatAsState(
+        targetValue = animNorth,
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow),
+        label = "qibla-north",
+    )
+    val smoothDial by animateFloatAsState(
+        targetValue = animDial,
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow),
+        label = "qibla-dial",
+    )
     LaunchedEffect(aligned) { if (aligned && hasSensor) Haptics.tick(context) }
 
     Column(
@@ -1110,7 +1249,7 @@ fun QiblaScreen(db: SadaqaDb, onBack: () -> Unit) {
         ) {
             val dirs = listOf("ش", "ش.شر", "شر", "ج.شر", "ج", "ج.غ", "غ", "ش.غ")
             dirs.forEachIndexed { idx, label ->
-                val rad = Math.toRadians(idx * 45.0 - northDeg)
+                val rad = Math.toRadians(idx * 45.0 - smoothNorth)
                 val xDp = (sin(rad) * 114.0).dp
                 val yDp = (-cos(rad) * 114.0).dp
                 Text(label, fontSize = 11.sp, fontWeight = if (idx == 0) FontWeight.Bold else FontWeight.Normal,
@@ -1118,7 +1257,7 @@ fun QiblaScreen(db: SadaqaDb, onBack: () -> Unit) {
                     modifier = Modifier.offset(x = xDp, y = yDp))
             }
             // Rotate around center FIRST, then offset outward so the Kaaba emblem orbits the compass ring
-            Canvas(Modifier.rotate(dialAngle.toFloat()).offset(y = (-78).dp).size(26.dp)) {
+            Canvas(Modifier.rotate(smoothDial).offset(y = (-78).dp).size(26.dp)) {
                 drawRect(color = Color(0xFF141816), size = size)
                 drawRect(color = theme.accent, topLeft = Offset(0f, size.height * 0.22f), size = Size(size.width, size.height * 0.18f))
             }
@@ -1375,11 +1514,21 @@ fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
     val theme = LocalSadaqaTheme.current
     val context = LocalContext.current
     val app = context.applicationContext as app.sadaqa.android.SadaqaApp
+    val fontScale by app.fontScale.collectAsState()
+    var mushafScale by remember { mutableFloatStateOf((db.setting("mushaf_scale")?.dbl ?: 1.0).toFloat().coerceIn(0.8f, 2.0f)) }
     var opts by remember { mutableStateOf(db.engineOptions()) }
     var cityName by remember { mutableStateOf(db.setting("location")?.get("name_ar")?.str ?: "مكة المكرمة") }
     var showCityPicker by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var method by remember { mutableStateOf(db.setting("calc_method")?.str ?: "umm_al_qura") }
+
+    val fontPresets = listOf(
+        0.85f to "صغير",
+        1.0f to "متوسط",
+        1.3f to "كبير",
+        1.6f to "كبير جداً",
+    )
+    val activePreset = fontPresets.minByOrNull { abs(it.first - fontScale) }?.first ?: 1.0f
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -1408,6 +1557,40 @@ fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
                 ) { Text(t, color = SadaqaTheme.colors(t).textPrimary) }
             }
         }
+        Text("حجم الخط", fontSize = 13.sp, color = theme.textSecondary)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for ((presetVal, label) in fontPresets) {
+                val active = abs(activePreset - presetVal) < 0.01f
+                Text(
+                    label,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (active) theme.accentContrast else theme.textPrimary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(50))
+                        .background(if (active) theme.accent else theme.surfaceRaised)
+                        .clickable { app.setFontScale(presetVal) }
+                        .padding(vertical = 8.dp),
+                )
+            }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("حجم خط المصحف", fontSize = 13.sp, color = theme.textSecondary, modifier = Modifier.weight(1f))
+            Text("${(mushafScale * 100).roundToInt()}٪", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = theme.accent)
+        }
+        Slider(
+            value = mushafScale,
+            onValueChange = {
+                val stepped = ((it * 20f).roundToInt().toFloat() / 20f).coerceIn(0.8f, 2.0f)
+                mushafScale = stepped
+                db.setSetting("mushaf_scale", JsonValue.Num(stepped.toDouble()))
+            },
+            valueRange = 0.8f..2.0f,
+            steps = 23,
+            colors = SliderDefaults.colors(thumbColor = theme.accent, activeTrackColor = theme.accent),
+        )
         Text("طريقة الحساب", fontSize = 13.sp, color = theme.textSecondary)
         // 12 methods — compact chips
         for (chunk in PrayerEngine.CALC_METHODS.chunked(3)) {
@@ -1440,16 +1623,16 @@ fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
             Text("عن التطبيق", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary, modifier = Modifier.weight(1f))
             Text("عرض", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.accent)
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(36.dp))
     }
     if (showAbout) {
         AlertDialog(
             onDismissRequest = { showAbout = false },
             containerColor = theme.surface,
-            title = { Text("عن التطبيق — إسلامي", color = theme.textPrimary, fontWeight = FontWeight.Bold) },
+            title = { Text("عن التطبيق — صدقة جارية", color = theme.textPrimary, fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("مصحف كامل وأذكار ومواقيت وختمة تعمل دون اتصال، وبياناتك تبقى على جهازك.", fontSize = 14.sp, color = theme.textPrimary, lineHeight = 22.sp)
+                    Text("«صدقة جارية» — مصحف كامل وأذكار ومواقيت وختمة تعمل دون اتصال، وبياناتك تبقى على جهازك.", fontSize = 14.sp, color = theme.textPrimary, lineHeight = 22.sp)
                     Text(
                         "هذا المشروع صدقة جارية وليّةً لله تعالى، مُهداة عن المطوّر ixboss ووالديه وأحبته جميعاً — فمن انتفع به فليدعُ لهم بالثواب والأجر.",
                         fontSize = 13.sp, color = theme.textSecondary, lineHeight = 21.sp,

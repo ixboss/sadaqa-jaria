@@ -15,10 +15,16 @@ import android.location.LocationManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -46,14 +52,20 @@ import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.sadaqa.android.backup.JsonValue
@@ -89,6 +101,19 @@ fun hmsOf(msLeft: Long): String {
 }
 
 fun dayKeyOf(ms: Long, tz: String): String = isoOf(ms, tz)
+
+fun Modifier.tactilePress(onClick: () -> Unit): Modifier = composed {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.97f else 1f,
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMedium),
+        label = "tactile-press",
+    )
+    this
+        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+}
 
 // ---------------------------------------------------------------------------
 // Today Hub
@@ -157,13 +182,15 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
             if (next != null) {
                 val isTomorrow = isoOf(next.at, opts.timeZone) != todayIso
                 Text(next.name.labelAr, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = theme.accent)
-                Text(
-                    hmsOf(next.at - now),
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = theme.textPrimary,
-                    style = TextStyle(fontFeatureSettings = "tnum"),
-                )
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Text(
+                        hmsOf(next.at - now),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = theme.textPrimary,
+                        style = TextStyle(fontFeatureSettings = "tnum"),
+                    )
+                }
                 Text(
                     "الأذان ${clockOf(next.at, opts.timeZone)}${if (isTomorrow) " (غداً)" else ""}",
                     fontSize = 13.sp,
@@ -282,7 +309,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                     )) {
                         Column(
                             Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(theme.surfaceRaised)
-                                .clickable { onNavigate(targetTab) }.padding(vertical = 12.dp),
+                                .tactilePress { onNavigate(targetTab) }.padding(vertical = 12.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
@@ -332,7 +359,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                 ) { Text("تابع القراءة — صفحة $currentPage") }
             }
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(36.dp))
     }
 
     if (showCityPicker) {
@@ -485,7 +512,7 @@ fun AthkarScreen(db: SadaqaDb) {
                     Column(
                         Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(theme.surface)
                             .border(1.dp, theme.border, RoundedCornerShape(16.dp))
-                            .clickable { openReader = id }.padding(14.dp),
+                            .tactilePress { openReader = id }.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Box(
@@ -530,7 +557,7 @@ fun AthkarScreen(db: SadaqaDb) {
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
                     .background(theme.surface).border(1.dp, theme.border, RoundedCornerShape(14.dp))
-                    .clickable { openReader = c.id }.padding(14.dp),
+                    .tactilePress { openReader = c.id }.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -547,7 +574,7 @@ fun AthkarScreen(db: SadaqaDb) {
                 Icon(Icons.Outlined.ChevronLeft, contentDescription = null, tint = theme.textSecondary, modifier = Modifier.size(16.dp))
             }
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(36.dp))
     }
 }
 
@@ -576,6 +603,11 @@ fun AthkarReaderScreen(db: SadaqaDb, categoryId: String, onBack: () -> Unit) {
     }
 
     val doneTotal = items.count { it -> val c = counts[it.id] ?: 0; if (it.target > 0) c >= it.target else c > 0 }
+    val animTotalProgress by animateFloatAsState(
+        targetValue = if (items.isEmpty()) 0f else doneTotal.toFloat() / items.size,
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow),
+        label = "athkar-total",
+    )
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -588,7 +620,7 @@ fun AthkarReaderScreen(db: SadaqaDb, categoryId: String, onBack: () -> Unit) {
             Text("$doneTotal / ${items.size}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = theme.accent, style = TextStyle(fontFeatureSettings = "tnum"))
         }
         LinearProgressIndicator(
-            progress = { if (items.isEmpty()) 0f else doneTotal.toFloat() / items.size },
+            progress = { animTotalProgress },
             modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)),
             color = theme.accent,
             trackColor = theme.surfaceRaised,
@@ -596,7 +628,12 @@ fun AthkarReaderScreen(db: SadaqaDb, categoryId: String, onBack: () -> Unit) {
         for (item in items) {
             val count = counts[item.id] ?: 0
             val done = if (item.target > 0) count >= item.target else count > 0
-            val progress = if (item.target > 0) (count.toFloat() / item.target).coerceIn(0f, 1f) else if (done) 1f else 0f
+            val targetProgress = if (item.target > 0) (count.toFloat() / item.target).coerceIn(0f, 1f) else if (done) 1f else 0f
+            val animProgress by animateFloatAsState(
+                targetValue = targetProgress,
+                animationSpec = spring(dampingRatio = 0.84f, stiffness = Spring.StiffnessMediumLow),
+                label = "dhikr-ring",
+            )
             Column(
                 Modifier.fillMaxWidth().defaultMinSize(minHeight = 160.dp).clip(RoundedCornerShape(16.dp))
                     .background(theme.surface)
@@ -621,25 +658,29 @@ fun AthkarReaderScreen(db: SadaqaDb, categoryId: String, onBack: () -> Unit) {
             ) {
                 Text(item.text, fontSize = 21.sp, color = theme.textPrimary, lineHeight = 34.sp)
                 if (item.target > 0) {
-                    Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("$count", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = theme.accent)
-                        Text(" من ${item.target}", fontSize = 13.sp, color = theme.textSecondary)
-                        Spacer(Modifier.weight(1f))
-                        Box(
-                            Modifier.size(46.dp).clip(CircleShape).background(theme.surfaceRaised),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Box(
-                                Modifier.size(46.dp).clip(CircleShape).background(
-                                    Brush.sweepGradient(
-                                        0f to theme.accent,
-                                        progress to theme.accent,
-                                        progress to theme.surfaceRaised,
-                                        1f to theme.surfaceRaised,
-                                    ),
-                                ),
+                        Text("من ${item.target}", fontSize = 13.sp, color = theme.textSecondary)
+                        if (done) {
+                            Text(
+                                "✓ اكتمل",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = theme.accent,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(theme.accent.copy(alpha = 0.16f))
+                                    .padding(horizontal = 9.dp, vertical = 3.dp),
                             )
-                            Text("${minOf(count, item.target)}/${item.target}", fontSize = 11.sp, color = theme.textPrimary)
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Box(Modifier.size(46.dp), contentAlignment = Alignment.Center) {
+                            Canvas(Modifier.fillMaxSize()) {
+                                val stroke = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+                                drawArc(color = theme.surfaceRaised, startAngle = 0f, sweepAngle = 360f, useCenter = false, style = stroke)
+                                drawArc(color = theme.accent, startAngle = -90f, sweepAngle = 360f * animProgress, useCenter = false, style = stroke)
+                            }
+                            Text("${minOf(count, item.target)}/${item.target}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary, style = TextStyle(fontFeatureSettings = "tnum"))
                         }
                     }
                 }
@@ -648,7 +689,7 @@ fun AthkarReaderScreen(db: SadaqaDb, categoryId: String, onBack: () -> Unit) {
                 }
             }
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(36.dp))
     }
 }
 
@@ -687,45 +728,68 @@ fun TasbihScreen(db: SadaqaDb, onClose: () -> Unit) {
         val counter = counters.getOrNull(selected)
         if (counter != null) {
             val target = counter.target ?: 100
-            val progress = ((counter.count % maxOf(target, 1)).toFloat()) / maxOf(target, 1)
+            val done = counter.target != null && counter.count >= counter.target
+            val targetProgress = if (counter.target != null) (counter.count.toFloat() / maxOf(target, 1)).coerceIn(0f, 1f)
+                else ((counter.count % 100).toFloat()) / 100f
+            val animProgress by animateFloatAsState(
+                targetValue = targetProgress,
+                animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMedium),
+                label = "tasbih-ring",
+            )
             Box(
-                Modifier.fillMaxWidth().padding(top = 10.dp).size(280.dp).clip(CircleShape)
-                    .background(
-                        androidx.compose.ui.graphics.Brush.sweepGradient(
-                            0f to theme.accent,
-                            progress to theme.accent,
-                            progress to theme.surfaceRaised,
-                            1f to theme.surfaceRaised,
-                        ),
-                    )
-                    .clickable {
-                        // THE rapid-tap contract: local count increments synchronously
-                        val idx = counters.indexOfFirst { it.uuid == counter.uuid }
-                        if (idx >= 0) {
-                            val newCount = counters[idx].count + 1
-                            counters = counters.toMutableList().also { it[idx] = counters[idx].copy(count = newCount) }
-                            if (counter.target != null && newCount == counter.target) Haptics.complete(context) else Haptics.tick(context)
-                            val cUuid = counter.uuid
-                            val targetVal = counter.target
-                            val now = System.currentTimeMillis()
-                            val day = dayKeyOf(now, ZoneId.systemDefault().id)
-                            scope.launch {
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                    db.recordTasbihTap(cUuid, targetVal, newCount, day, now)
-                                }
-                            }
-                        }
-                    },
+                Modifier.fillMaxWidth().padding(top = 10.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Box(Modifier.size(220.dp).clip(CircleShape).background(theme.surface), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("${counter.count}", fontSize = 52.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = theme.textPrimary)
+                Box(
+                    Modifier.size(280.dp).clip(CircleShape).background(theme.surface)
+                        .clickable {
+                            // THE rapid-tap contract: local count increments synchronously
+                            val idx = counters.indexOfFirst { it.uuid == counter.uuid }
+                            if (idx >= 0) {
+                                val newCount = counters[idx].count + 1
+                                counters = counters.toMutableList().also { it[idx] = counters[idx].copy(count = newCount) }
+                                if (counter.target != null && newCount == counter.target) Haptics.complete(context) else Haptics.tick(context)
+                                val cUuid = counter.uuid
+                                val targetVal = counter.target
+                                val now = System.currentTimeMillis()
+                                val day = dayKeyOf(now, ZoneId.systemDefault().id)
+                                scope.launch {
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        db.recordTasbihTap(cUuid, targetVal, newCount, day, now)
+                                    }
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Canvas(Modifier.fillMaxSize().padding(10.dp)) {
+                        val stroke = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round)
+                        drawArc(color = theme.surfaceRaised, startAngle = 0f, sweepAngle = 360f, useCenter = false, style = stroke)
+                        drawArc(color = theme.accent, startAngle = -90f, sweepAngle = 360f * animProgress, useCenter = false, style = stroke)
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("${counter.count}", fontSize = 52.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = theme.textPrimary, style = TextStyle(fontFeatureSettings = "tnum"))
                         Text(counter.dhikr, fontSize = 14.sp, color = theme.textSecondary)
+                        if (counter.target != null) {
+                            if (done) {
+                                Text(
+                                    "✓ اكتمل",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = theme.accent,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(theme.accent.copy(alpha = 0.16f))
+                                        .padding(horizontal = 10.dp, vertical = 3.dp),
+                                )
+                            } else {
+                                Text("من ${counter.target}", fontSize = 12.sp, color = theme.textSecondary, style = TextStyle(fontFeatureSettings = "tnum"))
+                            }
+                        }
                     }
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
                 for ((i, c) in counters.withIndex()) {
                     Text(
                         c.label,
@@ -746,7 +810,7 @@ fun TasbihScreen(db: SadaqaDb, onClose: () -> Unit) {
                 }
             }
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(36.dp))
     }
 }
 

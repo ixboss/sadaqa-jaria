@@ -3,7 +3,7 @@
 // (never block install on the 42 MB sadaqa.db). Runtime cache-first:
 // sadaqa.db, QPC1 per-page fonts, and audio packs.
 // ============================================================================
-const CACHE = 'sadaqa-v2-v12';
+const CACHE = 'sadaqa-v2-v13';
 const SHELL = [
   'index.html',
   '../../icons/icon-192.png',

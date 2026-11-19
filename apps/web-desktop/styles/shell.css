@@ -102,6 +102,7 @@ button, a, [role='button'], .tab-btn, .cat-tile, .tool-tile, .feat-tile, .zkr-ca
 }
 
 .glass-tabbar {
+  position: relative;
   flex: 1;
   max-width: 340px;
   min-width: 0;
@@ -113,7 +114,26 @@ button, a, [role='button'], .tab-btn, .cat-tile, .tool-tile, .feat-tile, .zkr-ca
   padding: 5px;
 }
 
+.glass-tabbar .tab-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: var(--radius-pill);
+  background: var(--glass-active-bg);
+  box-shadow: inset 0 0 0 1px var(--glass-active-border);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 0;
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+              width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+              height 240ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 160ms var(--ease-standard);
+}
+.glass-tabbar .tab-indicator.ready { opacity: 1; }
+
 .glass-tabbar .tab-btn {
+  position: relative;
+  z-index: 1;
   appearance: none;
   border: 0;
   background: transparent;
@@ -131,7 +151,7 @@ button, a, [role='button'], .tab-btn, .cat-tile, .tool-tile, .feat-tile, .zkr-ca
   align-items: center;
   justify-content: center;
   gap: 3px;
-  transition: transform 140ms var(--ease-standard), background-color 180ms var(--ease-standard), color 180ms var(--ease-standard), box-shadow 180ms var(--ease-standard);
+  transition: transform 130ms cubic-bezier(0.22, 1, 0.36, 1), color 180ms var(--ease-standard);
 }
 .glass-tabbar .tab-btn .tab-ico {
   display: grid;
@@ -146,11 +166,9 @@ button, a, [role='button'], .tab-btn, .cat-tile, .tool-tile, .feat-tile, .zkr-ca
   text-overflow: ellipsis;
   max-width: 100%;
 }
-.glass-tabbar .tab-btn:active { transform: scale(0.95); }
+.glass-tabbar .tab-btn:active { transform: scale(0.97); }
 .glass-tabbar .tab-btn[aria-current='page'] {
-  background: var(--glass-active-bg);
   color: var(--glass-active-fg);
-  box-shadow: inset 0 0 0 1px var(--glass-active-border);
 }
 
 /* scroll-minimized dock (auto-restores on scroll-up / idle — never tap-to-restore) */
@@ -185,6 +203,9 @@ body.chrome-hidden .glass-dock {
     border-radius: var(--radius-lg);
     padding: 8px;
     gap: 6px;
+  }
+  .glass-tabbar .tab-indicator {
+    border-radius: var(--radius-md);
   }
   .glass-tabbar .tab-btn {
     width: 64px;
@@ -280,6 +301,6 @@ body.chrome-hidden .glass-dock {
 .btn.primary { background: var(--color-accent); color: var(--color-accent-contrast); border-color: transparent; font-weight: 600; }
 
 @media (prefers-reduced-motion: reduce) {
-  .glass-dock, .glass-tabbar, .tab-btn, .btn { transition-duration: 1ms; }
+  .glass-dock, .glass-tabbar, .tab-indicator, .tab-btn, .btn { transition-duration: 1ms; }
   .route-enter { animation-duration: 1ms; }
 }

@@ -14,7 +14,7 @@ export async function renderSurahIndex(root) {
   ]);
 
   root.innerHTML = `
-  <div class="screen" style="padding-bottom:104px">
+  <div class="screen">
     <div class="screen-header">
       <h1>المصحف الشريف</h1>
       <div class="sub">١١٤ سورة · ٣٠ جزءاً — انقر للانتقال الفوري</div>

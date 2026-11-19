@@ -19,9 +19,12 @@ enum MushafHubTab: String, CaseIterable, Identifiable {
 }
 
 struct MushafPageView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject var appState: AppState
     @State private var hubTab: MushafHubTab = .reader
     @State private var page: Int = 1
+    @State private var sliderPage: Double = 1
+    @State private var isDraggingSlider = false
     @State private var hudVisible = false
     @State private var meta = MushafRepository.PageMeta(surahName: "", juz: 1, hizb: 1)
     @State private var isBookmarked = false
@@ -72,17 +75,20 @@ struct MushafPageView: View {
                 } else if page == 1, let saved = appState.db.setting("mushaf_page")?.intValue, (1...604).contains(saved) {
                     page = saved
                 }
+                sliderPage = Double(page)
                 reloadPage()
                 loadHubData()
             }
             .onChange(of: appState.targetMushafPage) { target in
                 if let target, (1...604).contains(target) {
                     page = target
+                    sliderPage = Double(target)
                     hubTab = .reader
                     appState.targetMushafPage = nil
                 }
             }
-            .onChange(of: page) { _ in
+            .onChange(of: page) { newPage in
+                if !isDraggingSlider { sliderPage = Double(newPage) }
                 reloadPage()
                 HapticsEngine.shared.play(pattern: appState.theme.all.haptics?.pageFlipSettle ?? [10])
             }
@@ -133,7 +139,7 @@ struct MushafPageView: View {
                     .padding(.bottom, 2)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        withAnimation(.easeOut(duration: 0.22)) { hudVisible = true }
+                        withAnimation(hudAnimation()) { hudVisible = true }
                     }
                 }
 
@@ -154,7 +160,7 @@ struct MushafPageView: View {
                                 showAyahSheet = true
                             },
                             onToggleHud: {
-                                withAnimation(.easeOut(duration: 0.22)) { hudVisible.toggle() }
+                                withAnimation(hudAnimation()) { hudVisible.toggle() }
                             }
                         )
                         .tag(p)
@@ -176,7 +182,7 @@ struct MushafPageView: View {
                         .disabled(page <= 1)
 
                         Button {
-                            withAnimation(.easeOut(duration: 0.22)) { hudVisible = true }
+                            withAnimation(hudAnimation()) { hudVisible = true }
                         } label: {
                             Text("صفحة \(page) / ٦٠٤")
                                 .font(.system(size: 12, weight: .semibold))
@@ -211,59 +217,100 @@ struct MushafPageView: View {
                     Spacer()
                     readerBottomHudCard
                 }
-                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)))
             }
         }
     }
 
+    private func hudAnimation() -> Animation? {
+        reduceMotion ? nil : .spring(response: 0.30, dampingFraction: 0.86)
+    }
+
+    private func surahTitle(forPage p: Int) -> String {
+        surahs.last(where: { $0.startPage <= p })?.nameAr ?? "المصحف الشريف"
+    }
+
     private var readerTopHudBar: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(meta.surahName.isEmpty ? "المصحف الشريف" : meta.surahName)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(appState.theme.textPrimary)
-                Text("ص \(page) · الجزء \(meta.juz) · الحزب \(meta.hizb)")
-                    .font(.system(size: 11))
-                    .foregroundStyle(appState.theme.textSecondary)
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                Button {
+                    hudVisible = false
+                    appState.tab = .today
+                } label: {
+                    Image(systemName: "chevron.forward")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(appState.theme.textSecondary)
+                        .padding(7)
+                }
+                .accessibilityLabel("رجوع")
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(meta.surahName.isEmpty ? "المصحف الشريف" : meta.surahName)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(appState.theme.textPrimary)
+                    Text("ص \(page) · الجزء \(meta.juz) · الحزب \(meta.hizb)")
+                        .font(.system(size: 11))
+                        .monospacedDigit()
+                        .foregroundStyle(appState.theme.textSecondary)
+                }
+                Spacer()
+                Button {
+                    showAppearanceSheet = true
+                } label: {
+                    Image(systemName: "textformat.size")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(appState.theme.textSecondary)
+                        .padding(7)
+                }
+                Button {
+                    togglePageBookmark()
+                } label: {
+                    Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(isBookmarked ? appState.theme.accent : appState.theme.textSecondary)
+                        .padding(7)
+                }
+                Button {
+                    withAnimation(hudAnimation()) { hudVisible = false }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(appState.theme.textSecondary)
+                        .padding(7)
+                }
             }
-            Spacer()
-            Button {
-                showAppearanceSheet = true
-            } label: {
-                Image(systemName: "textformat.size")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(appState.theme.textSecondary)
-                    .padding(7)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(.ultraThinMaterial)
+            .clipShape(Capsule())
+            .overlay(Capsule().strokeBorder(appState.theme.border))
+            .shadow(color: .black.opacity(0.22), radius: 12, y: 4)
+
+            // Top segmented hub switcher — cleanly stacked below the Surah/Juz bar
+            Picker("أقسام المصحف", selection: Binding(
+                get: { hubTab },
+                set: { nextTab in
+                    hudVisible = false
+                    hubTab = nextTab
+                }
+            )) {
+                ForEach(MushafHubTab.allCases) { t in
+                    Text(t.rawValue).tag(t)
+                }
             }
-            Button {
-                togglePageBookmark()
-            } label: {
-                Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(isBookmarked ? appState.theme.accent : appState.theme.textSecondary)
-                    .padding(7)
-            }
-            Button {
-                withAnimation(.easeOut(duration: 0.2)) { hudVisible = false }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(appState.theme.textSecondary)
-                    .padding(7)
-            }
+            .pickerStyle(.segmented)
+            .padding(4)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(appState.theme.border))
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
-        .clipShape(Capsule())
-        .overlay(Capsule().strokeBorder(appState.theme.border))
-        .shadow(color: .black.opacity(0.22), radius: 12, y: 4)
         .padding(.horizontal, 14)
         .padding(.top, 8)
     }
 
     private var readerBottomHudCard: some View {
-        VStack(spacing: 10) {
+        let previewPage = min(max(Int(sliderPage.rounded()), 1), 604)
+        return VStack(spacing: 10) {
             if let active = activeRecitation {
                 HStack {
                     Image(systemName: "waveform").foregroundStyle(appState.theme.accent)
@@ -284,27 +331,61 @@ struct MushafPageView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
 
-            HStack(spacing: 10) {
-                Text("ص \(page)")
+            if isDraggingSlider {
+                Text("ص \(previewPage) — \(surahTitle(forPage: previewPage))")
+                    .font(.system(size: 12, weight: .bold))
+                    .monospacedDigit()
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 5)
+                    .background(appState.theme.surface)
+                    .foregroundStyle(appState.theme.accent)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().strokeBorder(appState.theme.accent.opacity(0.45)))
+            }
+
+            HStack(spacing: 8) {
+                Text("ص \(isDraggingSlider ? previewPage : page)")
                     .font(.system(size: 12, weight: .bold)).monospacedDigit()
                     .padding(.horizontal, 10).padding(.vertical, 4)
                     .background(appState.theme.accent.opacity(0.16))
                     .foregroundStyle(appState.theme.accent)
                     .clipShape(Capsule())
 
+                Button {
+                    if page > 1 { page -= 1 }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .bold))
+                        .frame(width: 30, height: 30)
+                        .background(appState.theme.surface.opacity(0.85))
+                        .clipShape(Circle())
+                }
+                .disabled(page <= 1)
+
                 Slider(
-                    value: Binding(
-                        get: { Double(page) },
-                        set: { page = min(max(Int($0.rounded()), 1), 604) }
-                    ),
+                    value: $sliderPage,
                     in: 1...604,
-                    step: 1
+                    step: 1,
+                    onEditingChanged: { editing in
+                        isDraggingSlider = editing
+                        if !editing {
+                            let target = min(max(Int(sliderPage.rounded()), 1), 604)
+                            if target != page { page = target }
+                        }
+                    }
                 )
                 .tint(appState.theme.accent)
 
-                Text("٦٠٤")
-                    .font(.system(size: 11)).monospacedDigit()
-                    .foregroundStyle(appState.theme.textSecondary)
+                Button {
+                    if page < 604 { page += 1 }
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 13, weight: .bold))
+                        .frame(width: 30, height: 30)
+                        .background(appState.theme.surface.opacity(0.85))
+                        .clipShape(Circle())
+                }
+                .disabled(page >= 604)
             }
 
             HStack(spacing: 8) {
@@ -428,7 +509,7 @@ struct MushafPageView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal, 16)
             }
-            .padding(.bottom, 100)
+            .padding(.bottom, 120)
         }
         .onAppear { loadHubData() }
     }
@@ -510,7 +591,7 @@ struct MushafPageView: View {
                     }
                 }
             }
-            .padding(.bottom, 100)
+            .padding(.bottom, 120)
         }
     }
 
@@ -754,33 +835,49 @@ struct MushafPlate: View {
             let slotH = (page <= 2) ? min(availH / CGFloat(slotCount), 48) : (availH / 15.0)
             let sample = lines.first(where: { !$0.words.isEmpty })?.words.map(\.glyphs).joined() ?? ""
             let isQpc = !sample.isEmpty && FontRegistry.verifiedMushafFont(page: page, size: 20, sample: sample) != nil
+            let isZoomed = mushafScale > 1.05
             let fontSize = computeUniformFontSize(availW: availW, slotH: slotH, isQpc: isQpc)
             let pageFont: UIFont = isQpc
                 ? (FontRegistry.verifiedMushafFont(page: page, size: fontSize, sample: sample) ?? FontRegistry.uthmanicFont(size: fontSize))
                 : FontRegistry.uthmanicFont(size: fontSize)
 
-            VStack(spacing: 0) {
-                if page <= 2 { Spacer(minLength: 0) }
-                ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                    lineView(line, pageFont: pageFont, fontSize: fontSize, isQpc: isQpc, slotH: slotH)
+            if isZoomed {
+                ScrollView(.vertical, showsIndicators: true) {
+                    VStack(spacing: max(6, fontSize * 0.28)) {
+                        ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                            lineView(line, pageFont: pageFont, fontSize: fontSize, isQpc: isQpc, slotH: slotH, zoomed: true)
+                        }
+                    }
+                    .frame(width: availW, alignment: .center)
+                    .padding(.horizontal, horizPad)
+                    .padding(.vertical, 12)
                 }
-                if page <= 2 { Spacer(minLength: 0) }
+                .contentShape(Rectangle())
+                .onTapGesture { onToggleHud() }
+            } else {
+                VStack(spacing: 0) {
+                    if page <= 2 { Spacer(minLength: 0) }
+                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                        lineView(line, pageFont: pageFont, fontSize: fontSize, isQpc: isQpc, slotH: slotH, zoomed: false)
+                    }
+                    if page <= 2 { Spacer(minLength: 0) }
+                }
+                .frame(width: availW, height: availH, alignment: .center)
+                .padding(.horizontal, horizPad)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+                .onTapGesture { onToggleHud() }
             }
-            .frame(width: availW, height: availH, alignment: .center)
-            .padding(.horizontal, horizPad)
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
-            .onTapGesture { onToggleHud() }
         }
     }
 
     private func computeUniformFontSize(availW: CGFloat, slotH: CGFloat, isQpc: Bool) -> CGFloat {
         // mushaf_scale is the reader's own zoom (0.8–2.0), independent of app font_scale
         let prefFactor = CGFloat(min(max(mushafScale, 0.8), 2.0))
-        var size = min(slotH * 0.80, 34) * prefFactor
+        var baseSize = min(slotH * 0.80, 34)
         let probeFont = isQpc
-            ? (FontRegistry.verifiedMushafFont(page: page, size: size, sample: lines.first(where: { !$0.words.isEmpty })?.words.map(\.glyphs).joined() ?? "") ?? FontRegistry.uthmanicFont(size: size))
-            : FontRegistry.uthmanicFont(size: size)
+            ? (FontRegistry.verifiedMushafFont(page: page, size: baseSize, sample: lines.first(where: { !$0.words.isEmpty })?.words.map(\.glyphs).joined() ?? "") ?? FontRegistry.uthmanicFont(size: baseSize))
+            : FontRegistry.uthmanicFont(size: baseSize)
 
         var maxLineW: CGFloat = 0
         for line in lines where line.kind == "text" {
@@ -791,11 +888,13 @@ struct MushafPlate: View {
             if w > maxLineW { maxLineW = w }
         }
         if maxLineW > availW && maxLineW > 0 {
-            size *= (availW / maxLineW) * 0.94
+            baseSize *= (availW / maxLineW) * 0.94
         }
-        // zoom must never overflow the 15-slot page grid
-        size = min(size, slotH * 0.90)
-        return max(12, size)
+        if prefFactor > 1.05 {
+            // Zoomed reading (>105%): scale directly with scroll+wrap fallback, no slotH ceiling
+            return max(14, baseSize * prefFactor)
+        }
+        return max(12, min(baseSize * prefFactor, slotH * 0.90))
     }
 
     private func ayahSegments(for line: MushafRepository.MushafLine, isQpc: Bool) -> [AyahSegment] {
@@ -823,23 +922,23 @@ struct MushafPlate: View {
     }
 
     @ViewBuilder
-    private func lineView(_ line: MushafRepository.MushafLine, pageFont: UIFont, fontSize: CGFloat, isQpc: Bool, slotH: CGFloat) -> some View {
+    private func lineView(_ line: MushafRepository.MushafLine, pageFont: UIFont, fontSize: CGFloat, isQpc: Bool, slotH: CGFloat, zoomed: Bool) -> some View {
         if line.kind == "bismillah" {
-            if let bsmlFont = FontRegistry.verifiedBasmalaFont(size: min(fontSize * 1.04, slotH * 0.82), sample: line.glyphs) {
+            if let bsmlFont = FontRegistry.verifiedBasmalaFont(size: zoomed ? fontSize * 1.04 : min(fontSize * 1.04, slotH * 0.82), sample: line.glyphs) {
                 Text(line.glyphs)
                     .font(Font(bsmlFont))
                     .foregroundStyle(theme.mushafText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                     .environment(\.layoutDirection, .leftToRight)
-                    .frame(maxWidth: .infinity, minHeight: slotH, maxHeight: slotH, alignment: .center)
+                    .frame(maxWidth: .infinity, minHeight: zoomed ? nil : slotH, maxHeight: zoomed ? nil : slotH, alignment: .center)
             } else {
                 Text(line.textAr ?? "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ")
-                    .font(Font(FontRegistry.uthmanicFont(size: min(fontSize * 0.94, slotH * 0.78))))
+                    .font(Font(FontRegistry.uthmanicFont(size: zoomed ? fontSize * 0.94 : min(fontSize * 0.94, slotH * 0.78))))
                     .foregroundStyle(theme.mushafText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .frame(maxWidth: .infinity, minHeight: slotH, maxHeight: slotH, alignment: .center)
+                    .lineLimit(zoomed ? nil : 1)
+                    .minimumScaleFactor(zoomed ? 1.0 : 0.6)
+                    .frame(maxWidth: .infinity, minHeight: zoomed ? nil : slotH, maxHeight: zoomed ? nil : slotH, alignment: .center)
                     .multilineTextAlignment(.center)
             }
         } else if line.kind == "surah_name" {
@@ -856,25 +955,103 @@ struct MushafPlate: View {
                 .padding(.vertical, 2)
         } else {
             let segments = ayahSegments(for: line, isQpc: isQpc)
-            HStack(spacing: 4) {
-                ForEach(segments) { seg in
-                    Text(seg.text)
-                        .font(Font(pageFont))
-                        .foregroundStyle(theme.mushafText)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .padding(.horizontal, 1)
-                        .background(selectedAyah == seg.ayah ? theme.accent.opacity(0.22) : Color.clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
-                        // Long-press (≈0.45s) is the ONLY way to select an ayah —
-                        // a quick tap anywhere falls through to the plate (HUD toggle)
-                        .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 18) {
-                            HapticsEngine.shared.play(pattern: [20])
-                            onSelectAyah(seg.ayah)
-                        }
+            if zoomed {
+                MushafWrappingRow(spacing: 4, lineSpacing: max(6, fontSize * 0.25)) {
+                    ForEach(segments) { seg in
+                        Text(seg.text)
+                            .font(Font(pageFont))
+                            .foregroundStyle(theme.mushafText)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 1)
+                            .background(selectedAyah == seg.ayah ? theme.accent.opacity(0.22) : Color.clear)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 18) {
+                                HapticsEngine.shared.play(pattern: [20])
+                                onSelectAyah(seg.ayah)
+                            }
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .center)
+            } else {
+                HStack(spacing: 4) {
+                    ForEach(segments) { seg in
+                        Text(seg.text)
+                            .font(Font(pageFont))
+                            .foregroundStyle(theme.mushafText)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                            .padding(.horizontal, 1)
+                            .background(selectedAyah == seg.ayah ? theme.accent.opacity(0.22) : Color.clear)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            // Long-press (≈0.45s) is the ONLY way to select an ayah —
+                            // a quick tap anywhere falls through to the plate (HUD toggle)
+                            .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 18) {
+                                HapticsEngine.shared.play(pattern: [20])
+                                onSelectAyah(seg.ayah)
+                            }
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: slotH, maxHeight: slotH, alignment: .center)
             }
-            .frame(maxWidth: .infinity, minHeight: slotH, maxHeight: slotH, alignment: .center)
+        }
+    }
+}
+
+/// Centered wrapping flow layout for zoomed Mushaf lines (>105%) so verses
+/// break cleanly across rows without clipping while keeping ayah gestures.
+private struct MushafWrappingRow: Layout {
+    var spacing: CGFloat = 4
+    var lineSpacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxW = proposal.width ?? 320
+        var rows: [[(LayoutSubview, CGSize)]] = [[]]
+        var curW: CGFloat = 0
+        for sub in subviews {
+            let sz = sub.sizeThatFits(ProposedViewSize(width: maxW, height: nil))
+            let addW = rows[rows.count - 1].isEmpty ? sz.width : sz.width + spacing
+            if !rows[rows.count - 1].isEmpty && curW + addW > maxW {
+                rows.append([(sub, sz)])
+                curW = sz.width
+            } else {
+                rows[rows.count - 1].append((sub, sz))
+                curW += addW
+            }
+        }
+        let totalH = rows.enumerated().reduce(CGFloat(0)) { acc, item in
+            let rowH = item.element.map(\.1.height).max() ?? 0
+            return acc + rowH + (item.offset > 0 ? lineSpacing : 0)
+        }
+        return CGSize(width: maxW, height: totalH)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let maxW = bounds.width
+        var rows: [[(LayoutSubview, CGSize)]] = [[]]
+        var curW: CGFloat = 0
+        for sub in subviews {
+            let sz = sub.sizeThatFits(ProposedViewSize(width: maxW, height: nil))
+            let addW = rows[rows.count - 1].isEmpty ? sz.width : sz.width + spacing
+            if !rows[rows.count - 1].isEmpty && curW + addW > maxW {
+                rows.append([(sub, sz)])
+                curW = sz.width
+            } else {
+                rows[rows.count - 1].append((sub, sz))
+                curW += addW
+            }
+        }
+        var y = bounds.minY
+        for row in rows {
+            let rowW = row.reduce(CGFloat(0)) { $0 + $1.1.width } + spacing * CGFloat(max(0, row.count - 1))
+            let rowH = row.map(\.1.height).max() ?? 0
+            // RTL: place first subview on the right side of the centered row
+            var x = bounds.midX + rowW / 2
+            for (sub, sz) in row {
+                x -= sz.width
+                sub.place(at: CGPoint(x: x, y: y + (rowH - sz.height) / 2), proposal: ProposedViewSize(sz))
+                x -= spacing
+            }
+            y += rowH + lineSpacing
         }
     }
 }

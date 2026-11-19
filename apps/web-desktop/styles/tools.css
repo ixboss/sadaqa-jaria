@@ -3,7 +3,8 @@
    surfaces; glass stays on the control layer (Pillar A). */
 
 /* ---- Today Hub ------------------------------------------------------------ */
-.screen { padding-bottom: calc(116px + env(safe-area-inset-bottom, 0px)); }
+.screen { padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px)); }
+body.reading .screen { padding-bottom: calc(176px + env(safe-area-inset-bottom, 0px)); }
 .hub-grid { display: grid; gap: 0; }
 .today-toprow {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -50,6 +51,7 @@
 .hub-hero .hh-name { font-size: 32px; font-weight: 600; margin: 4px 0 2px; color: var(--color-accent); }
 .hub-hero .hh-clock {
   font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1;
+  direction: ltr; unicode-bidi: isolate;
   margin: 4px 0 2px;
 }
 .hub-hero .hh-at { font-size: 13px; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
@@ -86,9 +88,9 @@
   border-radius: var(--radius-md); padding: 12px 6px;
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   font-family: var(--font-ui); font-size: 12px; font-weight: 600; cursor: pointer;
-  transition: transform 140ms var(--ease-standard), border-color 160ms var(--ease-standard);
+  transition: transform 130ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms var(--ease-standard);
 }
-.qa-btn:active { transform: scale(0.96); }
+.qa-btn:active { transform: scale(0.97); }
 .qa-btn .qa-ico { display: grid; place-items: center; width: 22px; height: 22px; color: var(--color-accent); }
 
 /* ---- Athkar dashboard & reader ------------------------------------------- */
@@ -100,9 +102,9 @@
   background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius-lg); padding: 16px; cursor: pointer;
   display: flex; flex-direction: column; gap: 8px;
-  transition: transform 140ms var(--ease-standard), border-color 160ms var(--ease-standard);
+  transition: transform 130ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms var(--ease-standard);
 }
-.feat-tile:active { transform: scale(0.975); }
+.feat-tile:active { transform: scale(0.97); }
 .feat-tile .f-ico {
   width: 36px; height: 36px; border-radius: 10px;
   background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-raised));
@@ -125,9 +127,9 @@
   display: flex; align-items: center; gap: 12px;
   background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius-lg); padding: 14px 16px; margin: 10px 16px;
-  cursor: pointer; transition: transform 140ms var(--ease-standard), background-color 160ms var(--ease-standard);
+  cursor: pointer; transition: transform 130ms cubic-bezier(0.22, 1, 0.36, 1), background-color 160ms var(--ease-standard);
 }
-.cat-tile:active { transform: scale(0.985); }
+.cat-tile:active { transform: scale(0.97); }
 .cat-tile .c-icon {
   width: 34px; height: 34px; border-radius: 10px;
   background: var(--color-surface-raised); color: var(--color-accent);
@@ -139,14 +141,24 @@
   display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums;
 }
 
+@keyframes zkr-enter {
+  from { opacity: 0; transform: translateX(-18px) scale(0.985); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes done-pop {
+  from { opacity: 0; transform: scale(0.86); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 .zkr-card {
   background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius-lg); padding: 20px; margin: 12px 16px;
   cursor: pointer; user-select: none; min-height: 212px;
   display: flex; flex-direction: column; justify-content: space-between;
-  transition: transform 140ms var(--ease-standard), border-color 160ms var(--ease-standard);
+  transition: transform 130ms cubic-bezier(0.22, 1, 0.36, 1), border-color 200ms var(--ease-standard);
 }
-.zkr-card:active { transform: scale(0.985); }
+.zkr-card.zkr-enter { animation: zkr-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.zkr-card:active { transform: scale(0.97); }
 .zkr-card.done { border-color: color-mix(in srgb, var(--color-accent) 55%, transparent); }
 .zkr-card .z-text { font-family: var(--font-quran); font-size: 24px; line-height: 2.05; }
 .zkr-card .z-count-row { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
@@ -156,13 +168,27 @@
 }
 .zkr-card .z-target { font-size: 13px; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
 .zkr-card .z-ring {
-  --p: 0; width: 46px; height: 46px; border-radius: 50%; flex: none;
-  background: conic-gradient(var(--color-accent) calc(var(--p) * 1%), var(--color-surface-raised) 0);
-  display: grid; place-items: center; transition: background 220ms var(--ease-standard);
+  position: relative; width: 48px; height: 48px; flex: none;
+  display: grid; place-items: center;
+}
+.zkr-card .z-ring svg {
+  position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg);
+}
+.zkr-card .z-ring .ring-bg { fill: none; stroke: var(--color-surface-raised); stroke-width: 4; }
+.zkr-card .z-ring .ring-fg {
+  fill: none; stroke: var(--color-accent); stroke-width: 4; stroke-linecap: round;
+  transition: stroke-dashoffset 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .zkr-card .z-ring .inner {
-  width: 34px; height: 34px; border-radius: 50%; background: var(--color-surface);
-  display: grid; place-items: center; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+  position: relative; z-index: 1;
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.done-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface-raised));
+  color: var(--color-accent); font-size: 12px; font-weight: 700;
+  animation: done-pop 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .zkr-verify { margin-top: 12px; border-top: 1px solid var(--color-border); padding-top: 8px; }
 .zkr-verify summary { font-size: 12px; color: var(--color-text-secondary); cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; }
@@ -199,18 +225,24 @@
 .tasbih-dial {
   width: min(76vw, 296px); aspect-ratio: 1; margin: 16px auto 8px;
   border-radius: 50%; position: relative; cursor: pointer; user-select: none;
-  --p: 0;
-  background:
-    radial-gradient(circle at center, var(--color-surface) 58%, transparent 58.5%),
-    conic-gradient(var(--color-accent) calc(var(--p) * 1%), var(--color-surface-raised) 0);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   display: grid; place-items: center;
-  transition: transform 120ms var(--ease-standard);
+  transition: transform 130ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-.tasbih-dial:active { transform: scale(0.975); }
+.tasbih-dial:active { transform: scale(0.97); }
+.tasbih-dial .tasbih-ring-svg {
+  position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none;
+}
+.tasbih-dial .tasbih-ring-bg { fill: none; stroke: var(--color-surface-raised); stroke-width: 9; }
+.tasbih-dial .tasbih-ring-fg {
+  fill: none; stroke: var(--color-accent); stroke-width: 9; stroke-linecap: round;
+  transition: stroke-dashoffset 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tasbih-dial .tasbih-center { position: relative; z-index: 1; text-align: center; padding: 0 24px; }
 .tasbih-dial .t-count { font-size: 52px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; text-align: center; }
-.tasbih-dial .t-label { font-size: 14px; color: var(--color-text-secondary); margin-top: 8px; line-height: var(--lh-arabic); max-width: 75%; margin-inline: auto; text-align: center; }
-.tasbih-dial .t-of { position: absolute; bottom: 16%; font-size: 12px; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.tasbih-dial .t-label { font-size: 14px; color: var(--color-text-secondary); margin-top: 8px; line-height: var(--lh-arabic); max-width: 100%; margin-inline: auto; text-align: center; }
+.tasbih-dial .t-of { position: absolute; bottom: 16%; z-index: 1; font-size: 12px; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
 .tasbih-actions { display: flex; justify-content: center; gap: 10px; margin: 14px 0 4px; }
 .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--color-border); font-size: 14px; }
 .stat-row:last-child { border-bottom: 0; }
@@ -230,9 +262,9 @@
   display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
   background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius-lg); padding: 16px; margin: 0;
-  cursor: pointer; transition: transform 140ms var(--ease-standard), border-color 160ms var(--ease-standard);
+  cursor: pointer; transition: transform 130ms cubic-bezier(0.22, 1, 0.36, 1), border-color 160ms var(--ease-standard);
 }
-.tool-tile:active { transform: scale(0.975); }
+.tool-tile:active { transform: scale(0.97); }
 .tool-tile .t-icon {
   width: 40px; height: 40px; border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-raised));
@@ -246,6 +278,11 @@
 .qibla-wrap { display: grid; place-items: center; padding: 16px 0 8px; }
 .qibla-dial { width: min(74vw, 280px); aspect-ratio: 1; position: relative; }
 .qibla-dial svg { width: 100%; height: 100%; }
+.qibla-dial #q-north-g,
+.qibla-dial #q-kaaba-g {
+  transform-origin: 100px 100px;
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
 .qibla-heading { text-align: center; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .qibla-note { font-size: 12px; color: var(--color-text-secondary); text-align: center; line-height: var(--lh-arabic); padding: 8px 20px; }
 .compass-btns { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 10px 0; }
@@ -290,5 +327,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cat-tile, .zkr-card, .tool-tile, .tasbih-dial, .feat-tile, .qa-btn, .btn { transition-duration: 1ms; }
+  .cat-tile, .zkr-card, .tool-tile, .tasbih-dial, .feat-tile, .qa-btn, .btn,
+  .zkr-card .z-ring .ring-fg, .tasbih-dial .tasbih-ring-fg,
+  .qibla-dial #q-north-g, .qibla-dial #q-kaaba-g { transition-duration: 1ms; animation-duration: 1ms; }
+  .zkr-card.zkr-enter, .done-pill { animation-duration: 1ms; }
 }

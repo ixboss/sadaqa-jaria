@@ -86,15 +86,21 @@ export async function renderTasbih(root) {
 
   function renderDial(c) {
     if (!c) { dialHost.innerHTML = ''; return; }
-    const pct = c.target ? Math.min(100, (c.count / c.target) * 100) : 0;
+    const pct = c.target ? Math.min(100, (c.count / c.target) * 100) : ((c.count % 100) / 100) * 100;
+    const dashOffset = Math.max(0, 100 - pct);
+    const done = Boolean(c.target && c.count >= c.target);
     dialHost.innerHTML = `
     <div class="card" data-active="${c.uuid}">
-      <div class="tasbih-dial" id="tb-dial" role="button" tabindex="0" aria-label="عدّ ${esc(c.label_ar)}" style="--p:${pct}">
-        <div>
+      <div class="tasbih-dial" id="tb-dial" role="button" tabindex="0" aria-label="عدّ ${esc(c.label_ar)}">
+        <svg class="tasbih-ring-svg" viewBox="0 0 220 220" aria-hidden="true">
+          <circle class="tasbih-ring-bg" cx="110" cy="110" r="101"/>
+          <circle class="tasbih-ring-fg" id="tb-ring-fg" cx="110" cy="110" r="101" pathLength="100" stroke-dasharray="100" stroke-dashoffset="${dashOffset.toFixed(1)}"/>
+        </svg>
+        <div class="tasbih-center">
           <div class="t-count" id="tb-count">${c.count}</div>
           <div class="t-label">${esc(c.dhikr_text)}</div>
         </div>
-        ${c.target ? `<div class="t-of">الهدف ${c.target}</div>` : ''}
+        ${c.target ? `<div class="t-of" id="tb-of">${done ? '<span class="done-pill">✓ اكتمل</span>' : `الهدف ${c.target}`}</div>` : ''}
       </div>
       <div class="tasbih-actions">
         <button class="btn" id="tb-reset">تصفير العدّة</button>
@@ -117,9 +123,12 @@ export async function renderTasbih(root) {
           : []),
       ]).catch((e) => console.warn('[tasbih]', e.message));
       const el = dialHost.querySelector('#tb-count');
-      const dialEl = dialHost.querySelector('#tb-dial');
+      const fg = dialHost.querySelector('#tb-ring-fg');
+      const ofEl = dialHost.querySelector('#tb-of');
       if (el) el.textContent = String(count);
-      if (dialEl && c.target) dialEl.style.setProperty('--p', String(Math.min(100, (count / c.target) * 100)));
+      const nextPct = c.target ? Math.min(100, (count / c.target) * 100) : ((count % 100) / 100) * 100;
+      if (fg) fg.setAttribute('stroke-dashoffset', Math.max(0, 100 - nextPct).toFixed(1));
+      if (ofEl && c.target) ofEl.innerHTML = count >= c.target ? '<span class="done-pill">✓ اكتمل</span>' : `الهدف ${c.target}`;
     };
     dial.addEventListener('click', tap);
     dial.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(); } });

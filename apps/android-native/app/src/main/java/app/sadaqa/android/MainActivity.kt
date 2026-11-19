@@ -8,17 +8,27 @@ package app.sadaqa.android
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
@@ -41,11 +52,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,19 +78,25 @@ class MainActivity : ComponentActivity() {
         val app = application as SadaqaApp
         setContent {
             val themeKey by app.themeKey.collectAsState()
+            val fontScale by app.fontScale.collectAsState()
             MaterialTheme(colorScheme = SadaqaTheme.colorScheme(themeKey)) {
-                CompositionLocalRoot(db = app.db, themeKey = themeKey)
+                CompositionLocalRoot(db = app.db, themeKey = themeKey, fontScale = fontScale)
             }
         }
     }
 }
 
 @Composable
-private fun CompositionLocalRoot(db: SadaqaDb, themeKey: String) {
+private fun CompositionLocalRoot(db: SadaqaDb, themeKey: String, fontScale: Float) {
     val colors = SadaqaTheme.colors(themeKey)
+    val baseDensity = LocalDensity.current
+    val scaledDensity = remember(baseDensity, fontScale) {
+        Density(density = baseDensity.density, fontScale = baseDensity.fontScale * fontScale)
+    }
     CompositionLocalProvider(
         LocalSadaqaTheme provides colors,
         LocalLayoutDirection provides LayoutDirection.Rtl,
+        LocalDensity provides scaledDensity,
     ) {
         RootScaffold(db)
     }
@@ -127,24 +147,56 @@ fun GlassPillNav(selected: String, onSelect: (String) -> Unit) {
     }
     val glassBorder = if (isDark) Color(0x28FFFFFF) else Color(0x22000000)
 
+    val tabs = remember {
+        listOf(
+            Triple(Icons.Outlined.Today, "اليوم", "today"),
+            Triple(Icons.Outlined.MenuBook, "المصحف", "mushaf"),
+            Triple(Icons.Outlined.Spa, "الأذكار", "athkar"),
+            Triple(Icons.Outlined.GridView, "الأدوات", "tools"),
+        )
+    }
+    val selectedIndex = tabs.indexOfFirst { it.third == selected }.coerceAtLeast(0)
+    val activeFill = if (isDark) Color(0x292DD4BF) else Color(0x240F766E)
+    val activeStroke = if (isDark) Color(0x572DD4BF) else Color(0x4D0F766E)
+    val pillShape = RoundedCornerShape(22.dp)
+
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(
+        BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
                 .clip(shape)
                 .background(glassBg, shape)
                 .border(1.dp, glassBorder, shape)
                 .padding(5.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            NavItem(Icons.Outlined.Today, "اليوم", "today", selected, isDark, Modifier.weight(1f), onSelect)
-            NavItem(Icons.Outlined.MenuBook, "المصحف", "mushaf", selected, isDark, Modifier.weight(1f), onSelect)
-            NavItem(Icons.Outlined.Spa, "الأذكار", "athkar", selected, isDark, Modifier.weight(1f), onSelect)
-            NavItem(Icons.Outlined.GridView, "الأدوات", "tools", selected, isDark, Modifier.weight(1f), onSelect)
+            val gap = 4.dp
+            val slotW = ((maxWidth - gap * 3) / 4f).coerceAtLeast(1.dp)
+            val indicatorOffset by animateDpAsState(
+                targetValue = (slotW + gap) * selectedIndex,
+                animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow),
+                label = "nav-indicator",
+            )
+            Box(
+                Modifier
+                    .offset(x = indicatorOffset)
+                    .width(slotW)
+                    .height(48.dp)
+                    .clip(pillShape)
+                    .background(activeFill, pillShape)
+                    .border(1.dp, activeStroke, pillShape),
+            )
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(gap),
+            ) {
+                for ((ico, label, key) in tabs) {
+                    NavItem(ico, label, key, selected, isDark, Modifier.weight(1f), onSelect)
+                }
+            }
         }
     }
 }
@@ -162,18 +214,22 @@ private fun NavItem(
     val theme = LocalSadaqaTheme.current
     val active = selected == key
     val activeTint = if (isDark) Color(0xFF5EEAD4) else Color(0xFF0F766E)
-    val activeFill = if (isDark) Color(0x292DD4BF) else Color(0x240F766E)
-    val activeStroke = if (isDark) Color(0x572DD4BF) else Color(0x4D0F766E)
     val pillShape = RoundedCornerShape(22.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMedium),
+        label = "nav-press",
+    )
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
         modifier = modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(pillShape)
-            .background(if (active) activeFill else Color.Transparent, pillShape)
-            .border(1.dp, if (active) activeStroke else Color.Transparent, pillShape)
-            .clickable { onSelect(key) }
+            .clickable(interactionSource = interactionSource, indication = null) { onSelect(key) }
             .padding(vertical = 7.dp),
     ) {
         Icon(icon, contentDescription = label, tint = if (active) activeTint else theme.textSecondary, modifier = Modifier.size(20.dp))

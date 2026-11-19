@@ -24,7 +24,7 @@ struct ToolsView: View {
                     toolTile("الإعدادات", "المظهر والموقع وطريقة الحساب", "gearshape") { SettingsView() }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 100)
+                .padding(.bottom, 120)
             }
             .background(appState.theme.bg)
             .navigationTitle("الأدوات")
@@ -52,6 +52,7 @@ struct ToolsView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(appState.theme.border))
         }
+        .buttonStyle(TactileCardButtonStyle())
     }
 }
 
@@ -61,11 +62,21 @@ struct ToolsView: View {
 
 struct QiblaView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var manualOffset: Double = 0
+    @State private var animNorth: Double = 0
+    @State private var animKaaba: Double = 0
     @StateObject private var locator = CompassLocator()
     @StateObject private var gps = CityLocationDetector()
 
     private static let compassLabels = ["ش", "ش.شر", "شر", "ج.شر", "ج", "ج.غ", "غ", "ش.غ"]
+
+    private static func shortestDelta(from: Double, to: Double) -> Double {
+        var d = (to - from).truncatingRemainder(dividingBy: 360)
+        if d > 180 { d -= 360 }
+        if d < -180 { d += 360 }
+        return d
+    }
 
     var body: some View {
         let opts = appState.engineOptions
@@ -91,26 +102,39 @@ struct QiblaView: View {
                         .fill(isAligned ? appState.theme.accent : appState.theme.textSecondary.opacity(0.6))
                         .frame(width: 4, height: 18)
                         .offset(y: -140)
-                    // North group rotates -northDeg; Kaaba orbits dial at (bearing - northDeg)
+                    // North group rotates -animNorth; Kaaba orbits dial via shortest arc
                     ForEach(0..<8, id: \.self) { i in
                         Text(Self.compassLabels[i])
                             .font(.system(size: 11, weight: i == 0 ? .bold : .regular))
                             .foregroundStyle(i == 0 ? appState.theme.accent : appState.theme.textSecondary)
                             .offset(y: -120)
-                            .rotationEffect(.degrees(Double(i) * 45 - northDeg))
+                            .rotationEffect(.degrees(Double(i) * 45 + animNorth))
                     }
                     Image(systemName: "location.north.fill")
                         .font(.system(size: 18))
                         .foregroundStyle(appState.theme.textSecondary)
-                        .rotationEffect(.degrees(-northDeg))
+                        .rotationEffect(.degrees(animNorth))
                     Image(systemName: "building.2.fill") // الكعبة — offset BEFORE rotation so it orbits
                         .font(.system(size: 26))
                         .foregroundStyle(appState.theme.accent)
                         .offset(y: -90)
-                        .rotationEffect(.degrees(bearing - northDeg))
+                        .rotationEffect(.degrees(animKaaba))
                 }
                 .frame(width: 280, height: 280)
                 .padding(.top, 8)
+                .animation(reduceMotion ? nil : .interpolatingSpring(stiffness: 180, damping: 20), value: animNorth)
+                .animation(reduceMotion ? nil : .interpolatingSpring(stiffness: 180, damping: 20), value: animKaaba)
+                .onAppear {
+                    animNorth = -northDeg
+                    animKaaba = bearing - northDeg
+                }
+                .onChange(of: northDeg) { newNorth in
+                    animNorth += Self.shortestDelta(from: animNorth, to: -newNorth)
+                    animKaaba += Self.shortestDelta(from: animKaaba, to: bearing - newNorth)
+                }
+                .onChange(of: bearing) { newBearing in
+                    animKaaba += Self.shortestDelta(from: animKaaba, to: newBearing - northDeg)
+                }
 
                 Text("\(Int(relativeDeg.rounded()))°")
                     .font(.system(size: 26, weight: .bold)).monospacedDigit()
@@ -545,6 +569,33 @@ struct SettingsView: View {
     @State private var madhab: String = "shafi"
     @State private var hlr: String = "middle_of_the_night"
 
+    private static let fontPresets: [(scale: Double, label: String)] = [
+        (0.85, "صغير"),
+        (1.0, "متوسط"),
+        (1.3, "كبير"),
+        (1.6, "كبير جداً"),
+    ]
+
+    private var fontPresetBinding: Binding<Double> {
+        Binding(
+            get: {
+                Self.fontPresets.min(by: { abs($0.scale - appState.fontScale) < abs($1.scale - appState.fontScale) })?.scale ?? 1.3
+            },
+            set: { newVal in
+                appState.setSetting("font_scale", .number(newVal))
+            }
+        )
+    }
+
+    private var mushafScaleBinding: Binding<Double> {
+        Binding(
+            get: { min(max(appState.mushafScale, 0.8), 2.0) },
+            set: { newVal in
+                appState.setSetting("mushaf_scale", .number(newVal))
+            }
+        )
+    }
+
     var body: some View {
         Form {
             Section("المظهر") {
@@ -554,12 +605,22 @@ struct SettingsView: View {
                     }
                 }
                 .onChange(of: appState.currentThemeKey) { key in appState.setSetting("theme", .string(key)) }
-                Picker("حجم الخط", selection: $appState.fontScale) {
-                    ForEach([0.8, 1.0, 1.3, 1.5, 2.0], id: \.self) { s in
-                        Text("\(Int(s * 100))٪").tag(s)
+                Picker("حجم الخط", selection: fontPresetBinding) {
+                    ForEach(Self.fontPresets, id: \.scale) { p in
+                        Text(p.label).tag(p.scale)
                     }
                 }
-                .onChange(of: appState.fontScale) { v in appState.setSetting("font_scale", .number(v)) }
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("حجم خط المصحف")
+                        Spacer()
+                        Text("\(Int((appState.mushafScale * 100).rounded()))٪")
+                            .monospacedDigit()
+                            .foregroundStyle(appState.theme.accent)
+                    }
+                    Slider(value: mushafScaleBinding, in: 0.8...2.0, step: 0.05)
+                        .tint(appState.theme.accent)
+                }
             }
             Section("الموقع والحساب") {
                 NavigationLink {
@@ -595,7 +656,7 @@ struct SettingsView: View {
             }
             Section("عن التطبيق") {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("إسلامي — مصحف كامل وأذكار ومواقيت وختمة تعمل دون اتصال، وبياناتك تبقى على جهازك.")
+                    Text("صدقة جارية — مصحف كامل وأذكار ومواقيت وختمة تعمل دون اتصال، وبياناتك تبقى على جهازك.")
                         .font(.system(size: 14))
                     Text("هذا المشروع صدقة جارية وليّةً لله تعالى، مُهداة عن المطوّر ixboss ووالديه وأحبته جميعاً — فمن انتفع به فليدعُ لهم بالثواب والأجر.")
                         .font(.system(size: 13))

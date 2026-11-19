@@ -24,7 +24,7 @@ struct TodayView: View {
                     khatmahCard
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 100)
+                .padding(.bottom, 120)
             }
             .background(appState.theme.bg)
             .navigationTitle("اليوم")
@@ -91,6 +91,7 @@ struct TodayView: View {
                 Text("\(n.name.labelAr)\(isTomorrow ? " (غداً)" : "")").font(.system(size: 32, weight: .bold))
                     .foregroundStyle(appState.theme.accent)
                 Text(Self.hms(n.at - now)).monospacedDigit()
+                    .environment(\.layoutDirection, .leftToRight)
                     .font(.system(size: 28, weight: .bold)).foregroundStyle(appState.theme.textPrimary)
                 Text("الأذان \(Self.clock(n.at, tz: tz))").monospacedDigit()
                     .font(.system(size: 13)).foregroundStyle(appState.theme.textSecondary)
@@ -221,9 +222,13 @@ struct TodayView: View {
             Text("تطبيقاتك اليومية").font(.system(size: 15, weight: .bold)).foregroundStyle(appState.theme.textPrimary)
             HStack(spacing: 8) {
                 NavigationLink { TasbihView() } label: { quickAppTile("circle.dashed", "السبحة") }
+                    .buttonStyle(TactileCardButtonStyle())
                 Button { appState.tab = .athkar } label: { quickAppTile("hands.sparkles", "الأذكار") }
+                    .buttonStyle(TactileCardButtonStyle())
                 Button { appState.tab = .mushaf } label: { quickAppTile("book.closed", "المصحف") }
+                    .buttonStyle(TactileCardButtonStyle())
                 NavigationLink { QiblaView() } label: { quickAppTile("safari", "القبلة") }
+                    .buttonStyle(TactileCardButtonStyle())
             }
         }
         .padding(16)
@@ -370,6 +375,16 @@ struct TodayView: View {
 
 extension HijriEngine {
     static func monthsArSafe(_ m: Int) -> String { (try? monthNameAr(m)) ?? "" }
+}
+
+struct TactileCardButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(reduceMotion ? nil : .spring(response: 0.24, dampingFraction: 0.8), value: configuration.isPressed)
+    }
 }
 
 extension AppState {

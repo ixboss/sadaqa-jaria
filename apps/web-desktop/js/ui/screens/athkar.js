@@ -148,22 +148,29 @@ export async function renderAthkarReader(root, args) {
     root.querySelector('#rp-bar').style.width = `${items.length ? (done / items.length) * 100 : 0}%`;
   }
 
-  function renderCard(pos) {
+  function renderCard(pos, animateIn = false) {
     const it = items[pos];
     const st = stateMap.get(it.item_id) ?? { count: 0, completed_at: null };
     const target = it.count_target;
     const isDone = Boolean(st.completed_at);
     const pct = target > 0 ? Math.min(100, (st.count / target) * 100) : (isDone ? 100 : 0);
+    const dashOffset = Math.max(0, 100 - pct);
     host.innerHTML = `
-    <div class="zkr-card ${isDone ? 'done' : ''}" id="zkr-card" data-pos="${pos}" role="button" tabindex="0" aria-label="عدّ هذا الذكر">
+    <div class="zkr-card ${isDone ? 'done' : ''} ${animateIn ? 'zkr-enter' : ''}" id="zkr-card" data-pos="${pos}" role="button" tabindex="0" aria-label="عدّ هذا الذكر">
       <div class="z-text">${it.text_ar}</div>
       ${target > 0 ? `
       <div class="z-count-row">
-        <div class="z-ring" style="--p:${pct}"><div class="inner">${st.count}</div></div>
-        <div class="z-target">الهدف: ${target} ${isDone ? '· أُتمّ' : `· تبقّى ${Math.max(0, target - st.count)}`}</div>
-        <div class="z-count" style="flex:1;text-align:end">${st.count} / ${target}</div>
+        <div class="z-ring" id="z-ring">
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <circle class="ring-bg" cx="24" cy="24" r="20"/>
+            <circle class="ring-fg" id="z-ring-fg" cx="24" cy="24" r="20" pathLength="100" stroke-dasharray="100" stroke-dashoffset="${dashOffset.toFixed(1)}"/>
+          </svg>
+          <div class="inner" id="z-ring-num">${st.count}</div>
+        </div>
+        <div class="z-target" id="z-target">${isDone ? `<span class="done-pill">✓ اكتمل</span>` : `الهدف: ${target} · تبقّى ${Math.max(0, target - st.count)}`}</div>
+        <div class="z-count" id="z-count" style="flex:1;text-align:end">${st.count} / ${target}</div>
       </div>` : `
-      <div class="z-count-row"><div class="z-target">${isDone ? 'أُقرأ' : 'ذكر يُقرأ مرة واحدة — انقر للمتابعة'}</div></div>`}
+      <div class="z-count-row"><div class="z-target" id="z-target">${isDone ? `<span class="done-pill">✓ اكتمل</span>` : 'ذكر يُقرأ مرة واحدة — انقر للمتابعة'}</div></div>`}
       ${it.source_ar || it.fadl_ar ? `
       <details class="zkr-verify">
         <summary>▸ التحقق والحكم ${it.grade ? `<span class="grade">${gradeAr(it.grade)}</span>` : ''}</summary>
@@ -173,8 +180,25 @@ export async function renderAthkarReader(root, args) {
     paintProgress();
 
     const cardEl = host.querySelector('#zkr-card');
-    cardEl.addEventListener('click', () => tick());
+    cardEl.addEventListener('click', (e) => { if (!e.target.closest('details')) tick(); });
     cardEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tick(); } });
+  }
+
+  function updateCardInPlace(it, st) {
+    const target = it.count_target;
+    const isDone = Boolean(st.completed_at);
+    const pct = target > 0 ? Math.min(100, (st.count / target) * 100) : (isDone ? 100 : 0);
+    const fg = host.querySelector('#z-ring-fg');
+    const num = host.querySelector('#z-ring-num');
+    const cnt = host.querySelector('#z-count');
+    const tgt = host.querySelector('#z-target');
+    const card = host.querySelector('#zkr-card');
+    if (fg) fg.setAttribute('stroke-dashoffset', Math.max(0, 100 - pct).toFixed(1));
+    if (num) num.textContent = String(st.count);
+    if (cnt) cnt.textContent = `${st.count} / ${target}`;
+    if (tgt) tgt.innerHTML = isDone ? `<span class="done-pill">✓ اكتمل</span>` : `الهدف: ${target} · تبقّى ${Math.max(0, target - st.count)}`;
+    if (card) card.classList.toggle('done', isDone);
+    paintProgress();
   }
 
   function gradeAr(g) { return g === 'sahih' ? 'صحيح' : g === 'hasan' ? 'حسن' : g === 'daif' ? 'ضعيف' : g; }
@@ -201,10 +225,10 @@ export async function renderAthkarReader(root, args) {
 
   function advance() {
     const nextPos = items.findIndex((it, i) => i > current && !stateMap.get(it.item_id)?.completed_at);
-    if (nextPos >= 0) { current = nextPos; renderCard(current); scheduleAuto(); return true; }
+    if (nextPos >= 0) { current = nextPos; renderCard(current, true); scheduleAuto(); return true; }
     // wrapped: any open item?
     const anyOpen = items.findIndex((it) => !stateMap.get(it.item_id)?.completed_at);
-    if (anyOpen >= 0 && anyOpen !== current) { current = anyOpen; renderCard(current); scheduleAuto(); return true; }
+    if (anyOpen >= 0 && anyOpen !== current) { current = anyOpen; renderCard(current, true); scheduleAuto(); return true; }
     // category complete → celebration haptic + streak write
     haptic(HAPTICS.categoryComplete);
     const kind = streakKindFor(cat);
@@ -224,20 +248,23 @@ export async function renderAthkarReader(root, args) {
     if (target > 0 && st.count < target) {
       const count = st.count + 1;
       const completedAt = count >= target ? nowMs() : null;
-      stateMap.set(it.item_id, { item_id: it.item_id, count, completed_at: completedAt });
+      const nextSt = { item_id: it.item_id, count, completed_at: completedAt };
+      stateMap.set(it.item_id, nextSt);
       haptic(count >= target ? HAPTICS.dhikrComplete : HAPTICS.dhikrTick);
+      updateCardInPlace(it, nextSt);
       await persist(it, count, completedAt);
-      renderCard(current);
       if (count >= target) {
-        setTimeout(() => { if (!advance()) stopAuto(); }, 420);
+        setTimeout(() => { if (!advance()) stopAuto(); }, 460);
         return;
       }
     } else if (target === 0) {
       const completedAt = st.completed_at ? st.completed_at : nowMs();
-      stateMap.set(it.item_id, { item_id: it.item_id, count: 1, completed_at: completedAt });
+      const nextSt = { item_id: it.item_id, count: 1, completed_at: completedAt };
+      stateMap.set(it.item_id, nextSt);
       haptic(HAPTICS.dhikrTick);
+      updateCardInPlace(it, nextSt);
       await persist(it, 1, completedAt);
-      advance();
+      setTimeout(() => { if (!advance()) stopAuto(); }, 220);
       return;
     }
     scheduleAuto();
