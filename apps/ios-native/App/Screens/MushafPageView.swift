@@ -138,8 +138,8 @@ struct MushafPageView: View {
                             .monospacedDigit()
                             .foregroundStyle(appState.theme.textSecondary)
                     }
-                    .padding(.horizontal, 18)
-                    .padding(.top, 6)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 4)
                     .padding(.bottom, 2)
                     .contentShape(Rectangle())
                     .onTapGesture {
@@ -149,28 +149,22 @@ struct MushafPageView: View {
 
                 // True RTL horizontal paged Mushaf (RootView enforces .rightToLeft,
                 // so page 1 sits on the right and swiping left-to-right advances 1 -> 2).
-                TabView(selection: $page) {
-                    ForEach(1...604, id: \.self) { p in
-                        MushafLazyPageSlot(
-                            slotPage: p,
-                            currentPage: page,
-                            cache: pageCache,
-                            db: appState.db,
-                            theme: appState.theme,
-                            mushafScale: appState.mushafScale,
-                            selectedAyah: selectedAyahNumber,
-                            onSelectAyah: { ayahNumber in
-                                selectedAyahNumber = ayahNumber
-                                showAyahSheet = true
-                            },
-                            onToggleHud: {
-                                withAnimation(hudAnimation()) { hudVisible.toggle() }
-                            }
-                        )
-                        .tag(p)
+                MushafPagerView(
+                    page: $page,
+                    pageCache: pageCache,
+                    db: appState.db,
+                    theme: appState.theme,
+                    mushafScale: appState.mushafScale,
+                    selectedAyah: selectedAyahNumber,
+                    hudVisible: hudVisible,
+                    onSelectAyah: { ayahNumber in
+                        selectedAyahNumber = ayahNumber
+                        showAyahSheet = true
+                    },
+                    onToggleHud: {
+                        withAnimation(hudAnimation()) { hudVisible.toggle() }
                     }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
+                )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 // Compact bottom page pill when HUD is hidden
@@ -603,14 +597,16 @@ struct MushafPageView: View {
     // Helpers
     // -----------------------------------------------------------------------
     private func reloadPage() {
-        for p in max(1, page - 1)...min(604, page + 1) {
-            FontRegistry.registerPage(p)
+        let curPage = page
+        let db = appState.db
+        _ = pageCache.lines(for: curPage, db: db)
+        meta = MushafRepository.meta(page: curPage, db: db)
+        isBookmarked = MushafRepository.isBookmarked(page: curPage, db: db)
+        pageCache.preload(around: curPage, db: db)
+        Task {
+            try? db.setSetting("mushaf_page", .number(Double(curPage)))
+            WidgetStateBridge.publishReadingPosition(page: curPage, db: db)
         }
-        _ = pageCache.lines(for: page, db: appState.db)
-        meta = MushafRepository.meta(page: page, db: appState.db)
-        isBookmarked = MushafRepository.isBookmarked(page: page, db: appState.db)
-        try? appState.db.setSetting("mushaf_page", .number(Double(page)))
-        WidgetStateBridge.publishReadingPosition(page: page, db: appState.db)
     }
 
     private func loadHubData() {
@@ -772,16 +768,79 @@ enum MushafRepository {
 @MainActor
 final class MushafPageCache: ObservableObject {
     private var cache: [Int: [MushafRepository.MushafLine]] = [:]
+    private var fontSizeCache: [String: (size: CGFloat, isQpc: Bool)] = [:]
+    private var preloadTask: Task<Void, Never>?
 
     func lines(for page: Int, db: SadaqaDatabase) -> [MushafRepository.MushafLine] {
         if let hit = cache[page] { return hit }
         FontRegistry.registerPage(page)
         let loaded = MushafRepository.lines(page: page, db: db)
-        if cache.count > 12 {
+        if cache.count > 16 {
             cache.removeAll(keepingCapacity: true)
         }
         cache[page] = loaded
         return loaded
+    }
+
+    func preload(around center: Int, db: SadaqaDatabase) {
+        preloadTask?.cancel()
+        preloadTask = Task { [weak self] in
+            let targets = [center - 1, center + 1, center - 2, center + 2]
+                .filter { (1...604).contains($0) }
+            for p in targets {
+                if Task.isCancelled { return }
+                FontRegistry.registerPage(p)
+                if self?.cache[p] == nil {
+                    let loaded = await Task.detached(priority: .utility) {
+                        MushafRepository.lines(page: p, db: db)
+                    }.value
+                    if Task.isCancelled { return }
+                    self?.cache[p] = loaded
+                }
+            }
+        }
+    }
+
+    func cachedLayout(key: String) -> (size: CGFloat, isQpc: Bool)? {
+        fontSizeCache[key]
+    }
+
+    func storeLayout(key: String, size: CGFloat, isQpc: Bool) {
+        if fontSizeCache.count > 24 { fontSizeCache.removeAll(keepingCapacity: true) }
+        fontSizeCache[key] = (size, isQpc)
+    }
+}
+
+private struct MushafPagerView: View {
+    @Binding var page: Int
+    @ObservedObject var pageCache: MushafPageCache
+    let db: SadaqaDatabase
+    let theme: SadaqaThemeColors
+    let mushafScale: Double
+    let selectedAyah: Int?
+    let hudVisible: Bool
+    let onSelectAyah: (Int) -> Void
+    let onToggleHud: () -> Void
+
+    var body: some View {
+        TabView(selection: $page) {
+            ForEach(1...604, id: \.self) { p in
+                MushafLazyPageSlot(
+                    slotPage: p,
+                    currentPage: page,
+                    cache: pageCache,
+                    db: db,
+                    theme: theme,
+                    mushafScale: mushafScale,
+                    selectedAyah: selectedAyah,
+                    hudVisible: hudVisible,
+                    onSelectAyah: onSelectAyah,
+                    onToggleHud: onToggleHud
+                )
+                .tag(p)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
     }
 }
 
@@ -793,18 +852,21 @@ struct MushafLazyPageSlot: View {
     let theme: SadaqaThemeColors
     let mushafScale: Double
     let selectedAyah: Int?
+    let hudVisible: Bool
     let onSelectAyah: (Int) -> Void
     let onToggleHud: () -> Void
 
     var body: some View {
-        if abs(slotPage - currentPage) <= 1 {
+        if abs(slotPage - currentPage) <= 2 {
             let pageLines = cache.lines(for: slotPage, db: db)
             MushafPlate(
                 page: slotPage,
                 lines: pageLines,
+                cache: cache,
                 theme: theme,
                 mushafScale: mushafScale,
                 selectedAyah: selectedAyah,
+                hudVisible: hudVisible,
                 onSelectAyah: onSelectAyah,
                 onToggleHud: onToggleHud
             )
@@ -818,43 +880,85 @@ struct MushafLazyPageSlot: View {
 struct MushafPlate: View {
     let page: Int
     let lines: [MushafRepository.MushafLine]
+    let cache: MushafPageCache
     let theme: SadaqaThemeColors
     let mushafScale: Double
     let selectedAyah: Int?
+    let hudVisible: Bool
     let onSelectAyah: (Int) -> Void
     let onToggleHud: () -> Void
 
-    private struct AyahSegment: Identifiable {
-        let id: Int
-        let ayah: Int
-        let text: String
+    private enum FlowBlock: Identifiable {
+        case surahName(id: Int, text: String)
+        case bismillah(id: Int, text: String)
+        case words(id: Int, items: [MushafRepository.WordPlate])
+
+        var id: Int {
+            switch self {
+            case .surahName(let id, _), .bismillah(let id, _), .words(let id, _): return id
+            }
+        }
     }
 
     var body: some View {
         GeometryReader { geo in
-            let horizPad: CGFloat = 14
+            let horizPad: CGFloat = 9
             let availW = max(200, geo.size.width - horizPad * 2)
-            let availH = max(260, geo.size.height - 12)
+            let availH = max(260, geo.size.height - 8)
             let slotCount = (page <= 2) ? max(lines.count, 8) : 15
             let slotH = (page <= 2) ? min(availH / CGFloat(slotCount), 48) : (availH / 15.0)
+            let isZoomed = mushafScale > 1.01
+            let metrics = resolveMetrics(availW: availW, slotH: slotH, isZoomed: isZoomed)
+            let fontSize = metrics.size
+            let isQpc = metrics.isQpc
             let sample = lines.first(where: { !$0.words.isEmpty })?.words.map(\.glyphs).joined() ?? ""
-            let isQpc = !sample.isEmpty && FontRegistry.verifiedMushafFont(page: page, size: 20, sample: sample) != nil
-            let isZoomed = mushafScale > 1.05
-            let fontSize = computeUniformFontSize(availW: availW, slotH: slotH, isQpc: isQpc)
-            let pageFont: UIFont = isQpc
+            let pageFont: UIFont = (isQpc && !isZoomed)
                 ? (FontRegistry.verifiedMushafFont(page: page, size: fontSize, sample: sample) ?? FontRegistry.uthmanicFont(size: fontSize))
                 : FontRegistry.uthmanicFont(size: fontSize)
 
             if isZoomed {
                 ScrollView(.vertical, showsIndicators: true) {
-                    VStack(spacing: max(6, fontSize * 0.28)) {
-                        ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                            lineView(line, pageFont: pageFont, fontSize: fontSize, isQpc: isQpc, slotH: slotH, zoomed: true)
+                    VStack(spacing: max(10, fontSize * 0.36)) {
+                        ForEach(buildFlowBlocks()) { block in
+                            switch block {
+                            case .surahName(_, let title):
+                                Text(title)
+                                    .font(.system(size: min(17, max(13, fontSize * 0.56)), weight: .bold))
+                                    .foregroundStyle(theme.accent)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 12)
+                                    .background(theme.surface)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(theme.accent.opacity(0.35), lineWidth: 1))
+                                    .padding(.top, 4)
+                            case .bismillah(_, let text):
+                                Text(text)
+                                    .font(Font(FontRegistry.uthmanicFont(size: fontSize * 0.96)))
+                                    .foregroundStyle(theme.mushafText)
+                                    .multilineTextAlignment(.center)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding(.vertical, 4)
+                            case .words(_, let items):
+                                MushafJustifiedTextView(
+                                    words: items,
+                                    font: FontRegistry.uthmanicFont(size: fontSize),
+                                    textColor: UIColor(theme.mushafText),
+                                    highlightColor: UIColor(theme.accent).withAlphaComponent(0.24),
+                                    selectedAyah: selectedAyah,
+                                    onTap: onToggleHud,
+                                    onLongPressAyah: onSelectAyah
+                                )
+                                .frame(width: availW)
+                            }
                         }
                     }
                     .frame(width: availW, alignment: .center)
                     .padding(.horizontal, horizPad)
-                    .padding(.vertical, 12)
+                    .padding(.top, hudVisible ? 112 : 10)
+                    .padding(.bottom, hudVisible ? 220 : 28)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture { onToggleHud() }
@@ -862,23 +966,65 @@ struct MushafPlate: View {
                 VStack(spacing: 0) {
                     if page <= 2 { Spacer(minLength: 0) }
                     ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                        lineView(line, pageFont: pageFont, fontSize: fontSize, isQpc: isQpc, slotH: slotH, zoomed: false)
+                        lineView(line, pageFont: pageFont, fontSize: fontSize, isQpc: isQpc, availW: availW, slotH: slotH)
                     }
                     if page <= 2 { Spacer(minLength: 0) }
                 }
                 .frame(width: availW, height: availH, alignment: .center)
                 .padding(.horizontal, horizPad)
-                .padding(.vertical, 6)
+                .padding(.vertical, 4)
                 .contentShape(Rectangle())
                 .onTapGesture { onToggleHud() }
             }
         }
     }
 
-    private func computeUniformFontSize(availW: CGFloat, slotH: CGFloat, isQpc: Bool) -> CGFloat {
+    private func buildFlowBlocks() -> [FlowBlock] {
+        var blocks: [FlowBlock] = []
+        var curWords: [MushafRepository.WordPlate] = []
+        var nextId = 0
+        func flushWords() {
+            if !curWords.isEmpty {
+                blocks.append(.words(id: nextId, items: curWords))
+                nextId += 1
+                curWords = []
+            }
+        }
+        for line in lines {
+            if line.kind == "surah_name" {
+                flushWords()
+                blocks.append(.surahName(id: nextId, text: line.textAr ?? ""))
+                nextId += 1
+            } else if line.kind == "bismillah" {
+                flushWords()
+                blocks.append(.bismillah(id: nextId, text: line.textAr ?? "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ"))
+                nextId += 1
+            } else if !line.words.isEmpty {
+                curWords.append(contentsOf: line.words)
+            }
+        }
+        flushWords()
+        return blocks
+    }
+
+    private func resolveMetrics(availW: CGFloat, slotH: CGFloat, isZoomed: Bool) -> (size: CGFloat, isQpc: Bool) {
+        let key = "\(page)-\(Int(availW.rounded()))-\(Int(slotH.rounded()))-\(Int((mushafScale * 100).rounded()))"
+        if let hit = cache.cachedLayout(key: key) { return hit }
+        let sample = lines.first(where: { !$0.words.isEmpty })?.words.map(\.glyphs).joined() ?? ""
+        let isQpc = !sample.isEmpty && FontRegistry.verifiedMushafFont(page: page, size: 20, sample: sample) != nil
+        let size = computeUniformFontSize(availW: availW, slotH: slotH, isQpc: isQpc, isZoomed: isZoomed)
+        cache.storeLayout(key: key, size: size, isQpc: isQpc)
+        return (size, isQpc)
+    }
+
+    private func computeUniformFontSize(availW: CGFloat, slotH: CGFloat, isQpc: Bool, isZoomed: Bool) -> CGFloat {
         // mushaf_scale is the reader's own zoom (0.8–2.0), independent of app font_scale
         let prefFactor = CGFloat(min(max(mushafScale, 0.8), 2.0))
-        var baseSize = min(slotH * 0.80, 34)
+        if isZoomed {
+            let base = min(slotH * 0.82, availW / 11.2, 32)
+            return max(17, base * prefFactor)
+        }
+        var baseSize = min(slotH * 0.86, 42)
         let probeFont = isQpc
             ? (FontRegistry.verifiedMushafFont(page: page, size: baseSize, sample: lines.first(where: { !$0.words.isEmpty })?.words.map(\.glyphs).joined() ?? "") ?? FontRegistry.uthmanicFont(size: baseSize))
             : FontRegistry.uthmanicFont(size: baseSize)
@@ -887,62 +1033,34 @@ struct MushafPlate: View {
         for line in lines where line.kind == "text" {
             let txt = isQpc
                 ? line.words.map(\.glyphs).joined(separator: " ")
-                : (line.textAr ?? line.words.map(\.wordText).joined(separator: " "))
+                : line.words.map(\.wordText).joined(separator: " ")
             let w = (txt as NSString).size(withAttributes: [.font: probeFont]).width
             if w > maxLineW { maxLineW = w }
         }
         if maxLineW > availW && maxLineW > 0 {
-            baseSize *= (availW / maxLineW) * 0.94
+            baseSize *= (availW / maxLineW) * 0.97
         }
-        if prefFactor > 1.05 {
-            // Zoomed reading (>105%): scale directly with scroll+wrap fallback, no slotH ceiling
-            return max(14, baseSize * prefFactor)
-        }
-        return max(12, min(baseSize * prefFactor, slotH * 0.90))
-    }
-
-    private func ayahSegments(for line: MushafRepository.MushafLine, isQpc: Bool) -> [AyahSegment] {
-        var segments: [AyahSegment] = []
-        var curAyah: Int?
-        var curWords: [String] = []
-        var idx = 0
-        for w in line.words {
-            let token = isQpc ? w.glyphs : w.wordText
-            if curAyah == w.ayah {
-                curWords.append(token)
-            } else {
-                if let a = curAyah, !curWords.isEmpty {
-                    segments.append(AyahSegment(id: idx, ayah: a, text: curWords.joined(separator: " ")))
-                    idx += 1
-                }
-                curAyah = w.ayah
-                curWords = [token]
-            }
-        }
-        if let a = curAyah, !curWords.isEmpty {
-            segments.append(AyahSegment(id: idx, ayah: a, text: curWords.joined(separator: " ")))
-        }
-        return segments
+        return max(12, min(baseSize * prefFactor, slotH * 0.92))
     }
 
     @ViewBuilder
-    private func lineView(_ line: MushafRepository.MushafLine, pageFont: UIFont, fontSize: CGFloat, isQpc: Bool, slotH: CGFloat, zoomed: Bool) -> some View {
+    private func lineView(_ line: MushafRepository.MushafLine, pageFont: UIFont, fontSize: CGFloat, isQpc: Bool, availW: CGFloat, slotH: CGFloat) -> some View {
         if line.kind == "bismillah" {
-            if let bsmlFont = FontRegistry.verifiedBasmalaFont(size: zoomed ? fontSize * 1.04 : min(fontSize * 1.04, slotH * 0.82), sample: line.glyphs) {
+            if let bsmlFont = FontRegistry.verifiedBasmalaFont(size: min(fontSize * 1.04, slotH * 0.82), sample: line.glyphs) {
                 Text(line.glyphs)
                     .font(Font(bsmlFont))
                     .foregroundStyle(theme.mushafText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                     .environment(\.layoutDirection, .leftToRight)
-                    .frame(maxWidth: .infinity, minHeight: zoomed ? nil : slotH, maxHeight: zoomed ? nil : slotH, alignment: .center)
+                    .frame(maxWidth: .infinity, minHeight: slotH, maxHeight: slotH, alignment: .center)
             } else {
                 Text(line.textAr ?? "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ")
-                    .font(Font(FontRegistry.uthmanicFont(size: zoomed ? fontSize * 0.94 : min(fontSize * 0.94, slotH * 0.78))))
+                    .font(Font(FontRegistry.uthmanicFont(size: min(fontSize * 0.94, slotH * 0.78))))
                     .foregroundStyle(theme.mushafText)
-                    .lineLimit(zoomed ? nil : 1)
-                    .minimumScaleFactor(zoomed ? 1.0 : 0.6)
-                    .frame(maxWidth: .infinity, minHeight: zoomed ? nil : slotH, maxHeight: zoomed ? nil : slotH, alignment: .center)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .frame(maxWidth: .infinity, minHeight: slotH, maxHeight: slotH, alignment: .center)
                     .multilineTextAlignment(.center)
             }
         } else if line.kind == "surah_name" {
@@ -958,104 +1076,149 @@ struct MushafPlate: View {
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(theme.accent.opacity(0.35), lineWidth: 1))
                 .padding(.vertical, 2)
         } else {
-            let segments = ayahSegments(for: line, isQpc: isQpc)
-            if zoomed {
-                MushafWrappingRow(spacing: 4, lineSpacing: max(6, fontSize * 0.25)) {
-                    ForEach(segments) { seg in
-                        Text(seg.text)
-                            .font(Font(pageFont))
-                            .foregroundStyle(theme.mushafText)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 1)
-                            .background(selectedAyah == seg.ayah ? theme.accent.opacity(0.22) : Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                            .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 18) {
-                                HapticsEngine.shared.play(pattern: [20])
-                                onSelectAyah(seg.ayah)
-                            }
+            let lineText = isQpc
+                ? line.words.map(\.glyphs).joined(separator: " ")
+                : line.words.map(\.wordText).joined(separator: " ")
+            let naturalW = (lineText as NSString).size(withAttributes: [.font: pageFont]).width
+            let justify = page > 2 && line.words.count >= 3 && naturalW >= availW * 0.58
+
+            if justify {
+                HStack(spacing: 0) {
+                    ForEach(Array(line.words.enumerated()), id: \.offset) { idx, w in
+                        if idx > 0 { Spacer(minLength: 2) }
+                        wordView(w, pageFont: pageFont, isQpc: isQpc)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .center)
+                .frame(maxWidth: .infinity, minHeight: slotH, maxHeight: slotH, alignment: .center)
             } else {
                 HStack(spacing: 4) {
-                    ForEach(segments) { seg in
-                        Text(seg.text)
-                            .font(Font(pageFont))
-                            .foregroundStyle(theme.mushafText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                            .padding(.horizontal, 1)
-                            .background(selectedAyah == seg.ayah ? theme.accent.opacity(0.22) : Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                            // Long-press (≈0.45s) is the ONLY way to select an ayah —
-                            // a quick tap anywhere falls through to the plate (HUD toggle)
-                            .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 18) {
-                                HapticsEngine.shared.play(pattern: [20])
-                                onSelectAyah(seg.ayah)
-                            }
+                    ForEach(Array(line.words.enumerated()), id: \.offset) { _, w in
+                        wordView(w, pageFont: pageFont, isQpc: isQpc)
                     }
                 }
                 .frame(maxWidth: .infinity, minHeight: slotH, maxHeight: slotH, alignment: .center)
             }
         }
     }
+
+    private func wordView(_ w: MushafRepository.WordPlate, pageFont: UIFont, isQpc: Bool) -> some View {
+        Text(isQpc ? w.glyphs : w.wordText)
+            .font(Font(pageFont))
+            .foregroundStyle(theme.mushafText)
+            .lineLimit(1)
+            .minimumScaleFactor(0.78)
+            .padding(.horizontal, 1)
+            .background(selectedAyah == w.ayah ? theme.accent.opacity(0.22) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+            // Long-press (≈0.45s) is the ONLY way to select an ayah —
+            // a quick tap anywhere falls through to the plate (HUD toggle)
+            .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 18) {
+                HapticsEngine.shared.play(pattern: [20])
+                onSelectAyah(w.ayah)
+            }
+    }
 }
 
-/// Centered wrapping flow layout for zoomed Mushaf lines (>105%) so verses
-/// break cleanly across rows without clipping while keeping ayah gestures.
-private struct MushafWrappingRow: Layout {
-    var spacing: CGFloat = 4
-    var lineSpacing: CGFloat = 6
+/// Continuous RTL justified UthmanicHafs1Ver18 text flow for zoomed Mushaf reading (>100%).
+/// Uses TextKit justification + per-word ayah hit-testing so long-press & highlights stay exact.
+private struct MushafJustifiedTextView: UIViewRepresentable {
+    private static let ayahKey = NSAttributedString.Key("SadaqaAyahNumber")
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let maxW = proposal.width ?? 320
-        var rows: [[(LayoutSubview, CGSize)]] = [[]]
-        var curW: CGFloat = 0
-        for sub in subviews {
-            let sz = sub.sizeThatFits(ProposedViewSize(width: maxW, height: nil))
-            let addW = rows[rows.count - 1].isEmpty ? sz.width : sz.width + spacing
-            if !rows[rows.count - 1].isEmpty && curW + addW > maxW {
-                rows.append([(sub, sz)])
-                curW = sz.width
-            } else {
-                rows[rows.count - 1].append((sub, sz))
-                curW += addW
-            }
-        }
-        let totalH = rows.enumerated().reduce(CGFloat(0)) { acc, item in
-            let rowH = item.element.map(\.1.height).max() ?? 0
-            return acc + rowH + (item.offset > 0 ? lineSpacing : 0)
-        }
-        return CGSize(width: maxW, height: totalH)
+    let words: [MushafRepository.WordPlate]
+    let font: UIFont
+    let textColor: UIColor
+    let highlightColor: UIColor
+    let selectedAyah: Int?
+    let onTap: () -> Void
+    let onLongPressAyah: (Int) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onTap: onTap, onLongPressAyah: onLongPressAyah)
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let maxW = bounds.width
-        var rows: [[(LayoutSubview, CGSize)]] = [[]]
-        var curW: CGFloat = 0
-        for sub in subviews {
-            let sz = sub.sizeThatFits(ProposedViewSize(width: maxW, height: nil))
-            let addW = rows[rows.count - 1].isEmpty ? sz.width : sz.width + spacing
-            if !rows[rows.count - 1].isEmpty && curW + addW > maxW {
-                rows.append([(sub, sz)])
-                curW = sz.width
-            } else {
-                rows[rows.count - 1].append((sub, sz))
-                curW += addW
+    func makeUIView(context: Context) -> UITextView {
+        let tv = UITextView()
+        tv.isEditable = false
+        tv.isSelectable = false
+        tv.isScrollEnabled = false
+        tv.backgroundColor = .clear
+        tv.textContainerInset = .zero
+        tv.textContainer.lineFragmentPadding = 0
+        tv.semanticContentAttribute = .forceRightToLeft
+        tv.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        let longPress = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleLongPress(_:)))
+        longPress.minimumPressDuration = 0.45
+        tv.addGestureRecognizer(longPress)
+
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
+        tv.addGestureRecognizer(tap)
+        return tv
+    }
+
+    func updateUIView(_ tv: UITextView, context: Context) {
+        context.coordinator.onTap = onTap
+        context.coordinator.onLongPressAyah = onLongPressAyah
+
+        let para = NSMutableParagraphStyle()
+        para.alignment = .justified
+        para.baseWritingDirection = .rightToLeft
+        para.lineSpacing = font.pointSize * 0.42
+        para.lineBreakMode = .byWordWrapping
+
+        let attr = NSMutableAttributedString()
+        for (idx, w) in words.enumerated() {
+            if idx > 0 {
+                attr.append(NSAttributedString(string: " ", attributes: [
+                    .font: font,
+                    .foregroundColor: textColor,
+                    .paragraphStyle: para
+                ]))
             }
+            var attrs: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: textColor,
+                .paragraphStyle: para,
+                Self.ayahKey: w.ayah
+            ]
+            if selectedAyah == w.ayah {
+                attrs[.backgroundColor] = highlightColor
+            }
+            attr.append(NSAttributedString(string: w.wordText, attributes: attrs))
         }
-        var y = bounds.minY
-        for row in rows {
-            let rowW = row.reduce(CGFloat(0)) { $0 + $1.1.width } + spacing * CGFloat(max(0, row.count - 1))
-            let rowH = row.map(\.1.height).max() ?? 0
-            // RTL: place first subview on the right side of the centered row
-            var x = bounds.midX + rowW / 2
-            for (sub, sz) in row {
-                x -= sz.width
-                sub.place(at: CGPoint(x: x, y: y + (rowH - sz.height) / 2), proposal: ProposedViewSize(sz))
-                x -= spacing
+        tv.attributedText = attr
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize {
+        let targetW = proposal.width ?? 320
+        let fit = uiView.sizeThatFits(CGSize(width: targetW, height: .greatestFiniteMagnitude))
+        return CGSize(width: targetW, height: ceil(fit.height))
+    }
+
+    final class Coordinator: NSObject {
+        var onTap: () -> Void
+        var onLongPressAyah: (Int) -> Void
+
+        init(onTap: @escaping () -> Void, onLongPressAyah: @escaping (Int) -> Void) {
+            self.onTap = onTap
+            self.onLongPressAyah = onLongPressAyah
+        }
+
+        @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
+            if recognizer.state == .ended { onTap() }
+        }
+
+        @objc func handleLongPress(_ recognizer: UILongPressGestureRecognizer) {
+            guard recognizer.state == .began, let tv = recognizer.view as? UITextView else { return }
+            let pt = recognizer.location(in: tv)
+            let len = tv.attributedText.length
+            guard len > 0, let pos = tv.closestPosition(to: pt) else { return }
+            let offset = tv.offset(from: tv.beginningOfDocument, to: pos)
+            let clamped = min(max(offset, 0), len - 1)
+            if let ayah = tv.attributedText.attribute(MushafJustifiedTextView.ayahKey, at: clamped, effectiveRange: nil) as? Int {
+                HapticsEngine.shared.play(pattern: [20])
+                onLongPressAyah(ayah)
             }
-            y += rowH + lineSpacing
         }
     }
 }

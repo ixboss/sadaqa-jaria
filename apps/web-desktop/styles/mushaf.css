@@ -9,6 +9,7 @@
   height: 100%;
   width: 100%;
   align-items: center;
+  overflow: hidden;
   background: var(--color-mushaf-bg);
 }
 
@@ -19,7 +20,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 4px;
+  padding: calc(6px + env(safe-area-inset-top, 0px)) 12px 2px;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
@@ -34,7 +35,8 @@ body:not(.chrome-hidden) .mushaf-meta-strip { opacity: 0; }
 .mushaf-screen,
 .mushaf-stage,
 .mushaf-plate,
-.mushaf-line {
+.mushaf-line,
+.mushaf-flow {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
@@ -47,8 +49,9 @@ body:not(.chrome-hidden) .mushaf-meta-strip { opacity: 0; }
   min-height: 0;
   display: grid;
   place-items: stretch;
-  padding: 4px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 2px 10px 4px;
   touch-action: pan-y;
+  will-change: transform;
 }
 
 /* one printed page plate */
@@ -67,30 +70,67 @@ body:not(.chrome-hidden) .mushaf-meta-strip { opacity: 0; }
 .mushaf-plate[data-page='2'] {
   align-content: center;
 }
-/* Zoomed reading layout (>105%): lines wrap with generous line-height and scroll
-   vertically so verses never clip inside the fixed 15-row grid. */
+/* Zoomed reading layout (>100%): continuous justified UthmanicHafs1Ver18 flow
+   inside a scrollable container with top/bottom safe-area & HUD clearance. */
 .mushaf-plate.zoomed {
-  grid-template-rows: none;
-  grid-auto-rows: max-content;
-  align-content: start;
-  row-gap: 6px;
-  padding: 10px 6px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 12px 10px calc(32px + env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
+body:not(.chrome-hidden) .mushaf-plate.zoomed {
+  padding-top: calc(106px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(236px + env(safe-area-inset-bottom, 0px));
+}
 .mushaf-plate.zoomed .mushaf-line {
+  flex: none;
   height: auto;
   overflow: visible;
   white-space: normal;
   flex-wrap: wrap;
-  line-height: 1.55;
-  padding-block: 3px;
+  line-height: 1.75;
 }
-.mushaf-plate.zoomed .mushaf-line .mw {
-  line-height: 1.55;
+.mushaf-plate.zoomed .mushaf-line.kind-surah_name {
+  width: 100%;
+  margin: 4px 0 6px;
+  padding: 8px 14px;
 }
+.mushaf-plate.zoomed .mushaf-line.kind-bismillah {
+  margin: 2px 0 6px;
+}
+.mushaf-plate.zoomed .mushaf-line.kind-bismillah .mw.bsml-uthmani {
+  font-size: calc(var(--plate-font-size, 24px) * 0.96);
+  line-height: 1.7;
+}
+.mushaf-flow {
+  margin: 0;
+  width: 100%;
+  direction: rtl;
+  text-align: justify;
+  text-align-last: right;
+  font-family: var(--font-quran);
+  font-size: var(--plate-font-size, 24px);
+  line-height: 1.85;
+  color: var(--color-mushaf-text);
+  padding-block: 4px;
+  word-spacing: 0.04em;
+}
+.mushaf-flow .mw.uthmani-flow {
+  font-family: var(--font-quran);
+  font-size: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  padding: 0 1px;
+  border-radius: 4px;
+  transition: background-color 140ms var(--ease-standard);
+}
+.mushaf-flow .mw.uthmani-flow:active { background: color-mix(in srgb, var(--color-accent) 22%, transparent); }
+.mushaf-flow .mw.uthmani-flow.ayah-active { background: color-mix(in srgb, var(--color-accent) 26%, transparent); }
 
 /* calm 15-line skeleton while page data/font settles */
 .mushaf-skeleton {
@@ -129,6 +169,10 @@ body:not(.chrome-hidden) .mushaf-meta-strip { opacity: 0; }
   align-items: center;
   justify-content: center;
   gap: 0.14em;
+}
+.mushaf-line.justified {
+  justify-content: space-between;
+  gap: 0;
 }
 
 .mushaf-line .mw {

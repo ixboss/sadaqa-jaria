@@ -36,6 +36,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerSnapDistance
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -79,7 +81,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -262,6 +269,11 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
             juzNum = juz
             hizbNum = hizb
         }
+        launch(Dispatchers.IO) {
+            for (adj in listOf(page - 1, page + 1, page - 2, page + 2)) {
+                if (adj in 1..604 && !pageCache.containsKey(adj)) loadPageData(adj)
+            }
+        }
         withContext(Dispatchers.IO) {
             isBookmarked = (db.queryOne("SELECT COUNT(*) AS n FROM bookmarks WHERE page = ? AND deleted = 0", listOf(page.toLong()))?.longs?.get("n") ?: 0L) > 0L
             db.setSetting("mushaf_page", JsonValue.Num(page.toDouble()))
@@ -292,7 +304,9 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
             "reader" -> {
                 val pagerState = rememberPagerState(initialPage = page - 1, pageCount = { 604 })
                 LaunchedEffect(page) {
-                    if (pagerState.currentPage != page - 1) pagerState.scrollToPage(page - 1)
+                    if (!pagerState.isScrollInProgress && pagerState.settledPage != page - 1 && pagerState.targetPage != page - 1) {
+                        pagerState.scrollToPage(page - 1)
+                    }
                 }
                 LaunchedEffect(pagerState) {
                     snapshotFlow { pagerState.settledPage + 1 }
@@ -306,7 +320,7 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
                         // the HUD bar carries the same meta, never double-rendered)
                         if (!hudVisible) {
                             Row(
-                                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(surahTitle, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.textSecondary, modifier = Modifier.weight(1f))
@@ -318,7 +332,12 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
                         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                             HorizontalPager(
                                 state = pagerState,
-                                beyondViewportPageCount = 1,
+                                beyondViewportPageCount = 2,
+                                flingBehavior = PagerDefaults.flingBehavior(
+                                    state = pagerState,
+                                    pagerSnapDistance = PagerSnapDistance.atMost(1),
+                                    snapAnimationSpec = spring(dampingRatio = 0.88f, stiffness = Spring.StiffnessMediumLow),
+                                ),
                                 modifier = Modifier.weight(1f).fillMaxWidth(),
                             ) { slotIdx ->
                                 val slotPage = slotIdx + 1
@@ -329,6 +348,7 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
                                     lines = slotLines,
                                     mushafScale = mushafScale,
                                     selectedAyah = selectedAyah,
+                                    hudVisible = hudVisible,
                                     onSelectAyah = { Haptics.tick(context); selectedAyah = it },
                                     onToggleHud = { hudVisible = !hudVisible },
                                 )
@@ -874,13 +894,19 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+private sealed interface AndroidFlowBlock {
+    data class SurahName(val title: String) : AndroidFlowBlock
+    data class Bismillah(val text: String) : AndroidFlowBlock
+    data class Words(val items: List<MushafWordRow>) : AndroidFlowBlock
+}
+
 @Composable
 private fun MushafPagePlate(
     page: Int,
     lines: List<MushafLineItem>,
     mushafScale: Float,
     selectedAyah: Int?,
+    hudVisible: Boolean,
     onSelectAyah: (Int) -> Unit,
     onToggleHud: () -> Unit,
 ) {
@@ -898,177 +924,231 @@ private fun MushafPagePlate(
     }
     val uthmanicFont = remember(context) { QpcFonts.uthmanic(context) }
     val uthmanicTypeface = remember(context) { QpcFonts.uthmanicTypeface(context) }
-    val isZoomed = mushafScale > 1.05f
+    val isZoomed = mushafScale > 1.01f
 
     BoxWithConstraints(
         Modifier.fillMaxSize()
             .pointerInput(Unit) { detectTapGestures { onToggleHud() } }
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 9.dp, vertical = 2.dp),
         contentAlignment = if (isZoomed) Alignment.TopCenter else Alignment.Center,
     ) {
-        val availWidthPx = with(density) { (maxWidth - 8.dp).toPx() }.coerceAtLeast(100f)
+        val availWidthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(100f)
         val slotCount = maxOf(lines.size, 15)
         val slotHeightDp = maxHeight / slotCount
         val uniformSp = remember(page, lines, maxWidth, maxHeight, mushafScale, verifiedPageFont) {
-            val tf = if (verifiedPageFont != null) (verifiedTypeface ?: uthmanicTypeface) else uthmanicTypeface
-            val paint = android.graphics.Paint().apply {
-                typeface = tf
-                textSize = with(density) { 20f.sp.toPx() }
-            }
-            var maxLineW = 1f
-            for (item in lines) {
-                if (item.kind != "text") continue
-                val txt = if (verifiedPageFont != null) item.words.joinToString(" ") { it.glyphs }
-                else item.textAr.ifEmpty { item.words.joinToString(" ") { it.wordText } }
-                val w = paint.measureText(txt)
-                if (w > maxLineW) maxLineW = w
-            }
-            val widthFitSp = (20f * (availWidthPx * 0.90f) / maxLineW).coerceIn(11f, 38f)
-            if (mushafScale > 1.05f) {
-                // Zoomed mode (>105%): direct proportional scale with scroll+wrap fallback
-                val baseSp = minOf(widthFitSp, (slotHeightDp.value * 0.72f).coerceIn(11f, 38f))
-                (baseSp * mushafScale).coerceIn(14f, 56f)
+            if (isZoomed) {
+                val baseSp = minOf(maxWidth.value / 11.2f, slotHeightDp.value * 0.82f, 32f)
+                (baseSp * mushafScale).coerceIn(17f, 60f)
             } else {
-                val heightFitSp = (slotHeightDp.value * 0.72f * mushafScale).coerceIn(11f, 38f)
-                minOf(widthFitSp, heightFitSp).coerceAtMost(slotHeightDp.value * 0.90f)
+                val tf = if (verifiedPageFont != null) (verifiedTypeface ?: uthmanicTypeface) else uthmanicTypeface
+                val paint = android.graphics.Paint().apply {
+                    typeface = tf
+                    textSize = with(density) { 20f.sp.toPx() }
+                }
+                var maxLineW = 1f
+                for (item in lines) {
+                    if (item.kind != "text") continue
+                    val txt = if (verifiedPageFont != null) item.words.joinToString(" ") { it.glyphs }
+                    else item.words.joinToString(" ") { it.wordText }
+                    val w = paint.measureText(txt)
+                    if (w > maxLineW) maxLineW = w
+                }
+                val widthFitSp = (20f * (availWidthPx * 0.97f) / maxLineW).coerceIn(11f, 44f)
+                val heightFitSp = (slotHeightDp.value * 0.82f * mushafScale).coerceIn(11f, 44f)
+                minOf(widthFitSp, heightFitSp).coerceAtMost(slotHeightDp.value * 0.92f)
             }
         }
 
-        Column(
-            if (isZoomed) Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 8.dp)
-            else Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = if (isZoomed) Arrangement.spacedBy((uniformSp * 0.28f).dp) else if (page <= 2) Arrangement.Center else Arrangement.SpaceEvenly,
-        ) {
-            for (item in lines) {
-                val rowMod = if (isZoomed || page <= 2) Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                else Modifier.weight(1f).fillMaxWidth()
-                Box(rowMod, contentAlignment = Alignment.Center) {
+        if (isZoomed) {
+            val flowBlocks = remember(lines) {
+                val blocks = mutableListOf<AndroidFlowBlock>()
+                val curWords = mutableListOf<MushafWordRow>()
+                fun flush() {
+                    if (curWords.isNotEmpty()) {
+                        blocks.add(AndroidFlowBlock.Words(curWords.toList()))
+                        curWords.clear()
+                    }
+                }
+                for (item in lines) {
                     when (item.kind) {
+                        "surah_name" -> {
+                            flush()
+                            blocks.add(AndroidFlowBlock.SurahName(item.textAr))
+                        }
                         "bismillah" -> {
-                            val bsmlFont = QpcFonts.verifiedBasmala(context, item.glyphs)
-                            if (bsmlFont != null) {
-                                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                            flush()
+                            blocks.add(AndroidFlowBlock.Bismillah(item.textAr.ifEmpty { "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ" }))
+                        }
+                        else -> if (item.words.isNotEmpty()) curWords.addAll(item.words)
+                    }
+                }
+                flush()
+                blocks
+            }
+
+            Column(
+                Modifier.fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(
+                        top = if (hudVisible) 116.dp else 10.dp,
+                        bottom = if (hudVisible) 220.dp else 28.dp,
+                    ),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                for (block in flowBlocks) {
+                    when (block) {
+                        is AndroidFlowBlock.SurahName -> Box(
+                            Modifier.fillMaxWidth()
+                                .padding(top = 4.dp)
+                                .clip(RoundedCornerShape(10.dp)).background(theme.surface)
+                                .border(1.dp, theme.accent.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                .padding(vertical = 7.dp, horizontal = 12.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(block.title, fontSize = minOf(uniformSp * 0.56f, 17f).coerceAtLeast(13f).sp, fontWeight = FontWeight.Bold, color = theme.accent, maxLines = 1)
+                        }
+                        is AndroidFlowBlock.Bismillah -> Text(
+                            block.text,
+                            fontFamily = uthmanicFont,
+                            fontSize = (uniformSp * 0.96f).sp,
+                            lineHeight = (uniformSp * 1.70f).sp,
+                            color = theme.mushafText,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        )
+                        is AndroidFlowBlock.Words -> {
+                            val annotated = remember(block.items, selectedAyah, theme.accent) {
+                                buildAnnotatedString {
+                                    block.items.forEachIndexed { idx, w ->
+                                        if (idx > 0) append(" ")
+                                        pushStringAnnotation(tag = "ayah", annotation = w.ayahNumber.toString())
+                                        if (selectedAyah == w.ayahNumber) {
+                                            withStyle(SpanStyle(background = theme.accent.copy(alpha = 0.24f))) {
+                                                append(w.wordText)
+                                            }
+                                        } else {
+                                            append(w.wordText)
+                                        }
+                                        pop()
+                                    }
+                                }
+                            }
+                            var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+                            Text(
+                                text = annotated,
+                                style = TextStyle(
+                                    fontFamily = uthmanicFont,
+                                    fontSize = uniformSp.sp,
+                                    lineHeight = (uniformSp * 1.85f).sp,
+                                    color = theme.mushafText,
+                                    textAlign = TextAlign.Justify,
+                                    textDirection = TextDirection.Rtl,
+                                ),
+                                onTextLayout = { layoutResult = it },
+                                modifier = Modifier.fillMaxWidth().pointerInput(annotated) {
+                                    detectTapGestures(
+                                        onTap = { onToggleHud() },
+                                        onLongPress = { offset ->
+                                            val lr = layoutResult ?: return@detectTapGestures
+                                            val idx = lr.getOffsetForPosition(offset)
+                                            annotated.getStringAnnotations("ayah", idx, idx)
+                                                .firstOrNull()?.item?.toIntOrNull()?.let(onSelectAyah)
+                                        },
+                                    )
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            val lineTf = if (verifiedPageFont != null) (verifiedTypeface ?: uthmanicTypeface) else uthmanicTypeface
+            val linePaint = remember(lineTf, uniformSp, density) {
+                android.graphics.Paint().apply {
+                    typeface = lineTf
+                    textSize = with(density) { uniformSp.sp.toPx() }
+                }
+            }
+
+            Column(
+                Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = if (page <= 2) Arrangement.Center else Arrangement.SpaceEvenly,
+            ) {
+                for (item in lines) {
+                    val rowMod = if (page <= 2) Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                    else Modifier.weight(1f).fillMaxWidth()
+                    Box(rowMod, contentAlignment = Alignment.Center) {
+                        when (item.kind) {
+                            "bismillah" -> {
+                                val bsmlFont = QpcFonts.verifiedBasmala(context, item.glyphs)
+                                if (bsmlFont != null) {
+                                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                                        Text(
+                                            item.glyphs,
+                                            fontFamily = bsmlFont,
+                                            fontSize = (uniformSp * 1.04f).sp,
+                                            color = theme.mushafText,
+                                            textAlign = TextAlign.Center,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                } else {
                                     Text(
-                                        item.glyphs,
-                                        fontFamily = bsmlFont,
-                                        fontSize = (uniformSp * 1.05f).sp,
+                                        item.textAr.ifEmpty { "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ" },
+                                        fontFamily = uthmanicFont,
+                                        fontSize = uniformSp.sp,
+                                        lineHeight = (uniformSp * 1.55f).sp,
                                         color = theme.mushafText,
                                         textAlign = TextAlign.Center,
                                         maxLines = 1,
                                     )
                                 }
-                            } else {
-                                Text(
-                                    item.textAr.ifEmpty { "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ" },
-                                    fontFamily = uthmanicFont,
-                                    fontSize = uniformSp.sp,
-                                    lineHeight = (uniformSp * 1.55f).sp,
-                                    color = theme.mushafText,
-                                    textAlign = TextAlign.Center,
-                                    maxLines = if (isZoomed) Int.MAX_VALUE else 1,
-                                )
                             }
-                        }
-                        "surah_name" -> Box(
-                            Modifier.fillMaxWidth().padding(horizontal = 8.dp)
-                                .clip(RoundedCornerShape(10.dp)).background(theme.surface)
-                                .border(1.dp, theme.accent.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
-                                .padding(vertical = 3.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(item.textAr, fontSize = minOf(uniformSp * 0.85f, 16f).sp, fontWeight = FontWeight.Bold, color = theme.accent, maxLines = 1)
-                        }
-                        "text" -> {
-                            if (verifiedPageFont != null) {
-                                val segments = remember(item.words) {
-                                    val segs = mutableListOf<Pair<Int, MutableList<MushafWordRow>>>()
+                            "surah_name" -> Box(
+                                Modifier.fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp)).background(theme.surface)
+                                    .border(1.dp, theme.accent.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                    .padding(vertical = 3.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(item.textAr, fontSize = minOf(uniformSp * 0.85f, 16f).sp, fontWeight = FontWeight.Bold, color = theme.accent, maxLines = 1)
+                            }
+                            "text" -> {
+                                val lineText = if (verifiedPageFont != null) item.words.joinToString(" ") { it.glyphs }
+                                else item.words.joinToString(" ") { it.wordText }
+                                val naturalW = linePaint.measureText(lineText)
+                                val justify = page > 2 && item.words.size >= 3 && naturalW >= availWidthPx * 0.58f
+                                val activeFont = verifiedPageFont ?: uthmanicFont
+
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = if (justify) Arrangement.SpaceBetween else Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
                                     for (w in item.words) {
-                                        if (segs.isEmpty() || segs.last().first != w.ayahNumber) {
-                                            segs.add(w.ayahNumber to mutableListOf(w))
-                                        } else {
-                                            segs.last().second.add(w)
-                                        }
-                                    }
-                                    segs
-                                }
-                                if (isZoomed) {
-                                    FlowRow(
-                                        Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                                    ) {
-                                        for ((ayahNum, words) in segments) {
-                                            Text(
-                                                words.joinToString(" ") { it.glyphs },
-                                                fontFamily = verifiedPageFont,
-                                                fontSize = uniformSp.sp,
-                                                lineHeight = (uniformSp * 1.55f).sp,
-                                                color = theme.mushafText,
-                                                textAlign = TextAlign.Center,
-                                                softWrap = true,
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(4.dp))
-                                                    .background(if (selectedAyah == ayahNum) theme.accent.copy(alpha = 0.20f) else Color.Transparent)
-                                                    .pointerInput(ayahNum) {
-                                                        detectTapGestures(
-                                                            onTap = { onToggleHud() },
-                                                            onLongPress = { onSelectAyah(ayahNum) },
-                                                        )
-                                                    },
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    Row(
-                                        Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        for ((ayahNum, words) in segments) {
-                                            Text(
-                                                words.joinToString(" ") { it.glyphs },
-                                                fontFamily = verifiedPageFont,
-                                                fontSize = uniformSp.sp,
-                                                color = theme.mushafText,
-                                                maxLines = 1,
-                                                softWrap = false,
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(4.dp))
-                                                    .background(if (selectedAyah == ayahNum) theme.accent.copy(alpha = 0.20f) else Color.Transparent)
-                                                    // Long-press is the ONLY way to select an ayah — a quick
-                                                    // tap toggles the HUD, exactly like the plate around it
-                                                    .pointerInput(ayahNum) {
-                                                        detectTapGestures(
-                                                            onTap = { onToggleHud() },
-                                                            onLongPress = { onSelectAyah(ayahNum) },
-                                                        )
-                                                    },
-                                            )
-                                        }
+                                        Text(
+                                            if (verifiedPageFont != null) w.glyphs else w.wordText,
+                                            fontFamily = activeFont,
+                                            fontSize = uniformSp.sp,
+                                            color = theme.mushafText,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(if (selectedAyah == w.ayahNumber) theme.accent.copy(alpha = 0.20f) else Color.Transparent)
+                                                // Long-press is the ONLY way to select an ayah — a quick
+                                                // tap toggles the HUD, exactly like the plate around it
+                                                .pointerInput(w.ayahNumber) {
+                                                    detectTapGestures(
+                                                        onTap = { onToggleHud() },
+                                                        onLongPress = { onSelectAyah(w.ayahNumber) },
+                                                    )
+                                                },
+                                        )
                                     }
                                 }
-                            } else {
-                                val firstAyah = item.words.firstOrNull()?.ayahNumber
-                                Text(
-                                    item.textAr.ifEmpty { item.words.joinToString(" ") { it.wordText } },
-                                    fontFamily = uthmanicFont,
-                                    fontSize = uniformSp.sp,
-                                    lineHeight = (uniformSp * 1.55f).sp,
-                                    color = theme.mushafText,
-                                    textAlign = TextAlign.Center,
-                                    maxLines = if (isZoomed) Int.MAX_VALUE else 1,
-                                    softWrap = isZoomed,
-                                    modifier = Modifier.fillMaxWidth()
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(if (firstAyah != null && selectedAyah == firstAyah) theme.accent.copy(alpha = 0.20f) else Color.Transparent)
-                                        .pointerInput(firstAyah) {
-                                            detectTapGestures(
-                                                onTap = { onToggleHud() },
-                                                onLongPress = { firstAyah?.let(onSelectAyah) },
-                                            )
-                                        },
-                                )
                             }
                         }
                     }
