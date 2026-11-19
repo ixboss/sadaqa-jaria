@@ -59,7 +59,9 @@ jobs:
         run: |
           npm run test:v2
           npm run test:v2:p4
-          xvfb-run -a npm run test:electron
+          # SADAQA_REQUIRE_ELECTRON=1: تبعيات Electron مثبتة في الخطوة السابقة —
+          # غياب الملف الثنائي هنا تراجعٌ حقيقي يجب أن يُفشل CI (audit 2026-11)
+          SADAQA_REQUIRE_ELECTRON=1 xvfb-run -a npm run test:electron
 
   build-android:
     name: Build Android APK
