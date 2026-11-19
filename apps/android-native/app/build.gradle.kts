@@ -17,8 +17,8 @@ android {
         applicationId = "app.sadaqa.android"
         minSdk = 26            // java.time (HijrahDate umalqura) is native
         targetSdk = 35
-        versionCode = 7
-        versionName = "2.3.0"
+        versionCode = 8
+        versionName = "2.3.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
