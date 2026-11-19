@@ -429,6 +429,10 @@ async function runProbe() {
     checks.engine = Boolean(n && n.name && n.at > 0);
     checks.tray = Boolean(tray);
     checks.notifications = Notification.isSupported();
+    // عدّاءات Linux في CI بلا خدمة إشعارات (D-Bus) — isSupported=false بيئياً
+    // وليس تراجعاً في الكود؛ يُشطب من الحكم هناك فقط ويبقى مفروضاً على
+    // سطح المكتب الحقيقي (audit 2026-11)
+    checks.notificationsCounted = !(process.platform === 'linux' && process.env.CI === 'true');
   } catch (e) { checks.engineError = String(e.message); }
   // renderer: preload bridge + isolation (hidden window, no full boot wait)
   checks.bridge = await new Promise((resolve) => {
@@ -447,7 +451,8 @@ async function runProbe() {
     setTimeout(() => resolve({ error: 'timeout' }), 15000);
   });
   const ok = checks.sqlite && checks.fts5 && checks.ftsQuery && checks.surahs === 114 && checks.protocol && checks.protocolFonts
-    && checks.protocolDb && checks.engine && checks.tray && checks.notifications
+    && checks.protocolDb && checks.engine && checks.tray
+    && (checks.notifications || !checks.notificationsCounted)
     && checks.bridge?.kind === 'electron' && checks.bridge?.isolated === true;
   console.log('SADAQA_PROBE_JSON:' + JSON.stringify({ ok, checks }));
   app.exit(ok ? 0 : 1);
