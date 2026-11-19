@@ -35,6 +35,9 @@ class SadaqaApp : Application() {
     private val _themeKey = MutableStateFlow("dark")
     val themeKey: StateFlow<String> = _themeKey
 
+    private val _fontScale = MutableStateFlow(1.0f)
+    val fontScale: StateFlow<Float> = _fontScale
+
     override fun onCreate() {
         super.onCreate()
         ContextHolder.app = this
@@ -42,8 +45,9 @@ class SadaqaApp : Application() {
         val dbFile = File(filesDir, "databases/sadaqa.db")
         db = SadaqaDb.open(dbFile) { assets.open("sadaqa.db").readBytes() }
 
-        // theme from settings (web parity: theme ∈ dark|light|sepia|night)
+        // theme & font scale from settings
         _themeKey.value = db.setting("theme")?.str ?: "dark"
+        _fontScale.value = (db.setting("font_scale")?.dbl?.toFloat() ?: 1.0f).coerceIn(0.8f, 2.0f)
 
         // keep widgets in sync on any settings/prayer write
         WidgetNotifier.prayersChanged = {
@@ -76,5 +80,11 @@ class SadaqaApp : Application() {
         _themeKey.value = key
         db.setSetting("theme", app.sadaqa.android.backup.JsonValue.Str(key))
         WidgetStateBridge.publish(this, db)
+    }
+
+    fun setFontScale(scale: Float) {
+        val clamped = scale.coerceIn(0.8f, 2.0f)
+        _fontScale.value = clamped
+        db.setSetting("font_scale", app.sadaqa.android.backup.JsonValue.Num(clamped.toDouble()))
     }
 }

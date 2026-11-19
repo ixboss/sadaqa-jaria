@@ -59,6 +59,22 @@ const SCREENS = {
   'tools-settings': renderSettings,
 };
 
+function positionTabIndicator(instant = false) {
+  const bar = document.getElementById('tabbar');
+  const ind = document.getElementById('tab-indicator');
+  const active = bar?.querySelector('.tab-btn[aria-current="page"]');
+  if (!bar || !ind || !active) return;
+  if (instant) ind.style.transition = 'none';
+  ind.style.width = `${active.offsetWidth}px`;
+  ind.style.height = `${active.offsetHeight}px`;
+  ind.style.transform = `translate3d(${active.offsetLeft}px, ${active.offsetTop}px, 0)`;
+  ind.classList.add('ready');
+  if (instant) {
+    void ind.offsetWidth;
+    ind.style.transition = '';
+  }
+}
+
 function renderRoute({ screen, args }) {
   const seq = ++routeSeq;
   // تذكّر موضع التمرير للشاشة الغادرة حتى لا يفقد المستخدم مكانه عائداً إليها
@@ -74,6 +90,7 @@ function renderRoute({ screen, args }) {
   for (const btn of document.querySelectorAll('.glass-tabbar .tab-btn')) {
     btn.getAttribute('data-tab') === tab ? btn.setAttribute('aria-current', 'page') : btn.removeAttribute('aria-current');
   }
+  requestAnimationFrame(() => positionTabIndicator(false));
   // شريط قسم المصحف الطافي: شاشات القسم الخارجة عن القارئ فقط
   const hub = document.getElementById('mushaf-hub-dock');
   if (hub) {
@@ -124,26 +141,39 @@ function wireNav() {
     const btn = e.target.closest('[data-go]');
     if (btn) navigate(btn.dataset.go);
   });
+  const bar = document.getElementById('tabbar');
+  if (bar && typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => positionTabIndicator(true)).observe(bar);
+  }
+  window.addEventListener('resize', () => positionTabIndicator(true));
 }
 
-// Dock minimize on scroll-down; auto-restores on scroll-up, at the top, or
-// ~320ms after scrolling settles (user mandate: never tap-to-restore).
+// Dock minimize on scroll-down; auto-restores on scroll-up, at top/bottom,
+// when scroll settles (~240ms), or on touch/pointer release so it never sticks.
 function wireDockScroll() {
-  let lastY = 0;
+  const lastYMap = new WeakMap();
   let idleTimer = null;
   const minimize = () => document.body.classList.add('dock-min');
   const restore = () => document.body.classList.remove('dock-min');
+  const scheduleRestore = () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(restore, 240);
+  };
   document.addEventListener('scroll', (e) => {
     const t = e.target;
     if (!(t instanceof Element) || !t.closest('#screen-root')) return;
     if (document.body.classList.contains('reading')) { restore(); return; }
     const y = t.scrollTop ?? 0;
-    if (y <= 64 || y < lastY - 6) restore();
-    else if (y > lastY + 6) minimize();
-    lastY = y;
-    clearTimeout(idleTimer);
-    idleTimer = setTimeout(restore, 320);
+    const prevY = lastYMap.get(t) ?? y;
+    const nearBottom = t.scrollHeight > 0 && (y + t.clientHeight >= t.scrollHeight - 72);
+    if (y <= 64 || nearBottom || y < prevY - 6) restore();
+    else if (y > prevY + 8) minimize();
+    lastYMap.set(t, y);
+    scheduleRestore();
   }, true);
+  document.addEventListener('scrollend', restore, true);
+  document.addEventListener('touchend', scheduleRestore, { passive: true });
+  document.addEventListener('pointerup', scheduleRestore, { passive: true });
 }
 
 function renderBootProgress(loaded = 0, total = 0, phase = 'wasm') {

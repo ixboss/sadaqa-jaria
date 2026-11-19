@@ -138,7 +138,7 @@ export function renderToday(root) {
     <div class="card hub-hero" id="prayer-hero">
       <div class="hh-label">الصلاة القادمة</div>
       <div class="hh-name">${nextLabel}</div>
-      <div class="hh-clock" id="hero-countdown">${fmtHMS(next.at - now)}</div>
+      <div class="hh-clock" id="hero-countdown" dir="ltr">${fmtHMS(next.at - now)}</div>
       <div class="hh-at">الأذان ${fmtClock(next.at, tz)}</div>
     </div>
 
@@ -259,7 +259,11 @@ function openCityPicker(root) {
       <div id="city-pick-results" style="margin-top:10px"></div>
     </div>
   </div>`;
-  const close = () => { host.innerHTML = ''; };
+  const close = () => {
+    host.querySelector('.sheet')?.classList.add('closing');
+    host.querySelector('.sheet-backdrop')?.classList.add('closing');
+    setTimeout(() => { host.innerHTML = ''; }, 200);
+  };
   host.querySelector('#sh-close').addEventListener('click', close);
   host.querySelector('#sh-backdrop').addEventListener('click', close);
   const input = host.querySelector('#city-pick-input');
@@ -348,7 +352,11 @@ function openMonthSchedule(engine, startIso, tz) {
       </table>
     </div>
   </div>`;
-  const close = () => { host.innerHTML = ''; };
+  const close = () => {
+    host.querySelector('.sheet')?.classList.add('closing');
+    host.querySelector('.sheet-backdrop')?.classList.add('closing');
+    setTimeout(() => { host.innerHTML = ''; }, 200);
+  };
   host.querySelector('#sh-close').addEventListener('click', close);
   host.querySelector('#sh-backdrop').addEventListener('click', close);
 }

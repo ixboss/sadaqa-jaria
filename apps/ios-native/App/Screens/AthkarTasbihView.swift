@@ -99,10 +99,11 @@ struct AthkarView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(appState.theme.border))
                         }
+                        .buttonStyle(TactileCardButtonStyle())
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 100)
+                .padding(.bottom, 120)
             }
             .scrollDismissesKeyboard(.interactively)
             .background(appState.theme.bg)
@@ -123,18 +124,24 @@ struct AthkarView: View {
         return LazyVGrid(columns: cols, spacing: 10) {
             if let m = morning {
                 NavigationLink(value: m.id) { featuredCard("sunrise", "أذكار الصباح", "\(m.itemCount) ذكراً") }
+                    .buttonStyle(TactileCardButtonStyle())
             }
             if let e = evening {
                 NavigationLink(value: e.id) { featuredCard("sunset", "أذكار المساء", "\(e.itemCount) ذكراً") }
+                    .buttonStyle(TactileCardButtonStyle())
             }
             if let a = afterPrayer {
                 NavigationLink(value: a.id) { featuredCard("building.columns", "أذكار بعد الصلاة", "\(a.itemCount) ذكراً") }
+                    .buttonStyle(TactileCardButtonStyle())
             }
             if let s = sleep {
                 NavigationLink(value: s.id) { featuredCard("moon.stars", "أذكار النوم", "\(s.itemCount) ذكراً") }
+                    .buttonStyle(TactileCardButtonStyle())
             }
             NavigationLink { TasbihView() } label: { featuredCard("circle.dashed", "السبحة الإلكترونية", "التسبيح والأوراد") }
+                .buttonStyle(TactileCardButtonStyle())
             NavigationLink { AudioView() } label: { featuredCard("headphones", "التلاوة الصوتية", "استماع دون اتصال") }
+                .buttonStyle(TactileCardButtonStyle())
         }
     }
 
@@ -202,6 +209,7 @@ struct AthkarView: View {
 
 struct AthkarReaderView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let categoryId: String
     @State private var categoryName = ""
     @State private var items: [AthkarItemData] = []
@@ -216,30 +224,34 @@ struct AthkarReaderView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                // Progress summary bar
-                VStack(spacing: 6) {
-                    HStack {
-                        Text("\(completedCount) / \(items.count)").font(.system(size: 13, weight: .bold)).monospacedDigit()
-                            .foregroundStyle(appState.theme.accent)
-                        Spacer()
-                        Toggle("بدون يدين", isOn: $autoMode).labelsHidden()
-                        Text("بدون يدين").font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 12) {
+                    // Progress summary bar
+                    VStack(spacing: 6) {
+                        HStack {
+                            Text("\(completedCount) / \(items.count)").font(.system(size: 13, weight: .bold)).monospacedDigit()
+                                .foregroundStyle(appState.theme.accent)
+                            Spacer()
+                            Toggle("بدون يدين", isOn: $autoMode).labelsHidden()
+                            Text("بدون يدين").font(.system(size: 12)).foregroundStyle(appState.theme.textSecondary)
+                        }
+                        ProgressView(value: items.isEmpty ? 0 : Double(completedCount) / Double(items.count))
+                            .tint(appState.theme.accent)
+                            .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.85), value: completedCount)
                     }
-                    ProgressView(value: items.isEmpty ? 0 : Double(completedCount) / Double(items.count))
-                        .tint(appState.theme.accent)
-                }
-                .padding(14)
-                .background(appState.theme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(14)
+                    .background(appState.theme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
 
-                ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
-                    dhikrCard(item, index: idx)
+                    ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
+                        dhikrCard(item, index: idx, proxy: proxy)
+                            .id(item.id)
+                    }
                 }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 120)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 100)
         }
         .background(appState.theme.bg)
         .navigationTitle(categoryName)
@@ -275,7 +287,7 @@ struct AthkarReaderView: View {
         items = out
     }
 
-    private func dhikrCard(_ item: AthkarItemData, index: Int) -> some View {
+    private func dhikrCard(_ item: AthkarItemData, index: Int, proxy: ScrollViewProxy) -> some View {
         let count = counts[item.id] ?? 0
         let done = item.countTarget > 0 ? count >= item.countTarget : count > 0
         let progress = item.countTarget > 0 ? min(1.0, Double(count) / Double(item.countTarget)) : (done ? 1.0 : 0.0)
@@ -289,11 +301,22 @@ struct AthkarReaderView: View {
                         .foregroundStyle(appState.theme.accent)
                     Text("من \(item.countTarget)").font(.system(size: 13))
                         .foregroundStyle(appState.theme.textSecondary)
+                    if done {
+                        Text("✓ اكتمل")
+                            .font(.system(size: 11, weight: .bold))
+                            .padding(.horizontal, 9).padding(.vertical, 3)
+                            .background(appState.theme.accent.opacity(0.16))
+                            .foregroundStyle(appState.theme.accent)
+                            .clipShape(Capsule())
+                            .transition(.scale.combined(with: .opacity))
+                    }
                     Spacer()
                     ZStack {
                         Circle().stroke(appState.theme.surfaceRaised, lineWidth: 6)
-                        Circle().trim(to: progress).stroke(appState.theme.accent, lineWidth: 6)
+                        Circle().trim(to: progress)
+                            .stroke(appState.theme.accent, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                             .rotationEffect(.degrees(-90))
+                            .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.85), value: progress)
                         Text("\(min(count, item.countTarget))/\(item.countTarget)")
                             .font(.system(size: 11, weight: .bold)).monospacedDigit()
                     }
@@ -315,15 +338,16 @@ struct AthkarReaderView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(done ? appState.theme.accent.opacity(0.6) : appState.theme.border))
         .contentShape(Rectangle())
-        .onTapGesture { tap(item) }
+        .onTapGesture { tap(item, index: index, proxy: proxy) }
     }
 
-    private func tap(_ item: AthkarItemData) {
+    private func tap(_ item: AthkarItemData, index: Int, proxy: ScrollViewProxy) {
         let target = item.countTarget
         let current = counts[item.id] ?? 0
         guard target == 0 || current < target else { return }
         let c = current + 1 // synchronous local increment (rapid-tap contract)
         counts[item.id] = c
+        let completedNow = target == 0 || c == target
         if target > 0 && c == target {
             HapticsEngine.shared.complete()
         } else {
@@ -340,6 +364,17 @@ struct AthkarReaderView: View {
             dayKey: day,
             now: now
         )
+        if completedNow, let nextItem = items[safe: index + 1] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.36) {
+                if reduceMotion {
+                    proxy.scrollTo(nextItem.id, anchor: .center)
+                } else {
+                    withAnimation(.easeInOut(duration: 0.32)) {
+                        proxy.scrollTo(nextItem.id, anchor: .center)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -359,6 +394,7 @@ struct TasbihCounter: Identifiable {
 
 struct TasbihView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var counters: [TasbihCounter] = []
     @State private var selected = 0
 
@@ -371,7 +407,7 @@ struct TasbihView: View {
                     if let c = counters[safe: selected] { stats(c) }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 100)
+                .padding(.bottom, 120)
             }
             .background(appState.theme.bg)
             .navigationTitle("السبحة")
@@ -395,20 +431,32 @@ struct TasbihView: View {
     }
 
     private func dial(_ c: TasbihCounter) -> some View {
-        let progress = c.target.map { Double(c.count % max($0, 1)) / Double($0) } ?? Double(c.count % 100) / 100
+        let target = c.target
+        let done = target.map { c.count >= $0 } ?? false
+        let progress = target.map { min(1.0, Double(c.count) / Double(max($0, 1))) } ?? Double(c.count % 100) / 100
         return ZStack {
             Circle().stroke(appState.theme.surfaceRaised, lineWidth: 14)
-            Circle().trim(to: progress).stroke(appState.theme.accent, lineWidth: 14)
+            Circle().trim(to: progress)
+                .stroke(appState.theme.accent, style: StrokeStyle(lineWidth: 14, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(.easeOut(duration: 0.15), value: progress)
+                .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.82), value: progress)
             VStack(spacing: 6) {
                 Text("\(c.count)").font(.system(size: 52, weight: .bold)).monospacedDigit()
                     .foregroundStyle(appState.theme.textPrimary)
                 Text(c.dhikrText).font(.system(size: 14))
                     .foregroundStyle(appState.theme.textSecondary)
-                if let t = c.target {
-                    Text("من \(t)").font(.system(size: 12)).monospacedDigit()
-                        .foregroundStyle(appState.theme.textSecondary)
+                if let t = target {
+                    if done {
+                        Text("✓ اكتمل")
+                            .font(.system(size: 12, weight: .bold))
+                            .padding(.horizontal, 10).padding(.vertical, 3)
+                            .background(appState.theme.accent.opacity(0.16))
+                            .foregroundStyle(appState.theme.accent)
+                            .clipShape(Capsule())
+                    } else {
+                        Text("من \(t)").font(.system(size: 12)).monospacedDigit()
+                            .foregroundStyle(appState.theme.textSecondary)
+                    }
                 }
             }
         }
