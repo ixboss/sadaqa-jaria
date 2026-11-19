@@ -24,6 +24,10 @@ const fmtHMS = (msLeft) => {
 const PRAYER_LABELS = { fajr: 'الفجر', sunrise: 'الشروق', dhuhr: 'الظهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء' };
 const DAY_LABELS = { Sunday: 'الأحد', Monday: 'الإثنين', Tuesday: 'الثلاثاء', Wednesday: 'الأربعاء', Thursday: 'الخميس', Friday: 'الجمعة', Saturday: 'السبت' };
 
+// Today header dhikr pill — ambient session-only rotation (25s, tap to advance)
+const DHIKR_PILL_TEXTS = ['لا إله إلا الله', 'سبحان الله وبحمده', 'الحمد لله', 'أستغفر الله', 'اللهم صلِّ على نبينا محمد'];
+let dhikrIdx = 0;
+
 // The resolver itself lives in the shared engines dir (Phase 5 parity): all
 // four targets execute the same §9 golden logic — re-exported here so the
 // e2e probes keep importing it from this screen module unchanged.
@@ -132,6 +136,7 @@ export function renderToday(root) {
         <div class="today-actions">
           <button class="city-pill icon-pill" id="today-search-btn" aria-label="بحث شامل" title="بحث في القرآن والأذكار">${iconSvg('search', 15)}</button>
           <button class="city-pill" id="today-city-btn" aria-label="تغيير المدينة">${iconSvg('location', 14)}<span>${locName}</span></button>
+          <button class="city-pill dhikr-pill" id="today-dhikr" aria-label="الذكر التالي"><span class="dhikr-txt">${DHIKR_PILL_TEXTS[dhikrIdx % DHIKR_PILL_TEXTS.length]}</span></button>
         </div>
       </div>
     </div>
@@ -228,6 +233,30 @@ export function renderToday(root) {
     renderSearchSheet();
   });
   root.querySelector('#today-month-btn')?.addEventListener('click', () => openMonthSchedule(engine, dateIso, tz));
+
+  // dhikr pill — 25s ambient rotation, tap advances; swap = fade/slide via .swapping
+  const dhikrBtn = root.querySelector('#today-dhikr');
+  if (dhikrBtn) {
+    const dhikrTxt = dhikrBtn.querySelector('.dhikr-txt');
+    const swapDhikr = () => {
+      dhikrBtn.classList.add('swapping');
+      setTimeout(() => {
+        dhikrIdx++;
+        dhikrTxt.textContent = DHIKR_PILL_TEXTS[dhikrIdx % DHIKR_PILL_TEXTS.length];
+        dhikrBtn.classList.remove('swapping');
+      }, 330);
+    };
+    dhikrBtn.addEventListener('click', () => { haptic(HAPTICS.dhikrTick); swapDhikr(); });
+    const stopDhikr = () => { clearInterval(dTimer); dObs.disconnect(); };
+    const dTimer = setInterval(() => {
+      if (!dhikrBtn.isConnected) { stopDhikr(); return; }
+      swapDhikr();
+    }, 25000);
+    const dObs = new MutationObserver(() => {
+      if (!dhikrBtn.isConnected) stopDhikr();
+    });
+    dObs.observe(root, { childList: true, subtree: true });
+  }
 
   // 1 Hz ticker — formats only, never recomputes times (deterministic, cheap)
   const cd = root.querySelector('#hero-countdown');
