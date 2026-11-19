@@ -6,12 +6,14 @@
 
 import SwiftUI
 import UIKit
+import GRDB
 
 struct TodayView: View {
     @EnvironmentObject var appState: AppState
     @State private var now = Date.nowMs
     @State private var showMonthSchedule = false
     @State private var dhikrIdx = 0
+    @State private var dailyProgress: [AthkarProgress.WindowProgress] = []
 
     private static let dhikrPillTexts = ["لا إله إلا الله", "سبحان الله وبحمده", "الحمد لله", "أستغفر الله", "اللهم صلِّ على نبينا محمد"]
 
@@ -25,13 +27,16 @@ struct TodayView: View {
                     scheduleCard
                     quickAppsCard
                     qiyamCard
+                    dailyProgressCard
                     khatmahCard
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 120)
+                .padding(.bottom, 96)
             }
             .background(appState.theme.bg)
-            .navigationTitle("اليوم")
+            // The header row below carries the title + search — no large nav
+            // title, so the top-left corner never shows a blank void.
+            .toolbar(.hidden, for: .navigationBar)
             .task {
                 now = Date.nowMs
                 while !Task.isCancelled {
@@ -46,6 +51,7 @@ struct TodayView: View {
                     dhikrIdx = (dhikrIdx + 1) % Self.dhikrPillTexts.count
                 }
             }
+            .onAppear { loadDailyProgress() }
             .sheet(isPresented: $showMonthSchedule) { monthScheduleSheet }
         }
     }
@@ -64,18 +70,65 @@ struct TodayView: View {
         Int(appState.db.setting("mushaf_page")?.doubleValue ?? 1)
     }
 
+    private var dayKey: String {
+        let cal = Calendar(identifier: .gregorian)
+        let c = cal.dateComponents([.year, .month, .day], from: Date())
+        return String(format: "%04d-%02d-%02d", c.year ?? 1970, c.month ?? 1, c.day ?? 1)
+    }
+
+    private func loadDailyProgress() {
+        let db = appState.db
+        let day = dayKey
+        var cats: [AthkarProgress.Category] = []
+        var items: [AthkarProgress.Item] = []
+        var states: [AthkarProgress.StateRow] = []
+        try? db.queue.read { q in
+            for r in try Row.fetchAll(q, sql: "SELECT category_id, name_ar, solar_window FROM athkar_categories") {
+                cats.append(AthkarProgress.Category(
+                    id: r["category_id"] as String? ?? "",
+                    titleAr: r["name_ar"] as String? ?? "",
+                    solarWindow: r["solar_window"] as String?))
+            }
+            for r in try Row.fetchAll(q, sql: "SELECT item_id, category_id, count_target FROM athkar_items") {
+                items.append(AthkarProgress.Item(
+                    id: r["item_id"] as String? ?? "",
+                    categoryId: r["category_id"] as String? ?? "",
+                    target: r["count_target"] as Int? ?? 1))
+            }
+            for r in try Row.fetchAll(q, sql: "SELECT item_id, count, completed_at FROM adhkar_state WHERE day_key = ?", arguments: [day]) {
+                states.append(AthkarProgress.StateRow(
+                    itemId: r["item_id"] as String? ?? "",
+                    count: r["count"] as Int? ?? 0,
+                    completedAt: r["completed_at"] as Int64?))
+            }
+        }
+        dailyProgress = AthkarProgress.compute(categories: cats, items: items, states: states).windows
+    }
+
     private var topHeader: some View {
         let tz = appState.engineOptions.timeZone
         let hijri = HijriEngine.withAdjust(Self.iso(now, tz: tz), appState.hijriAdjust)
         let greg = Self.gregDate(now, tz: tz)
         return HStack(alignment: .center, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(hijri.d) \(HijriEngine.monthsArSafe(hijri.m)) \(hijri.y) هـ")
-                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(appState.theme.textPrimary)
-                Text(greg)
+                Text("اليوم")
+                    .font(.system(size: 28, weight: .bold)).foregroundStyle(appState.theme.textPrimary)
+                Text("\(hijri.d) \(HijriEngine.monthsArSafe(hijri.m)) \(hijri.y) هـ · \(greg)")
                     .font(.system(size: 11)).foregroundStyle(appState.theme.textSecondary)
             }
             Spacer()
+            Button {
+                appState.searchPresented = true
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(appState.theme.accent)
+                    .frame(width: 30, height: 30)
+                    .background(appState.theme.surface)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().strokeBorder(appState.theme.border))
+            }
+            .accessibilityLabel(Text("بحث"))
             dhikrPill
             NavigationLink { CityPickerView() } label: {
                 HStack(spacing: 4) {
@@ -311,6 +364,53 @@ struct TodayView: View {
         .font(.system(size: 13)).foregroundStyle(appState.theme.textSecondary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16).background(appState.theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(appState.theme.border))
+    }
+
+    // ورد اليوم — compact daily progress (athkar windows + khatmah position)
+    private var dailyProgressCard: some View {
+        let windowsDone = dailyProgress.filter { $0.total > 0 && $0.completed >= $0.total }.count
+        let page = currentMushafPage
+        let pct = Int((Double(page) / 604.0 * 100.0).rounded())
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("ورد اليوم").font(.system(size: 15, weight: .bold)).foregroundStyle(appState.theme.textPrimary)
+                Spacer()
+                Text("\(windowsDone) / \(dailyProgress.count) أوراد")
+                    .font(.system(size: 12, weight: .semibold)).monospacedDigit()
+                    .foregroundStyle(appState.theme.accent)
+            }
+            ForEach(dailyProgress, id: \.titleAr) { w in
+                HStack(spacing: 10) {
+                    Text(w.titleAr)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(appState.theme.textPrimary)
+                        .frame(width: 52, alignment: .leading)
+                    GeometryReader { geo in
+                        let ratio = w.total > 0 ? CGFloat(w.completed) / CGFloat(w.total) : 0
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(appState.theme.surfaceRaised)
+                            Capsule().fill(appState.theme.accent)
+                                .frame(width: geo.size.width * min(1, max(0, ratio)))
+                        }
+                    }
+                    .frame(height: 6)
+                    Text("\(w.completed)/\(w.total)")
+                        .font(.system(size: 12)).monospacedDigit()
+                        .foregroundStyle(w.total > 0 && w.completed >= w.total ? appState.theme.accent : appState.theme.textSecondary)
+                        .frame(width: 40, alignment: .trailing)
+                }
+            }
+            HStack(spacing: 6) {
+                Image(systemName: "book.closed").font(.system(size: 11))
+                Text("الختمة: \(pct)٪ (صفحة \(page))")
+                    .font(.system(size: 12)).monospacedDigit()
+            }
+            .foregroundStyle(appState.theme.textSecondary)
+        }
+        .padding(16)
+        .background(appState.theme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 18))
         .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(appState.theme.border))
     }

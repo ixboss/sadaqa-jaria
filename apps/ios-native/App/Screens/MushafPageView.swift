@@ -811,7 +811,11 @@ final class MushafPageCache: ObservableObject {
     }
 }
 
-private struct MushafPagerView: View {
+// True native pager — UIPageViewController (scroll / horizontal) with RTL page
+// order (page 1 sits right, a left-to-right swipe advances 1 -> 2). Only the
+// current ± adjacent slots are instantiated on demand; the binding stays the
+// single source of truth for slider / chevron / index navigation.
+private struct MushafPagerView: UIViewControllerRepresentable {
     @Binding var page: Int
     @ObservedObject var pageCache: MushafPageCache
     let db: SadaqaDatabase
@@ -822,25 +826,101 @@ private struct MushafPagerView: View {
     let onSelectAyah: (Int) -> Void
     let onToggleHud: () -> Void
 
-    var body: some View {
-        TabView(selection: $page) {
-            ForEach(1...604, id: \.self) { p in
-                MushafLazyPageSlot(
-                    slotPage: p,
-                    currentPage: page,
-                    cache: pageCache,
-                    db: db,
-                    theme: theme,
-                    mushafScale: mushafScale,
-                    selectedAyah: selectedAyah,
-                    hudVisible: hudVisible,
-                    onSelectAyah: onSelectAyah,
-                    onToggleHud: onToggleHud
-                )
-                .tag(p)
-            }
+    func makeCoordinator() -> PagerCoordinator { PagerCoordinator(self) }
+
+    func makeUIViewController(context: Context) -> UIPageViewController {
+        let pvc = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal)
+        pvc.dataSource = context.coordinator
+        pvc.delegate = context.coordinator
+        pvc.view.backgroundColor = .clear
+        context.coordinator.show(page, animated: false, in: pvc)
+        return pvc
+    }
+
+    func updateUIViewController(_ pvc: UIPageViewController, context: Context) {
+        context.coordinator.parent = self
+        context.coordinator.refreshSlotContent()
+        context.coordinator.syncExternalPage(in: pvc)
+    }
+}
+
+@MainActor
+final class PagerCoordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+    var parent: MushafPagerView
+    private var current = 0
+    private var slots: [Int: UIHostingController<MushafLazyPageSlot>] = [:]
+
+    init(_ parent: MushafPagerView) { self.parent = parent }
+
+    private func slotView(_ p: Int) -> MushafLazyPageSlot {
+        MushafLazyPageSlot(
+            slotPage: p,
+            currentPage: p,
+            cache: parent.pageCache,
+            db: parent.db,
+            theme: parent.theme,
+            mushafScale: parent.mushafScale,
+            selectedAyah: parent.selectedAyah,
+            hudVisible: parent.hudVisible,
+            onSelectAyah: parent.onSelectAyah,
+            onToggleHud: parent.onToggleHud
+        )
+        // Manually-created hosting controllers do not inherit the SwiftUI
+        // environment — re-assert the app-wide RTL direction for the plate.
+        .environment(\.layoutDirection, .rightToLeft)
+    }
+
+    private func slot(for p: Int) -> UIHostingController<MushafLazyPageSlot> {
+        if let hit = slots[p] { return hit }
+        let stale = slots.keys.filter { abs($0 - current) > 3 }
+        for key in stale { slots[key] = nil }
+        let vc = UIHostingController(rootView: slotView(p))
+        vc.view.backgroundColor = .clear
+        slots[p] = vc
+        return vc
+    }
+
+    func refreshSlotContent() {
+        for (key, vc) in slots { vc.rootView = slotView(key) }
+    }
+
+    func show(_ p: Int, animated: Bool, in pvc: UIPageViewController) {
+        let target = min(max(p, 1), 604)
+        guard target != current else { return }
+        // RTL mushaf: the next page (+1) is the LEFT neighbour, so advancing
+        // slides in from the left (.reverse); going back slides from the right.
+        let direction: UIPageViewController.NavigationDirection = target > current ? .reverse : .forward
+        current = target
+        pvc.setViewControllers([slot(for: target)], direction: direction, animated: animated)
+    }
+
+    func syncExternalPage(in pvc: UIPageViewController) {
+        if parent.page != current {
+            // Single steps animate; slider/index jumps replace instantly.
+            show(parent.page, animated: abs(parent.page - current) == 1, in: pvc)
         }
-        .tabViewStyle(.page(indexDisplayMode: .never))
+    }
+
+    // RTL ordering: a rightward finger swipe reveals the left neighbour = the
+    // NEXT page (+1); a leftward swipe reveals the right neighbour = −1.
+    func pageViewController(_ pvc: UIPageViewController, viewControllerBefore viewController: UIViewController) -> UIViewController? {
+        guard let p = page(of: viewController), p < 604 else { return nil }
+        return slot(for: p + 1)
+    }
+
+    func pageViewController(_ pvc: UIPageViewController, viewControllerAfter viewController: UIViewController) -> UIViewController? {
+        guard let p = page(of: viewController), p > 1 else { return nil }
+        return slot(for: p - 1)
+    }
+
+    func pageViewController(_ pvc: UIPageViewController, didFinishAnimating finished: Bool, previousViewControllers: [UIViewController], transitionCompleted completed: Bool) {
+        guard completed, let vc = pvc.viewControllers?.first, let p = page(of: vc) else { return }
+        current = p
+        if parent.page != p { parent.page = p }
+    }
+
+    private func page(of vc: UIViewController) -> Int? {
+        (vc as? UIHostingController<MushafLazyPageSlot>)?.rootView.slotPage
     }
 }
 
@@ -877,6 +957,102 @@ struct MushafLazyPageSlot: View {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Zoomed (>100%) flow — pure, testable grouping of plate lines into ayah-group
+// paragraph blocks (one block per ayah so a block-level long-press selects it).
+// ---------------------------------------------------------------------------
+
+enum MushafFlowBlock: Identifiable {
+    case surahName(id: Int, text: String)
+    case bismillah(id: Int, text: String)
+    case words(id: Int, items: [MushafRepository.WordPlate])
+
+    var id: Int {
+        switch self {
+        case .surahName(let id, _), .bismillah(let id, _), .words(let id, _): return id
+        }
+    }
+}
+
+enum MushafFlowModel {
+    static let bismillahFallback = "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ"
+
+    static func buildBlocks(from lines: [MushafRepository.MushafLine]) -> [MushafFlowBlock] {
+        var blocks: [MushafFlowBlock] = []
+        var curWords: [MushafRepository.WordPlate] = []
+        var curAyah = 0
+        var nextId = 0
+        func flushWords() {
+            if !curWords.isEmpty {
+                blocks.append(.words(id: nextId, items: curWords))
+                nextId += 1
+                curWords = []
+            }
+        }
+        for line in lines {
+            if line.kind == "surah_name" {
+                flushWords()
+                blocks.append(.surahName(id: nextId, text: line.textAr ?? ""))
+                nextId += 1
+            } else if line.kind == "bismillah" {
+                flushWords()
+                blocks.append(.bismillah(id: nextId, text: line.textAr ?? bismillahFallback))
+                nextId += 1
+            } else if !line.words.isEmpty {
+                for w in line.words {
+                    if w.ayah != curAyah && !curWords.isEmpty {
+                        flushWords()
+                    }
+                    curAyah = w.ayah
+                    curWords.append(w)
+                }
+            }
+        }
+        flushWords()
+        return blocks
+    }
+}
+
+/// Zoomed (>100%) ayah paragraph — pure SwiftUI `Text` sized by the layout pass
+/// itself (no UITextView intrinsic-size guessing, so no one-line collapse).
+private struct MushafAyahFlowText: View {
+    let words: [MushafRepository.WordPlate]
+    let fontSize: CGFloat
+    let theme: SadaqaThemeColors
+    let selectedAyah: Int?
+    let onSelectAyah: (Int) -> Void
+
+    private var paragraph: Text {
+        var flow = Text("")
+        for (idx, w) in words.enumerated() {
+            if idx > 0 { flow = flow + Text(" ") }
+            flow = flow + Text(w.wordText)
+        }
+        return flow
+    }
+
+    var body: some View {
+        paragraph
+            .font(Font(FontRegistry.uthmanicFont(size: fontSize)))
+            .foregroundStyle(theme.mushafText)
+            .multilineTextAlignment(.leading) // RTL env: leading = right edge
+            .lineSpacing(fontSize * 0.42)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 2)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(selectedAyah == words.first?.ayah ? theme.accent.opacity(0.24) : Color.clear)
+            )
+            // Long-press (≈0.45s) selects the paragraph's ayah; a quick tap
+            // falls through to the plate's HUD toggle.
+            .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 18) {
+                HapticsEngine.shared.play(pattern: [20])
+                onSelectAyah(words.first?.ayah ?? 0)
+            }
+    }
+}
+
 struct MushafPlate: View {
     let page: Int
     let lines: [MushafRepository.MushafLine]
@@ -887,18 +1063,6 @@ struct MushafPlate: View {
     let hudVisible: Bool
     let onSelectAyah: (Int) -> Void
     let onToggleHud: () -> Void
-
-    private enum FlowBlock: Identifiable {
-        case surahName(id: Int, text: String)
-        case bismillah(id: Int, text: String)
-        case words(id: Int, items: [MushafRepository.WordPlate])
-
-        var id: Int {
-            switch self {
-            case .surahName(let id, _), .bismillah(let id, _), .words(let id, _): return id
-            }
-        }
-    }
 
     var body: some View {
         GeometryReader { geo in
@@ -942,16 +1106,13 @@ struct MushafPlate: View {
                                     .frame(maxWidth: .infinity, alignment: .center)
                                     .padding(.vertical, 4)
                             case .words(_, let items):
-                                MushafJustifiedTextView(
+                                MushafAyahFlowText(
                                     words: items,
-                                    font: FontRegistry.uthmanicFont(size: fontSize),
-                                    textColor: UIColor(theme.mushafText),
-                                    highlightColor: UIColor(theme.accent).withAlphaComponent(0.24),
+                                    fontSize: fontSize,
+                                    theme: theme,
                                     selectedAyah: selectedAyah,
-                                    onTap: onToggleHud,
-                                    onLongPressAyah: onSelectAyah
+                                    onSelectAyah: onSelectAyah
                                 )
-                                .frame(width: availW)
                             }
                         }
                     }
@@ -979,32 +1140,8 @@ struct MushafPlate: View {
         }
     }
 
-    private func buildFlowBlocks() -> [FlowBlock] {
-        var blocks: [FlowBlock] = []
-        var curWords: [MushafRepository.WordPlate] = []
-        var nextId = 0
-        func flushWords() {
-            if !curWords.isEmpty {
-                blocks.append(.words(id: nextId, items: curWords))
-                nextId += 1
-                curWords = []
-            }
-        }
-        for line in lines {
-            if line.kind == "surah_name" {
-                flushWords()
-                blocks.append(.surahName(id: nextId, text: line.textAr ?? ""))
-                nextId += 1
-            } else if line.kind == "bismillah" {
-                flushWords()
-                blocks.append(.bismillah(id: nextId, text: line.textAr ?? "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ"))
-                nextId += 1
-            } else if !line.words.isEmpty {
-                curWords.append(contentsOf: line.words)
-            }
-        }
-        flushWords()
-        return blocks
+    private func buildFlowBlocks() -> [MushafFlowBlock] {
+        MushafFlowModel.buildBlocks(from: lines)
     }
 
     private func resolveMetrics(availW: CGFloat, slotH: CGFloat, isZoomed: Bool) -> (size: CGFloat, isQpc: Bool) {
@@ -1116,128 +1253,6 @@ struct MushafPlate: View {
                 HapticsEngine.shared.play(pattern: [20])
                 onSelectAyah(w.ayah)
             }
-    }
-}
-
-/// Continuous RTL justified UthmanicHafs1Ver18 text flow for zoomed Mushaf reading (>100%).
-/// Uses TextKit justification + per-word ayah hit-testing so long-press & highlights stay exact.
-private struct MushafJustifiedTextView: UIViewRepresentable {
-    private static let ayahKey = NSAttributedString.Key("SadaqaAyahNumber")
-
-    let words: [MushafRepository.WordPlate]
-    let font: UIFont
-    let textColor: UIColor
-    let highlightColor: UIColor
-    let selectedAyah: Int?
-    let onTap: () -> Void
-    let onLongPressAyah: (Int) -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onTap: onTap, onLongPressAyah: onLongPressAyah)
-    }
-
-    func makeUIView(context: Context) -> UITextView {
-        let tv = UITextView()
-        tv.isEditable = false
-        tv.isSelectable = false
-        tv.isScrollEnabled = false
-        tv.backgroundColor = .clear
-        tv.textContainerInset = .zero
-        tv.textContainer.lineFragmentPadding = 0
-        tv.semanticContentAttribute = .forceRightToLeft
-        tv.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-        let longPress = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleLongPress(_:)))
-        longPress.minimumPressDuration = 0.45
-        tv.addGestureRecognizer(longPress)
-
-        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
-        tv.addGestureRecognizer(tap)
-        return tv
-    }
-
-    func updateUIView(_ tv: UITextView, context: Context) {
-        context.coordinator.onTap = onTap
-        context.coordinator.onLongPressAyah = onLongPressAyah
-
-        let para = NSMutableParagraphStyle()
-        para.alignment = .justified
-        para.baseWritingDirection = .rightToLeft
-        para.lineSpacing = font.pointSize * 0.42
-        para.lineBreakMode = .byWordWrapping
-
-        let attr = NSMutableAttributedString()
-        for (idx, w) in words.enumerated() {
-            if idx > 0 {
-                attr.append(NSAttributedString(string: " ", attributes: [
-                    .font: font,
-                    .foregroundColor: textColor,
-                    .paragraphStyle: para
-                ]))
-            }
-            var attrs: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .foregroundColor: textColor,
-                .paragraphStyle: para,
-                Self.ayahKey: w.ayah
-            ]
-            if selectedAyah == w.ayah {
-                attrs[.backgroundColor] = highlightColor
-            }
-            attr.append(NSAttributedString(string: w.wordText, attributes: attrs))
-        }
-        tv.attributedText = attr
-        tv.invalidateIntrinsicContentSize()
-    }
-
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize {
-        let targetW = proposal.width ?? 320
-        guard let attr = uiView.attributedText, attr.length > 0 else {
-            return CGSize(width: targetW, height: 1)
-        }
-        // UITextView.sizeThatFits measures through the view's own bounds-tracked
-        // container, which is stale during SwiftUI layout passes and returns a
-        // one-line height for the full-page justified paragraph — clipping every
-        // line after the first. Measure the exact attributed string offscreen at
-        // the proposed width instead.
-        let container = NSTextContainer(size: CGSize(width: targetW, height: .greatestFiniteMagnitude))
-        container.lineFragmentPadding = 0
-        let storage = NSTextStorage(attributedString: attr)
-        let lm = NSLayoutManager()
-        storage.addLayoutManager(lm)
-        lm.addTextContainer(container)
-        lm.ensureLayout(for: container)
-        return CGSize(width: targetW, height: ceil(lm.usedRect(for: container).height) + 1)
-    }
-
-    final class Coordinator: NSObject {
-        var onTap: () -> Void
-        var onLongPressAyah: (Int) -> Void
-
-        init(onTap: @escaping () -> Void, onLongPressAyah: @escaping (Int) -> Void) {
-            self.onTap = onTap
-            self.onLongPressAyah = onLongPressAyah
-        }
-
-        @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
-            if recognizer.state == .ended { onTap() }
-        }
-
-        @objc func handleLongPress(_ recognizer: UILongPressGestureRecognizer) {
-            guard recognizer.state == .began, let tv = recognizer.view as? UITextView else { return }
-            let pt = recognizer.location(in: tv)
-            let len = tv.attributedText.length
-            guard len > 0, let pos = tv.closestPosition(to: pt) else { return }
-            let offset = tv.offset(from: tv.beginningOfDocument, to: pos)
-            let clamped = min(max(offset, 0), len - 1)
-            let probes = [clamped, min(clamped + 1, len - 1), max(clamped - 1, 0)]
-            if let ayah = probes.lazy.compactMap({
-                tv.attributedText.attribute(MushafJustifiedTextView.ayahKey, at: $0, effectiveRange: nil) as? Int
-            }).first {
-                HapticsEngine.shared.play(pattern: [20])
-                onLongPressAyah(ayah)
-            }
-        }
     }
 }
 
