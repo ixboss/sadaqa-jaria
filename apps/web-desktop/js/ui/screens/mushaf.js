@@ -12,9 +12,24 @@ import { mountTheme } from '../../main.js';
 
 const pageCache = new Map(); // page -> { lines, words }
 const activeFaces = new Map(); // family -> { page, face, ok }
+const warmedFonts = new Set(); // page numbers whose woff2 has been pre-fetched
+const plateState = new WeakMap(); // plate -> { page, data, flags, isZoomed }
 let pageSurahMap = null; // page (1..604) -> surah name_ar
 let renderSeq = 0;
 let lastPositionBeforeJump = null;
+
+function currentMushafScale() {
+  return Math.min(Math.max(Number(state.settings.mushaf_scale ?? 1) || 1, 0.8), 2);
+}
+
+function warmPageAssets(p) {
+  if (p < 1 || p > 604) return;
+  loadPage(p).catch(() => {});
+  if (!warmedFonts.has(p)) {
+    warmedFonts.add(p);
+    fetch(`assets/fonts/qpc1/p${String(p).padStart(3, '0')}.woff2`).catch(() => {});
+  }
+}
 
 let keyHandler = null;
 
@@ -241,12 +256,14 @@ async function showPage(root, page, direction = 0) {
     saveProgress(page);
     if (direction !== 0 && plates[0]) animateFlip(plates[0], direction);
 
-    // Pre-warm next/prev pages in background
+    // Pre-warm adjacent pages & fonts in background for zero-flicker RTL swipes
     setTimeout(() => {
       if (mySeq !== renderSeq) return;
-      if (page < 604) loadPage(page + 1).catch(() => {});
-      if (page > 1) loadPage(page - 1).catch(() => {});
-    }, 120);
+      warmPageAssets(page + 1);
+      warmPageAssets(page - 1);
+      warmPageAssets(page + 2);
+      warmPageAssets(page - 2);
+    }, 100);
   } catch (err) {
     if (mySeq !== renderSeq) return;
     console.error('[mushaf]', err);
@@ -271,32 +288,69 @@ async function loadPage(p) {
   return pageCache.get(p);
 }
 
-function renderPlate(plate, page, { lines, words }, { pageFontOk = true, bsmlOk = true } = {}) {
+function renderPlate(plate, page, data, flags = {}) {
+  const { lines, words } = data;
+  const { pageFontOk = true, bsmlOk = true } = flags;
+  const isZoomed = currentMushafScale() > 1.01;
+  plateState.set(plate, { page, data, flags: { pageFontOk, bsmlOk }, isZoomed });
+
   const byLine = new Map();
   for (const w of words) {
     if (!byLine.has(w.line_number)) byLine.set(w.line_number, []);
     byLine.get(w.line_number).push(w);
   }
   const slots = Array.from({ length: 15 }, (_, i) => i + 1);
-  plate.innerHTML = slots.map((n) => {
-    const line = lines.find((l) => l.line_number === n);
-    if (!line) return `<div class="mushaf-line kind-blank" data-line="${n}"></div>`;
-    if (line.kind === 'surah_name') {
-      return `<div class="mushaf-line kind-surah_name" data-line="${n}"><span>${escapeHtml(line.text_ar ?? '')}</span></div>`;
+
+  if (isZoomed) {
+    // Above 100%: continuous justified UthmanicHafs1Ver18 flow grouped between Surah/Basmala dividers
+    const html = [];
+    let flowWords = [];
+    const flushFlow = () => {
+      if (!flowWords.length) return;
+      const spans = flowWords.map((w) =>
+        `<span class="mw uthmani-flow" data-ayah="${w.ayah_number}" data-surah="${w.surah ?? ''}" data-nis="${w.number_in_surah}" tabindex="0">${escapeHtml(w.word_text ?? '')}</span>`,
+      ).join(' ');
+      html.push(`<p class="mushaf-flow" dir="rtl">${spans}</p>`);
+      flowWords = [];
+    };
+    for (const n of slots) {
+      const line = lines.find((l) => l.line_number === n);
+      if (!line) continue;
+      if (line.kind === 'surah_name') {
+        flushFlow();
+        html.push(`<div class="mushaf-line kind-surah_name" data-line="${n}"><span>${escapeHtml(line.text_ar ?? '')}</span></div>`);
+      } else if (line.kind === 'bismillah') {
+        flushFlow();
+        html.push(`<div class="mushaf-line kind-bismillah" data-line="${n}"><span class="mw bsml-uthmani">${escapeHtml(line.text_ar ?? 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ')}</span></div>`);
+      } else {
+        const ws = byLine.get(n) ?? [];
+        if (ws.length) flowWords.push(...ws);
+      }
     }
-    if (line.kind === 'bismillah') {
-      const glyphHtml = (bsmlOk && line.glyphs_qpc)
-        ? `<span class="mw bsml">${escapeHtml(line.glyphs_qpc)}</span>`
-        : `<span class="mw bsml-uthmani">${escapeHtml(line.text_ar ?? 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ')}</span>`;
-      return `<div class="mushaf-line kind-bismillah" data-line="${n}">${glyphHtml}</div>`;
-    }
-    const ws = (byLine.get(n) ?? []).map((w) => {
-      const renderText = (pageFontOk && w.glyphs_qpc) ? w.glyphs_qpc : (w.word_text ?? '');
-      const cls = pageFontOk ? 'mw' : 'mw uthmani-fallback';
-      return `<span class="${cls}" data-ayah="${w.ayah_number}" data-surah="${w.surah ?? ''}" data-nis="${w.number_in_surah}" tabindex="0">${escapeHtml(renderText)}</span>`;
+    flushFlow();
+    plate.innerHTML = html.join('');
+  } else {
+    plate.innerHTML = slots.map((n) => {
+      const line = lines.find((l) => l.line_number === n);
+      if (!line) return `<div class="mushaf-line kind-blank" data-line="${n}"></div>`;
+      if (line.kind === 'surah_name') {
+        return `<div class="mushaf-line kind-surah_name" data-line="${n}"><span>${escapeHtml(line.text_ar ?? '')}</span></div>`;
+      }
+      if (line.kind === 'bismillah') {
+        const glyphHtml = (bsmlOk && line.glyphs_qpc)
+          ? `<span class="mw bsml">${escapeHtml(line.glyphs_qpc)}</span>`
+          : `<span class="mw bsml-uthmani">${escapeHtml(line.text_ar ?? 'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ')}</span>`;
+        return `<div class="mushaf-line kind-bismillah" data-line="${n}">${glyphHtml}</div>`;
+      }
+      const ws = (byLine.get(n) ?? []).map((w) => {
+        const renderText = (pageFontOk && w.glyphs_qpc) ? w.glyphs_qpc : (w.word_text ?? '');
+        const cls = pageFontOk ? 'mw' : 'mw uthmani-fallback';
+        return `<span class="${cls}" data-ayah="${w.ayah_number}" data-surah="${w.surah ?? ''}" data-nis="${w.number_in_surah}" tabindex="0">${escapeHtml(renderText)}</span>`;
+      }).join('');
+      return `<div class="mushaf-line kind-text" data-line="${n}">${ws}</div>`;
     }).join('');
-    return `<div class="mushaf-line kind-text" data-line="${n}">${ws}</div>`;
-  }).join('');
+  }
+
   fitLines(plate);
   if (!plate.dataset.wired) {
     plate.dataset.wired = '1';
@@ -309,41 +363,66 @@ function renderPlate(plate, page, { lines, words }, { pageFontOk = true, bsmlOk 
   }
 }
 
-/** Auto-fit: compute uniform plate font-size; when mushaf_scale > 1.05, switch
- *  into zoomed reading layout (proportional scaling + line wrap + vertical scroll)
- *  so verses never clip behind fixed 15-row slots. */
+/** Auto-fit: compute uniform plate font-size + edge-to-edge justification on 15-line
+ *  plates (<=100%), or switch to continuous justified UthmanicHafs1Ver18 flow (>100%). */
 function fitLines(plate) {
   if (!plate.isConnected) return;
   const rect = plate.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) { requestAnimationFrame(() => fitLines(plate)); return; }
-  const scale = Math.min(Math.max(Number(state.settings.mushaf_scale ?? 1) || 1, 0.8), 2);
-  const slotH = rect.height / 15;
-  const base = Math.min(slotH * 0.84, rect.width / 10.8);
-  const isZoomed = scale > 1.05;
-  plate.classList.toggle('zoomed', isZoomed);
-
-  const textLines = [...plate.querySelectorAll('.kind-text, .kind-bismillah')];
-  if (isZoomed) {
-    // Zoomed mode (>105%): direct proportional scaling without slotH/line-width clamping
-    const zoomedSize = Math.max(16, base * scale);
-    plate.style.setProperty('--plate-font-size', `${zoomedSize.toFixed(1)}px`);
-    for (const line of textLines) {
-      line.style.setProperty('--plate-font-size', `${zoomedSize.toFixed(1)}px`);
-    }
+  const scale = currentMushafScale();
+  const isZoomed = scale > 1.01;
+  const st = plateState.get(plate);
+  if (st && st.isZoomed !== isZoomed) {
+    renderPlate(plate, st.page, st.data, st.flags);
     return;
   }
 
-  const plateSize = Math.max(14, Math.min(base * scale, slotH * 0.92));
+  const slotH = rect.height / 15;
+  plate.classList.toggle('zoomed', isZoomed);
+
+  if (isZoomed) {
+    const base = Math.min(slotH * 0.84, rect.width / 11.2);
+    const zoomedSize = Math.max(17, base * scale);
+    plate.style.setProperty('--plate-font-size', `${zoomedSize.toFixed(1)}px`);
+    return;
+  }
+
+  const pageNum = Number(plate.dataset.page ?? 1);
+  const base = Math.min(slotH * 0.88, rect.width / 10.0);
+  let plateSize = Math.max(14, Math.min(base * scale, slotH * 0.92));
   plate.style.setProperty('--plate-font-size', `${plateSize.toFixed(1)}px`);
 
+  const textLines = [...plate.querySelectorAll('.kind-text, .kind-bismillah')];
+  const measureLineWidth = (line, size) => {
+    const children = [...line.children];
+    return children.reduce((s, c) => s + c.getBoundingClientRect().width, 0)
+      + Math.max(0, children.length - 1) * (size * 0.14);
+  };
+
   for (const line of textLines) {
-    line.style.setProperty('--plate-font-size', `${plateSize.toFixed(1)}px`);
+    line.classList.remove('justified');
+    line.style.removeProperty('--plate-font-size');
+  }
+
+  // Uniform shrink across the plate so all 15 lines share one consistent size
+  for (let step = 0; step < 12 && plateSize > 12; step++) {
+    const overflows = textLines.some((line) =>
+      measureLineWidth(line, plateSize) > line.clientWidth - 2 || line.scrollWidth > line.clientWidth + 1,
+    );
+    if (!overflows) break;
+    plateSize = Math.max(12, plateSize * 0.94);
+    plate.style.setProperty('--plate-font-size', `${plateSize.toFixed(1)}px`);
+  }
+
+  for (const line of textLines) {
     let size = plateSize;
-    const childWidth = () => [...line.children].reduce((s, c) => s + c.getBoundingClientRect().width, 0)
-      + Math.max(0, line.children.length - 1) * (size * 0.14);
-    for (let i = 0; i < 10 && (childWidth() > line.clientWidth - 4 || line.scrollWidth > line.clientWidth + 1); i++) {
-      size *= 0.92;
+    for (let i = 0; i < 3 && (measureLineWidth(line, size) > line.clientWidth - 2 || line.scrollWidth > line.clientWidth + 1); i++) {
+      size *= 0.94;
       line.style.setProperty('--plate-font-size', `${size.toFixed(1)}px`);
+    }
+    if (pageNum > 2 && line.classList.contains('kind-text') && line.children.length >= 3) {
+      const naturalW = measureLineWidth(line, size);
+      if (naturalW >= line.clientWidth * 0.58) line.classList.add('justified');
     }
   }
 }
@@ -407,13 +486,27 @@ function escapeHtml(s) {
 function wireStageGestures(root) {
   const stage = root.querySelector('#mushaf-stage');
   const LONG_PRESS_MS = 450;
-  let startX = 0, startY = 0, startT = 0, moved = 0;
+  let startX = 0, startY = 0, startT = 0, moved = 0, activePointerId = null;
   let pressing = false, dragging = false, horiz = null, lpTimer = null, lpFired = false;
+  let snapAnim = null;
 
   const cancelLongPress = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
+  const cancelSnap = () => { if (snapAnim) { snapAnim.cancel(); snapAnim = null; } };
+  const springBack = (fromX) => {
+    cancelSnap();
+    stage.style.transform = '';
+    if (!fromX || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    snapAnim = stage.animate(
+      [{ transform: `translateX(${fromX}px)` }, { transform: 'translateX(0)' }],
+      { duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+    );
+    snapAnim.onfinish = () => { snapAnim = null; };
+  };
 
   stage.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('#mushaf-retry')) return;
+    if (flipping || activePointerId !== null || e.target.closest('#mushaf-retry')) return;
+    cancelSnap();
+    activePointerId = e.pointerId;
     pressing = true; dragging = false; horiz = null; moved = 0; lpFired = false;
     startX = e.clientX; startY = e.clientY; startT = performance.now();
     const word = e.target.closest('.mw[data-ayah]');
@@ -422,14 +515,15 @@ function wireStageGestures(root) {
         lpTimer = null;
         if (!pressing) return;
         lpFired = true;
-        pressing = false; // swallow the rest of this gesture (no drag, no tap)
+        pressing = false;
+        activePointerId = null;
         onAyahLongPress(root, word);
       }, LONG_PRESS_MS);
     }
   });
 
   stage.addEventListener('pointermove', (e) => {
-    if (!pressing) return;
+    if (!pressing || e.pointerId !== activePointerId) return;
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
     if (Math.abs(dx) > 8 || Math.abs(dy) > 8) cancelLongPress();
@@ -439,36 +533,45 @@ function wireStageGestures(root) {
       dragging = true;
       try { stage.setPointerCapture(e.pointerId); } catch { /* already captured */ }
     }
-    moved = dx;
-    const w = stage.getBoundingClientRect().width || 360;
-    const damped = moved * (1 - Math.min(Math.abs(moved) / w, 0.6) * 0.6);
-    stage.style.transform = `translateX(${damped}px)`;
+    const plates = stage.querySelectorAll('.mushaf-plate');
+    const cur = Number(plates[0]?.dataset.page ?? 1);
+    const step = plates.length > 1 ? 2 : 1;
+    const atBoundary = (dx > 0 && cur + step > 604) || (dx < 0 && cur - step < 1);
+    // 1:1 finger tracking across pages; rubber-band only past page 1 / 604 boundaries
+    moved = atBoundary ? dx * 0.22 : dx;
+    stage.style.transform = `translateX(${moved}px)`;
   });
 
-  stage.addEventListener('pointerup', (e) => {
-    if (!pressing) return;
+  const finishPointer = (e, cancelled) => {
+    if (!pressing || (e.pointerId !== undefined && e.pointerId !== activePointerId)) return;
     pressing = false;
+    activePointerId = null;
     cancelLongPress();
     const dt = performance.now() - startT;
     startT = 0;
-    stage.style.transform = '';
-    if (lpFired) { lpFired = false; moved = 0; return; } // long-press already opened the sheet
+    if (lpFired) { lpFired = false; moved = 0; stage.style.transform = ''; return; }
     const w = stage.getBoundingClientRect().width || 360;
     const velocity = Math.abs(moved) / Math.max(dt, 1);
-    if (dragging && (Math.abs(moved) >= w * 0.22 || velocity > 0.11)) {
-      // RTL Arabic Mushaf: page 1 on right; swiping LEFT-TO-RIGHT (moved > 0) turns to NEXT page (+1)
-      flip(root, moved > 0 ? +1 : -1);
-    } else if (!dragging && Math.abs(moved) < 6 && dt < LONG_PRESS_MS) {
-      toggleChrome(); // single tap anywhere — even directly on an ayah — toggles the HUD only
-    }
+    const dragOffset = moved;
+    const wasDragging = dragging;
     moved = 0; dragging = false; horiz = null;
-  });
 
-  stage.addEventListener('pointercancel', () => {
-    pressing = false; dragging = false; horiz = null; moved = 0; startT = 0;
-    cancelLongPress();
-    stage.style.transform = '';
-  });
+    if (!cancelled && wasDragging && (Math.abs(dragOffset) >= w * 0.22 || (velocity > 0.32 && Math.abs(dragOffset) > 14))) {
+      // RTL Arabic Mushaf: page 1 on right; swiping LEFT-TO-RIGHT (dragOffset > 0) turns to NEXT page (+1)
+      const flipped = flip(root, dragOffset > 0 ? +1 : -1, dragOffset);
+      if (!flipped) springBack(dragOffset);
+    } else if (wasDragging) {
+      springBack(dragOffset);
+    } else {
+      stage.style.transform = '';
+      if (!cancelled && Math.abs(dragOffset) < 6 && dt < LONG_PRESS_MS) {
+        toggleChrome(); // single tap anywhere — even directly on an ayah — toggles the HUD only
+      }
+    }
+  };
+
+  stage.addEventListener('pointerup', (e) => finishPointer(e, false));
+  stage.addEventListener('pointercancel', (e) => finishPointer(e, true));
   // long-press must never raise the browser callout / selection UI on the page
   stage.addEventListener('contextmenu', (e) => e.preventDefault());
 }
@@ -616,16 +719,45 @@ function openAppearanceSheet(root) {
 }
 
 let flipping = false;
-function flip(root, dir) {
-  if (flipping) return;
+function flip(root, dir, fromDragOffset = 0) {
+  if (flipping) return false;
+  const stage = root.querySelector('#mushaf-stage');
   const plates = root.querySelectorAll('#mushaf-stage .mushaf-plate');
   const cur = Number(plates[0]?.dataset.page ?? 1);
   const step = plates.length > 1 ? dir * 2 : dir;
   const target = Math.max(1, Math.min(604, cur + step));
-  if (target === cur) return;
+  if (target === cur) return false;
   flipping = true;
   haptic(HAPTICS.pageFlipSettle);
-  showPage(root, target, dir).finally(() => { flipping = false; });
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const finish = async () => {
+    try {
+      if (stage && fromDragOffset !== 0 && !reduced) {
+        const w = stage.getBoundingClientRect().width || 360;
+        const exitX = dir * Math.min(w * 0.55, Math.abs(fromDragOffset) + w * 0.25);
+        await Promise.all([
+          loadPage(target).catch(() => {}),
+          stage.animate(
+            [
+              { transform: `translateX(${fromDragOffset}px)`, opacity: 1 },
+              { transform: `translateX(${exitX}px)`, opacity: 0.35 },
+            ],
+            { duration: 135, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' },
+          ).finished.catch(() => {}),
+        ]);
+        stage.style.transform = '';
+      } else if (stage) {
+        stage.style.transform = '';
+      }
+      await showPage(root, target, dir);
+    } finally {
+      if (stage) stage.style.transform = '';
+      flipping = false;
+    }
+  };
+  finish();
+  return true;
 }
 
 function animateFlip(plate, dir) {
@@ -633,13 +765,13 @@ function animateFlip(plate, dir) {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduced) return;
   const w = plate.getBoundingClientRect().width || 300;
-  // RTL Arabic Mushaf: +1 enters from left (-w * 0.28), -1 enters from right (+w * 0.28)
+  // RTL Arabic Mushaf: +1 enters from left (-w * 0.30), -1 enters from right (+w * 0.30)
   plate.animate(
     [
-      { transform: `translateX(${-dir * w * 0.28}px) scale(0.988)`, opacity: 0.45 },
+      { transform: `translateX(${-dir * w * 0.30}px) scale(0.99)`, opacity: 0.5 },
       { transform: 'translateX(0) scale(1)', opacity: 1 },
     ],
-    { duration: 280, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'backwards' },
+    { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'backwards' },
   );
 }
 
