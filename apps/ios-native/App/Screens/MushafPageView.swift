@@ -1202,9 +1202,10 @@ private struct MushafJustifiedTextView: UIViewRepresentable {
         // the proposed width instead.
         let container = NSTextContainer(size: CGSize(width: targetW, height: .greatestFiniteMagnitude))
         container.lineFragmentPadding = 0
+        let storage = NSTextStorage(attributedString: attr)
         let lm = NSLayoutManager()
+        storage.addLayoutManager(lm)
         lm.addTextContainer(container)
-        lm.addTextStorage(NSTextStorage(attributedString: attr))
         lm.ensureLayout(for: container)
         return CGSize(width: targetW, height: ceil(lm.usedRect(for: container).height) + 1)
     }
