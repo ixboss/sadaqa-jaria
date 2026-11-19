@@ -29,10 +29,12 @@ const electronBin = join(
 async function main() {
   console.log('═══ E2E: Electron desktop shell (IPC SQLite + protocol + tray + isolation) ═══\n');
   if (!existsSync(electronBin)) {
-    // "ناجح صامتاً" كان يخفي تراجعاً في تثبيت Electron داخل CI — يُتخطى فقط
-    // بتصريح صريح، وإلا يفشل (audit 2026-11)
-    if (process.env.SKIP_ELECTRON === '1') {
-      console.log(`(SKIP_ELECTRON=1 — electron binary not found at ${electronBin}; skipped)`);
+    // داخل npm test العام تتقدم الاختبارات على تثبيت تبعيات Electron في CI —
+    // التخطي هو السلوك المحفوظ؛ خطوة CI المخصصة (بعد التثبيت) تفرض الفحص عبر
+    // SADAQA_REQUIRE_ELECTRON=1 فيفشل تراجعُ التثبيت فعلاً (audit 2026-11)
+    const required = process.env.SADAQA_REQUIRE_ELECTRON === '1';
+    if (!required || process.env.SKIP_ELECTRON === '1') {
+      console.log(`(electron binary not found at ${electronBin}; skipped${required ? ' — SKIP_ELECTRON=1 set' : ''})`);
       return;
     }
     console.error(`✗ electron binary not found at ${electronBin} — run: cd apps/electron && npm install`);
