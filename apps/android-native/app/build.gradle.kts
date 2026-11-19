@@ -60,7 +60,7 @@ dependencies {
 
     // JSON (runtime + JVM parity tests)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     // Glance widgets (prayer countdown + daily dhikr)
     implementation("androidx.glance:glance-appwidget:1.1.1")
