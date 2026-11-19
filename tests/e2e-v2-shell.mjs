@@ -148,6 +148,41 @@ async function main() {
     ok(`mushaf: densest page ${dense.page_number} (${dense.c} words) zero overflow + glyphs covered`, pd.fontOk === true && pd.overflow === 0 && pd.words === dense.c, `textLines=${pd.textLines} overflow=${pd.overflow}`);
     await screenshot(`v2-mushaf-dense-${dense.page_number}.png`);
 
+    // 5b. zoomed mode (>100%): continuous flow must lay out the FULL page and
+    //     scroll to the last word — and the HUD must float above the dock
+    await evaljs(`window.__sadaqa.state.settings.mushaf_scale = 1.4`);
+    await goto('#/today'); // re-render so the new scale applies
+    await goto(`#/mushaf/page/${dense.page_number}`);
+    await waitFor(`!!document.querySelector('.mushaf-plate.zoomed')`, { timeout: 30000 });
+    await sleep(400);
+    const zoom = await evaljs(`(() => {
+      const plate = document.querySelector('.mushaf-plate.zoomed');
+      const flows = [...plate.querySelectorAll('.mushaf-flow')];
+      const words = plate.querySelectorAll('.mw').length;
+      const hOver = flows.filter(f => f.scrollWidth > f.clientWidth + 2).length;
+      plate.scrollTop = plate.scrollHeight;
+      const r = plate.getBoundingClientRect();
+      const lastWord = [...plate.querySelectorAll('.mw')].pop()?.getBoundingClientRect();
+      return { words, flowCount: flows.length, hOver,
+        scrollable: plate.scrollHeight > plate.clientHeight,
+        lastVisible: !!lastWord && lastWord.top >= r.top - 2 && lastWord.bottom <= r.bottom + 2,
+        diag: 'sh=' + plate.scrollHeight + ' ch=' + plate.clientHeight + ' top=' + Math.round(plate.scrollTop) + ' connected=' + plate.isConnected + ' rTop=' + Math.round(r.top) + ' rBot=' + Math.round(r.bottom) + ' lastWordTop=' + (lastWord ? Math.round(lastWord.top) : '-') + ' lastWordBot=' + (lastWord ? Math.round(lastWord.bottom) : '-') };
+    })()`);
+    ok('zoomed 140%: full page laid out as justified flow, zero horizontal overflow, scrollable to the last word',
+      zoom.scrollable && zoom.words === dense.c && zoom.hOver === 0 && zoom.lastVisible, `flows=${zoom.flowCount} words=${zoom.words}/${dense.c} hOver=${zoom.hOver} ${zoom.diag}`);
+    await screenshot('v2-mushaf-zoomed.png');
+    await evaljs(`document.body.classList.remove('chrome-hidden')`);
+    await sleep(500);
+    const hudDock = await evaljs(`(() => {
+      const hud = document.querySelector('.mushaf-hud');
+      const dock = document.querySelector('.glass-dock');
+      const h = hud.getBoundingClientRect(), d = dock.getBoundingClientRect();
+      return { above: h.bottom <= d.top + 1, gap: Math.round(d.top - h.bottom) };
+    })()`);
+    ok('mushaf: HUD floats above the Liquid Glass dock (never covers it)', hudDock.above === true, `gap=${hudDock.gap}px`);
+    await evaljs(`window.__sadaqa.state.settings.mushaf_scale = 1`);
+    await goto('#/today'); // restore 100% for the sections below
+
     // 6. ayah LONG-PRESS → highlight + action sheet → tafsir
     //    (single tap toggles the HUD only — the tap must NOT open the sheet)
     await goto('#/mushaf/page/1');

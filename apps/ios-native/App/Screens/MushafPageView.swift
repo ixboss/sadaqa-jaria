@@ -66,8 +66,8 @@ struct MushafPageView: View {
                 }
             }
             .background(hubTab == .reader ? appState.theme.mushafBg : appState.theme.bg)
-            // Full-screen reader: hide the system tab bar while reading
-            .toolbar(hubTab == .reader ? .hidden : .visible, for: .tabBar)
+            // Liquid Glass dock stays visible in the reader; the HUD floats above it
+            .toolbar(.visible, for: .tabBar)
             .onAppear {
                 if let target = appState.targetMushafPage, (1...604).contains(target) {
                     page = target
@@ -1187,12 +1187,26 @@ private struct MushafJustifiedTextView: UIViewRepresentable {
             attr.append(NSAttributedString(string: w.wordText, attributes: attrs))
         }
         tv.attributedText = attr
+        tv.invalidateIntrinsicContentSize()
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize {
         let targetW = proposal.width ?? 320
-        let fit = uiView.sizeThatFits(CGSize(width: targetW, height: .greatestFiniteMagnitude))
-        return CGSize(width: targetW, height: ceil(fit.height))
+        guard let attr = uiView.attributedText, attr.length > 0 else {
+            return CGSize(width: targetW, height: 1)
+        }
+        // UITextView.sizeThatFits measures through the view's own bounds-tracked
+        // container, which is stale during SwiftUI layout passes and returns a
+        // one-line height for the full-page justified paragraph — clipping every
+        // line after the first. Measure the exact attributed string offscreen at
+        // the proposed width instead.
+        let container = NSTextContainer(size: CGSize(width: targetW, height: .greatestFiniteMagnitude))
+        container.lineFragmentPadding = 0
+        let lm = NSLayoutManager()
+        lm.addTextContainer(container)
+        lm.addTextStorage(NSTextStorage(attributedString: attr))
+        lm.ensureLayout(for: container)
+        return CGSize(width: targetW, height: ceil(lm.usedRect(for: container).height) + 1)
     }
 
     final class Coordinator: NSObject {
