@@ -89,10 +89,13 @@ async function main() {
     const ready = await waitFor('window.__sadaqaReady === true', { timeout: 90000 });
     ok('boot: app ready (bridge + opfs-sahpool db + router)', ready === true);
 
-    // 2. shell chrome — unified 4-tab dock (no search orb; search in header/HUD)
-    const chrome = await evaljs(`({ tabs: [...document.querySelectorAll('.glass-tabbar .tab-btn')].map(b => b.textContent.trim()),
-      pill: !!document.getElementById('searchpill'), headerSearch: !!document.getElementById('today-search-btn'), current: document.querySelector('.glass-tabbar .tab-btn[aria-current]')?.dataset.tab })`);
-    ok('shell: 4 primary tabs, no search orb, header search present', chrome.tabs.length === 4 && !chrome.pill && chrome.headerSearch, JSON.stringify(chrome.tabs));
+    // 2. shell chrome — unified 4-tab dock (no search orb; search in header/HUD;
+    //    the desktop rail also carries a بحث item — present in DOM, hidden on mobile)
+    const chrome = await evaljs(`({ tabs: [...document.querySelectorAll('.glass-tabbar .tab-btn[data-tab]')].map(b => b.textContent.trim()),
+      railSearch: !!document.getElementById('rail-search'),
+      pill: !!document.getElementById('searchpill'), headerSearch: !!document.getElementById('today-search-btn'), current: document.querySelector('.glass-tabbar .tab-btn[data-tab][aria-current]')?.dataset.tab })`);
+    ok('shell: 4 primary tabs + rail بحث item, no search orb, header search present',
+      chrome.tabs.length === 4 && chrome.railSearch && !chrome.pill && chrome.headerSearch, JSON.stringify(chrome.tabs));
     ok('shell: اليوم is the default screen', chrome.current === 'today');
 
     // 3. mushaf page 1 — font parity + zero overflow + no missing glyphs

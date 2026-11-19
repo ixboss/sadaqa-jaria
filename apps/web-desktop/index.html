@@ -20,11 +20,15 @@
 <body data-theme="dark">
   <div id="screen-root" aria-live="polite"></div>
 
-  <!-- Liquid Glass control layer: unified 4-tab bottom dock.
-       Search lives in the screen headers + Mushaf HUD, never in the dock. -->
+  <!-- Liquid Glass control layer: unified 4-tab bottom dock (mobile) that
+       becomes a full-height right rail on desktop (>=1024px) — brand mark at
+       top, tabs + search, collapse for distraction-free reading. -->
   <div class="glass-dock" id="glass-dock">
     <nav class="glass-tabbar" id="tabbar" aria-label="التنقل الرئيسي">
       <span class="tab-indicator" id="tab-indicator" aria-hidden="true"></span>
+      <div class="rail-brand" id="rail-brand" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.5A2.5 2.5 0 0 1 4.5 3H11v17H4.5A2.5 2.5 0 0 0 2 22V5.5Z"/><path d="M22 5.5A2.5 2.5 0 0 0 19.5 3H13v17h6.5a2.5 2.5 0 0 1 2.5 2V5.5Z"/><path d="M12 3v17"/></svg>
+      </div>
       <button class="tab-btn" type="button" data-tab="today">
         <span class="tab-ico" aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
@@ -49,8 +53,21 @@
         </span>
         <span class="tab-lbl">الأدوات</span>
       </button>
+      <button class="tab-btn" type="button" id="rail-search" aria-label="بحث شامل" title="بحث في القرآن والأذكار">
+        <span class="tab-ico" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/></svg>
+        </span>
+        <span class="tab-lbl">بحث</span>
+      </button>
+      <button class="rail-collapse" type="button" id="rail-collapse" aria-label="وضع القراءة المركّز" title="إخفاء الشريط">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
     </nav>
   </div>
+
+  <button class="rail-restore" type="button" id="rail-restore" aria-label="إظهار شريط التنقل" hidden>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+  </button>
 
   <!-- شريط قسم المصحف الطافي (قراءتي · الفهرس · ختمتي · التلاوة): يظهر فوق
        الـdock فقط في شاشات قسم المصحف الخارجة عن القارئ نفسه — سهولة وصول

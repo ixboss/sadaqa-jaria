@@ -728,8 +728,12 @@ function openAppearanceSheet(root) {
 }
 
 let flipping = false;
+let pendingFlipDir = 0;
 function flip(root, dir, fromDragOffset = 0) {
-  if (flipping) return false;
+  if (flipping) { // never drop a rapid turn — queue it behind the exit slide
+    pendingFlipDir = dir;
+    return false;
+  }
   const stage = root.querySelector('#mushaf-stage');
   const plates = root.querySelectorAll('#mushaf-stage .mushaf-plate');
   const cur = activePage || Number(plates[0]?.dataset.page ?? 1);
@@ -740,7 +744,11 @@ function flip(root, dir, fromDragOffset = 0) {
   haptic(HAPTICS.pageFlipSettle);
 
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (stage && fromDragOffset !== 0 && !reduced) {
+  const fromDrag = fromDragOffset !== 0;
+  if (stage && !reduced) {
+    // Every page turn slides directionally: drag-release exits from the live
+    // drag offset, button/keyboard turns exit from rest — then the new page
+    // enters via animateFlip's opposite-side slide.
     flipping = true;
     const w = stage.getBoundingClientRect().width || 360;
     const exitX = dir * Math.min(w * 0.55, Math.abs(fromDragOffset) + w * 0.25);
@@ -748,16 +756,21 @@ function flip(root, dir, fromDragOffset = 0) {
       loadPage(target).catch(() => {}),
       stage.animate(
         [
-          { transform: `translateX(${fromDragOffset}px)`, opacity: 1 },
-          { transform: `translateX(${exitX}px)`, opacity: 0.35 },
+          { transform: `translateX(${fromDrag ? fromDragOffset : 0}px)`, opacity: 1 },
+          { transform: `translateX(${exitX}px)`, opacity: fromDrag ? 0.35 : 0.55 },
         ],
-        { duration: 135, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' },
+        { duration: fromDrag ? 135 : 120, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' },
       ).finished.catch(() => {}),
     ]).finally(() => {
       flipping = false;
       if (!root.isConnected) return;
       stage.style.transform = '';
       showPage(root, target, dir);
+      if (pendingFlipDir) { // queued rapid turn (input never locked out mid-transition)
+        const d = pendingFlipDir;
+        pendingFlipDir = 0;
+        flip(root, d);
+      }
     });
   } else {
     if (stage) stage.style.transform = '';

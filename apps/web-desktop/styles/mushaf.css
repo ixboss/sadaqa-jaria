@@ -154,7 +154,7 @@ body:not(.chrome-hidden) .mushaf-plate.zoomed {
 @media (orientation: landscape) and (min-width: 1024px) {
   .mushaf-meta-strip { width: min(100%, 1280px); }
   .mushaf-stage { width: min(100%, 1280px); grid-template-columns: 1fr 1fr; gap: 18px; padding-bottom: 18px; }
-  .mushaf-screen { padding-inline-start: 92px; }
+  .mushaf-screen { padding-inline-start: 96px; }
   .mushaf-plate { height: 100%; }
 }
 
