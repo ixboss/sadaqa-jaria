@@ -21,6 +21,7 @@ const CDP_PORT = Number(process.env.E2E_CDP_PORT || 9237);
 const BROWSER = process.env.E2E_BROWSER || join('C:', 'Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe');
 const BASE = `http://127.0.0.1:${PORT}/apps/web-desktop/index.html`;
 const ARTIFACTS = join(ROOT, 'tests', 'v2-artifacts');
+const DHIKR_PILL_TEXTS = ['لا إله إلا الله', 'سبحان الله وبحمده', 'الحمد لله', 'أستغفر الله', 'اللهم صلِّ على نبينا محمد'];
 
 const results = [];
 const ok = (name, cond, detail = '') => { results.push({ name, pass: !!cond, detail }); console.log(`${cond ? '✔' : '✘'} ${name}${detail ? ` — ${detail}` : ''}`); };
@@ -127,6 +128,19 @@ async function main() {
     ok('hub: Hijri date in header (عام هـ)', /\d+\s+.+?\s+\d+\s+هـ/.test(hub.hijri), hub.hijri);
     ok('hub: smart card rendered with a §9 kind', ['kahf', 'after_prayer', 'qiyam', 'morning', 'evening', 'daily_morning', 'daily_hijri', 'daily_evening', 'daily_sleep'].includes(hub.smart), hub.smart);
     await screenshot('v2p4-today.png');
+
+    // 3b. Today header dhikr pill — renders across from the title, cycles on tap
+    const dhikr = await evaljs(`(() => {
+      const pill = document.getElementById('today-dhikr');
+      return { present: !!pill, text: pill?.textContent.trim() ?? '', inToprow: !!pill?.closest('.today-toprow') };
+    })()`);
+    ok('today: rotating dhikr pill renders in the header (across from title)', dhikr.present === true && dhikr.inToprow && DHIKR_PILL_TEXTS.includes(dhikr.text), dhikr.text);
+    const d0 = await evaljs(`document.getElementById('today-dhikr')?.textContent.trim() ?? ''`);
+    await evaljs(`document.getElementById('today-dhikr')?.click()`);
+    const d1 = await waitFor(
+      `(document.getElementById('today-dhikr')?.textContent.trim() !== ${JSON.stringify(d0)}) ? document.getElementById('today-dhikr').textContent.trim() : null`,
+      { timeout: 3000 });
+    ok('today: tapping the dhikr pill advances to the next dhikr', Boolean(d1) && DHIKR_PILL_TEXTS.includes(d1) && d1 !== d0, `${d0} → ${d1 ?? '(no change)'}`);
 
     // 4. Smart Context-Aware Card matrix — real resolution order, synthetic instants
     const matrix = await evaljs(`(async () => {

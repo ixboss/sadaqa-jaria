@@ -22,6 +22,16 @@ body.reading .screen { padding-bottom: calc(176px + env(safe-area-inset-bottom, 
 }
 .city-pill svg { color: var(--color-accent); flex: none; }
 .city-pill:active { transform: scale(0.97); }
+.today-toprow > div:first-child { min-width: 0; } /* let the date sub wrap on narrow phones */
+.dhikr-pill { color: var(--color-accent); min-width: 0; }
+.dhikr-txt {
+  display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: opacity 330ms var(--ease-standard), transform 330ms var(--ease-standard);
+}
+.dhikr-pill.swapping .dhikr-txt { opacity: 0; transform: translateY(4px); }
+@media (prefers-reduced-motion: reduce) {
+  .dhikr-txt { transform: none; }
+}
 
 .smart-card { position: relative; }
 .smart-card .sc-head {

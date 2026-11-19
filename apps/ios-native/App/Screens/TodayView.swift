@@ -5,11 +5,15 @@
 // ============================================================================
 
 import SwiftUI
+import UIKit
 
 struct TodayView: View {
     @EnvironmentObject var appState: AppState
     @State private var now = Date.nowMs
     @State private var showMonthSchedule = false
+    @State private var dhikrIdx = 0
+
+    private static let dhikrPillTexts = ["لا إله إلا الله", "سبحان الله وبحمده", "الحمد لله", "أستغفر الله", "اللهم صلِّ على نبينا محمد"]
 
     var body: some View {
         NavigationStack {
@@ -33,6 +37,13 @@ struct TodayView: View {
                 while !Task.isCancelled {
                     try? await Task.sleep(nanoseconds: 1_000_000_000)
                     now = Date.nowMs // format-only recompute; engine values stay fixed
+                }
+            }
+            .task {
+                // dhikr pill ambient rotation — 25s cycle, tap advances
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 25_000_000_000)
+                    dhikrIdx = (dhikrIdx + 1) % Self.dhikrPillTexts.count
                 }
             }
             .sheet(isPresented: $showMonthSchedule) { monthScheduleSheet }
@@ -65,6 +76,7 @@ struct TodayView: View {
                     .font(.system(size: 11)).foregroundStyle(appState.theme.textSecondary)
             }
             Spacer()
+            dhikrPill
             NavigationLink { CityPickerView() } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "location.fill").font(.system(size: 11))
@@ -77,6 +89,36 @@ struct TodayView: View {
                 .overlay(Capsule().strokeBorder(appState.theme.border))
             }
         }
+        .animation(.easeInOut(duration: 0.35), value: dhikrIdx)
+    }
+
+    private var dhikrTransition: AnyTransition {
+        UIAccessibility.isReduceMotionEnabled
+            ? .opacity
+            : .opacity.combined(with: .offset(y: 6))
+    }
+
+    // subtle rotating dhikr across from the title — shares the city-pill capsule style
+    private var dhikrPill: some View {
+        Button {
+            dhikrIdx = (dhikrIdx + 1) % Self.dhikrPillTexts.count
+            HapticsEngine.shared.tick()
+        } label: {
+            Text(Self.dhikrPillTexts[dhikrIdx % Self.dhikrPillTexts.count])
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(appState.theme.accent)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(appState.theme.surface)
+                .clipShape(Capsule())
+                .overlay(Capsule().strokeBorder(appState.theme.border))
+                .id(dhikrIdx)
+                .transition(dhikrTransition)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("الذكر التالي"))
     }
 
     // hero — next prayer + Hijri date header

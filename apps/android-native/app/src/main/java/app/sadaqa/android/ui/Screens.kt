@@ -15,9 +15,16 @@ import android.location.LocationManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -122,6 +129,49 @@ fun Modifier.tactilePress(onClick: () -> Unit): Modifier = composed {
 // Today Hub
 // ---------------------------------------------------------------------------
 
+// Today header rotating dhikr pill (same texts as web today.js / iOS TodayView)
+private val DHIKR_PILL_TEXTS = listOf(
+    "لا إله إلا الله", "سبحان الله وبحمده", "الحمد لله", "أستغفر الله", "اللهم صلِّ على نبينا محمد",
+)
+
+@Composable
+private fun DhikrPill() {
+    val theme = LocalSadaqaTheme.current
+    val context = LocalContext.current
+    var dhikrIdx by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(25_000)
+            dhikrIdx = (dhikrIdx + 1) % DHIKR_PILL_TEXTS.size
+        }
+    }
+    AnimatedContent(
+        targetState = dhikrIdx,
+        transitionSpec = {
+            (fadeIn(tween(350)) + slideInVertically(tween(350)) { it / 6 })
+                .togetherWith(fadeOut(tween(350)) + slideOutVertically(tween(350)) { -it / 6 })
+        },
+        label = "dhikr",
+    ) { idx ->
+        Text(
+            DHIKR_PILL_TEXTS[idx % DHIKR_PILL_TEXTS.size],
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = theme.accent,
+            maxLines = 1,
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(theme.surface)
+                .border(1.dp, theme.border, RoundedCornerShape(50))
+                .clickable {
+                    dhikrIdx = (dhikrIdx + 1) % DHIKR_PILL_TEXTS.size
+                    Haptics.tick(context)
+                }
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+        )
+    }
+}
+
 @Composable
 fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Unit = {}) {
     val theme = LocalSadaqaTheme.current
@@ -151,11 +201,16 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
     ) {
         Spacer(Modifier.height(12.dp))
         val hijri = HijriEngine.withAdjust(isoOf(now, opts.timeZone), db.hijriAdjust())
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Column(Modifier.weight(1f)) {
                 Text("اليوم", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
                 Text("${hijri.d} ${HijriEngine.monthNameAr(hijri.m)} ${hijri.y} هـ · ${isoOf(now, opts.timeZone)}", fontSize = 12.sp, color = theme.textSecondary)
             }
+            DhikrPill()
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
