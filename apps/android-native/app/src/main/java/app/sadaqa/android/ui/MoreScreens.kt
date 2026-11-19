@@ -16,7 +16,7 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibility as ComposeAnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -333,7 +333,7 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
                     }
 
                     // Tap-to-toggle Floating Liquid Glass HUD (spring transition)
-                    AnimatedVisibility(
+                    ComposeAnimatedVisibility(
                         visible = hudVisible,
                         enter = fadeIn(spring(stiffness = Spring.StiffnessMedium)) +
                             scaleIn(initialScale = 0.96f, animationSpec = spring(stiffness = Spring.StiffnessMedium)),
