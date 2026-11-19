@@ -6,7 +6,7 @@
 // Runs the v2 app headless (Edge + CDP, same harness as e2e-v2-phase4.mjs).
 // ============================================================================
 import { spawn } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -61,6 +61,10 @@ const pageProbe = `(() => {
 })()`;
 
 async function main() {
+  if (!existsSync(join(ROOT, 'packages', 'core-data', 'build', 'sadaqa.db'))) {
+    console.error('FATAL: packages/core-data/build/sadaqa.db missing — run npm run db:build first (this suite boots the v2 app; CI runs it in the post-build step).');
+    process.exit(1);
+  }
   console.log('═══ E2E: page-turn directional slide (buttons + keyboard) ═══\n');
   const server = spawn(process.execPath, [join(ROOT, 'tests', 'run-server.mjs'), String(PORT)], { stdio: 'ignore' });
   const userDataDir = mkdtempSync(join(tmpdir(), 'e2e-turn-'));
