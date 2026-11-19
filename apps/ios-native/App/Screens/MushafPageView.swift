@@ -1215,7 +1215,10 @@ private struct MushafJustifiedTextView: UIViewRepresentable {
             guard len > 0, let pos = tv.closestPosition(to: pt) else { return }
             let offset = tv.offset(from: tv.beginningOfDocument, to: pos)
             let clamped = min(max(offset, 0), len - 1)
-            if let ayah = tv.attributedText.attribute(MushafJustifiedTextView.ayahKey, at: clamped, effectiveRange: nil) as? Int {
+            let probes = [clamped, min(clamped + 1, len - 1), max(clamped - 1, 0)]
+            if let ayah = probes.lazy.compactMap({
+                tv.attributedText.attribute(MushafJustifiedTextView.ayahKey, at: $0, effectiveRange: nil) as? Int
+            }).first {
                 HapticsEngine.shared.play(pattern: [20])
                 onLongPressAyah(ayah)
             }

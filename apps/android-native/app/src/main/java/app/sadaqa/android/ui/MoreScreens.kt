@@ -87,6 +87,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -304,7 +305,7 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
             "reader" -> {
                 val pagerState = rememberPagerState(initialPage = page - 1, pageCount = { 604 })
                 LaunchedEffect(page) {
-                    if (!pagerState.isScrollInProgress && pagerState.settledPage != page - 1 && pagerState.targetPage != page - 1) {
+                    if (pagerState.settledPage != page - 1 && pagerState.targetPage != page - 1) {
                         pagerState.scrollToPage(page - 1)
                     }
                 }
@@ -912,7 +913,7 @@ private fun MushafPagePlate(
 ) {
     val theme = LocalSadaqaTheme.current
     val context = LocalContext.current
-    val density = LocalDensity.current
+    val baseDensity = LocalDensity.current
     val sample = remember(page, lines) {
         lines.firstOrNull { it.words.isNotEmpty() }?.words?.joinToString("") { it.glyphs } ?: ""
     }
@@ -926,7 +927,10 @@ private fun MushafPagePlate(
     val uthmanicTypeface = remember(context) { QpcFonts.uthmanicTypeface(context) }
     val isZoomed = mushafScale > 1.01f
 
-    BoxWithConstraints(
+    // Mushaf scales solely via mushafScale (0.8–2.0), never double-scaled by app fontScale
+    CompositionLocalProvider(LocalDensity provides Density(baseDensity.density, fontScale = 1f)) {
+        val density = LocalDensity.current
+        BoxWithConstraints(
         Modifier.fillMaxSize()
             .pointerInput(Unit) { detectTapGestures { onToggleHud() } }
             .padding(horizontal = 9.dp, vertical = 2.dp),
@@ -1052,8 +1056,13 @@ private fun MushafPagePlate(
                                         onLongPress = { offset ->
                                             val lr = layoutResult ?: return@detectTapGestures
                                             val idx = lr.getOffsetForPosition(offset)
-                                            annotated.getStringAnnotations("ayah", idx, idx)
-                                                .firstOrNull()?.item?.toIntOrNull()?.let(onSelectAyah)
+                                            val hit = annotated.getStringAnnotations("ayah", idx, idx).firstOrNull()
+                                                ?: annotated.getStringAnnotations(
+                                                    "ayah",
+                                                    (idx - 1).coerceAtLeast(0),
+                                                    (idx + 1).coerceAtMost(annotated.length),
+                                                ).firstOrNull()
+                                            hit?.item?.toIntOrNull()?.let(onSelectAyah)
                                         },
                                     )
                                 },
@@ -1154,6 +1163,7 @@ private fun MushafPagePlate(
                     }
                 }
             }
+        }
         }
     }
 }
