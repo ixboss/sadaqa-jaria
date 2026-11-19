@@ -16,6 +16,7 @@ const warmedFonts = new Set(); // page numbers whose woff2 has been pre-fetched
 const plateState = new WeakMap(); // plate -> { page, data, flags, isZoomed }
 let pageSurahMap = null; // page (1..604) -> surah name_ar
 let renderSeq = 0;
+let activePage = 1;
 let lastPositionBeforeJump = null;
 
 function currentMushafScale() {
@@ -106,6 +107,8 @@ export function renderMushaf(root, { page = null } = {}) {
   const saved = Number(state.progress.page ?? 1);
   const startPage = (Number.isInteger(parsed) && parsed >= 1 && parsed <= 604) ? parsed : (Number.isInteger(saved) && saved >= 1 && saved <= 604 ? saved : 1);
   if (parsed && saved && parsed !== saved) lastPositionBeforeJump = saved;
+  flipping = false;
+  activePage = startPage;
 
   root.innerHTML = `
   <div class="mushaf-screen" id="mushaf-screen">
@@ -181,6 +184,7 @@ async function showPage(root, page, direction = 0) {
   const stage = root.querySelector('#mushaf-stage');
   if (!stage) return;
   if (!Number.isInteger(page) || page < 1 || page > 604) page = 1;
+  activePage = page;
   const mySeq = ++renderSeq;
 
   const slider = root.querySelector('#hud-page-slider');
@@ -487,7 +491,7 @@ function wireStageGestures(root) {
   const stage = root.querySelector('#mushaf-stage');
   const LONG_PRESS_MS = 450;
   let startX = 0, startY = 0, startT = 0, moved = 0, activePointerId = null;
-  let pressing = false, dragging = false, horiz = null, lpTimer = null, lpFired = false;
+  let pressing = false, dragging = false, horiz = null, lpTimer = null;
   let snapAnim = null;
 
   const cancelLongPress = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
@@ -504,17 +508,16 @@ function wireStageGestures(root) {
   };
 
   stage.addEventListener('pointerdown', (e) => {
-    if (flipping || activePointerId !== null || e.target.closest('#mushaf-retry')) return;
+    if (flipping || activePointerId !== null || (e.pointerType === 'mouse' && e.button !== 0) || e.target.closest('#mushaf-retry')) return;
     cancelSnap();
     activePointerId = e.pointerId;
-    pressing = true; dragging = false; horiz = null; moved = 0; lpFired = false;
+    pressing = true; dragging = false; horiz = null; moved = 0;
     startX = e.clientX; startY = e.clientY; startT = performance.now();
     const word = e.target.closest('.mw[data-ayah]');
     if (word) {
       lpTimer = setTimeout(() => {
         lpTimer = null;
         if (!pressing) return;
-        lpFired = true;
         pressing = false;
         activePointerId = null;
         onAyahLongPress(root, word);
@@ -544,12 +547,17 @@ function wireStageGestures(root) {
 
   const finishPointer = (e, cancelled) => {
     if (!pressing || (e.pointerId !== undefined && e.pointerId !== activePointerId)) return;
+    const pid = activePointerId;
     pressing = false;
     activePointerId = null;
     cancelLongPress();
+    if (pid !== null) {
+      try {
+        if (stage.hasPointerCapture?.(pid)) stage.releasePointerCapture(pid);
+      } catch { /* capture already released */ }
+    }
     const dt = performance.now() - startT;
     startT = 0;
-    if (lpFired) { lpFired = false; moved = 0; stage.style.transform = ''; return; }
     const w = stage.getBoundingClientRect().width || 360;
     const velocity = Math.abs(moved) / Math.max(dt, 1);
     const dragOffset = moved;
@@ -572,6 +580,7 @@ function wireStageGestures(root) {
 
   stage.addEventListener('pointerup', (e) => finishPointer(e, false));
   stage.addEventListener('pointercancel', (e) => finishPointer(e, true));
+  stage.addEventListener('lostpointercapture', (e) => finishPointer(e, true));
   // long-press must never raise the browser callout / selection UI on the page
   stage.addEventListener('contextmenu', (e) => e.preventDefault());
 }
@@ -723,40 +732,37 @@ function flip(root, dir, fromDragOffset = 0) {
   if (flipping) return false;
   const stage = root.querySelector('#mushaf-stage');
   const plates = root.querySelectorAll('#mushaf-stage .mushaf-plate');
-  const cur = Number(plates[0]?.dataset.page ?? 1);
+  const cur = activePage || Number(plates[0]?.dataset.page ?? 1);
   const step = plates.length > 1 ? dir * 2 : dir;
   const target = Math.max(1, Math.min(604, cur + step));
   if (target === cur) return false;
-  flipping = true;
+  activePage = target;
   haptic(HAPTICS.pageFlipSettle);
 
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const finish = async () => {
-    try {
-      if (stage && fromDragOffset !== 0 && !reduced) {
-        const w = stage.getBoundingClientRect().width || 360;
-        const exitX = dir * Math.min(w * 0.55, Math.abs(fromDragOffset) + w * 0.25);
-        await Promise.all([
-          loadPage(target).catch(() => {}),
-          stage.animate(
-            [
-              { transform: `translateX(${fromDragOffset}px)`, opacity: 1 },
-              { transform: `translateX(${exitX}px)`, opacity: 0.35 },
-            ],
-            { duration: 135, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' },
-          ).finished.catch(() => {}),
-        ]);
-        stage.style.transform = '';
-      } else if (stage) {
-        stage.style.transform = '';
-      }
-      await showPage(root, target, dir);
-    } finally {
-      if (stage) stage.style.transform = '';
+  if (stage && fromDragOffset !== 0 && !reduced) {
+    flipping = true;
+    const w = stage.getBoundingClientRect().width || 360;
+    const exitX = dir * Math.min(w * 0.55, Math.abs(fromDragOffset) + w * 0.25);
+    Promise.all([
+      loadPage(target).catch(() => {}),
+      stage.animate(
+        [
+          { transform: `translateX(${fromDragOffset}px)`, opacity: 1 },
+          { transform: `translateX(${exitX}px)`, opacity: 0.35 },
+        ],
+        { duration: 135, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' },
+      ).finished.catch(() => {}),
+    ]).finally(() => {
       flipping = false;
-    }
-  };
-  finish();
+      if (!root.isConnected) return;
+      stage.style.transform = '';
+      showPage(root, target, dir);
+    });
+  } else {
+    if (stage) stage.style.transform = '';
+    showPage(root, target, dir);
+  }
   return true;
 }
 

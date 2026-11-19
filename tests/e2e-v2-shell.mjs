@@ -185,6 +185,48 @@ async function main() {
     await screenshot('v2-ayah-sheet.png');
     await evaljs(`document.getElementById('sh-close').click()`);
 
+    // 6b. gesture & flip regressions (lostpointercapture recovery, right-click guard, rapid consecutive flip)
+    const rightClickState = await evaljs(`(async () => {
+      document.body.classList.add('chrome-hidden');
+      const stage = document.getElementById('mushaf-stage');
+      const r = stage.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      stage.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: cx, clientY: cy, pointerId: 9, pointerType: 'mouse', button: 2 }));
+      await new Promise(res => setTimeout(res, 40));
+      stage.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: cx, clientY: cy, pointerId: 9, pointerType: 'mouse', button: 2 }));
+      await new Promise(res => setTimeout(res, 40));
+      return document.body.classList.contains('chrome-hidden');
+    })()`);
+    ok('mushaf: right-click does not toggle HUD', rightClickState === true, `chromeHidden=${rightClickState}`);
+
+    const captureRecovered = await evaljs(`(async () => {
+      document.body.classList.add('chrome-hidden');
+      const stage = document.getElementById('mushaf-stage');
+      const r = stage.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      stage.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: cx, clientY: cy, pointerId: 10, pointerType: 'touch', button: 0 }));
+      stage.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: cx + 28, clientY: cy, pointerId: 10, pointerType: 'touch', button: 0 }));
+      stage.dispatchEvent(new PointerEvent('lostpointercapture', { bubbles: true, pointerId: 10 }));
+      await new Promise(res => setTimeout(res, 30));
+      stage.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: cx, clientY: cy, pointerId: 11, pointerType: 'touch', button: 0 }));
+      await new Promise(res => setTimeout(res, 40));
+      stage.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: cx, clientY: cy, pointerId: 11, pointerType: 'touch', button: 0 }));
+      await new Promise(res => setTimeout(res, 80));
+      const toggled = !document.body.classList.contains('chrome-hidden');
+      document.body.classList.add('chrome-hidden');
+      return toggled;
+    })()`);
+    ok('mushaf: lostpointercapture resets drag state so subsequent taps work', captureRecovered === true);
+
+    await goto('#/mushaf/page/5');
+    await waitFor(`document.querySelectorAll('.mushaf-plate[data-page="5"] .mw').length > 0`, { timeout: 30000 });
+    await evaljs(`(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    })()`);
+    const landed7 = await waitFor(`!!document.querySelector('.mushaf-plate[data-page="7"]')`, { timeout: 10000 });
+    ok('mushaf: rapid consecutive flips advance 5 -> 7 without stalling on flipping lock', landed7 === true);
+
     // 7. universal search (FTS) — diacritic-insensitive
     await goto('#/today');
     await evaljs(`window.__sadaqa.renderSearchSheet()`);
