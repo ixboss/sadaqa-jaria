@@ -844,8 +844,9 @@ private struct MushafPagerView: UIViewControllerRepresentable {
     }
 }
 
+// fileprivate: holds the private MushafPagerView struct as `parent`
 @MainActor
-final class PagerCoordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+private final class PagerCoordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
     var parent: MushafPagerView
     private var current = 0
     private var slots: [Int: UIHostingController<MushafLazyPageSlot>] = [:]

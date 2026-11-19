@@ -680,9 +680,9 @@ class TodayProgressTests {
 
         assertEquals(3, windows.size)
         assertEquals(listOf("الصباح", "المساء", "النوم"), windows.map { it.titleAr })
-        assertEquals(1 to 2, windows[0].completed to windows[0].total, "i10 done (count==target), i11 3/7 not")
+        assertEquals("i10 done (count==target), i11 3/7 not", 1 to 2, windows[0].completed to windows[0].total)
         assertEquals(1 to 1, windows[1].completed to windows[1].total)
-        assertEquals(0 to 1, windows[2].completed to windows[2].total, "i30 has no state row yet")
+        assertEquals("i30 has no state row yet", 0 to 1, windows[2].completed to windows[2].total)
     }
 
     @Test
@@ -692,8 +692,8 @@ class TodayProgressTests {
         val states = listOf(st("i10", 2), st("i90", 2))
         val windows = TodayProgress.compute(categories, items, states)
 
-        assertEquals(1, windows.size, "only fajr/asr/isha windows with items are shown")
-        assertEquals(1, windows[0].completed, "count_target 0 -> any tap completes")
+        assertEquals("only fajr/asr/isha windows with items are shown", 1, windows.size)
+        assertEquals("count_target 0 -> any tap completes", 1, windows[0].completed)
         assertEquals(1, windows[0].total)
     }
 }
