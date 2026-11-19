@@ -16,7 +16,10 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility as ComposeAnimatedVisibility
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -104,6 +107,18 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+
+// Top-level AnimatedVisibility wrapper outside ColumnScope/RowScope so BoxScope call sites
+// do not trigger Kotlin's ColumnScope.AnimatedVisibility implicit-receiver ambiguity.
+@Composable
+private fun OverlayAnimatedVisibility(
+    visible: Boolean,
+    enter: EnterTransition,
+    exit: ExitTransition,
+    content: @Composable AnimatedVisibilityScope.() -> Unit,
+) {
+    AnimatedVisibility(visible = visible, enter = enter, exit = exit, content = content)
+}
 
 // ---------------------------------------------------------------------------
 // Mushaf Hub — المصحف | قراءاتي وختمتي | الفهرس
@@ -333,7 +348,7 @@ fun MushafScreen(db: SadaqaDb, onNavigateMain: (String) -> Unit = {}, onOpenSear
                     }
 
                     // Tap-to-toggle Floating Liquid Glass HUD (spring transition)
-                    ComposeAnimatedVisibility(
+                    OverlayAnimatedVisibility(
                         visible = hudVisible,
                         enter = fadeIn(spring(stiffness = Spring.StiffnessMedium)) +
                             scaleIn(initialScale = 0.96f, animationSpec = spring(stiffness = Spring.StiffnessMedium)),
