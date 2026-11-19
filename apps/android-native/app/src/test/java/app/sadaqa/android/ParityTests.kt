@@ -206,7 +206,7 @@ class BackupCodecParityTest {
         assertEquals("integrity digest over payload bytes", app.sadaqa.android.data.Sha256.hex(payloadJson), manifest["integrity"]!!.str)
         val verdict = BackupCodec.validateBackup(manifest, CanonicalJson.parse(payloadJson))
         assertTrue("validator refuses web export: ${verdict.errors.take(3)}", verdict.ok)
-        assertEquals(5, verdict.counts["reading"])
+        assertEquals(7, verdict.counts["reading"]) // 2026-11: +2 khatmahPageLog in golden fixture
         assertEquals(7, verdict.counts["dhikr"])
         assertEquals(2, verdict.counts["prefs"])
         assertEquals(2, verdict.counts["meta"])
@@ -467,7 +467,7 @@ class DbRoundTripTest {
             // the clean golden export still imports — digest over canonical
             // bytes equals the web golden's (cross-target byte parity)
             val clean = db.importBackup(CanonicalJson.serialize(Obj(mapOf("manifest" to manifest, "payload" to parsed))), "merge")
-            assertEquals(16, clean.added)
+            assertEquals(18, clean.added)
         } finally {
             db.close()
         }

@@ -190,7 +190,7 @@ final class BackupCodecParityTests: XCTestCase {
         let verdict = BackupCodec.validateBackup(manifest: manifest, payload: try JSONValue.parse(payloadJson))
         XCTAssertTrue(verdict.ok, "validator refuses web export: \(verdict.errors.prefix(3))")
         let counts = verdict.counts
-        XCTAssertEqual(counts["reading"], 5, "reading entity count")
+        XCTAssertEqual(counts["reading"], 7, "reading entity count; 2026-11: +2 khatmahPageLog")
         XCTAssertEqual(counts["dhikr"], 7, "dhikr entity count")
         XCTAssertEqual(counts["prefs"], 2, "prefs entity count")
         XCTAssertEqual(counts["meta"], 2, "meta entity count")
