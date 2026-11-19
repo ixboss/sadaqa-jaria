@@ -171,11 +171,11 @@ _netrc
 
 
 # ----------------------------------------------------------------------------
-#  Package managers — present ONLY to guard against accidental commits
+#  Package managers — guard against accidental commits
 # ----------------------------------------------------------------------------
-#  This project has no dependencies and no build step. If you find yourself
-#  creating any of these, something has gone wrong — see README.md
-#  "Dependencies" and CONTRIBUTING.md "Contributions We Cannot Accept".
+#  Root package-lock.json IS committed on purpose: CI installs with `npm ci`,
+#  and a missing or drifted lock breaks every tag build (2026-11 release).
+#  Other lockfiles (yarn/pnpm/bun) stay ignored; node_modules never lands.
 
 node_modules/
 yarn.lock
