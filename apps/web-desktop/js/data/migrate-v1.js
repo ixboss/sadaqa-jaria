@@ -24,8 +24,12 @@ export async function runV1Migration(db) {
     report.imported.push('theme');
   }
   const font = num(localStorage.getItem('font_scale'));
-  if (font && font >= 0.8 && font <= 2.5) {
-    await saveSetting('font_scale', font);
+  // v1 يخزّن font_scale نسبةً مئوية (٨٠–٢٠٠ مثل "130") بينما v2 معامل
+  // (0.8–2.5) — الحدّان القدامى كانا ترفض كل قيمة موجبة فتضيع تفضيل
+  // المستخدم في كل ترحيل (audit 2026-11)
+  const fontRatio = font && font >= 80 && font <= 200 ? font / 100 : (font && font >= 0.8 && font <= 2.5 ? font : null);
+  if (fontRatio) {
+    await saveSetting('font_scale', fontRatio);
     report.imported.push('font_scale');
   }
   const tasbihCount = num(localStorage.getItem('tasbihCount'));

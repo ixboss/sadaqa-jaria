@@ -24,13 +24,17 @@ import android.net.Uri
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
+import androidx.glance.appwidget.updateAll
 import app.sadaqa.android.R
 import app.sadaqa.android.SadaqaApp
 import app.sadaqa.android.data.SadaqaDb
 import app.sadaqa.android.engine.PrayerName
 import app.sadaqa.android.engine.PrayerEngine
 import app.sadaqa.android.engine.PrayerEngine.daySchedule
+import app.sadaqa.android.widget.DhikrWidget
+import app.sadaqa.android.widget.PrayerCountdownWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -69,6 +73,7 @@ object Haptics {
 object AdhanScheduler {
 
     const val CHANNEL_ID = "adhan"
+    const val NOTIF_ID = 0xADA
     private const val REQUEST_BASE = 0x5ADAA
 
     fun scheduleNext(context: Context, db: SadaqaDb) {
@@ -131,6 +136,29 @@ object AdhanScheduler {
             }
         }
     }
+
+    /** Fire-and-forget prayer notification (default sound) — used directly by
+     *  AdhanReceiver when the foreground service cannot start (inexact-alarm
+     *  fallback, audit 2026-11: never drop the prayer silently). */
+    fun postPrayerNotification(context: Context, prayer: String) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_ID, context.getString(R.string.adhan_channel), NotificationManager.IMPORTANCE_HIGH),
+        )
+        val label = PrayerName.of(prayer)?.labelAr ?: prayer
+        nm.notify(
+            NOTIF_ID,
+            NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setContentTitle("الأذان — $label")
+                .setContentText("حان الآن وقت صلاة $label")
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setDefaults(NotificationCompat.DEFAULT_SOUND)
+                .setAutoCancel(true)
+                .build(),
+        )
+    }
 }
 
 class BootTimeReceiver : BroadcastReceiver() {
@@ -147,6 +175,8 @@ class BootTimeReceiver : BroadcastReceiver() {
                 val db = app.awaitDbOrNull() ?: return@launch
                 AdhanScheduler.scheduleNext(context, db)
                 WidgetStateBridge.publish(context, db)
+                runCatching { PrayerCountdownWidget.updateAll(context) }
+                runCatching { DhikrWidget.updateAll(context) }
             } finally {
                 pending.finish()
             }
@@ -157,8 +187,32 @@ class BootTimeReceiver : BroadcastReceiver() {
 class AdhanReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val prayer = intent.getStringExtra("prayer") ?: return
-        val service = Intent(context, AdhanService::class.java).putExtra("prayer", prayer)
-        context.startForegroundService(service)
+        // Inexact-alarm fallback: startForegroundService throws when the system
+        // blocks background FGS start (audit 2026-11) — post the prayer
+        // notification directly instead of crashing the receiver.
+        runCatching {
+            context.startForegroundService(
+                Intent(context, AdhanService::class.java).putExtra("prayer", prayer),
+            )
+        }.onFailure {
+            AdhanScheduler.postPrayerNotification(context, prayer)
+        }
+        // Re-arm the chain: schedule the next adhan alarm + refresh widgets —
+        // without this the adhan fires once and stops until app reopen/reboot
+        // (audit 2026-11).
+        val app = context.applicationContext as? SadaqaApp ?: return
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val db = app.awaitDbOrNull() ?: return@launch
+                runCatching { AdhanScheduler.scheduleNext(context, db) }
+                runCatching { WidgetStateBridge.publish(context, db) }
+                runCatching { PrayerCountdownWidget.updateAll(context) }
+                runCatching { DhikrWidget.updateAll(context) }
+            } finally {
+                pending.finish()
+            }
+        }
     }
 }
 
@@ -216,10 +270,12 @@ class AdhanService : Service() {
         }
     }
 
-    /** Bundled adhan clip from assets (shipped by the sync script). */
+    /** Bundled adhan clip from assets (shipped by the sync script). With no
+     *  custom clip installed, fall back to the system alarm sound — a missing
+     *  file must never silence the adhan (audit 2026-11, never fabricate audio). */
     private fun bundledAdhanUri(): Uri? = runCatching {
         val file = File(getExternalFilesDir(null), "adhan.mp3").takeIf { it.exists() }
-            ?: return@runCatching null
+            ?: return@runCatching Settings.System.DEFAULT_ALARM_ALERT_URI
         Uri.fromFile(file)
     }.getOrNull()
 
@@ -232,7 +288,7 @@ class AdhanService : Service() {
     override fun onBind(intent: Intent?) = null
 
     private companion object {
-        const val NOTIF_ID = 0xADA
+        const val NOTIF_ID = AdhanScheduler.NOTIF_ID
     }
 }
 
@@ -309,7 +365,7 @@ object WidgetStateBridge {
         // morning-window item is queried HERE and handed over via prefs.
         val dhikr = runCatching {
             db.queryOne(
-                "SELECT text_ar FROM athkar_items WHERE category_id = (SELECT category_id FROM athkar_categories WHERE solar_window = ? LIMIT 1) ORDER BY sort_order LIMIT 1",
+                "SELECT text_ar FROM athkar_items WHERE category_id = (SELECT category_id FROM athkar_categories WHERE solar_window = ? ORDER BY sort_order LIMIT 1) ORDER BY sort_order LIMIT 1",
                 listOf("fajr"),
             )?.strings?.get("text_ar")
         }.getOrNull() ?: ""

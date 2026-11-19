@@ -1,10 +1,14 @@
 // ==================== Service Worker — إسلامي ====================
+// v59: HTML من جيل الكاش نفسه (بلا إعادة تحقق خلفية) حتى لا يعمل «HTML جديد
+//      مع JS قديم» أثناء انتظار موافقة المستخدم على التحديث؛ مطابقة أصول
+//      حرفية للنطاقات (لا includes) وقصر الفرع الافتراضي على أصل التطبيق —
+//      منع تسميم الكاش عبر نطاقات مزيّفة (audit 2026-11).
 // v58: rebrand splash + About card + mushaf-scale honored by page fit (index.html, features.js, app-core.js)
 // v57: STATIC_CACHE يشتق من CACHE_NAME (ينتقل مع كل إصدار) — يمنع «HTML جديد
 //      مع JS قديم» بعد النشر؛ إخفاق التخزين المسبق يُبلَّغ للصفحة بدل تجاهله.
 // سابقاً v54: استراتيجية التحديث prompt — العامل الجديد ينتظر حتى يوافق المستخدم
 //      (رسالة SKIP_WAITING من sw-register.js)، فلا تنقطع جلسة قراءة نشطة أبداً.
-const CACHE_NAME = 'quran-app-v58';
+const CACHE_NAME = 'quran-app-v59';
 const API_CACHE = 'quran-api-v52';
 // يتدرج مع CACHE_NAME تلقائياً — لا يبقى ثابتاً عبر الإصدارات (skew fix)
 const STATIC_CACHE = CACHE_NAME.replace('quran-app', 'static');
@@ -117,13 +121,14 @@ self.addEventListener('fetch', event => {
   }
 
   // خطوط المصحف والواجهة (Google Fonts): Cache first مع تحديث خلفي لضمان عمل الرسم العثماني بلا إنترنت
-  if (FONT_ORIGINS.some(origin => url.hostname.includes(origin))) {
+  // مطابقة نطاق حرفية: *.api.alquran.cloud.evil.com لا يجوز أن يمر عبر كاشنا (audit 2026-11)
+  if (FONT_ORIGINS.some(origin => url.hostname === origin)) {
     event.respondWith(cacheFirstWithTimeout(event.request, STATIC_CACHE, 6000));
     return;
   }
 
   // API requests: Cache first, fall back to network
-  if (url.hostname.includes(API_ORIGIN)) {
+  if (url.hostname === API_ORIGIN) {
     event.respondWith(cacheFirstWithTimeout(event.request, API_CACHE, 5000));
     return;
   }
@@ -135,14 +140,22 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // HTML pages: Network first for freshness
-  if (url.pathname.endsWith('.html') || url.pathname.endsWith('/')) {
-    event.respondWith(networkFirstWithFallback(event.request, CACHE_NAME));
+  // HTML pages: من الكاش أولاً بلا إعادة تحقق خلفية — يتقاسم HTML وJS وCSS جيل
+  // الكاش نفسه (CACHE_NAME)، فلا يعمل «HTML جديد مع JS قديم» أثناء انتظار
+  // موافقة المستخدم على التحديث؛ الجيلان يتبادلان معاً عند التفعيل (audit 2026-11)
+  // نفس قيد أصل التطبيق كما في الفرع الافتراضي — لا اعتراض لعناصر HTML خارجية
+  if (url.origin === self.location.origin && (url.pathname.endsWith('.html') || url.pathname.endsWith('/'))) {
+    event.respondWith(cacheFirstNoRevalidate(event.request, CACHE_NAME, 5000));
     return;
   }
 
-  // Default: Network first
-  event.respondWith(networkFirstWithFallback(event.request, CACHE_NAME));
+  // Default: Network first — للطلبات من أصل التطبيق فقط؛ أي طلب خارجي آخر
+  // يمر للمتصفح مباشرة ولا يُخزَّن في كاشنا إطلاقاً (منع تسميم الكاش، audit 2026-11)
+  if (url.origin === self.location.origin) {
+    event.respondWith(networkFirstWithFallback(event.request, CACHE_NAME));
+    return;
+  }
+  // بلا respondWith: يترك المتصفح الطلب الأصلي يعبر كما هو
 });
 
 // ==================== Helper Functions ====================
@@ -154,8 +167,28 @@ function isCacheableResponse(response) {
   return !!(response && (response.ok || response.type === 'opaque') && response.status !== 206);
 }
 
-async function cacheFirstWithTimeout(request, cacheName, timeout = 3000) {
+// مثل cacheFirstWithTimeout لكن بلا إعادة تحقق خلفية — HTML يجب أن يبقى في
+// جيله مع JS/CSS المخزّنة حتى موافقة التحديث؛ إعادة التحقق الخلفية كانت ستُدخل
+// HTML النسخة الجديدة في جيل قديم حي فتُعيد فتح باب عدم الاتساق (audit 2026-11)
+async function cacheFirstNoRevalidate(request, cacheName, timeout = 5000) {
   try {
+    const cache = await caches.open(cacheName);
+    const cached = await cache.match(request);
+    if (cached) return cached;
+
+    const response = await fetchWithTimeout(request, timeout);
+    if (isCacheableResponse(response)) {
+      cache.put(request, response.clone()).catch(() => {});
+    }
+    return response;
+  } catch (err) {
+    const cached = await caches.match(request).catch(() => null);
+    if (cached) return cached;
+    return new Response('لا يوجد اتصال بالإنترنت', { status: 503 });
+  }
+}
+
+async function cacheFirstWithTimeout(request, cacheName, timeout = 3000) {  try {
     const cache = await caches.open(cacheName);
     const cached = await cache.match(request);
 

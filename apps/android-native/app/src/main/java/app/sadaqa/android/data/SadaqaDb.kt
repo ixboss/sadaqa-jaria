@@ -31,6 +31,14 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         /** meta.schema_version baseline (schema.sql:42) — read on every open. */
         const val SCHEMA_VERSION = 1
 
+        /** Setting keys whose change re-publishes widget state + re-arms adhan
+         *  alarms (audit 2026-11: every write fired the refresh — a mushaf_scale
+         *  slider drag re-scheduled exact alarms on each tick). Keys starting
+         *  with "notification"/"adhan" are included forward-compatibly. */
+        private val PRAYER_SETTING_KEYS = setOf(
+            "location", "calc_method", "madhab", "high_latitude_rule", "prayer_offsets", "hijri_adjust",
+        )
+
         /**
          * In-place migrations keyed on meta.schema_version. v1 is the seed
          * baseline; a db written by a NEWER build is never touched (downgrade
@@ -334,7 +342,9 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
 
     fun setSetting(key: String, value: JsonValue, now: Long = System.currentTimeMillis()) {
         execute("INSERT INTO user_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", listOf(key, CanonicalJson.serialize(value), now))
-        WidgetNotifier.prayersChanged()
+        if (key in PRAYER_SETTING_KEYS || key.startsWith("notification") || key.startsWith("adhan")) {
+            WidgetNotifier.prayersChanged()
+        }
     }
 
     fun engineOptions(): EngineOptions {
@@ -344,7 +354,10 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         return EngineOptions(
             lat = loc["lat"].dbl ?: defaults.lat,
             lng = loc["lng"].dbl ?: defaults.lng,
-            timeZone = loc["timeZone"].str ?: defaults.timeZone,
+            // web location settings write `tz` (geo.js) — Android's own writes use
+            // `timeZone`; tolerate both (audit 2026-11: web-imported backups hit
+            // the default Riyadh tz otherwise).
+            timeZone = loc["timeZone"].str ?: loc["tz"].str ?: defaults.timeZone,
             method = setting("calc_method")?.str ?: "umm_al_qura",
             madhab = setting("madhab")?.str ?: "shafi",
             highLatitudeRule = setting("high_latitude_rule")?.str ?: "middle_of_the_night",
@@ -458,6 +471,12 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         connection.close()
     }
 
+    /** Privacy: the `location` setting's exact gps fix is device-local — it is
+     *  stripped from backups (export AND import merge-snapshots), keeping
+     *  cityId/lat/lng/tz/name_ar. Parity: web ENT.setting (audit 2026-11). */
+    private fun exportedSettingValue(key: String, value: JsonValue): JsonValue =
+        if (key == "location" && value is JsonValue.Obj) JsonValue.Obj(value.fields - "gps") else value
+
     fun deviceId(): String = transaction {
         setting("device_id")?.str?.let { return@transaction it }
         val id = UUID7.uuid7()
@@ -522,6 +541,18 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
             "active" to Bool(flag(r, "active")),
             "createdAt" to jsonOf(r, "created_at"),
         )))
+        for (r in query("SELECT * FROM khatmah_page_log")) {
+            val planUuid = r.strings["plan_uuid"] ?: ""
+            val page = r.longs["page"] ?: 0L
+            reading.add(Obj(mapOf(
+                "uuid" to Str(UUID7.synthUuid7("pageLog:$planUuid:$page", now)),
+                "type" to Str("khatmahPageLog"),
+                "updatedAt" to jsonOf(r, "completed_at"),
+                "planUuid" to Str(planUuid),
+                "page" to jsonOf(r, "page"),
+                "completedAt" to jsonOf(r, "completed_at"),
+            )))
+        }
         for (r in query("SELECT * FROM adhkar_state")) {
             val itemId = r.strings["item_id"] ?: ""
             val dayKey = r.strings["day_key"] ?: ""
@@ -558,7 +589,10 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         for (r in query("SELECT * FROM user_settings WHERE key <> ?", listOf("device_id"))) {
             val key = r.strings["key"] ?: ""
             // safeParse parity: unparseable stored values export as the raw STRING (web backup.js)
-            val value = r.strings["value"]?.let { raw -> runCatching { CanonicalJson.parse(raw) }.getOrDefault(Str(raw)) } ?: Null
+            val value = exportedSettingValue(
+                key,
+                r.strings["value"]?.let { raw -> runCatching { CanonicalJson.parse(raw) }.getOrDefault(Str(raw)) } ?: Null,
+            )
             prefs.add(Obj(mapOf(
                 "uuid" to Str(UUID7.synthUuid7("setting:$key", now)),
                 "type" to Str("setting"),
@@ -655,6 +689,18 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
             "dailyPages" to jsonOf(r, "daily_pages"), "active" to Bool(flag(r, "active")),
             "createdAt" to jsonOf(r, "created_at"),
         )))
+        for (r in query("SELECT * FROM khatmah_page_log")) {
+            val planUuid = r.strings["plan_uuid"] ?: ""
+            val page = r.longs["page"] ?: 0L
+            val synthUuid = UUID7.synthUuid7("pageLog:$planUuid:$page", now)
+            val e = Obj(mapOf(
+                "uuid" to Str(synthUuid),
+                "type" to Str("khatmahPageLog"), "updatedAt" to jsonOf(r, "completed_at"),
+                "planUuid" to Str(planUuid), "page" to jsonOf(r, "page"),
+                "completedAt" to jsonOf(r, "completed_at"),
+            ))
+            local.getOrPut("reading") { mutableMapOf() }[synthUuid] = e
+        }
         for (r in query("SELECT * FROM adhkar_state")) {
             val itemId = r.strings["item_id"] ?: ""
             val dayKey = r.strings["day_key"] ?: ""
@@ -681,7 +727,10 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         )))
         for (r in query("SELECT * FROM user_settings WHERE key <> ?", listOf("device_id"))) {
             val key = r.strings["key"] ?: ""
-            val value = r.strings["value"]?.let { raw -> runCatching { CanonicalJson.parse(raw) }.getOrDefault(Str(raw)) } ?: Null
+            val value = exportedSettingValue(
+                key,
+                r.strings["value"]?.let { raw -> runCatching { CanonicalJson.parse(raw) }.getOrDefault(Str(raw)) } ?: Null,
+            )
             val synthUuid = UUID7.synthUuid7("setting:$key", now)
             val e = Obj(mapOf(
                 "uuid" to Str(synthUuid),
@@ -709,6 +758,9 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
                 // Full Replace — fixed, parameterless wipe of every backed-up
                 // table (device-local backup_log survives by design). The
                 // statements are spelled out constants, never built from input.
+                // khatmah_page_log FIRST: children of khatmah_plans are deleted
+                // before the parent (FK on plan_uuid — web backup.js parity).
+                execute("DELETE FROM khatmah_page_log")
                 execute("DELETE FROM bookmarks")
                 execute("DELETE FROM highlights")
                 execute("DELETE FROM notes")
@@ -719,8 +771,14 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
                 execute("DELETE FROM streak_days")
                 execute("DELETE FROM user_settings WHERE key <> ?", listOf("device_id"))
             }
+            // page logs after plans (FK on plan_uuid), sessions last — parent
+            // before child (web backup.js rank parity).
             val orderedMutations = result.mutations.sortedBy {
-                if (it.entity["type"].str == "tasbihSession") 1 else 0
+                when (it.entity["type"].str) {
+                    "khatmahPageLog" -> 1
+                    "tasbihSession" -> 2
+                    else -> 0
+                }
             }
             for (m in orderedMutations) apply(m.entity)
             val report = Obj(mapOf(
@@ -749,6 +807,7 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
             "tasbihSession" -> execute("INSERT INTO tasbih_sessions (uuid, counter_uuid, count_delta, occurred_at) VALUES (?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET count_delta = excluded.count_delta, occurred_at = excluded.occurred_at", listOf<Any?>(uuid, e["counterUuid"].str ?: "", (e["countDelta"].int ?: 1).toLong(), e["occurredAt"].long ?: 0L))
             "adhkarState" -> execute("INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(item_id, day_key) DO UPDATE SET count = excluded.count, completed_at = excluded.completed_at, updated_at = excluded.updated_at", listOf<Any?>(e["itemId"].str ?: "", e["dayKey"].str ?: "", (e["count"].int ?: 0).toLong(), e["completedAt"].long, updatedAt))
             "streakDay" -> execute("INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)", listOf<Any?>(e["kind"].str ?: "", e["dayKey"].str ?: "", updatedAt))
+            "khatmahPageLog" -> execute("INSERT INTO khatmah_page_log (plan_uuid, page, completed_at) VALUES (?, ?, ?) ON CONFLICT(plan_uuid, page) DO UPDATE SET completed_at = excluded.completed_at", listOf<Any?>(e["planUuid"].str ?: "", (e["page"].int ?: 1).toLong(), e["completedAt"].long ?: updatedAt))
             "setting" -> {
                 val key = e["key"].str ?: ""
                 if (key == "device_id") return

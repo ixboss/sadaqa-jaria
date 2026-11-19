@@ -103,11 +103,16 @@ const BackupManager = {
           return this.isPlainObject(value);
         case 'islamic_bookmarks':
           // الشكل الفعلي لـ BookmarkManager: { surahs: { ... }, verses: [ ... ] }
+          // مفاتيح السور وقيم الآيات أرقام صحيحة فقط — تُدرَج لاحقاً حرفياً داخل
+          // onclick، فالمفتاح النصي الغريب = حقن شيفرة (audit 2026-11).
           if (this.isPlainObject(value)) {
             const hasKnownKey = ('surahs' in value) || ('verses' in value);
             if (!hasKnownKey) return false;
-            const sOk = value.surahs === undefined || this.isPlainObject(value.surahs);
-            const vOk = value.verses === undefined || (Array.isArray(value.verses) && value.verses.every(v => this.isPlainObject(v) && typeof +v.surah === 'number' && !isNaN(+v.surah)));
+            const sOk = value.surahs === undefined || (this.isPlainObject(value.surahs) &&
+              Object.keys(value.surahs).every(k => /^\d+$/.test(k) && +k >= 1 && +k <= 114));
+            const vOk = value.verses === undefined || (Array.isArray(value.verses) && value.verses.every(v => this.isPlainObject(v)
+              && Number.isInteger(+v.surah) && +v.surah >= 1 && +v.surah <= 114
+              && Number.isInteger(+v.ayah) && +v.ayah >= 1 && +v.ayah <= 286));
             return sOk && vOk;
           }
           // توافق عكسي مع شكل المصفوفة القديم (إن وُجد في نسخ سابقة أو اختبارات)
@@ -115,9 +120,20 @@ const BackupManager = {
         case 'athkar_favs':
           return Array.isArray(value) && value.every(f => typeof f === 'string');
         case 'custom_athkar':
-          return Array.isArray(value) && value.every(it => this.isPlainObject(it) && typeof it.text === 'string');
+          // count رقم صحيح بسيط — يُدرَج نصاً في قالب HTML فلا يجوز أن يمرّ
+          // سلسلة عشوائية (audit 2026-11)
+          return Array.isArray(value) && value.every(it => this.isPlainObject(it) && typeof it.text === 'string'
+            && (it.count === undefined || (Number.isInteger(Number(it.count)) && Number(it.count) >= 0 && Number(it.count) <= 100000)));
         case 'prayer_config':
-          return this.isPlainObject(value);
+          // إعداد تالف كان يُسقط مُذكِّر المواقيت في حلقة أخطاء كل ثانية:
+          // lat/lng حقيقيان داخل المدى + منطقة زمنية قابلة للحل (audit 2026-11)
+          if (!this.isPlainObject(value)) return false;
+          if (!Number.isFinite(value.lat) || value.lat < -90 || value.lat > 90) return false;
+          if (!Number.isFinite(value.lng) || value.lng < -180 || value.lng > 180) return false;
+          if (value.iana !== undefined) {
+            try { new Intl.DateTimeFormat('en-US', { timeZone: value.iana }); } catch (e) { return false; }
+          }
+          return true;
         default:
           return false;
       }
@@ -282,6 +298,12 @@ const BackupManager = {
   async importFromFile(file) {
     let text;
     try {
+      // سقف حجم معقول: ملفات أكبر ليست نسخاً احتياطية لهذا التطبيق — منع استنزاف
+      // الذاكرة بتحليل JSON عملاق (audit 2026-11)
+      if (file.size > 10 * 1024 * 1024) {
+        if (window.showAppDialog) await window.showAppDialog('الملف أكبر من الحد المسموح (١٠ م.ب) — ليس نسخة احتياطية صالحة.', false);
+        return false;
+      }
       text = await file.text();
     } catch (e) {
       if (window.showAppDialog) await window.showAppDialog('تعذّر قراءة الملف المختار.', false);
@@ -318,11 +340,37 @@ const BackupManager = {
     const confirmed = window.showAppDialog ? await window.showAppDialog(confirmMsg, true) : false;
     if (!confirmed) return false;
 
-    this.apply(result.data);
+    // لقطة أمان ما قبل الاستعادة: إن فشلت كتابة بعض المفاتيح (حصة ممتلئة /
+    // تخزين خاص) نُبلغ بدل الادعاء بالنجاح، وتظل بيانات ما قبل الاستعادة
+    // محفوظة محلياً للرجوع إليها (audit 2026-11). نحفظ الأخيرة فقط: اللقطات
+    // الأقدم تُحذف حتى لا تتراكم حتى نفاد الحصة (review 2026-11).
+    let snapshotKey = null;
+    try {
+      const stale = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf('islami_pre_restore_') === 0) stale.push(k);
+      }
+      stale.forEach((k) => localStorage.removeItem(k));
+      snapshotKey = `islami_pre_restore_${Date.now()}`;
+      localStorage.setItem(snapshotKey, JSON.stringify(this.build().payload));
+    } catch (e) { snapshotKey = null; }
+
+    const { failed } = this.apply(result.data);
+    if (failed.length) {
+      const names = failed.map(k => this.LABELS[k] || k).join('، ');
+      if (window.showAppDialog) {
+        await window.showAppDialog(
+          `تعذّر استعادة ${this.esc(String(failed.length))} مفتاح (قد تكون الحصة ممتلئة): ${this.esc(names)}.` +
+          `<br><span style="font-size:calc(var(--font-size) * 0.5); color:var(--text-dim)">لم يُعَد تحميل التطبيق؛ بيانات ما قبل الاستعادة لم تُمس.</span>`, false);
+      }
+      return false;
+    }
 
     if (window.showAppDialog) {
       await window.showAppDialog(
         `تمت الاستعادة بنجاح.<br>` +
+        (snapshotKey ? `<span style="font-size:calc(var(--font-size) * 0.5); color:var(--text-dim)">حُفظت نسخة من بياناتك السابقة محلياً (${this.esc(snapshotKey)}).</span><br>` : '') +
         `<span style="font-size:calc(var(--font-size) * 0.5); color:var(--text-dim)">يُعاد تحميل التطبيق الآن…</span>`, false);
     }
 

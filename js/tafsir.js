@@ -114,7 +114,10 @@ const TafsirManager = (() => {
 
     const bodyEl = sh.querySelector('#tafsir-sheet-body');
     if (!bodyEl) return;
-    if (tafsirText) bodyEl.textContent = tafsirText;
+    // نص فارغ/فراغات فقط (آية ٢٨:٣٤ في المصدر) → رسالة صريحة بدل بطاقة بيضاء
+    // — لا يُخترع نص بديل للمحتوى الديني (audit 2026-11)
+    if (tafsirText && String(tafsirText).trim().length > 0) bodyEl.textContent = tafsirText;
+    else if (tafsirText) bodyEl.textContent = 'التفسير غير متوفر لهذه الآية (فراغ في بيانات المصدر).';
     else bodyEl.textContent = 'تعذّر تحميل التفسير حالياً. تأكد من اتصالك بالإنترنت عند أول قراءة لتخزينه تلقائياً.';
 
     sh.querySelector('#tafsir-copy-btn')?.addEventListener('click', async () => {

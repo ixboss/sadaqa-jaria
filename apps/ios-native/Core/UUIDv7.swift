@@ -94,16 +94,18 @@ public enum CanonicalJSON {
         }
     }
 
-    /// Keys sorted; the `.sadaqa` top-level groups get the golden's fixed
-    /// payload order (reading, dhikr, prefs, meta — backup.js insertion order)
-    /// so payload bytes match the web exporter byte-for-byte.
+    /// Keys sorted alphabetically (web backup-merge.js sortKeys) — EXCEPT
+    /// group-map objects (all keys ∈ {reading, dhikr, prefs, meta}), which get
+    /// the golden's fixed payload order. That is exactly the payload top level
+    /// (and the payload child inside the .sadaqa wrapper, so the file's payload
+    /// bytes stay identical to the hashed payload bytes). Deeper objects —
+    /// entities, nested setting values — sort purely alphabetically.
     static func sortedKeys(_ o: [String: JSONValue]) -> [String] {
         let priority: [String: Int] = ["reading": 0, "dhikr": 1, "prefs": 2, "meta": 3]
-        return o.keys.sorted {
-            let pa = priority[$0], pb = priority[$1]
-            if pa != nil || pb != nil { return (pa ?? 99) < (pb ?? 99) }
-            return $0 < $1
+        if !o.isEmpty, o.keys.allSatisfy({ priority[$0] != nil }) {
+            return o.keys.sorted { (priority[$0] ?? 99) < (priority[$1] ?? 99) }
         }
+        return o.keys.sorted { $0 < $1 }
     }
 
     /// JS JSON.stringify number formatting for the finite values backups use
@@ -124,6 +126,8 @@ public enum CanonicalJSON {
             case "\n": out += "\\n"
             case "\r": out += "\\r"
             case "\t": out += "\\t"
+            case "\u{08}": out += "\\b" // JSON.stringify short escapes — digests must match
+            case "\u{0C}": out += "\\f"
             default:
                 if scalar.value < 0x20 {
                     out += String(format: "\\u%04x", scalar.value)

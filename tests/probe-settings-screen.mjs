@@ -4,7 +4,7 @@
  * Run: node tests/probe-settings-screen.mjs   →  writes tests/settings-screen.png
  */
 import { spawn } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFileSync } from 'node:fs';
@@ -49,6 +49,13 @@ try {
   const shot = await send('Page.captureScreenshot', { format: 'png' });
   writeFileSync(OUT, Buffer.from(shot.data, 'base64'));
   console.log('saved', OUT);
+  // كان يلتقط لقطة فقط بلا أي تأكيد — الآن يفشل إذا غابت الشاشة/الصف أو
+  // كانت اللقطة فارغة تقريباً (audit 2026-11)
+  const backupEl = await send('Runtime.evaluate', { expression: `!!document.querySelector('.settings-backup-row')`, returnByValue: true });
+  const size = statSync(OUT).size;
+  const ok = backupEl?.result?.value === true && size > 2000;
+  console.log(`${ok ? '✓' : '✗'} settings screen: backup row present=${backupEl?.result?.value}, screenshot bytes=${size}`);
+  if (!ok) process.exitCode = 1;
 } finally {
   browser.kill();
 }

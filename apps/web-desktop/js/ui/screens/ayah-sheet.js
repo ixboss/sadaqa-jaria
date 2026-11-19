@@ -45,8 +45,11 @@ export function renderAyahSheet(ayahNumber) {
 
     host.querySelector('#ay-tafsir').addEventListener('click', async () => {
       const t = await state.db.queryOne(`SELECT body FROM tafsirs WHERE book_id = 'muyassar' AND ayah_number = ?`, [ayahNumber]);
+      // نص فارغ/فراغات فقط (بطاقة آية ٢٨:٣٤ في المصدر) → حالة «غير متوفر»
+      // صريحة بدل بطاقة بيضاء فارغة — لا يُخترع نص بديل (audit 2026-11)
+      const body = (typeof t?.body === 'string' && t.body.trim().length > 0) ? t.body : 'غير متوفر في هذه النسخة.';
       host.querySelector('#ay-extra').innerHTML = `<h3 style="font-size:14px;color:var(--color-text-secondary)">التفسير الميسر</h3>
-        <div class="tafsir-body">${escapeHtml(t?.body ?? 'غير متوفر في هذه النسخة.')}</div>`;
+        <div class="tafsir-body">${escapeHtml(body)}</div>`;
     });
     host.querySelector('#ay-mutashabihat').addEventListener('click', async () => {
       const rows = await state.db.query(`SELECT m.similar_ayah, m.note_ar, a.text_uthmani, a.surah, a.number_in_surah

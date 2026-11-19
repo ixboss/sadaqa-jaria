@@ -18,6 +18,12 @@ import { getGpsFix, persistLocation } from '../geo.js';
 
 const fmtClock = (ms, tz) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
 
+/** تهريب القيم القادمة من الإعدادات المستوردة/المستخدم قبل قوالب innerHTML —
+ * هذا الملف لم يكن فيه مهريب أصلاً (audit 2026-11). */
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 const TOOLS = [
   { screen: 'tools-qibla', icon: 'qibla', name: 'اتجاه القبلة', sub: 'بوصلة تعمل دون اتصال + قرص يدوي' },
   { screen: 'tools-hijri', icon: 'calendar', name: 'التقويم الهجري', sub: 'الأشهر والأيام البيض والمناسبات' },
@@ -32,7 +38,7 @@ export function renderTools(root) {
   const themeLabel = { dark: 'داكنة', light: 'فاتحة', sepia: 'ورقية', night: 'ليلية' }[state.settings.theme ?? 'dark'] ?? 'داكنة';
   root.innerHTML = `
   <div class="screen">
-    <div class="screen-header"><h1>الأدوات</h1><div class="sub">${loc} · سمة ${themeLabel}</div></div>
+      <div class="screen-header"><h1>الأدوات</h1><div class="sub">${escapeHtml(loc)} · سمة ${themeLabel}</div></div>
     <div id="tool-list" class="tools-bento">${TOOLS.map((t) => `
       <div class="tool-tile" data-screen="${t.screen}" role="button" tabindex="0" aria-label="${t.name}">
         <span class="t-icon">${iconSvg(t.icon, 20)}</span>
@@ -315,7 +321,7 @@ export function renderZakat(root) {
     <div class="screen-header"><h1>حاسبة الزكاة</h1><div class="sub">الزكاة ٢.٥٪ · الحولان تحسبها بنفسك — الأسعار تُدخل يدوياً (لا أسعار حية)</div></div>
     <div class="card">
       ${F.map(([k, label]) => `
-        <div class="field"><label>${label}</label><input id="z-${k}" type="number" min="0" step="any" inputmode="decimal" value="${saved[k] ?? ''}"></div>`).join('')}
+        <div class="field"><label>${label}</label><input id="z-${k}" type="number" min="0" step="any" inputmode="decimal" value="${escapeHtml(saved[k] ?? '')}"></div>`).join('')}
       <div class="field"><label>معيار النصاب</label>
         <select id="z-nisab">
           <option value="silver" ${(saved.nisab ?? state.settings.nisab_standard) === 'silver' ? 'selected' : ''}>الفضة — ٥٩٥ غرام (أكثر احتياطاً)</option>
@@ -442,7 +448,7 @@ export async function renderSettings(root) {
     </div>
     <div class="card">
       <h3 style="margin:0 0 8px;font-size:15px">الموقع</h3>
-      <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:8px" id="s-loc-current">الحالي: ${loc.name_ar ?? 'مكة المكرمة'} (${loc.lat?.toFixed(3) ?? '21.423'}, ${loc.lng?.toFixed(3) ?? '39.826'})</div>
+      <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:8px" id="s-loc-current">الحالي: ${escapeHtml(loc.name_ar ?? 'مكة المكرمة')} (${loc.lat?.toFixed(3) ?? '21.423'}, ${loc.lng?.toFixed(3) ?? '39.826'})</div>
       <button class="btn primary" id="s-gps-btn" style="width:100%;margin-bottom:10px">${iconSvg('location', 16)}<span>تحديد الموقع تلقائياً (GPS)</span></button>
       <div class="field"><label>ابحث في مدن التطبيق (تعمل دون اتصال — ٦,٢٨٩ مدينة)</label>
         <input id="s-city" class="search-input" placeholder="اكتب اسم المدينة" autocomplete="off"></div>
@@ -533,7 +539,7 @@ export async function renderSettings(root) {
     results.innerHTML = rows.length === 0
       ? `<div class="mode-note">لا نتائج — جرّب بدون "ال" أو بصيغة أقصر.</div>`
       : rows.slice(0, 12).map((r) => `<div class="result-item" data-city="${r.city_id}" role="button" tabindex="0">
-          <div style="font-weight:600">${r.name_ar}</div><div class="meta">${r.country_ar} · ${r.lat.toFixed(2)}, ${r.lng.toFixed(2)} · ${r.timezone}</div>
+          <div style="font-weight:600">${escapeHtml(r.name_ar)}</div><div class="meta">${escapeHtml(r.country_ar)} · ${r.lat.toFixed(2)}, ${r.lng.toFixed(2)} · ${escapeHtml(r.timezone)}</div>
         </div>`).join('');
     for (const el of results.querySelectorAll('[data-city]')) {
       const pick = () => {

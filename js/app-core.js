@@ -133,7 +133,10 @@ let state = { currentTab: 'quran', currentScreen: 'surah-list', previousScreen: 
 // features.js يقرأ window.state و window.Motion فلا بد من كشفهما صراحةً
 // (الكائن يُعدَّل بالمرجع نفسه ولا يُعاد إسناده، فالمرجع المشترك يبقى صالحاً).
 window.state = state;
-let allSurahs = [];
+// var وليس let: المستهلكون في features.js/khatmah.js يقرؤون window.allSurahs
+// — و let العلوية في السكربتات الكلاسيكية لا تنشئ خاصية على window، فبقيت
+// القائمة فارغة دائماً في بطاقة فهرس السور (audit 2026-11)
+var allSurahs = [];
 let contentArea, searchBar, clearBtn;
 
 /* ==================== Motion Engine ==================== */
@@ -319,7 +322,14 @@ window.Motion = Motion;
 function loadState() {
   try {
     const s = localStorage.getItem('app_state');
-    if (s) Object.assign(state, JSON.parse(s));
+    if (s) {
+      const parsed = JSON.parse(s);
+      // نسخة احتياطية مزيّفة بمفتاح __proto__ كانت تُبدّل نموذج كائن الحالة
+      // عبر Object.assign — انسخ المفاتيح المعروفة فقط (audit 2026-11)
+      Object.keys(parsed).forEach((k) => {
+        if (k !== '__proto__' && k !== 'constructor') state[k] = parsed[k];
+      });
+    }
     if(!state.scrollPositions) state.scrollPositions = {};
   } catch(e) {}
   // حقول الجلسة: لا معنى لها بعد إقلاع جديد — previousScreen القديم يُفشل
@@ -335,8 +345,34 @@ function saveState() {
   try {
     localStorage.setItem('app_state', JSON.stringify(state, (k, v) => (k === 'currentSurahData' ? undefined : v)));
     checkBookmarkFAB();
-  } catch(e) {}
+  } catch(e) {
+    // نفاد الحصة: حرّر ذاكرة صفحات المصحف (q_p_u_* — قابلة لإعادة الجلب من
+    // الشبكة) وأعد المحاولة مرة واحدة، وإلا استمر التقدم بلا حفظ صامتاً
+    // (audit 2026-11)
+    try {
+      const drops = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf('q_p_u_') === 0) drops.push(k);
+      }
+      drops.forEach((k) => localStorage.removeItem(k));
+      localStorage.setItem('app_state', JSON.stringify(state, (k, v) => (k === 'currentSurahData' ? undefined : v)));
+      checkBookmarkFAB();
+      if (window.Toast) Toast.show('تم تحرير مساحة التخزين (ذاكرة صفحات المصحف) وإعادة الحفظ');
+    } catch (e2) { console.warn('[state] save failed even after freeing page cache:', e2 && e2.name); }
+  }
 }
+
+// تزامن بين التبويبات: تبويب آخر حفظ app_state — تبنَّ تقدم الختمة فقط حتى لا
+// يعيد التبويب القديم كتابة تقدم أقدم ويضيّع التحديث (last-write-wins،
+// audit 2026-11). الحقول الأخرى تبقى محلية لتفادي وميض الواجهة أثناء القراءة.
+window.addEventListener('storage', (e) => {
+  if (e.key !== 'app_state' || !e.newValue || !window.state) return;
+  try {
+    const inc = JSON.parse(e.newValue);
+    if (inc && inc.khatmah) window.state.khatmah = inc.khatmah;
+  } catch (err) {}
+});
 
 function applyTheme(th) {
   state.theme = th;
@@ -855,7 +891,11 @@ async function loadSurahList() {
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     const res = await fetch('https://api.alquran.cloud/v1/surah', { signal: controller.signal });
     clearTimeout(timeoutId);
-    allSurahs = (await res.json()).data;
+    const j = await res.json();
+    // استجابة الخطأ (429/5xx) تعود JSON صالحاً بلا بيانات — اعتبرها فشلاً حتى
+    // يدخل مسار الاحتياط المحلي بدل تعطيل قائمة السور نهائياً (audit 2026-11)
+    if (!res.ok || !Array.isArray(j.data) || !j.data.length) throw new Error(`surah list unavailable (HTTP ${res.status})`);
+    allSurahs = j.data;
   } catch(e) {
     // fallback محلي: بيانات السور الحقيقية (أسماء + عدد الآيات) تعمل دون إنترنت
     allSurahs = (window.SURAH_META && SURAH_META.length) ? SURAH_META : SURAHS_DATA;
@@ -939,7 +979,9 @@ function highlightQuery(escapedText, query) {
 function renderSurahList(list, query = '') {
   document.getElementById('surah-list-container').innerHTML = list.map(s => {
     const nameHtml = highlightQuery(escHtml(s.name), query);
-    return `<div class="surah-row" data-magnetic onclick="openSurah(${s.number})"><div class="surah-num">${toArabicNum(s.number)}</div><div class="surah-info"><div class="surah-name">${nameHtml}</div><div class="surah-meta">${toArabicNum(s.numberOfAyahs)} آية</div></div></div>`;
+    // أرقام فقط داخل onclick — استجابة API مخترقة أو كاش مسموم لا يصبح حقناً
+    // (audit 2026-11)
+    return `<div class="surah-row" data-magnetic onclick="openSurah(${parseInt(s.number, 10) || 0})"><div class="surah-num">${toArabicNum(s.number)}</div><div class="surah-info"><div class="surah-name">${nameHtml}</div><div class="surah-meta">${toArabicNum(s.numberOfAyahs)} آية</div></div></div>`;
   }).join('');
   Motion.staggerIn(document.getElementById('surah-list-container'));
   // أعد استخدام المراقب الدائم للعناصر الجديدة (بدل إنشاء مراقب لكل ضغطة)
@@ -1004,7 +1046,7 @@ function renderAyahSearchResults(hits, query) {
     return;
   }
   box.innerHTML = `<div class="section-heading">نتائج الآيات (${toArabicNum(hits.length)})</div>` +
-    hits.map(h => `<div class="surah-row" data-magnetic onclick="openSurah(${h.s}, ${h.a})">
+    hits.map(h => `<div class="surah-row" data-magnetic onclick="openSurah(${parseInt(h.s, 10) || 0}, ${parseInt(h.a, 10) || 0})">
       <div class="surah-num">${toArabicNum(h.s)}</div>
       <div class="surah-info">
         <div class="surah-name" style="font-size:calc(var(--font-size) * 0.62)">${highlightQuery(escHtml(snippetAroundMatch(h.t, query)), query)}</div>
@@ -1634,6 +1676,9 @@ window.openMushafPage = async function(page) {
   window.selectedAyahNo = null;
   // إن كانت ختمة جارية فالرابط يعيدها إلى قارئ الختمة (نفس الرابط الموحّد)
   if (state.khatmah && state.khatmah.currentPage) {
+    // نفس ضمان مسار المرجعية (openSurahFromBookmark): جدولة اليوم أولاً —
+    // ثم تربط الصفحة المطلوبة صراحةً فوق أساس الجدولة (audit 2026-11)
+    checkMissedDays();
     state.khatmah.currentPage = M.clampPage(page); saveState();
     window.openKhatmahReader();
     return;
@@ -1895,16 +1940,6 @@ async function copyAyah(d) {
   if (!d) return false;
   const surahName = (state.currentSurah && state.currentSurah.name) || `سورة ${d.surah}`;
   return copyTextToClipboard(`${d.text}\nسورة ${surahName} — آية ${toArabicNum(d.ayah)}`);
-}
-
-// معالج نقر الآيات (مفوَّض على الحاويات الدائمة)
-function onAyahClick(e) {
-  // تجاهل النقر أثناء تحديد المستخدم للنص يدوياً حتى يبقى النسخ الأصلي متاحاً
-  const sel = window.getSelection ? window.getSelection().toString() : '';
-  if (sel) return;
-  const ayah = e.target.closest('.ayah');
-  if (!ayah) return;
-  selectAyah(ayah, false);
 }
 
 // تنبيه عابر خفيف (بديل للحوار الثقيل لرسائل مثل "تم النسخ")

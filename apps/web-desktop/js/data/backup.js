@@ -25,10 +25,22 @@ const ENT = {
   tasbihSession: (r) => ({ uuid: r.uuid, type: 'tasbihSession', updatedAt: r.occurred_at, counterUuid: r.counter_uuid, countDelta: r.count_delta, occurredAt: r.occurred_at }),
   // synthetic ids take the export clock (`now`) so an export is deterministic
   // and byte-stable for a fixed clock (native parity fixtures rely on it).
-  setting: (r, now) => ({ uuid: synthUuid7('setting:' + r.key, now), type: 'setting', updatedAt: r.updated_at, key: r.key, value: safeParse(r.value) }),
+  setting: (r, now) => {
+    const value = safeParse(r.value);
+    // الخصوصية: إحداثيات GPS الدقيقة لا تُصدَّر في ملف النسخة الاحتياطية —
+    // تبقى على الجهاز فقط؛ المدينة المختارة (cityId/lat/lng/tz) تُصدَّر كما هي
+    // (audit 2026-11). iOS/Android يطبّقان الاستبعاد نفسه في BackupCodec.
+    if (r.key === 'location' && value && typeof value === 'object') delete value.gps;
+    return { uuid: synthUuid7('setting:' + r.key, now), type: 'setting', updatedAt: r.updated_at, key: r.key, value };
+  },
 };
 
 const safeParse = (v) => { try { return JSON.parse(v); } catch { return v; } };
+
+/** page-log row → payload entity (natural key (plan,page) → deterministic synth uuid). */
+function pageLogEntity(r, now) {
+  return { uuid: synthUuid7('pageLog:' + r.plan_uuid + ':' + r.page, now), type: 'khatmahPageLog', updatedAt: r.completed_at, planUuid: r.plan_uuid, page: r.page, completedAt: r.completed_at };
+}
 
 function adhkarEntity(r, now) {
   return { uuid: synthUuid7(`adhkar:${r.item_id}:${r.day_key}`, now), type: 'adhkarState', updatedAt: r.updated_at, itemId: r.item_id, dayKey: r.day_key, count: r.count, completedAt: r.completed_at };
@@ -58,11 +70,12 @@ async function deviceId(db) {
 // EXPORT
 // ---------------------------------------------------------------------------
 export async function buildExportPayload(db, now = Date.now()) {
-  const [bookmarks, highlights, notes, plans, adhkar, counters, sessions, streaks, settings] = await Promise.all([
+  const [bookmarks, highlights, notes, plans, pageLogs, adhkar, counters, sessions, streaks, settings] = await Promise.all([
     db.query(`SELECT * FROM bookmarks`),
     db.query(`SELECT * FROM highlights`),
     db.query(`SELECT * FROM notes`),
     db.query(`SELECT * FROM khatmah_plans`),
+    db.query(`SELECT * FROM khatmah_page_log`),
     db.query(`SELECT * FROM adhkar_state`),
     db.query(`SELECT * FROM tasbih_counters`),
     db.query(`SELECT * FROM tasbih_sessions`),
@@ -71,7 +84,7 @@ export async function buildExportPayload(db, now = Date.now()) {
   ]);
   const remap = (fn) => (r) => { const e = fn(r); e.uuid = v7(e.uuid, now); return e; };
   const payload = toPayloadGroups({
-    reading: [...bookmarks.map(remap(ENT.bookmark)), ...highlights.map(remap(ENT.highlight)), ...notes.map(remap(ENT.note)), ...plans.map(remap(ENT.khatmahPlan))],
+    reading: [...bookmarks.map(remap(ENT.bookmark)), ...highlights.map(remap(ENT.highlight)), ...notes.map(remap(ENT.note)), ...plans.map(remap(ENT.khatmahPlan)), ...pageLogs.map((r) => pageLogEntity(r, now))],
     dhikr: [...adhkar.map((r) => adhkarEntity(r, now)), ...counters.map(remap(ENT.tasbihCounter)), ...sessions.map(remap(ENT.tasbihSession))],
     prefs: settings.map((r) => ENT.setting(r, now)),
     meta: streaks.map((r) => streakEntity(r, now)),
@@ -93,6 +106,9 @@ export async function exportBackup(db, bridge, now = Date.now()) {
   const bytes = new TextEncoder().encode(JSON.stringify({ manifest, payload }));
   const name = `sadaqa-backup-${new Date(now).toISOString().slice(0, 10)}.sadaqa`;
   const picked = await bridge.exportFile(bytes, name);
+  // المستخدم ألغى حوار الحفظ — لا يُسجَّل «تصدير» لم يحدث حتى لا يطمئن
+  // السجل زوراً ويتفوّت نسخ احتياطي حقيقي (audit 2026-11)
+  if (!picked) return { name, counts, savedToPath: false };
   await db.write(
     `INSERT INTO backup_log (direction, mode, format_version, counts_json, created_at) VALUES ('export', NULL, ?, ?, ?)`,
     [SUPPORTED_FORMAT_VERSION, JSON.stringify(counts), now],
@@ -100,10 +116,14 @@ export async function exportBackup(db, bridge, now = Date.now()) {
   return { name, counts, savedToPath: picked === true };
 }
 
+/** سقف حجم ملف الاستيراد — منع استنزاف الذاكرة بتحليل JSON عملاق (audit 2026-11). */
+const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
+
 // ---------------------------------------------------------------------------
 // IMPORT
 // ---------------------------------------------------------------------------
 export async function importBackup(db, bytes, mode, now = Date.now()) {
+  if (bytes.byteLength > MAX_BACKUP_BYTES) throw new Error('الملف أكبر من الحد المسموح (١٠ م.ب) — ليس نسخة احتياطية صالحة');
   const text = new TextDecoder().decode(bytes);
   let file;
   try { file = JSON.parse(text); } catch { throw new Error('ملف غير صالح — ليس JSON'); }
@@ -126,6 +146,7 @@ export async function importBackup(db, bytes, mode, now = Date.now()) {
       (await db.query(`SELECT * FROM highlights`)).forEach((r) => map.set(v7(r.uuid, now), { ...ENT.highlight(r), uuid: v7(r.uuid, now) }));
       (await db.query(`SELECT * FROM notes`)).forEach((r) => map.set(v7(r.uuid, now), { ...ENT.note(r), uuid: v7(r.uuid, now) }));
       (await db.query(`SELECT * FROM khatmah_plans`)).forEach((r) => map.set(v7(r.uuid, now), { ...ENT.khatmahPlan(r), uuid: v7(r.uuid, now) }));
+      (await db.query(`SELECT * FROM khatmah_page_log`)).forEach((r) => { const e = pageLogEntity(r, now); map.set(e.uuid, e); });
     } else if (group === 'dhikr') {
       (await db.query(`SELECT * FROM adhkar_state`)).forEach((r) => { const e = adhkarEntity(r, now); map.set(e.uuid, e); });
       (await db.query(`SELECT * FROM tasbih_counters`)).forEach((r) => map.set(v7(r.uuid, now), { ...ENT.tasbihCounter(r), uuid: v7(r.uuid, now) }));
@@ -143,12 +164,15 @@ export async function importBackup(db, bytes, mode, now = Date.now()) {
   if (mode === 'replace') {
     // Full Replace — fixed, parameterless wipe of every backed-up table
     // (audit backup_log is device-local and survives by design).
-    for (const t of ['bookmarks', 'highlights', 'notes', 'khatmah_plans', 'adhkar_state', 'tasbih_sessions', 'tasbih_counters', 'streak_days']) {
+    // page_log أولاً: ابن على khatmah_plans قبل حذف الأب (audit 2026-11)
+    for (const t of ['khatmah_page_log', 'bookmarks', 'highlights', 'notes', 'khatmah_plans', 'adhkar_state', 'tasbih_sessions', 'tasbih_counters', 'streak_days']) {
       stmts.push({ sql: `DELETE FROM ${t}` });
     }
     stmts.push({ sql: `DELETE FROM user_settings WHERE key != 'device_id'` });
   }
-  const ordered = [...mutations].sort((a, b) => (a.entity?.type === 'tasbihSession' ? 1 : 0) - (b.entity?.type === 'tasbihSession' ? 1 : 0));
+  // page_log بعد الخطط (FK على plan_uuid) وقبل الجلسات — ترتيب الأب قبل الابن
+  const rank = (e) => (e?.type === 'tasbihSession' ? 2 : e?.type === 'khatmahPageLog' ? 1 : 0);
+  const ordered = [...mutations].sort((a, b) => rank(a.entity) - rank(b.entity));
   for (const m of ordered) stmts.push(...entityStmts(m.entity, mode === 'replace' ? 'insert' : m.action));
 
   if (stmts.length > 0) await db.batch(stmts, { engineReload: true });
@@ -202,6 +226,11 @@ function entityStmts(e, action) {
       sql: `INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)`,
       params: [e.kind, e.dayKey, e.updatedAt],
     }];
+    case 'khatmahPageLog': return [{
+      sql: `INSERT INTO khatmah_page_log (plan_uuid, page, completed_at) VALUES (?, ?, ?)
+            ON CONFLICT(plan_uuid, page) DO UPDATE SET completed_at = excluded.completed_at`,
+      params: [e.planUuid, e.page, e.completedAt],
+    }];
     case 'setting':
       // device_id is local-only and must never be overwritten by an imported backup.
       if (e.key === 'device_id') return [];
@@ -216,6 +245,9 @@ function entityStmts(e, action) {
 
 /** For the UI confirm sheet: parse + validate + counts WITHOUT importing. */
 export async function peekBackup(bytes) {
+  if (bytes.byteLength > MAX_BACKUP_BYTES) {
+    return { ok: false, errors: ['الملف أكبر من الحد المسموح (١٠ م.ب) — ليس نسخة احتياطية صالحة'], counts: {}, manifest: null };
+  }
   const text = new TextDecoder().decode(bytes);
   let file;
   try {

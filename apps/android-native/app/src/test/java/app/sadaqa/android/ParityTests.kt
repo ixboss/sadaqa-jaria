@@ -400,9 +400,10 @@ class DbRoundTripTest {
         try {
             // 1. Merge into the empty seed → all inserts
             val merge = db.importBackup(text, "merge")
-            assertEquals(16, merge.added) // 5 + 7 + 2 + 2 fixture entities
+            assertEquals(18, merge.added) // 7 + 7 + 2 + 2 fixture entities (2026-11: +2 khatmahPageLog)
             assertEquals(2L, db.queryOne("SELECT COUNT(*) AS n FROM bookmarks")!!.longs["n"])
             assertEquals(3L, db.queryOne("SELECT COUNT(*) AS n FROM tasbih_sessions")!!.longs["n"])
+            assertEquals(2L, db.queryOne("SELECT COUNT(*) AS n FROM khatmah_page_log")!!.longs["n"])
             val theme = db.queryOne("SELECT value FROM user_settings WHERE key = ?", listOf("theme"))
             assertEquals("\"dark\"", theme!!.strings["value"])
 
@@ -414,7 +415,7 @@ class DbRoundTripTest {
 
             // 3. Full Replace wipes and restores exactly the payload
             val replace = db.importBackup(text, "replace")
-            assertEquals(16, replace.added)
+            assertEquals(18, replace.added)
             assertEquals(2L, db.queryOne("SELECT COUNT(*) AS n FROM bookmarks")!!.longs["n"])
             val page = db.queryOne("SELECT page FROM bookmarks WHERE label_ar = ?", listOf("الفاتحة"))
             assertEquals(2L, page!!.longs["page"])

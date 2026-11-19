@@ -94,6 +94,9 @@ struct AdhanScheduler {
         let days = [todayIso, PrayerEngine.shiftCivilIso(todayIso, by: 1), PrayerEngine.shiftCivilIso(todayIso, by: 2)]
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
         let center = UNUserNotificationCenter.current()
+        // Delegate re-arms the chain after each fired adhan and surfaces the
+        // banner while the app is foregrounded (triggers are non-repeating).
+        center.delegate = AdhanNotificationDelegate.shared
         center.removeAllPendingNotificationRequests()
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: tz) ?? .current
@@ -111,6 +114,26 @@ struct AdhanScheduler {
                 center.add(UNNotificationRequest(identifier: "adhan-\(dayIso)-\(name.rawValue)", content: content, trigger: trigger))
             }
         }
+    }
+}
+
+/// Keeps the adhan chain armed beyond cold launch: each trigger is
+/// non-repeating, so a delivered prayer must re-schedule today..+2, and the
+/// foreground app must still show the banner (same content style as scheduled).
+final class AdhanNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = AdhanNotificationDelegate()
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        AdhanScheduler.shared.reschedule(db: SadaqaDatabase.shared)
+        completionHandler()
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotificationRequest,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
     }
 }
 
@@ -210,15 +233,21 @@ enum WidgetStateBridge {
                 "prevName": .string(n.previousName?.rawValue ?? ""), "prevAt": .number(Double(n.previousAt ?? 0)),
             ])
         }
-        // daily dhikr pick: deterministic by day so all widgets agree
+        // daily dhikr pick: rotates by day-of-year so "ذكر اليوم" changes daily
+        // (was: always the first fajr item — never rotated). Deterministic so
+        // every relaunch/widget refresh of the same day agrees.
         let day = dayKeyOf(Date.nowMs)
         var dhikr = ""
         try? db.queue.read { db in
-            let row = try Row.fetchOne(db, sql: "SELECT item_id FROM athkar_items WHERE category_id = (SELECT category_id FROM athkar_categories WHERE solar_window = 'fajr' LIMIT 1) ORDER BY sort_order LIMIT 1")
-            if let id = row?["item_id"] as String? {
-                let text = try Row.fetchOne(db, sql: "SELECT text_ar FROM athkar_items WHERE item_id = ?", arguments: [id])
-                dhikr = text?["text_ar"] as String? ?? ""
-            }
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT i.text_ar FROM athkar_items i
+                JOIN athkar_categories c ON c.category_id = i.category_id
+                WHERE c.solar_window = 'fajr' ORDER BY i.sort_order
+                """)
+            guard !rows.isEmpty else { return }
+            let cal = Calendar(identifier: .gregorian)
+            let dayOfYear = cal.ordinality(of: .day, in: .year, for: Date()) ?? 0
+            dhikr = rows[dayOfYear % rows.count]["text_ar"] as String? ?? ""
         }
         state["dailyDhikr"] = .string(dhikr)
         state["day"] = .string(day)

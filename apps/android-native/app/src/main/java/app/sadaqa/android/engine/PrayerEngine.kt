@@ -84,7 +84,13 @@ object PrayerEngine {
      *    from the vendored 4.4.6 values (CalculationMethod.js:75-85). Tehran's
      *    maghribAngle (4.5°) has no equivalent field in adhan 1.2.1 — its
      *    maghrib falls back to sunset, a documented deviation (fixtures never
-     *    exercise tehran). */
+     *    exercise tehran).
+     *  - polarCircleResolution (the golden prayer.js sets AqrabBalad): adhan
+     *    1.2.1 has NO such field on CalculationParameters (verified against
+     *    the 1.2.1 sources), so it cannot be mirrored here. Polar-day/night
+     *    cases surface as NaN hours in the golden — TimeComponents.fromDouble
+     *    returns null for those in 1.2.1 — and requireTime throws the golden's
+     *    explicit "prayer time unresolved" error instead. */
     fun buildParams(opts: EngineOptions): CalculationParameters {
         val params: CalculationParameters = when (opts.method) {
             "muslim_world_league" -> CalculationMethod.MUSLIM_WORLD_LEAGUE.parameters
@@ -254,8 +260,13 @@ class BoundPrayerEngine(val opts: EngineOptions) {
 }
 
 /** Unresolvable prayer times throw — golden behavior (never silent epoch-0).
+ *  Polar parity guard: the golden throws on non-finite (NaN) prayer times; in
+ *  adhan-java 1.2.1 a non-finite solar hour makes TimeComponents.fromDouble
+ *  return null, so this null branch IS the non-finite case and throws the
+ *  golden's explicit "prayer time unresolved" wording (epoch-ms Longs cannot
+ *  be NaN downstream).
  *  adhan-java TimeComponents.dateComponents() leaves Calendar.MILLISECOND at the
  *  runtime clock's sub-second offset; floor to whole seconds for 0 ms parity. */
 private fun Date?.requireTime(name: String): Long =
     this?.let { java.lang.Math.floorDiv(it.time, 1000L) * 1000L }
-        ?: throw IllegalArgumentException("adhan could not resolve prayer time: $name (check lat/lng + high-latitude rule)")
+        ?: throw IllegalArgumentException("prayer time unresolved: $name (check lat/lng + high-latitude rule)")

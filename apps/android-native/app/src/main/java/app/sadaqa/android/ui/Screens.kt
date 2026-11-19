@@ -383,16 +383,22 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
     }
 
     if (showMonthSchedule) {
+        // P3: the 30-row table is pure engine output for (civil day, options) —
+        // computed once per open instead of 30 daySchedule calls on every 1s tick.
+        val scheduleTodayIso = isoOf(now, opts.timeZone)
+        val monthScheduleRows = remember(scheduleTodayIso, opts) {
+            List(30) { offset ->
+                val iso = PrayerEngine.shiftCivilIso(scheduleTodayIso, offset.toLong())
+                iso to runCatching { engine.daySchedule(iso) }.getOrNull()
+            }
+        }
         AlertDialog(
             onDismissRequest = { showMonthSchedule = false },
             containerColor = theme.surface,
             title = { Text("جدول ٣٠ يوماً", color = theme.textPrimary) },
             text = {
                 Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for (offset in 0 until 30) {
-                        val ms = now + offset * 86_400_000L
-                        val iso = isoOf(ms, opts.timeZone)
-                        val s = runCatching { engine.daySchedule(iso) }.getOrNull()
+                    for ((iso, s) in monthScheduleRows) {
                         if (s != null) {
                             Row(Modifier.fillMaxWidth()) {
                                 Text(iso.drop(5), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.accent, modifier = Modifier.width(44.dp))

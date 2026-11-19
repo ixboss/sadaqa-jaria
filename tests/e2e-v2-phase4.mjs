@@ -275,8 +275,10 @@ async function main() {
 
     // 12. Backup: export (real UI) → payload/manifest integrity → merge → replace
     await goto('#/tools-backup');
-    await waitFor(`document.querySelectorAll('.backup-counts .bc').length === 9`, { timeout: 10000 });
-    ok('backup: current-data counts grid (9 categories)', true);
+    // كان waitFor يُهمل نتيجته ثم ok(..., true) بلا شرط — فحص لا يستطيع الفشل
+    // (audit 2026-11). الشبكة الآن ١٠ فئات (+صفحات الختمة +الإعدادات).
+    const gridOk = await waitFor(`document.querySelectorAll('.backup-counts .bc').length === 10`, { timeout: 10000 });
+    ok('backup: current-data counts grid (10 categories)', gridOk === true);
     await evaljs(`document.getElementById('bk-export').click()`);
     await sleep(600);
     const expLog = await evaljs(`window.__sadaqa.db.queryOne("SELECT COUNT(*) n FROM backup_log WHERE direction='export'")`);

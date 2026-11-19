@@ -26,20 +26,29 @@ const BookmarksView = {
 
     el.innerHTML = `
       ${surahList.length ? `<div class="section-heading">السور المحفوظة (${this.toArabic(surahList.length)})</div>` : ''}
-      ${surahList.map(([num, info]) => `
-        <div class="surah-row" data-magnetic onclick="window.BookmarksView.openSurah(${num})">
-          <div class="surah-num">${this.toArabic(num)}</div>
+      ${surahList.map(([num, info]) => {
+        // أرقام فقط تصل onclick حرفياً — المفتاح النصي الغريب يُهمل (audit 2026-11)
+        const n = parseInt(num, 10);
+        if (!Number.isInteger(n) || n < 1 || n > 114) return '';
+        return `
+        <div class="surah-row" data-magnetic onclick="window.BookmarksView.openSurah(${n})">
+          <div class="surah-num">${this.toArabic(n)}</div>
           <div class="surah-info"><div class="surah-name">${escapeHtml(info.name || 'سورة')}</div>
           <div class="surah-meta">محفوظة ${this.timeAgo(info.timestamp)}</div></div>
-          <button class="bm-remove" aria-label="حذف" onclick="event.stopPropagation(); window.BookmarksView.removeSurah(${num})">×</button>
-        </div>`).join('')}
+          <button class="bm-remove" aria-label="حذف" onclick="event.stopPropagation(); window.BookmarksView.removeSurah(${n})">×</button>
+        </div>`;
+      }).join('')}
       ${verses.length ? `<div class="section-heading" style="margin-top:18px">الآيات المحفوظة (${this.toArabic(verses.length)})</div>` : ''}
-      ${verses.map((v) => `
-        <div class="thikr-card" style="padding:16px 20px; cursor:pointer" onclick="window.BookmarksView.openVerse(${v.surah}, ${v.ayah})">
-          <div class="surah-meta" style="margin-bottom:6px">سورة ${this.surahName(v.surah)} — آية ${this.toArabic(v.ayah)}</div>
+      ${verses.map((v) => {
+        const s = parseInt(v.surah, 10), a = parseInt(v.ayah, 10);
+        if (!Number.isInteger(s) || s < 1 || s > 114 || !Number.isInteger(a) || a < 1) return '';
+        return `
+        <div class="thikr-card" style="padding:16px 20px; cursor:pointer" onclick="window.BookmarksView.openVerse(${s}, ${a})">
+          <div class="surah-meta" style="margin-bottom:6px">سورة ${this.surahName(s)} — آية ${this.toArabic(a)}</div>
           <div class="dua-text" style="font-size:calc(var(--font-size) * 0.8)">${escapeHtml((v.text || '').slice(0, 160))}…</div>
-          <button class="bm-remove" aria-label="حذف" onclick="event.stopPropagation(); window.BookmarksView.removeVerse(${v.surah}, ${v.ayah})">×</button>
-        </div>`).join('')}`;
+          <button class="bm-remove" aria-label="حذف" onclick="event.stopPropagation(); window.BookmarksView.removeVerse(${s}, ${a})">×</button>
+        </div>`;
+      }).join('')}`;
   },
   surahName(n) {
     const meta = (window.SURAH_META || []).find(m => m.number === n);
@@ -910,9 +919,18 @@ const BottomSheet = {
     if (this._prevBodyOverflow === null) this._prevBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     document.body.classList.add('sheet-open');
+    // قرب لوحة المفاتيح: Escape يغلق الورقة والتركيز يدخل الحوار (aria-modal)
+    // — قبلها كان لا سبيل لإنهائها إلا بالنقر (audit 2026-11)
+    sh.tabIndex = -1;
+    this._escHandler = (ev) => {
+      if (ev.key === 'Escape') { ev.stopPropagation(); this.close(); }
+    };
+    document.addEventListener('keydown', this._escHandler, true);
+    requestAnimationFrame(() => { try { sh.focus(); } catch (e) {} });
     return sh;
   },
   close() {
+    if (this._escHandler) { document.removeEventListener('keydown', this._escHandler, true); this._escHandler = null; }
     if (this.overlay) { this.overlay.remove(); this.overlay = null; }
     document.body.classList.remove('sheet-open');
     if (this._prevBodyOverflow !== null) {
@@ -1502,8 +1520,18 @@ const PrayerEngine = {
     const cfg = this.getConfig();
     const nowMs = now.getTime();
     const minuteKey = `${Math.floor(nowMs / 60000)}|${JSON.stringify(cfg)}`;
-    if (!this._infoCache || this._infoCache.key !== minuteKey) {
-      this._infoCache = { key: minuteKey, info: this._computeInfo(nowMs, cfg) };
+    try {
+      if (!this._infoCache || this._infoCache.key !== minuteKey) {
+        this._infoCache = { key: minuteKey, info: this._computeInfo(nowMs, cfg) };
+      }
+    } catch (e) {
+      // إعداد تالف (استيراد قديم مثلاً): أبقِ آخر معلومة سليمة أو هيئة
+      // متدهورة آمنة بدل إسقاط مُذكِّر المواقيت بحلقة أخطاء كل ثانية
+      // (audit 2026-11)
+      if (this._infoCache && this._infoCache.info) {
+        return { ...this._infoCache.info, countdown: '—', diffSec: 0 };
+      }
+      return { times: {}, order: [], next: { name: '—', at: 0, previous: null }, countdown: '—', diffSec: 0, iqamahActive: null };
     }
     const base = this._infoCache.info;
     // مشتقات كل ثانية من اللحظات المخبأة
@@ -1594,6 +1622,17 @@ const PrayerEngine = {
         desc: 'ركعتان في الضحى تجزئان عن ٣٦٠ صدقة في يومك.',
         actionLabel: 'السبحة الرقمية',
         action: () => { if (window.openTasbih) window.openTasbih(); }
+      };
+    }
+    // كان النطاق بين الظهر والعصر بلا فرع فيقع في الاحتياطي «أذكار النوم»
+    // في وضح النهار (audit 2026-11)
+    if (cur >= t.dhuhr && cur < t.asr) {
+      return {
+        badge: '🌤 بين الظهر والعصر',
+        title: 'وقتٌ مبارك لجوامع الدعاء',
+        desc: 'اختم نهارك بجوامع الدعاء التي تجمع خير الدنيا والآخرة.',
+        actionLabel: 'جوامع الدعاء',
+        action: () => { if (window.openCategory) window.openCategory(3); }
       };
     }
     if (cur >= t.asr && cur <= t.maghrib + 45 * MIN) {
@@ -1771,9 +1810,11 @@ const PrayerEngine = {
   startLiveTicker() {
     if (this._timer) clearInterval(this._timer);
     this._timer = setInterval(() => {
-      this.renderWidget();
-      const cdEl = document.getElementById('pw-live-countdown');
-      if (cdEl) cdEl.textContent = this.getNextPrayerInfo().countdown;
+      try {
+        this.renderWidget();
+        const cdEl = document.getElementById('pw-live-countdown');
+        if (cdEl) cdEl.textContent = this.getNextPrayerInfo().countdown;
+      } catch (e) { /* تكّة تالفة لا تسقط العدّاد كله */ }
     }, 1000);
   }
 };
@@ -1893,7 +1934,7 @@ const CustomAthkarManager = {
             <div class="dua-card" style="padding:36px 14px 12px; margin-bottom:10px">
               <button type="button" class="bm-remove" data-ca-del="${idx}" style="top:18px; left:10px" aria-label="حذف">×</button>
               <button type="button" class="share-card-btn" data-share-badge="${escapeHtml(it.tag)}" data-share-from=".dua-text" style="top:8px; left:48px"><span aria-hidden="true">🖼</span> بطاقة</button>
-              <div class="dua-occasion">🤲 ${escapeHtml(it.tag)} (${ar(it.count)} مرات)</div>
+              <div class="dua-occasion">🤲 ${escapeHtml(it.tag)} (${ar(Number(it.count) || 0)} مرات)</div>
               <div class="dua-text" style="font-size:calc(var(--font-size)*0.68)">${escapeHtml(it.text)}</div>
             </div>`).join('')}
         </div>`

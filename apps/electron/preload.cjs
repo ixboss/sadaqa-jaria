@@ -51,8 +51,17 @@ contextBridge.exposeInMainWorld('sadaqaBridge', {
     usage: async () => ({ usage: 0, quota: 0 }), // disk-quota semantics — report zero (not an error)
   },
 
-  /** .sadaqa export/import via native save/open dialogs. */
-  exportFile: async (bytes, name) => invoke('file:save', { bytes: new Uint8Array(bytes?.buffer ? bytes : new TextEncoder().encode(String(bytes))), name }),
+  /** .sadaqa export/import via native save/open dialogs — يقبل Uint8Array أو
+   * ArrayBuffer أو Blob صراحةً؛ الاعتماد على bytes.buffer كان يفسد Blob إلى
+   * النص "[object Blob]" (audit 2026-11). */
+  exportFile: async (bytes, name) => {
+    let u8;
+    if (bytes instanceof Uint8Array) u8 = bytes;
+    else if (bytes instanceof ArrayBuffer) u8 = new Uint8Array(bytes);
+    else if (typeof Blob !== 'undefined' && bytes instanceof Blob) u8 = new Uint8Array(await bytes.arrayBuffer());
+    else u8 = new TextEncoder().encode(String(bytes));
+    return invoke('file:save', { bytes: u8, name });
+  },
   importFile: async () => invoke('file:open'),
 
   scheduleAdhan: async () => true, // adhan scheduling is MAIN-process native (tray loop)

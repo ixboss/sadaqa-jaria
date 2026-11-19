@@ -143,12 +143,19 @@
     flipping = true;
     var before = (window.state || {}).mushafPage || 0;
     var onFolded = function () {
-      // بعد تجاوز ٨٤° تكون الورقة قد اختفت؛ استدعِ التنقّل (قد يكون شبكياً)
-      if (window.changeMushafPage) {
-        var p = window.changeMushafPage(dir);
-        if (p && typeof p.then === 'function') return p.then(function () { afterRender(before, page); });
+      // أي فشل (وعد مرفوض أو استثناء متزامن) كان يُجمّد flipping للأبد فتموت
+      // كل نقرات قلب الصفحة حتى إعادة التحميل — أطلق القفل دائماً (audit 2026-11)
+      try {
+        // بعد تجاوز ٨٤° تكون الورقة قد اختفت؛ استدعِ التنقّل (قد يكون شبكياً)
+        if (window.changeMushafPage) {
+          var p = window.changeMushafPage(dir);
+          if (p && typeof p.then === 'function') return p.then(function () { afterRender(before, page); }).catch(finishFlip);
+        }
+        afterRender(before, page);
+      } catch (e) {
+        finishFlip();
+        throw e;
       }
-      afterRender(before, page);
     };
     if (reducedMotion()) {
       page.style.transition = 'transform 200ms ease-in, opacity 200ms ease-in';

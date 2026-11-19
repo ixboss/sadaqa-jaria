@@ -306,24 +306,9 @@ struct TodayView: View {
     }
 
     private var monthScheduleSheet: some View {
-        let tz = appState.engineOptions.timeZone
-        return NavigationStack {
-            List(0..<30, id: \.self) { offset in
-                let ms = now + Int64(offset) * 86_400_000
-                let iso = Self.iso(ms, tz: tz)
-                let sched = try? engine.daySchedule(iso)
-                HStack {
-                    Text(String(iso.dropFirst(5))).font(.system(size: 12, weight: .bold)).monospacedDigit().frame(width: 44, alignment: .leading)
-                    if let s = sched {
-                        ForEach([PrayerName.fajr, .dhuhr, .asr, .maghrib, .isha], id: \.self) { p in
-                            Text(Self.clock(s.prayers[p] ?? 0, tz: tz)).font(.system(size: 11)).monospacedDigit().frame(maxWidth: .infinity)
-                        }
-                    }
-                }
-            }
-            .navigationTitle("جدول ٣٠ يوماً")
-            .toolbar { Button("إغلاق") { showMonthSchedule = false } }
-        }
+        // يُحسب مرة واحدة عند الفتح (حتى يتغيّر اليوم المدني) — كان يعيد بناء
+        // 30 daySchedule مع كل تكّة ثانية للحالة أثناء فتح الورقة (review 2026-11)
+        MonthScheduleSheet(options: appState.engineOptions)
     }
 
     private func prayerSymbol(_ name: PrayerName) -> String {
@@ -375,6 +360,51 @@ struct TodayView: View {
 
 extension HijriEngine {
     static func monthsArSafe(_ m: Int) -> String { (try? monthNameAr(m)) ?? "" }
+}
+
+/// جدول ٣٠ يوماً — يُحسب مرة واحدة عند الفتح (وعند تغيّر اليوم المدني فقط)
+/// بدل إعادة 30 daySchedule مع كل تكّة ثانية للحالة (review 2026-11).
+private struct MonthScheduleSheet: View {
+    let options: EngineOptions
+    @State private var rows: [(iso: String, cells: [String])] = []
+    @State private var loadedKey = ""
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List(rows.indices, id: \.self) { i in
+                HStack {
+                    Text(String(rows[i].iso.dropFirst(5))).font(.system(size: 12, weight: .bold)).monospacedDigit().frame(width: 44, alignment: .leading)
+                    ForEach(rows[i].cells, id: \.self) { c in
+                        Text(c).font(.system(size: 11)).monospacedDigit().frame(maxWidth: .infinity)
+                    }
+                }
+            }
+            .navigationTitle("جدول ٣٠ يوماً")
+            .toolbar { Button("إغلاق") { dismiss() } }
+            .task(id: TodayView.iso(Date.nowMs, tz: options.timeZone)) {
+                // civil-day shift in the city tz (epoch-ms offset math duplicates/skips
+                // days across DST transitions)
+                let todayIso = TodayView.iso(Date.nowMs, tz: options.timeZone)
+                guard loadedKey != todayIso else { return }
+                let engine = PrayerEngine.bind(options)
+                let tz = options.timeZone
+                var out: [(iso: String, cells: [String])] = []
+                for offset in 0..<30 {
+                    let iso = PrayerEngine.shiftCivilIso(todayIso, by: offset)
+                    var cells: [String] = []
+                    if let s = try? engine.daySchedule(iso) {
+                        for p in [PrayerName.fajr, .dhuhr, .asr, .maghrib, .isha] {
+                            cells.append(TodayView.clock(s.prayers[p] ?? 0, tz: tz))
+                        }
+                    }
+                    out.append((iso, cells))
+                }
+                rows = out
+                loadedKey = todayIso
+            }
+        }
+    }
 }
 
 struct TactileCardButtonStyle: ButtonStyle {
