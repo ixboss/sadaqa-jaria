@@ -5,6 +5,7 @@
 // ============================================================================
 
 import Foundation
+import GRDB
 
 enum AthkarProgress {
     struct Category { let id: String; let titleAr: String; let solarWindow: String? }
@@ -36,5 +37,35 @@ enum AthkarProgress {
             }
             .filter { $0.total > 0 } // never show an empty window row
         return Report(windows: windows)
+    }
+
+    /// Today-window aggregation straight from the app DB — lives here (not in
+    /// TodayView.swift) because GRDB's `Configuration` type shadows
+    /// `ButtonStyle.Configuration` when both are imported into one file.
+    static func load(db: SadaqaDatabase, dayKey: String) -> [WindowProgress] {
+        var cats: [Category] = []
+        var items: [Item] = []
+        var states: [StateRow] = []
+        try? db.queue.read { q in
+            for r in try Row.fetchAll(q, sql: "SELECT category_id, name_ar, solar_window FROM athkar_categories") {
+                cats.append(Category(
+                    id: r["category_id"] as String? ?? "",
+                    titleAr: r["name_ar"] as String? ?? "",
+                    solarWindow: r["solar_window"] as String?))
+            }
+            for r in try Row.fetchAll(q, sql: "SELECT item_id, category_id, count_target FROM athkar_items") {
+                items.append(Item(
+                    id: r["item_id"] as String? ?? "",
+                    categoryId: r["category_id"] as String? ?? "",
+                    target: r["count_target"] as Int? ?? 1))
+            }
+            for r in try Row.fetchAll(q, sql: "SELECT item_id, count, completed_at FROM adhkar_state WHERE day_key = ?", arguments: [dayKey]) {
+                states.append(StateRow(
+                    itemId: r["item_id"] as String? ?? "",
+                    count: r["count"] as Int? ?? 0,
+                    completedAt: r["completed_at"] as Int64?))
+            }
+        }
+        return compute(categories: cats, items: items, states: states).windows
     }
 }

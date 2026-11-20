@@ -866,9 +866,6 @@ private final class PagerCoordinator: NSObject, UIPageViewControllerDataSource, 
             onSelectAyah: parent.onSelectAyah,
             onToggleHud: parent.onToggleHud
         )
-        // Manually-created hosting controllers do not inherit the SwiftUI
-        // environment — re-assert the app-wide RTL direction for the plate.
-        .environment(\.layoutDirection, .rightToLeft)
     }
 
     private func slot(for p: Int) -> UIHostingController<MushafLazyPageSlot> {
@@ -938,23 +935,28 @@ struct MushafLazyPageSlot: View {
     let onToggleHud: () -> Void
 
     var body: some View {
-        if abs(slotPage - currentPage) <= 2 {
-            let pageLines = cache.lines(for: slotPage, db: db)
-            MushafPlate(
-                page: slotPage,
-                lines: pageLines,
-                cache: cache,
-                theme: theme,
-                mushafScale: mushafScale,
-                selectedAyah: selectedAyah,
-                hudVisible: hudVisible,
-                onSelectAyah: onSelectAyah,
-                onToggleHud: onToggleHud
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            Color.clear
+        Group {
+            if abs(slotPage - currentPage) <= 2 {
+                let pageLines = cache.lines(for: slotPage, db: db)
+                MushafPlate(
+                    page: slotPage,
+                    lines: pageLines,
+                    cache: cache,
+                    theme: theme,
+                    mushafScale: mushafScale,
+                    selectedAyah: selectedAyah,
+                    hudVisible: hudVisible,
+                    onSelectAyah: onSelectAyah,
+                    onToggleHud: onToggleHud
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                Color.clear
+            }
         }
+        // Manually-created pager hosting controllers do not inherit the app's
+        // SwiftUI environment — re-assert the app-wide RTL direction here.
+        .environment(\.layoutDirection, .rightToLeft)
     }
 }
 
