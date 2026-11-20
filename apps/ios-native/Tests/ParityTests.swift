@@ -632,10 +632,10 @@ final class MushafFlowTests: XCTestCase {
         XCTAssertEqual(blocks.count, 5, "2 decorations + one paragraph per ayah")
         guard case .surahName(_, let name)? = blocks.first else { return XCTFail("expected surah_name first") }
         XCTAssertEqual(name, "سورة الفاتحة")
-        guard case .bismillah(_, let bsml)? = blocks[1] else { return XCTFail("expected bismillah second") }
+        guard case .bismillah(_, let bsml) = blocks[1] else { return XCTFail("expected bismillah second") }
         XCTAssertEqual(bsml, MushafFlowModel.bismillahFallback)
         for (index, expectedAyah) in [1, 2, 3].enumerated() {
-            guard case .words(_, let items)? = blocks[2 + index] else { return XCTFail("expected words block \(index)") }
+            guard case .words(_, let items) = blocks[2 + index] else { return XCTFail("expected words block \(index)") }
             XCTAssertTrue(items.allSatisfy { $0.ayah == expectedAyah }, "block \(index) must hold only ayah \(expectedAyah)")
         }
         XCTAssertEqual(Set(blocks.map(\.id)).count, blocks.count, "block ids must be unique")
