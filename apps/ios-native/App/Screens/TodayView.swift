@@ -6,7 +6,6 @@
 
 import SwiftUI
 import UIKit
-import GRDB
 
 struct TodayView: View {
     @EnvironmentObject var appState: AppState
@@ -77,32 +76,7 @@ struct TodayView: View {
     }
 
     private func loadDailyProgress() {
-        let db = appState.db
-        let day = dayKey
-        var cats: [AthkarProgress.Category] = []
-        var items: [AthkarProgress.Item] = []
-        var states: [AthkarProgress.StateRow] = []
-        try? db.queue.read { q in
-            for r in try Row.fetchAll(q, sql: "SELECT category_id, name_ar, solar_window FROM athkar_categories") {
-                cats.append(AthkarProgress.Category(
-                    id: r["category_id"] as String? ?? "",
-                    titleAr: r["name_ar"] as String? ?? "",
-                    solarWindow: r["solar_window"] as String?))
-            }
-            for r in try Row.fetchAll(q, sql: "SELECT item_id, category_id, count_target FROM athkar_items") {
-                items.append(AthkarProgress.Item(
-                    id: r["item_id"] as String? ?? "",
-                    categoryId: r["category_id"] as String? ?? "",
-                    target: r["count_target"] as Int? ?? 1))
-            }
-            for r in try Row.fetchAll(q, sql: "SELECT item_id, count, completed_at FROM adhkar_state WHERE day_key = ?", arguments: [day]) {
-                states.append(AthkarProgress.StateRow(
-                    itemId: r["item_id"] as String? ?? "",
-                    count: r["count"] as Int? ?? 0,
-                    completedAt: r["completed_at"] as Int64?))
-            }
-        }
-        dailyProgress = AthkarProgress.compute(categories: cats, items: items, states: states).windows
+        dailyProgress = AthkarProgress.load(db: appState.db, dayKey: dayKey)
     }
 
     private var topHeader: some View {
