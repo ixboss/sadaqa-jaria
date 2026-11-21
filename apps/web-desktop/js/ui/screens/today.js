@@ -9,6 +9,7 @@
 // ============================================================================
 import { state, nowMs, haptic, prayerEngineForSettings, HAPTICS } from '../../app-state.js';
 import { shiftCivilIso } from '../../../../../packages/core-data/engines/prayer.js';
+import { formatTime12h } from '../../../../../packages/core-data/engines/timefmt.js';
 import { computeDailyProgress } from '../../../../../packages/core-data/engines/today-progress.js';
 import { monthNameAr, withAdjust } from '../../../../../packages/core-data/engines/hijri.js';
 import { resolveSmartCard } from '../../../../../packages/core-data/engines/smart-card.js';
@@ -16,7 +17,8 @@ import { getGpsFix, findNearestCity, persistLocation } from '../geo.js';
 import { navigate } from '../router.js';
 import { iconSvg, prayerIconName, smartCardIconName } from '../icons.js';
 
-const fmtClock = (ms, tz) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
+const fmtClock = (ms, tz) => formatTime12h(ms, tz);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtHMS = (msLeft) => {
   const s = Math.max(0, Math.floor(msLeft / 1000));
   const p = (n) => String(n).padStart(2, '0');
@@ -28,6 +30,11 @@ const DAY_LABELS = { Sunday: 'الأحد', Monday: 'الإثنين', Tuesday: '�
 // Today header dhikr pill — ambient session-only rotation (25s, tap to advance)
 const DHIKR_PILL_TEXTS = ['لا إله إلا الله', 'سبحان الله وبحمده', 'الحمد لله', 'أستغفر الله', 'اللهم صلِّ على نبينا محمد'];
 let dhikrIdx = 0;
+
+// Active timers/observers cleanup per mount root (prevents leaked 1 Hz timers on re-render)
+const activeCleanups = new WeakMap();
+// Static bundled athkar catalog cache per DB instance (avoids re-scanning immutable tables)
+const athkarCatalogCache = new WeakMap();
 
 // The resolver itself lives in the shared engines dir (Phase 5 parity): all
 // four targets execute the same §9 golden logic — re-exported here so the
@@ -41,6 +48,9 @@ async function resolveAdhkarCategory(db, kind) {
   }
   if (kind === 'evening') {
     return db.queryOne(`SELECT category_id FROM athkar_categories WHERE solar_window = 'asr' AND name_ar LIKE '%المَسَاءِ%' ORDER BY sort_order LIMIT 1`);
+  }
+  if (kind === 'night' || kind === 'sleep' || kind === 'isha') {
+    return db.queryOne(`SELECT category_id FROM athkar_categories WHERE solar_window IN ('night', 'isha') ORDER BY sort_order LIMIT 1`);
   }
   if (kind === 'after_prayer') {
     return db.queryOne(`SELECT category_id FROM athkar_categories WHERE solar_window = 'after_prayer' ORDER BY sort_order LIMIT 1`);
@@ -104,31 +114,48 @@ function contextualDailyCard(now, engine) {
   if (hour >= 16 && hour < 20) {
     return { kind: 'daily_evening', adhkar: 'evening', badge: 'ورد اليوم', title: 'أذكار المساء', sub: 'ما تيسّر من أذكار المساء قبل غروب الشمس', action: { label: 'ابدأ أذكار المساء', screen: 'adhkar-cat', args: {} } };
   }
-  return { kind: 'daily_sleep', badge: 'قبل النوم', title: 'أذكار النوم', sub: 'الاستغفار والآيات الواقية قبل أن تنام', action: { label: 'افتح الأذكار', screen: 'adhkar-screen', args: {} } };
+  return { kind: 'daily_sleep', adhkar: 'night', badge: 'قبل النوم', title: 'أذكار النوم', sub: 'الاستغفار والآيات الواقية قبل أن تنام', action: { label: 'افتح الأذكار', screen: 'adhkar-screen', args: {} } };
+}
+
+/** Load immutable bundled athkar categories/items once per DB instance. */
+async function loadAthkarCatalog(db) {
+  let cached = athkarCatalogCache.get(db);
+  if (!cached) {
+    cached = Promise.all([
+      db.query(`SELECT category_id, solar_window FROM athkar_categories`),
+      db.query(`SELECT item_id, category_id, count_target FROM athkar_items`),
+    ]).then(([categories, items]) => ({ categories, items }));
+    athkarCatalogCache.set(db, cached);
+    cached.catch(() => athkarCatalogCache.delete(db));
+  }
+  return cached;
 }
 
 /** ورد اليوم — athkar-window completion for today via the shared golden engine. */
 async function loadDailyProgress(db, now) {
   const dayKey = new Intl.DateTimeFormat('en-CA').format(now);
-  const [categories, items, states] = await Promise.all([
-    db.query(`SELECT category_id, solar_window FROM athkar_categories`),
-    db.query(`SELECT item_id, category_id, count_target FROM athkar_items`),
+  const [{ categories, items }, states] = await Promise.all([
+    loadAthkarCatalog(db),
     db.query(`SELECT item_id, count FROM adhkar_state WHERE day_key = ?`, [dayKey]),
   ]);
   return computeDailyProgress(categories, items, states).windows;
 }
 
 export async function renderToday(root) {
+  // Always tear down any prior timers/observers bound to this root before re-rendering
+  const prevCleanup = activeCleanups.get(root);
+  if (prevCleanup) { prevCleanup(); activeCleanups.delete(root); }
+
   const engine = prayerEngineForSettings();
   const tz = engine.opts.timeZone;
   const now = nowMs();
   const daily = await loadDailyProgress(state.db, now);
   const windowsDone = daily.filter((w) => w.completed >= w.total).length;
   const khatmahPct = Math.round((state.progress.page / 604) * 100);
-  const next = engine.next(now);
-  const dateIso = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now);
+  let next = engine.next(now);
+  let dateIso = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now);
   const nextIso = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(next.at);
-  const day = engine.daySchedule(dateIso);
+  let day = engine.daySchedule(dateIso);
   const qiyamIso = now < day.prayers.fajr
     ? shiftCivilIso(dateIso, -1)
     : dateIso;
@@ -139,18 +166,18 @@ export async function renderToday(root) {
   const gregText = new Intl.DateTimeFormat('ar', { timeZone: tz, day: 'numeric', month: 'long' }).format(now);
   const nextLabel = nextIso !== dateIso ? `${PRAYER_LABELS[next.name]} (غداً)` : PRAYER_LABELS[next.name];
 
-  const card = contextualDailyCard(now, engine);
+  let card = contextualDailyCard(now, engine);
   root.innerHTML = `
   <div class="screen">
     <div class="screen-header">
       <div class="today-toprow">
         <div>
           <h1>اليوم</h1>
-          <div class="sub">${DAY_LABELS[dowEn]} · ${hijri.d} ${monthNameAr(hijri.m)} ${hijri.y} هـ · ${gregText}</div>
+          <div class="sub" id="today-date-sub">${DAY_LABELS[dowEn]} · ${hijri.d} ${monthNameAr(hijri.m)} ${hijri.y} هـ · ${gregText}</div>
         </div>
         <div class="today-actions">
           <button class="city-pill icon-pill" id="today-search-btn" aria-label="بحث شامل" title="بحث في القرآن والأذكار">${iconSvg('search', 15)}</button>
-          <button class="city-pill" id="today-city-btn" aria-label="تغيير المدينة">${iconSvg('location', 14)}<span>${locName}</span></button>
+          <button class="city-pill" id="today-city-btn" aria-label="تغيير المدينة">${iconSvg('location', 14)}<span>${esc(locName)}</span></button>
           <button class="city-pill dhikr-pill" id="today-dhikr" aria-label="الذكر التالي"><span class="dhikr-txt">${DHIKR_PILL_TEXTS[dhikrIdx % DHIKR_PILL_TEXTS.length]}</span></button>
         </div>
       </div>
@@ -158,19 +185,19 @@ export async function renderToday(root) {
 
     <div class="card hub-hero" id="prayer-hero">
       <div class="hh-label">الصلاة القادمة</div>
-      <div class="hh-name">${nextLabel}</div>
+      <div class="hh-name" id="hero-name">${nextLabel}</div>
       <div class="hh-clock" id="hero-countdown" dir="ltr">${fmtHMS(next.at - now)}</div>
-      <div class="hh-at">الأذان ${fmtClock(next.at, tz)}</div>
+      <div class="hh-at" id="hero-at">الأذان <span dir="ltr">${fmtClock(next.at, tz)}</span></div>
     </div>
 
-    <div class="card smart-card" id="smart-card" data-kind="${card.kind}">
+    <div class="card smart-card" id="smart-card" data-kind="${esc(card.kind)}">
       <div class="sc-head">
         <div class="sc-icon">${iconSvg(smartCardIconName(card.kind), 18)}</div>
-        <span class="sc-badge">${card.badge}</span>
+        <span class="sc-badge">${esc(card.badge)}</span>
       </div>
-      <h3 class="sc-title">${card.title}</h3>
-      <p class="sc-sub">${card.sub}</p>
-      <button class="btn primary" id="sc-action">${card.action.label}</button>
+      <h3 class="sc-title">${esc(card.title)}</h3>
+      <p class="sc-sub">${esc(card.sub)}</p>
+      <button class="btn primary" id="sc-action">${esc(card.action.label)}</button>
     </div>
 
     <div class="card">
@@ -183,7 +210,7 @@ export async function renderToday(root) {
           <div class="prayer-row ${next.name === n ? 'next' : ''}" data-prayer="${n}">
             <span class="p-icon" aria-hidden="true">${iconSvg(prayerIconName(n), 17)}</span>
             <span class="p-name">${PRAYER_LABELS[n]}</span>
-            <span class="p-time">${fmtClock(day.prayers[n], tz)}</span>
+            <span class="p-time" dir="ltr">${fmtClock(day.prayers[n], tz)}</span>
           </div>`).join('')}
       </div>
     </div>
@@ -200,9 +227,9 @@ export async function renderToday(root) {
 
     <div class="card">
       <h3 style="margin:0 0 10px;font-size:15px">قيام الليل</h3>
-      <div style="font-size:14px;line-height:2">
-        منتصف الليل: <strong style="font-variant-numeric:tabular-nums">${fmtClock(windows.midnight, tz)}</strong><br>
-        الثلث الأخير: <strong style="font-variant-numeric:tabular-nums">${fmtClock(windows.lastThird, tz)}</strong> — حتى الفجر ${fmtClock(windows.nextFajr, tz)}
+      <div id="today-qiyam-body" style="font-size:14px;line-height:2">
+        منتصف الليل: <strong dir="ltr" style="font-variant-numeric:tabular-nums">${fmtClock(windows.midnight, tz)}</strong><br>
+        الثلث الأخير: <strong dir="ltr" style="font-variant-numeric:tabular-nums">${fmtClock(windows.lastThird, tz)}</strong> — حتى الفجر <span dir="ltr">${fmtClock(windows.nextFajr, tz)}</span>
       </div>
     </div>
 
@@ -243,7 +270,7 @@ export async function renderToday(root) {
       navigate('mushaf-page', { page: s?.start_page ?? 301 });
       return;
     }
-    if (['morning', 'evening', 'after_prayer'].includes(card.kind) || card.adhkar) {
+    if (['morning', 'evening', 'after_prayer', 'night', 'sleep'].includes(card.kind) || card.adhkar) {
       const cat = await resolveAdhkarCategory(state.db, card.adhkar ?? card.kind);
       if (cat) { navigate('adhkar-cat', { id: cat.category_id }); return; }
       haptic(HAPTICS.pageFlipSettle); // fall through to the generic route below
@@ -263,45 +290,110 @@ export async function renderToday(root) {
   });
   root.querySelector('#today-month-btn')?.addEventListener('click', () => openMonthSchedule(engine, dateIso, tz));
 
+  // Unified cleanup for all Today timers and observers (no subtree observation on 1 Hz ticks)
+  let dTimer = null;
+  let dSwapTimer = null;
+  let timer = null;
+  let rootObs = null;
+  const cleanup = () => {
+    if (dTimer !== null) { clearInterval(dTimer); dTimer = null; }
+    if (dSwapTimer !== null) { clearTimeout(dSwapTimer); dSwapTimer = null; }
+    if (timer !== null) { clearInterval(timer); timer = null; }
+    if (rootObs !== null) { rootObs.disconnect(); rootObs = null; }
+  };
+  activeCleanups.set(root, cleanup);
+
   // dhikr pill — 25s ambient rotation, tap advances; swap = fade/slide via .swapping
   const dhikrBtn = root.querySelector('#today-dhikr');
   if (dhikrBtn) {
     const dhikrTxt = dhikrBtn.querySelector('.dhikr-txt');
     const swapDhikr = () => {
       dhikrBtn.classList.add('swapping');
-      setTimeout(() => {
+      if (dSwapTimer !== null) clearTimeout(dSwapTimer);
+      dSwapTimer = setTimeout(() => {
+        dSwapTimer = null;
+        if (!dhikrBtn.isConnected) return;
         dhikrIdx++;
         dhikrTxt.textContent = DHIKR_PILL_TEXTS[dhikrIdx % DHIKR_PILL_TEXTS.length];
         dhikrBtn.classList.remove('swapping');
       }, 330);
     };
     dhikrBtn.addEventListener('click', () => { haptic(HAPTICS.dhikrTick); swapDhikr(); });
-    const stopDhikr = () => { clearInterval(dTimer); dObs.disconnect(); };
-    const dTimer = setInterval(() => {
-      if (!dhikrBtn.isConnected) { stopDhikr(); return; }
+    dTimer = setInterval(() => {
+      if (!dhikrBtn.isConnected) { cleanup(); return; }
       swapDhikr();
     }, 25000);
-    const dObs = new MutationObserver(() => {
-      if (!dhikrBtn.isConnected) stopDhikr();
-    });
-    dObs.observe(root, { childList: true, subtree: true });
   }
 
-  // 1 Hz ticker — formats only, never recomputes times (deterministic, cheap)
+  // 1 Hz ticker — formats only; on prayer boundary rolls over in-place with zero DB reads / full re-render
   const cd = root.querySelector('#hero-countdown');
-  const timer = setInterval(() => {
-    const left = next.at - nowMs();
-    if (left <= -1500) { clearInterval(timer); renderToday(root); return; }
+  const heroNameEl = root.querySelector('#hero-name');
+  const heroAtEl = root.querySelector('#hero-at');
+  const smartCardEl = root.querySelector('#smart-card');
+  const prayerRows = [...root.querySelectorAll('.prayer-row[data-prayer]')];
+
+  const syncRolloverInPlace = (curNow) => {
+    const updatedNext = engine.next(curNow);
+    if (updatedNext.at <= curNow) return; // guard against frozen clockOverride
+    next = updatedNext;
+    const curDateIso = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(curNow);
+    const updatedNextIso = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(next.at);
+    if (heroNameEl) heroNameEl.textContent = updatedNextIso !== curDateIso ? `${PRAYER_LABELS[next.name]} (غداً)` : PRAYER_LABELS[next.name];
+    if (heroAtEl) heroAtEl.innerHTML = `الأذان <span dir="ltr">${fmtClock(next.at, tz)}</span>`;
+    if (curDateIso !== dateIso) {
+      dateIso = curDateIso;
+      day = engine.daySchedule(dateIso);
+      const qIso = curNow < day.prayers.fajr ? shiftCivilIso(dateIso, -1) : dateIso;
+      const w = engine.sunnahWindows(qIso);
+      const qBody = root.querySelector('#today-qiyam-body');
+      if (qBody) {
+        qBody.innerHTML = `منتصف الليل: <strong dir="ltr" style="font-variant-numeric:tabular-nums">${fmtClock(w.midnight, tz)}</strong><br>`
+          + `الثلث الأخير: <strong dir="ltr" style="font-variant-numeric:tabular-nums">${fmtClock(w.lastThird, tz)}</strong> — حتى الفجر <span dir="ltr">${fmtClock(w.nextFajr, tz)}</span>`;
+      }
+      const h = withAdjust(dateIso, Number(state.settings.hijri_adjust ?? 0));
+      const dEn = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long' }).format(curNow);
+      const gTxt = new Intl.DateTimeFormat('ar', { timeZone: tz, day: 'numeric', month: 'long' }).format(curNow);
+      const subEl = root.querySelector('#today-date-sub');
+      if (subEl) subEl.textContent = `${DAY_LABELS[dEn]} · ${h.d} ${monthNameAr(h.m)} ${h.y} هـ · ${gTxt}`;
+      for (const row of prayerRows) {
+        const p = row.dataset.prayer;
+        const tEl = row.querySelector('.p-time');
+        if (tEl && day.prayers[p] !== undefined) tEl.textContent = fmtClock(day.prayers[p], tz);
+      }
+    }
+    for (const row of prayerRows) row.classList.toggle('next', row.dataset.prayer === next.name);
+    card = contextualDailyCard(curNow, engine);
+    if (smartCardEl) {
+      smartCardEl.dataset.kind = card.kind;
+      const ico = smartCardEl.querySelector('.sc-icon');
+      const badge = smartCardEl.querySelector('.sc-badge');
+      const title = smartCardEl.querySelector('.sc-title');
+      const sub = smartCardEl.querySelector('.sc-sub');
+      const act = smartCardEl.querySelector('#sc-action');
+      if (ico) ico.innerHTML = iconSvg(smartCardIconName(card.kind), 18);
+      if (badge) badge.textContent = card.badge;
+      if (title) title.textContent = card.title;
+      if (sub) sub.textContent = card.sub;
+      if (act) act.textContent = card.action.label;
+    }
+  };
+
+  timer = setInterval(() => {
+    if (!cd.isConnected) { cleanup(); return; }
+    const curNow = nowMs();
+    let left = next.at - curNow;
+    if (left <= -1500) {
+      syncRolloverInPlace(curNow);
+      left = next.at - curNow;
+    }
     cd.textContent = fmtHMS(left);
   }, 1000);
-  // stop the ticker when the screen is replaced
-  const tObs = new MutationObserver(() => {
-    if (!document.getElementById('hero-countdown')) {
-      clearInterval(timer);
-      tObs.disconnect();
-    }
+
+  // Stop timers only when the screen root's direct children are replaced (not on subtree text ticks)
+  rootObs = new MutationObserver(() => {
+    if (!cd.isConnected) cleanup();
   });
-  tObs.observe(root, { childList: true, subtree: true });
+  rootObs.observe(root, { childList: true });
 }
 
 function openCityPicker(root) {
@@ -345,9 +437,9 @@ function openCityPicker(root) {
     const heading = q.trim().length < 2
       ? `<div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:6px">المدن الشائعة والعواصم</div>`
       : '';
-    resEl.innerHTML = heading + (rows.map((r) => `<div class="result-item" data-cid="${r.city_id}" role="button" tabindex="0">
-      <div style="font-weight:700">${r.name_ar}</div>
-      <div class="meta">${r.country_ar} · ${r.timezone}</div>
+    resEl.innerHTML = heading + (rows.map((r) => `<div class="result-item" data-cid="${esc(r.city_id)}" role="button" tabindex="0">
+      <div style="font-weight:700">${esc(r.name_ar)}</div>
+      <div class="meta">${esc(r.country_ar)} · ${esc(r.timezone)}</div>
     </div>`).join('') || `<div class="mode-note">لا توجد نتائج مطابقة</div>`);
     for (const item of resEl.querySelectorAll('[data-cid]')) {
       const pick = () => {
@@ -390,11 +482,11 @@ function openMonthSchedule(engine, startIso, tz) {
     const s = engine.daySchedule(iso);
     return `<tr>
       <td>${iso.slice(5)}</td>
-      <td>${fmtClock(s.prayers.fajr, tz)}</td>
-      <td>${fmtClock(s.prayers.dhuhr, tz)}</td>
-      <td>${fmtClock(s.prayers.asr, tz)}</td>
-      <td>${fmtClock(s.prayers.maghrib, tz)}</td>
-      <td>${fmtClock(s.prayers.isha, tz)}</td>
+      <td dir="ltr">${fmtClock(s.prayers.fajr, tz)}</td>
+      <td dir="ltr">${fmtClock(s.prayers.dhuhr, tz)}</td>
+      <td dir="ltr">${fmtClock(s.prayers.asr, tz)}</td>
+      <td dir="ltr">${fmtClock(s.prayers.maghrib, tz)}</td>
+      <td dir="ltr">${fmtClock(s.prayers.isha, tz)}</td>
     </tr>`;
   }).join('');
   host.innerHTML = `

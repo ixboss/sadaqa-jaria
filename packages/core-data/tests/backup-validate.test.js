@@ -69,6 +69,15 @@ const badCases = [
   ['khatmahPageLog missing planUuid', manifest(), { reading: [{ uuid: '018f3f2e-7abc-7def-8abc-000000000103', type: 'khatmahPlan', updatedAt: 1_700_000_000_000, mode: 'rate', startDate: '2026-01-01', dailyPages: 3 }, { uuid: VALID.uuid, type: 'khatmahPageLog', updatedAt: 1_700_000_000_000, page: 3, completedAt: 1_700_000_000_000 }] }, /planUuid/],
   ['khatmahPageLog orphan planUuid (no plan in file)', manifest(), { reading: [{ uuid: VALID.uuid, type: 'khatmahPageLog', updatedAt: 1_700_000_000_000, planUuid: '018f3f2e-7abc-7def-8abc-000000000103', page: 3, completedAt: 1_700_000_000_000 }] }, /reference a khatmahPlan/],
   ['note body not string', manifest(), { reading: [{ uuid: VALID.uuid, type: 'note', updatedAt: 1_700_000_000_000, body: 7 }] }, /body must be a string/],
+  ['setting hijri_adjust out of range', manifest(), { prefs: [{ uuid: VALID.uuid, type: 'setting', updatedAt: 1_700_000_000_000, key: 'hijri_adjust', value: 1e300 }] }, /hijri_adjust/],
+  ['setting hijri_adjust NaN', manifest(), { prefs: [{ uuid: VALID.uuid, type: 'setting', updatedAt: 1_700_000_000_000, key: 'hijri_adjust', value: NaN }] }, /non-finite/],
+  ['setting prayer_offsets out of range', manifest(), { prefs: [{ uuid: VALID.uuid, type: 'setting', updatedAt: 1_700_000_000_000, key: 'prayer_offsets', value: { fajr: 999 } }] }, /prayer_offsets\.fajr/],
+  ['setting prayer_offsets unknown prayer', manifest(), { prefs: [{ uuid: VALID.uuid, type: 'setting', updatedAt: 1_700_000_000_000, key: 'prayer_offsets', value: { noon: 5 } }] }, /unknown prayer/],
+  ['setting location bad coords', manifest(), { prefs: [{ uuid: VALID.uuid, type: 'setting', updatedAt: 1_700_000_000_000, key: 'location', value: { lat: 999, lng: 39.8, tz: 'Asia/Riyadh' } }] }, /location\.lat/],
+  ['setting location bad timezone', manifest(), { prefs: [{ uuid: VALID.uuid, type: 'setting', updatedAt: 1_700_000_000_000, key: 'location', value: { lat: 21.4, lng: 39.8, tz: 'Mars/Base' } }] }, /IANA timezone/],
+  ['setting location oversized name_ar', manifest(), { prefs: [{ uuid: VALID.uuid, type: 'setting', updatedAt: 1_700_000_000_000, key: 'location', value: { lat: 21.4, lng: 39.8, name_ar: 'x'.repeat(121) } }] }, /location\.name_ar/],
+  ['setting calc_method invalid', manifest(), { prefs: [{ uuid: VALID.uuid, type: 'setting', updatedAt: 1_700_000_000_000, key: 'calc_method', value: 'gulf' }] }, /calc_method/],
+  ['setting nested dangerous key', manifest(), { prefs: [{ uuid: VALID.uuid, type: 'setting', updatedAt: 1_700_000_000_000, key: 'custom', value: JSON.parse('{"__proto__":{"polluted":1}}') }] }, /dangerous/],
 ];
 
 test('validator refusal table', () => {

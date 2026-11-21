@@ -122,11 +122,17 @@ async function main() {
     const hub = await evaljs(`({ hero: !!document.getElementById('hero-countdown'),
       hijri: document.querySelector('.screen-header .sub')?.textContent ?? '',
       schedule: document.querySelectorAll('.prayer-row').length,
+      times: [...document.querySelectorAll('.prayer-row .p-time')].map((el) => el.textContent.trim()),
+      heroAt: document.getElementById('hero-at')?.textContent.trim() ?? '',
       smart: document.getElementById('smart-card')?.dataset.kind ?? null,
       qiyam: document.body.textContent.includes('الثلث الأخير') })`);
     ok('hub: hero countdown + schedule (6 rows) + qiyam windows', hub.hero && hub.schedule === 6 && hub.qiyam, `schedule=${hub.schedule}`);
+    const CLOCK_12H = /^(1[0-2]|[1-9]):[0-5]\d (AM|PM)$/;
+    ok('hub: prayer schedule & hero use ASCII 12-hour h:mm AM/PM',
+      hub.times.length === 6 && hub.times.every((t) => CLOCK_12H.test(t)) && /(1[0-2]|[1-9]):[0-5]\d (AM|PM)/.test(hub.heroAt),
+      `${hub.times.join(', ')} | ${hub.heroAt}`);
     ok('hub: Hijri date in header (عام هـ)', /\d+\s+.+?\s+\d+\s+هـ/.test(hub.hijri), hub.hijri);
-    ok('hub: smart card rendered with a §9 kind', ['kahf', 'after_prayer', 'qiyam', 'morning', 'evening', 'daily_morning', 'daily_hijri', 'daily_evening', 'daily_sleep'].includes(hub.smart), hub.smart);
+    ok('hub: smart card rendered with a §9 kind', ['kahf', 'after_prayer', 'qiyam', 'morning', 'evening', 'night', 'daily_morning', 'daily_hijri', 'daily_evening', 'daily_sleep'].includes(hub.smart), hub.smart);
     await screenshot('v2p4-today.png');
 
     // 3b. Today header dhikr pill — renders across from the title, cycles on tap
@@ -222,6 +228,7 @@ async function main() {
         [new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(Date.now()) === 'Fri' ? 'kahf' : 'morning',
          sched.prayers.fajr + 30 * 60000],   // past the ±20 min post-prayer window
         ['evening', sched.prayers.asr + 45 * 60000],
+        ['night', sched.prayers.isha + 45 * 60000], // Sleep Adhkar window after Isha post-prayer
         ['next_prayer', sched.prayers.dhuhr + 45 * 60000], // between duha and asr
       ];
       const { resolveSmartCard } = await import(new URL('./js/ui/screens/today.js', location.href));
@@ -332,9 +339,33 @@ async function main() {
     const qiyam = await evaljs(`(async () => {
       document.getElementById('qy-calc').click();
       await new Promise(r => setTimeout(r, 100));
-      return { rows: [...document.querySelectorAll('#qy-out .stat-row')].map(r => r.textContent) };
+      return {
+        rows: [...document.querySelectorAll('#qy-out .stat-row')].map(r => r.textContent),
+        strongs: [...document.querySelectorAll('.screen strong[dir="ltr"]')].map(el => el.textContent.trim()),
+      };
     })()`);
-    ok('qiyam: tonight windows + sleep planner computes bedtime', qiyam.rows.length >= 2, JSON.stringify(qiyam.rows));
+    ok('qiyam: tonight windows + sleep planner computes bedtime (12h ASCII)',
+      qiyam.rows.length >= 2 && qiyam.strongs.length >= 3 && qiyam.strongs.every((t) => /^(1[0-2]|[1-9]):[0-5]\d (AM|PM)$/.test(t)) && /(1[0-2]|[1-9]):[0-5]\d (AM|PM)/.test(qiyam.rows[0]),
+      JSON.stringify(qiyam));
+
+    // 11b. XSS hardening — malicious location.name_ar stays escaped in Today + Qibla
+    const xssCheck = await evaljs(`(async () => {
+      const prevLoc = window.__sadaqa.state.settings.location;
+      window.__xssProbe = 0;
+      window.__sadaqa.state.settings.location = { lat: 21.4225, lng: 39.8262, tz: 'Asia/Riyadh', cityId: 1, name_ar: '<img src=x onerror="window.__xssProbe=1">' };
+      const todayMod = await import(new URL('./js/ui/screens/today.js', location.href));
+      await todayMod.renderToday(document.getElementById('screen-root'));
+      const todayImgs = document.querySelectorAll('#today-city-btn img').length;
+      const todayText = document.querySelector('#today-city-btn')?.textContent ?? '';
+      const toolsMod = await import(new URL('./js/ui/screens/tools.js', location.href));
+      toolsMod.renderQibla(document.getElementById('screen-root'));
+      const qiblaImgs = document.querySelectorAll('.screen-header .sub img').length;
+      window.__sadaqa.state.settings.location = prevLoc;
+      return { fired: window.__xssProbe, todayImgs, qiblaImgs, escaped: todayText.includes('<img') };
+    })()`);
+    ok('security: location.name_ar is HTML-escaped in Today and Qibla',
+      xssCheck.fired === 0 && xssCheck.todayImgs === 0 && xssCheck.qiblaImgs === 0 && xssCheck.escaped,
+      JSON.stringify(xssCheck));
 
     // 12. Backup: export (real UI) → payload/manifest integrity → merge → replace
     await goto('#/tools-backup');

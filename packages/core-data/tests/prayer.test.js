@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computeForDate, daySchedule, next, schedule, sunnahWindows, bindPrayerEngine,
+  bindPrayerEngineFromSettings, sanitizePrayerOffsets, formatTime,
   CALC_METHODS, MADHABS, HIGH_LATITUDE_RULES, civilParts,
 } from '../engines/prayer.js';
 import { Coordinates, CalculationMethod, PrayerTimes } from '../vendor/adhan/Adhan.js';
@@ -160,4 +161,39 @@ test('next(): DST spring-forward midnight uses civil yesterday (not now - 86400s
   assert.equal(r.at, mar30.prayers.fajr);
   assert.equal(r.previous.name, 'isha');
   assert.equal(r.previous.at, mar29.prayers.isha);
+});
+
+test('formatTime formats prayer instants in strict ASCII 12-hour h:mm AM/PM', () => {
+  const s = daySchedule('2026-03-28', { ...LONDON, highLatitudeRule: 'middle_of_the_night' });
+  assert.equal(formatTime(s.prayers.fajr, 'Europe/London'), '3:49 AM');
+  assert.equal(formatTime(s.prayers.dhuhr, 'Europe/London'), '12:07 PM');
+  assert.equal(formatTime(s.prayers.asr, 'Europe/London'), '3:34 PM');
+  assert.equal(formatTime(s.prayers.isha, 'Europe/London'), '8:17 PM');
+});
+
+test('sunnahWindows validates coordinates and timezone', () => {
+  assert.throws(() => sunnahWindows(DAY, { ...CAIRO, lat: 95 }), /invalid lat/);
+  assert.throws(() => sunnahWindows(DAY, { ...CAIRO, lng: -200 }), /invalid lng/);
+  assert.throws(() => sunnahWindows(DAY, { ...CAIRO, lat: NaN }), /invalid lat/);
+  assert.throws(() => sunnahWindows(DAY, { lat: 30, lng: 31 }), /timeZone is required/);
+});
+
+test('bindPrayerEngineFromSettings clamps offsets and recovers from corrupt imported settings', () => {
+  const eng = bindPrayerEngineFromSettings({
+    location: { lat: 999, lng: NaN, tz: 'Not/A_Zone' },
+    calc_method: 'evil_method',
+    madhab: 'unknown',
+    high_latitude_rule: 'bogus',
+    prayer_offsets: { fajr: 999, isha: -120, dhuhr: 4.6, asr: NaN, bogus: 10 },
+  });
+  assert.equal(eng.opts.lat, 21.4225);
+  assert.equal(eng.opts.lng, 39.8262);
+  assert.equal(eng.opts.timeZone, 'Asia/Riyadh');
+  assert.equal(eng.opts.method, 'umm_al_qura');
+  assert.equal(eng.opts.madhab, 'shafi');
+  assert.equal(eng.opts.highLatitudeRule, 'middle_of_the_night');
+  assert.deepEqual(eng.opts.offsets, { fajr: 60, isha: -60, dhuhr: 5 });
+  assert.ok(Number.isFinite(eng.daySchedule(DAY).prayers.fajr));
+  assert.deepEqual(sanitizePrayerOffsets(null), {});
+  assert.deepEqual(sanitizePrayerOffsets([1, 2]), {});
 });

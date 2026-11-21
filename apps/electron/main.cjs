@@ -30,9 +30,31 @@ const SEED_DB = path.join(PKG_DIR, 'core-data', 'build', 'sadaqa.db');
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript',
   '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm',
-  '.woff2': 'font/woff2', '.woff': 'font/woff', '.png': 'image/png', '.svg': 'image/svg+xml',
+  '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.png': 'image/png', '.svg': 'image/svg+xml',
   '.mp3': 'audio/mpeg', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json',
 };
+
+const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 50 * 1024 * 1024;
+const MAX_SQL_LENGTH = 16_384;
+const MAX_SQL_PARAMS = 256;
+const MAX_BATCH_STMTS = 60_000;
+const WRITABLE_TABLES = new Set([
+  'adhkar_state',
+  'audio_packs_state',
+  'backup_log',
+  'bookmarks',
+  'highlights',
+  'khatmah_page_log',
+  'khatmah_plans',
+  'notes',
+  'reciters',
+  'streak_days',
+  'tasbih_counters',
+  'tasbih_sessions',
+  'user_progress',
+  'user_settings',
+]);
 
 // app:// must be standard+secure so ES modules, fetch and wasm all behave like https
 protocol.registerSchemesAsPrivileged([
@@ -55,10 +77,11 @@ function resolveUnder(root, urlPath) {
 }
 
 function registerAppProtocol() {
-  const CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob: https:; connect-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'none';";
+  const CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob: https://everyayah.com https://www.everyayah.com; connect-src 'self' https://everyayah.com https://www.everyayah.com; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'none';";
   protocol.handle('app', async (request) => {
     try {
       const u = new URL(request.url);
+      if (u.host !== 'sadaqa') return new Response('forbidden host', { status: 403 });
       const candidates = [];
       // single host: web assets first, then the shared packages tree. Module
       // imports resolve `/js/data/../../../../packages/...` → `/packages/…`,
@@ -73,7 +96,11 @@ function registerAppProtocol() {
           const st = await fsp.stat(file);
           if (!st.isFile()) continue;
           const ext = path.extname(file).toLowerCase();
-          const headers = { 'content-type': MIME[ext] ?? 'application/octet-stream' };
+          const headers = {
+            'content-type': MIME[ext] ?? 'application/octet-stream',
+            'x-content-type-options': 'nosniff',
+            'referrer-policy': 'no-referrer',
+          };
           if (ext === '.html') headers['content-security-policy'] = CSP;
           const body = await fsp.readFile(file);
           return new Response(body, { headers });
@@ -143,19 +170,43 @@ async function openDatabase() {
 function guardParams(params) {
   if (params === undefined || params === null) return [];
   if (!Array.isArray(params)) throw new Error('params must be an array');
+  if (params.length > MAX_SQL_PARAMS) throw new Error(`too many sql params (max ${MAX_SQL_PARAMS})`);
+  for (const p of params) {
+    if (p === null || p === undefined || typeof p === 'string' || typeof p === 'bigint') continue;
+    if (typeof p === 'number') {
+      if (!Number.isFinite(p)) throw new Error('non-finite numeric sql param forbidden');
+      continue;
+    }
+    if (p instanceof Uint8Array || Buffer.isBuffer(p)) continue;
+    throw new Error('unsupported sql param type');
+  }
   return params;
 }
+
+const FORBIDDEN_SQL_RE = /\b(ATTACH|DETACH|PRAGMA|VACUUM|REINDEX|DROP|ALTER|CREATE|LOAD_EXTENSION|SQLITE_MASTER|SQLITE_SCHEMA|SQLITE_TEMP_MASTER)\b/i;
+const WRITE_TARGET_RE = /^\s*(?:INSERT\s+(?:OR\s+(?:IGNORE|REPLACE|ABORT|ROLLBACK|FAIL)\s+)?INTO|UPDATE\s+(?:OR\s+(?:IGNORE|REPLACE|ABORT|ROLLBACK|FAIL)\s+)?|DELETE\s+FROM)\s+["`]?([a-zA-Z_][a-zA-Z0-9_]*)["`]?\b/i;
 
 function guardSql(kind, sql) {
   const s = String(sql ?? '').trim();
   if (!s) throw new Error('empty sql');
-  if (s.includes(';')) throw new Error('multi-statement sql forbidden');
+  if (s.length > MAX_SQL_LENGTH) throw new Error('sql exceeds maximum length');
+  if (s.includes('\0') || s.includes(';') || s.includes('--') || s.includes('/*') || s.includes('*/')) {
+    throw new Error('multi-statement or commented sql forbidden');
+  }
+  if (FORBIDDEN_SQL_RE.test(s)) throw new Error('disallowed sql operation');
   if (/^\s*(SELECT|WITH)\b/i.test(s)) {
     if (kind !== 'read') throw new Error('read query not allowed in write channel');
+    if (/\b(INSERT|UPDATE|DELETE|REPLACE)\b/i.test(s)) {
+      throw new Error('write statement not allowed in read channel');
+    }
     return s;
   }
   if (/^\s*(INSERT|UPDATE|DELETE)\b/i.test(s)) {
     if (kind !== 'write') throw new Error('write statement not allowed in read channel');
+    const m = s.match(WRITE_TARGET_RE);
+    if (!m || !WRITABLE_TABLES.has(m[1].toLowerCase())) {
+      throw new Error(`write to table not allowed: ${m?.[1] ?? 'unknown'}`);
+    }
     return s;
   }
   throw new Error('disallowed sql operation');
@@ -178,6 +229,7 @@ function registerIpc() {
   ipcMain.handle('db:batch', (_e, { stmts, engineReload }) => {
     requireDb();
     if (!Array.isArray(stmts) || stmts.length === 0) throw new Error('batch: stmts required');
+    if (stmts.length > MAX_BATCH_STMTS) throw new Error(`batch exceeds limit (${MAX_BATCH_STMTS})`);
     const checked = stmts.map(({ sql, params }) => ({ sql: guardSql('write', sql), params: guardParams(params) }));
     const runAll = db.transaction(() => {
       let count = 0;
@@ -197,16 +249,23 @@ function registerIpc() {
 
   // audio store → userData/audio/<reciter>/<key>.mp3 (local filesystem pack cache)
   const audioDirFor = (reciter, key) => {
-    const safeReciter = String(reciter).replace(/[^a-z0-9_-]/gi, '');
-    const safeKey = String(key).replace(/[^a-z0-9_-]/gi, '');
-    if (!safeReciter || !safeKey) throw new Error('bad audio key');
+    const safeReciter = String(reciter ?? '').replace(/[^a-z0-9_-]/gi, '');
+    const safeKey = String(key ?? '').replace(/[^a-z0-9_-]/gi, '');
+    if (!safeReciter || !safeKey || safeReciter.length > 64 || safeKey.length > 64) throw new Error('bad audio key');
     const dir = path.join(app.getPath('userData'), 'audio', safeReciter);
     return { dir, file: path.join(dir, `${safeKey}.mp3`) };
   };
   ipcMain.handle('audio:put', async (_e, { reciter, key, bytes }) => {
+    if (!bytes || !(bytes instanceof Uint8Array || Buffer.isBuffer(bytes) || bytes instanceof ArrayBuffer)) {
+      throw new Error('audio: bytes required');
+    }
+    const buf = bytes instanceof ArrayBuffer ? Buffer.from(bytes) : Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    if (buf.byteLength === 0 || buf.byteLength > MAX_AUDIO_BYTES) {
+      throw new Error(`audio payload exceeds limit (${MAX_AUDIO_BYTES} bytes)`);
+    }
     const { dir, file } = audioDirFor(reciter, key);
     await fsp.mkdir(dir, { recursive: true });
-    await fsp.writeFile(file, Buffer.from(bytes));
+    await fsp.writeFile(file, buf);
     return { ok: true };
   });
   ipcMain.handle('audio:get', async (_e, { reciter, key }) => {
@@ -225,24 +284,38 @@ function registerIpc() {
   });
 
   // .sadaqa files via native dialogs — defaultPath اسم ملف فقط (لا مسار مطلق
-  // من الـ renderer) وبمرشّح امتداد واحد (audit 2026-11)
+  // من الـ renderer) وبمرشّح امتداد واحد وبسقف حجم مطابق (10 MB) (audit 2026-11)
   ipcMain.handle('file:save', async (_e, { bytes, name }) => {
+    if (!bytes || !(bytes instanceof Uint8Array || Buffer.isBuffer(bytes) || bytes instanceof ArrayBuffer)) {
+      throw new Error('file:save bytes required');
+    }
+    const buf = bytes instanceof ArrayBuffer ? Buffer.from(bytes) : Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    if (buf.byteLength > MAX_BACKUP_BYTES) {
+      throw new Error(`backup exceeds limit (${MAX_BACKUP_BYTES} bytes)`);
+    }
     const { canceled, filePath } = await dialog.showSaveDialog({
       defaultPath: path.basename(String(name ?? 'sadaqa-backup.sadaqa')),
       filters: [{ name: 'Sadaqa Backup', extensions: ['sadaqa'] }],
     });
     if (canceled || !filePath) return false;
-    await fsp.writeFile(filePath, Buffer.from(bytes));
+    await fsp.writeFile(filePath, buf);
     return true;
   });
   ipcMain.handle('file:open', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'Sadaqa Backup', extensions: ['sadaqa'] }] });
     if (canceled || filePaths.length === 0) return null;
+    const st = await fsp.stat(filePaths[0]);
+    if (!st.isFile() || st.size > MAX_BACKUP_BYTES) {
+      throw new Error(`backup file exceeds limit (${MAX_BACKUP_BYTES} bytes)`);
+    }
     return await fsp.readFile(filePaths[0]);
   });
   ipcMain.handle('notify', (_e, payload) => {
     if (!Notification.isSupported()) return false;
-    new Notification({ title: String(payload.title), body: String(payload.body), silent: false }).show();
+    if (!payload || typeof payload !== 'object') throw new Error('notify: payload required');
+    const title = String(payload.title ?? '').slice(0, 120);
+    const body = String(payload.body ?? '').slice(0, 500);
+    new Notification({ title, body, silent: false }).show();
     return true;
   });
 }
@@ -253,17 +326,23 @@ function registerIpc() {
 let tray = null;
 const firedAdhan = new Set();
 let engine = null;
+let formatPrayerTime = null;
+let cachedNext = null;
 
 async function loadEngine() {
   const prayer = await import(pathToFileURL(path.join(PKG_DIR, 'core-data', 'engines', 'prayer.js')).href);
+  formatPrayerTime = prayer.formatTime;
   const settings = {};
   try {
     const rows = db.prepare(`SELECT key, value FROM user_settings`).all();
     for (const r of rows) {
+      if (r.key === '__proto__' || r.key === 'constructor' || r.key === 'prototype') continue;
       try { settings[r.key] = JSON.parse(r.value); } catch { settings[r.key] = r.value; }
     }
   } catch { /* defaults */ }
   engine = prayer.bindPrayerEngineFromSettings(settings);
+  cachedNext = null;
+  lastTrayMenuLabel = '';
   return engine;
 }
 
@@ -327,13 +406,20 @@ function createTray() {
 }
 
 let lastTrayMenuLabel = '';
+function getNextPrayer(now) {
+  if (!cachedNext || now >= cachedNext.at) {
+    cachedNext = engine.next(now);
+  }
+  return cachedNext;
+}
+
 function rebuildTrayMenu() {
   if (!engine || !tray) return;
   const now = Date.now();
-  const next = engine.next(now);
+  const next = getNextPrayer(now);
   const tz = engine.opts.timeZone;
-  const clock = (ms) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
-  const menuLabel = `الصلاة القادمة: ${PRAYER_AR[next.name]} ${clock(next.at)}`;
+  const clockTime = formatPrayerTime ? formatPrayerTime(next.at, tz) : '';
+  const menuLabel = `الصلاة القادمة: ${PRAYER_AR[next.name]} ${clockTime}`.trim();
   if (menuLabel !== lastTrayMenuLabel) {
     lastTrayMenuLabel = menuLabel;
     const items = [
@@ -345,20 +431,22 @@ function rebuildTrayMenu() {
     ];
     tray.setContextMenu(Menu.buildFromTemplate(items));
   }
-  tray.setToolTip(`الصلاة القادمة: ${PRAYER_AR[next.name]} بعد ${fmtHMS(next.at - now)}`);
+  tray.setToolTip(`الصلاة القادمة: ${PRAYER_AR[next.name]}${clockTime ? ` (${clockTime})` : ''} بعد ${fmtHMS(next.at - now)}`);
 }
 
 function checkAdhan() {
   if (!engine || !Notification.isSupported()) return;
   const now = Date.now();
-  const n = engine.next(now);
+  const n = getNextPrayer(now);
   const prev = n.previous;
   if (!prev || prev.name === 'sunrise' || now - prev.at < 0 || now - prev.at > 90_000) return;
   const key = `${prev.name}@${prev.at}`;
   if (firedAdhan.has(key)) return;
   if (firedAdhan.size > 64) firedAdhan.clear();
   firedAdhan.add(key);
-  new Notification({ title: `حان الآن موعد أذان ${PRAYER_AR[prev.name]}`, body: 'حي على الصلاة · حي على الفلاح', silent: false }).show();
+  const clockTime = formatPrayerTime ? formatPrayerTime(prev.at, engine.opts.timeZone) : '';
+  const body = clockTime ? `${clockTime} · حي على الصلاة · حي على الفلاح` : 'حي على الصلاة · حي على الفلاح';
+  new Notification({ title: `حان الآن موعد أذان ${PRAYER_AR[prev.name]}`, body, silent: false }).show();
 }
 
 // ---------------------------------------------------------------------------

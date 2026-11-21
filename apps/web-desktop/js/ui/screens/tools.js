@@ -6,9 +6,10 @@
 // ============================================================================
 import { state, saveSetting, nowMs, haptic } from '../../app-state.js';
 import { prayerEngineForSettings } from '../../app-state.js';
-import { qiblaBearing, distanceKm } from '../../../../../packages/core-data/engines/qibla.js';
-import { toHijri, fromHijri, monthNameAr, events, withAdjust } from '../../../../../packages/core-data/engines/hijri.js';
-import { CALC_METHODS, MADHABS, HIGH_LATITUDE_RULES } from '../../../../../packages/core-data/engines/prayer.js';
+import { qiblaBearing, distanceKm, KAABA_COORDS } from '../../../../../packages/core-data/engines/qibla.js';
+import { toHijri, fromHijri, monthNameAr, events, withAdjust, clampHijriAdjust } from '../../../../../packages/core-data/engines/hijri.js';
+import { CALC_METHODS, MADHABS, HIGH_LATITUDE_RULES, shiftCivilIso } from '../../../../../packages/core-data/engines/prayer.js';
+import { formatTime12h } from '../../../../../packages/core-data/engines/timefmt.js';
 import { navigate } from '../router.js';
 import { iconSvg } from '../icons.js';
 import { mountTheme } from '../../main.js';
@@ -16,7 +17,7 @@ import { renderBackup } from './backup.js';
 import { findNearestCity, searchCitiesOffline } from './today.js';
 import { getGpsFix, persistLocation } from '../geo.js';
 
-const fmtClock = (ms, tz) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
+const fmtClock = (ms, tz) => formatTime12h(ms, tz);
 
 /** تهريب القيم القادمة من الإعدادات المستوردة/المستخدم قبل قوالب innerHTML —
  * هذا الملف لم يكن فيه مهريب أصلاً (audit 2026-11). */
@@ -59,17 +60,24 @@ export function renderTools(root) {
 // manual dial fallback otherwise. No network, no geolocation service.
 // ---------------------------------------------------------------------------
 export function renderQibla(root) {
-  const loc = state.settings.location ?? { lat: 21.4225, lng: 39.8262, tz: 'Asia/Riyadh', name_ar: 'مكة المكرمة' };
+  const loc = state.settings.location && typeof state.settings.location === 'object'
+    ? state.settings.location
+    : { lat: KAABA_COORDS.lat, lng: KAABA_COORDS.lng, tz: 'Asia/Riyadh', name_ar: 'مكة المكرمة' };
   // bearing from the live GPS fix when one is saved, else the selected city
-  const src = loc.gps ?? loc;
-  const bearing = qiblaBearing({ lat: src.lat, lng: src.lng });
-  const dist = distanceKm({ lat: src.lat, lng: src.lng });
-  const srcLabel = loc.gps ? 'موقعك الحالي (GPS)' : (loc.cityId ? loc.name_ar : `${loc.name_ar} — افتراضي، حدّد موقعك`);
+  const rawSrc = loc.gps ?? loc;
+  const srcLat = Number(rawSrc?.lat);
+  const srcLng = Number(rawSrc?.lng);
+  const validCoords = Number.isFinite(srcLat) && srcLat >= -90 && srcLat <= 90 && Number.isFinite(srcLng) && srcLng >= -180 && srcLng <= 180;
+  const coords = validCoords ? { lat: srcLat, lng: srcLng } : KAABA_COORDS;
+  const bearing = qiblaBearing(coords);
+  const dist = distanceKm(coords);
+  const safeLocName = loc.name_ar ?? 'مكة المكرمة';
+  const srcLabel = loc.gps && validCoords ? 'موقعك الحالي (GPS)' : (loc.cityId ? safeLocName : `${safeLocName} — افتراضي، حدّد موقعك`);
   const degenerate = dist < 5;
 
   root.innerHTML = `
   <div class="screen">
-    <div class="screen-header"><h1>اتجاه القبلة</h1><div class="sub">${srcLabel} — ${bearing.toFixed(1)}° من الشمال · ${Math.round(dist).toLocaleString('ar-EG')} كم إلى الكعبة</div></div>
+    <div class="screen-header"><h1>اتجاه القبلة</h1><div class="sub">${escapeHtml(srcLabel)} — ${bearing.toFixed(1)}° من الشمال · ${Math.round(dist).toLocaleString('ar-EG')} كم إلى الكعبة</div></div>
     <div class="card">
       <div class="qibla-wrap"><div class="qibla-dial" id="q-dial"></div></div>
       <div class="qibla-heading"><span id="q-reading">—</span></div>
@@ -359,8 +367,9 @@ export function renderQiyam(root) {
   const tz = engine.opts.timeZone;
   const now = nowMs();
   const iso = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(ms);
-  const today = engine.sunnahWindows(iso(now));
-  const yest = engine.sunnahWindows(iso(now - 86_400_000));
+  const todayIso = iso(now);
+  const today = engine.sunnahWindows(todayIso);
+  const yest = engine.sunnahWindows(shiftCivilIso(todayIso, -1));
   // "tonight" = the night whose last third has not ended yet
   const tonight = now < yest.nextFajr ? yest : today;
 
@@ -370,9 +379,9 @@ export function renderQiyam(root) {
     <div class="card">
       <h3 style="margin:0 0 10px;font-size:15px">هذه الليلة</h3>
       <div style="font-size:14px;line-height:2">
-        منتصف الليل: <strong style="font-variant-numeric:tabular-nums">${fmtClock(tonight.midnight, tz)}</strong><br>
-        بداية الثلث الأخير: <strong style="font-variant-numeric:tabular-nums">${fmtClock(tonight.lastThird, tz)}</strong><br>
-        حتى الفجر: <strong style="font-variant-numeric:tabular-nums">${fmtClock(tonight.nextFajr, tz)}</strong>
+        منتصف الليل: <strong dir="ltr" style="font-variant-numeric:tabular-nums">${fmtClock(tonight.midnight, tz)}</strong><br>
+        بداية الثلث الأخير: <strong dir="ltr" style="font-variant-numeric:tabular-nums">${fmtClock(tonight.lastThird, tz)}</strong><br>
+        حتى الفجر: <strong dir="ltr" style="font-variant-numeric:tabular-nums">${fmtClock(tonight.nextFajr, tz)}</strong>
       </div>
     </div>
     <div class="card">
@@ -392,12 +401,11 @@ export function renderQiyam(root) {
     const wake = tonight.nextFajr - before * 60_000;
     const bedtime = wake - hours * 3_600_000;
     const inLastThird = wake >= tonight.lastThird;
-    const fmtFull = (ms) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
     const out = root.querySelector('#qy-out');
     out.hidden = false;
     out.innerHTML = `
-      <div class="stat-row"><span>موعد النوم</span><span class="v">${fmtFull(bedtime)}</span></div>
-      <div class="stat-row"><span>موعد الاستيقاظ</span><span class="v">${fmtFull(wake)} · ${inLastThird ? 'داخل الثلث الأخير' : 'قبل الثلث الأخير'}</span></div>
+      <div class="stat-row"><span>موعد النوم</span><span class="v" dir="ltr">${fmtClock(bedtime, tz)}</span></div>
+      <div class="stat-row"><span>موعد الاستيقاظ</span><span class="v"><span dir="ltr">${fmtClock(wake, tz)}</span> · ${inLastThird ? 'داخل الثلث الأخير' : 'قبل الثلث الأخير'}</span></div>
       <div class="mode-note">الاستيقاظ داخل الثلث الأخير أفضل؛ إن تعب جسدك فالنوم الكافي مقدم على قيام مُتعِب.</div>`;
   });
 }
@@ -444,11 +452,11 @@ export async function renderSettings(root) {
       <div class="field"><label>قاعدة خطوط العرض العالية</label>
         <select id="s-hlr">${HIGH_LATITUDE_RULES.map((m) => `<option value="${m}" ${s.high_latitude_rule === m ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
       <div class="field"><label>تصحيح التقويم الهجري (±٣ أيام)</label>
-        <input id="s-hadj" type="number" min="-3" max="3" step="1" value="${s.hijri_adjust ?? 0}"></div>
+        <input id="s-hadj" type="number" min="-3" max="3" step="1" value="${clampHijriAdjust(s.hijri_adjust)}"></div>
     </div>
     <div class="card">
       <h3 style="margin:0 0 8px;font-size:15px">الموقع</h3>
-      <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:8px" id="s-loc-current">الحالي: ${escapeHtml(loc.name_ar ?? 'مكة المكرمة')} (${loc.lat?.toFixed(3) ?? '21.423'}, ${loc.lng?.toFixed(3) ?? '39.826'})</div>
+      <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:8px" id="s-loc-current">الحالي: ${escapeHtml(loc.name_ar ?? 'مكة المكرمة')} (${Number.isFinite(Number(loc.lat)) ? Number(loc.lat).toFixed(3) : '21.423'}, ${Number.isFinite(Number(loc.lng)) ? Number(loc.lng).toFixed(3) : '39.826'})</div>
       <button class="btn primary" id="s-gps-btn" style="width:100%;margin-bottom:10px">${iconSvg('location', 16)}<span>تحديد الموقع تلقائياً (GPS)</span></button>
       <div class="field"><label>ابحث في مدن التطبيق (تعمل دون اتصال — ٦,٢٨٩ مدينة)</label>
         <input id="s-city" class="search-input" placeholder="اكتب اسم المدينة" autocomplete="off"></div>

@@ -14,9 +14,17 @@ test('bearing from the Kaaba grid is well-defined and distance ≈ 0', () => {
   assert.ok(distanceKm(KAABA_COORDS) < 0.1, 'kaaba self-distance');
 });
 
-test('range validation throws', () => {
+test('range validation throws for both qiblaBearing and distanceKm', () => {
   assert.throws(() => qiblaBearing({ lat: 95, lng: 0 }), /invalid lat/);
   assert.throws(() => qiblaBearing({ lat: 0, lng: -200 }), /invalid lng/);
+  assert.throws(() => qiblaBearing({ lat: NaN, lng: 0 }), /invalid lat/);
+  assert.throws(() => distanceKm({ lat: 95, lng: 0 }), /invalid lat/);
+  assert.throws(() => distanceKm({ lat: 0, lng: -200 }), /invalid lng/);
+  assert.throws(() => distanceKm({ lat: Infinity, lng: 0 }), /invalid lat/);
+  assert.throws(() => distanceKm(null), /invalid coords/);
+  // Antipode of Kaaba produces a≈1; clamped haversine stays finite
+  const antipodeDist = distanceKm({ lat: -KAABA_COORDS.lat, lng: KAABA_COORDS.lng - 180 });
+  assert.ok(Number.isFinite(antipodeDist) && antipodeDist > 19_900 && antipodeDist < 20_100);
 });
 
 test('bearing always within [0, 360)', () => {

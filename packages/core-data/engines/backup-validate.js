@@ -19,7 +19,113 @@ export const GROUP_ENTITY_TYPES = {
 /** حد أقصى لعدد الكيانات في الملف — منع استنزاف الذاكرة/الوقت بملف مزيّف (audit 2026-11). */
 export const MAX_ENTITIES = 50_000;
 /** حدود طول النصوص المستوردة (تُعرض لاحقاً في DOM/تُخزَّن كما هي). */
-export const TEXT_LIMITS = { bookmarkLabel: 200, counterLabel: 120, planName: 120, noteBody: 10_000, settingKey: 64 };
+export const TEXT_LIMITS = { bookmarkLabel: 200, counterLabel: 120, planName: 120, noteBody: 10_000, settingKey: 64, locationName: 120, settingValueBytes: 32_768 };
+
+const ALLOWED_PRAYER_KEYS = new Set(['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha']);
+const ALLOWED_CALC_METHODS = new Set([
+  'muslim_world_league', 'egyptian', 'umm_al_qura', 'karachi', 'moonsighting',
+  'north_america', 'dubai', 'kuwait', 'qatar', 'singapore', 'turkey', 'tehran',
+]);
+const ALLOWED_MADHABS = new Set(['shafi', 'hanafi']);
+const ALLOWED_HIGH_LAT_RULES = new Set(['middle_of_the_night', 'seventh_of_the_night', 'twilight_angle']);
+const ALLOWED_THEMES = new Set(['dark', 'light', 'sepia', 'night']);
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function hasUnsafeSettingValue(v, depth = 0) {
+  if (depth > 8) return 'setting value exceeds max nesting depth';
+  if (typeof v === 'number' && !Number.isFinite(v)) return 'setting value contains non-finite number';
+  if (v && typeof v === 'object') {
+    if (Array.isArray(v)) {
+      for (const item of v) {
+        const err = hasUnsafeSettingValue(item, depth + 1);
+        if (err) return err;
+      }
+      return null;
+    }
+    for (const k of Object.keys(v)) {
+      if (DANGEROUS_KEYS.has(k)) return 'setting value contains dangerous object key';
+      const err = hasUnsafeSettingValue(v[k], depth + 1);
+      if (err) return err;
+    }
+  }
+  return null;
+}
+
+function validateSettingValue(key, value) {
+  if (value === null) return null;
+  const unsafe = hasUnsafeSettingValue(value);
+  if (unsafe) return unsafe;
+  try {
+    const serialized = JSON.stringify(value);
+    if (serialized && serialized.length > TEXT_LIMITS.settingValueBytes) {
+      return `setting value exceeds ${TEXT_LIMITS.settingValueBytes} chars`;
+    }
+  } catch {
+    return 'setting value is not JSON-serializable';
+  }
+  switch (key) {
+    case 'hijri_adjust':
+      if (!Number.isInteger(value) || value < -3 || value > 3) return 'hijri_adjust must be an integer in -3..3';
+      return null;
+    case 'prayer_offsets': {
+      if (typeof value !== 'object' || Array.isArray(value)) return 'prayer_offsets must be an object';
+      for (const [k, v] of Object.entries(value)) {
+        if (!ALLOWED_PRAYER_KEYS.has(k)) return `prayer_offsets contains unknown prayer: ${k}`;
+        if (typeof v !== 'number' || !Number.isFinite(v) || v < -60 || v > 60) {
+          return `prayer_offsets.${k} must be a finite number in -60..60`;
+        }
+      }
+      return null;
+    }
+    case 'location': {
+      if (typeof value !== 'object' || Array.isArray(value)) return 'location must be an object';
+      if (typeof value.lat !== 'number' || !Number.isFinite(value.lat) || value.lat < -90 || value.lat > 90) {
+        return 'location.lat must be a finite number in -90..90';
+      }
+      if (typeof value.lng !== 'number' || !Number.isFinite(value.lng) || value.lng < -180 || value.lng > 180) {
+        return 'location.lng must be a finite number in -180..180';
+      }
+      const tz = value.timeZone ?? value.tz;
+      if (tz !== undefined && tz !== null) {
+        if (typeof tz !== 'string' || tz.length === 0 || tz.length > 64) return 'location.tz must be a non-empty string <= 64 chars';
+        try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); } catch { return `location.tz is not a valid IANA timezone: ${tz}`; }
+      }
+      if (value.name_ar !== undefined && value.name_ar !== null) {
+        if (typeof value.name_ar !== 'string' || value.name_ar.length > TEXT_LIMITS.locationName) {
+          return `location.name_ar must be a string <= ${TEXT_LIMITS.locationName} chars`;
+        }
+      }
+      if (value.gps !== undefined && value.gps !== null) {
+        if (typeof value.gps !== 'object' || Array.isArray(value.gps)) return 'location.gps must be an object';
+        if (typeof value.gps.lat !== 'number' || !Number.isFinite(value.gps.lat) || value.gps.lat < -90 || value.gps.lat > 90) {
+          return 'location.gps.lat must be a finite number in -90..90';
+        }
+        if (typeof value.gps.lng !== 'number' || !Number.isFinite(value.gps.lng) || value.gps.lng < -180 || value.gps.lng > 180) {
+          return 'location.gps.lng must be a finite number in -180..180';
+        }
+      }
+      return null;
+    }
+    case 'calc_method':
+      if (typeof value !== 'string' || !ALLOWED_CALC_METHODS.has(value)) return 'calc_method must be a supported method';
+      return null;
+    case 'madhab':
+      if (typeof value !== 'string' || !ALLOWED_MADHABS.has(value)) return 'madhab must be shafi|hanafi';
+      return null;
+    case 'high_latitude_rule':
+      if (typeof value !== 'string' || !ALLOWED_HIGH_LAT_RULES.has(value)) return 'high_latitude_rule must be a supported rule';
+      return null;
+    case 'theme':
+      if (typeof value !== 'string' || !ALLOWED_THEMES.has(value)) return 'theme must be dark|light|sepia|night';
+      return null;
+    case 'font_scale':
+    case 'mushaf_scale':
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0.5 || value > 3) return `${key} must be a finite number in 0.5..3`;
+      return null;
+    default:
+      return null;
+  }
+}
 
 const UUID_V7_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -143,9 +249,9 @@ function validateEntityBody(group, e, planUuids = new Set()) {
     case 'prefs/setting':
       if (typeof e.key !== 'string' || e.key.length === 0) return 'key required';
       if (e.key.length > TEXT_LIMITS.settingKey) return `key must be <= ${TEXT_LIMITS.settingKey} chars`;
-      if (e.key === '__proto__' || e.key === 'constructor' || e.key === 'prototype') return 'key must not be a dangerous object-literal key';
+      if (DANGEROUS_KEYS.has(e.key)) return 'key must not be a dangerous object-literal key';
       if (!('value' in e)) return 'value required (may be null)';
-      return null;
+      return validateSettingValue(e.key, e.value);
     case 'meta/streakDay':
       if (!['adhkar_morning', 'adhkar_evening', 'tasbih', 'khatmah'].includes(e.kind)) return 'kind must be a streak kind';
       if (!/^\d{4}-\d{2}-\d{2}$/.test(String(e.dayKey ?? ''))) return 'dayKey must be YYYY-MM-DD';

@@ -7,8 +7,50 @@
  *   SKIP_E2E=1   تشغيل الاختبارات الوحدية فقط (بلا متصفح)
  */
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+function resolveDefaultBrowser() {
+  if (process.env.E2E_BROWSER && existsSync(process.env.E2E_BROWSER)) {
+    return process.env.E2E_BROWSER;
+  }
+  const candidates = process.platform === 'win32'
+    ? [
+        join('C:', 'Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+        join('C:', 'Program Files', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+        join('C:', 'Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+        join('C:', 'Program Files (x86)', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      ]
+    : process.platform === 'darwin'
+      ? [
+          '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+          '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+          '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        ]
+      : [
+          '/usr/bin/chromium',
+          '/usr/bin/chromium-browser',
+          '/usr/bin/google-chrome',
+          '/usr/bin/google-chrome-stable',
+          '/usr/bin/microsoft-edge',
+          '/snap/bin/chromium',
+        ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  if (process.platform !== 'win32') {
+    for (const bin of ['chromium', 'chromium-browser', 'google-chrome', 'microsoft-edge']) {
+      const r = spawnSync('which', [bin], { encoding: 'utf8' });
+      const found = r.status === 0 ? r.stdout.trim() : '';
+      if (found && existsSync(found)) return found;
+    }
+  }
+  return process.env.E2E_BROWSER || '';
+}
+
+const resolvedBrowser = resolveDefaultBrowser();
+const childEnv = resolvedBrowser ? { ...process.env, E2E_BROWSER: resolvedBrowser } : process.env;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const UNIT = ['unit-backup.mjs', 'unit-dbguard.mjs', 'unit-mushaf.mjs', 'unit-v1engines.mjs'];
@@ -43,7 +85,7 @@ const E2E = [
 let failed = [];
 const run = (file) => {
   console.log(`\n▶ ${file}`);
-  const r = spawnSync('node', [join(__dirname, file)], { stdio: 'inherit', env: process.env });
+  const r = spawnSync('node', [join(__dirname, file)], { stdio: 'inherit', env: childEnv });
   if (r.status !== 0) failed.push(file);
 };
 

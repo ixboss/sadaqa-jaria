@@ -60,10 +60,25 @@ export function monthNameAr(m) {
   return HIJRI_MONTHS_AR[m - 1];
 }
 
-/** ±N day adjustment applied at the display layer (schema: hijri_adjust). */
+export const HIJRI_ADJUST_MIN = -3;
+export const HIJRI_ADJUST_MAX = 3;
+
+/** Clamp hijri_adjust to [-3, +3]; non-finite / malformed values degrade safely to 0. */
+export function clampHijriAdjust(adjust) {
+  if (adjust === null || adjust === undefined || adjust === '' || typeof adjust === 'boolean') return 0;
+  const n = Number(adjust);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(HIJRI_ADJUST_MIN, Math.min(HIJRI_ADJUST_MAX, Math.trunc(n)));
+}
+
+/** ±N day adjustment applied at the display layer (schema: hijri_adjust, clamped to [-3, +3]). */
 export function withAdjust(dateIso, adjust) {
-  const [y, m, d] = dateIso.split('-').map(Number);
-  const shifted = new Date(Date.UTC(y, m - 1, d + adjust, 12));
+  const [y, m, d] = String(dateIso ?? '').split('-').map(Number);
+  if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) {
+    throw new Error(`invalid gregorian date: ${dateIso}`);
+  }
+  const delta = clampHijriAdjust(adjust);
+  const shifted = new Date(Date.UTC(y, m - 1, d + delta, 12));
   return toHijri(`${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`);
 }
 
