@@ -227,6 +227,9 @@ jobs:
       contents: write   # softprops/action-gh-release — إنشاء الإصدار فقط (2026-11 audit)
     steps:
       - uses: actions/checkout@v4
+        with:
+          # عمق كامل: خطوة الملاحظات تحتاج وسوم git للبحث عن وسم الإصدار السابق
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -252,10 +255,70 @@ jobs:
       - name: List release assets
         run: ls -lh sadaqa-jaria-*-web.zip release-artifacts/
 
+      - name: Write release notes from CHANGELOG.md
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          REPO_URL="https://github.com/${GITHUB_REPOSITORY}"
+          NOTES="release-notes.md"
+
+          # ملاحظات الإصدار: قسم الوسم الحالي في CHANGELOG.md هو المصدر الوحيد
+          # للنص (من سطر '## <tag>' حتى عنوان '## ' التالي). هذا يمنع النص
+          # الآلي المبعثر (قوائم PR التابعة لـ dependabot) الذي كان يُنشر سابقًا.
+          awk -v tag="$TAG" '
+            $1 == "##" && $2 == tag { found = 1; next }
+            found && $1 == "##" { exit }
+            found { print }
+          ' CHANGELOG.md > "$NOTES"
+
+          if [ ! -s "$NOTES" ]; then
+            echo "::warning::CHANGELOG.md has no '## ${TAG}' section — publishing a minimal fallback body"
+            printf 'Release %s.\n' "$TAG" > "$NOTES"
+          fi
+
+          web_zip=$(find . -maxdepth 1 -type f -name 'sadaqa-jaria-*-web.zip' -print -quit)
+
+          link_of() { printf '[`%s`](%s/releases/download/%s/%s)' "$1" "$REPO_URL" "$TAG" "$1"; }
+
+          # قائمة التنزيلات تُبنى من الملفات المرفوعة فعلًا لا من قوالب —
+          # حتى لا يوثّق رابط لملف غير موجود (audit 2026-11: أسماء سطح المكتب
+          # تأتي من إصدار electron وليس من الوسم، فالبناء الديناميكي وحده صحيح)
+          {
+            printf '\n## Downloads\n\n'
+            if [ -n "$web_zip" ]; then printf -- '- **Web (PWA):** %s\n' "$(link_of "$(basename "$web_zip")")"; fi
+            for f in release-artifacts/*.ipa release-artifacts/*.apk release-artifacts/*.exe release-artifacts/*.dmg release-artifacts/*.zip release-artifacts/*.AppImage release-artifacts/*.deb; do
+              [ -e "$f" ] || continue
+              name=$(basename "$f")
+              case "$name" in
+                *.ipa)
+                  ipa_enc=$(node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$REPO_URL/releases/download/$TAG/$name")
+                  printf -- '- **iOS (iPhone / iPad):** %s — unsigned; [one-tap on-device install via SideInstaller](https://sideinstaller.net/open.html?url=%s) (see the README iOS guide)\n' "$(link_of "$name")" "$ipa_enc"
+                  ;;
+                *.apk) printf -- '- **Android:** %s\n' "$(link_of "$name")" ;;
+                *.exe) printf -- '- **Windows:** %s\n' "$(link_of "$name")" ;;
+                *.dmg) printf -- '- **macOS (Apple Silicon):** %s\n' "$(link_of "$name")" ;;
+                *.zip) printf -- '- **macOS (Apple Silicon) portable:** %s\n' "$(link_of "$name")" ;;
+                *.AppImage) printf -- '- **Linux:** %s\n' "$(link_of "$name")" ;;
+                *.deb) printf -- '- **Linux (.deb):** %s\n' "$(link_of "$name")" ;;
+              esac
+            done
+          } >> "$NOTES"
+
+          # رابط Full Changelog إلى الوسم السابق — يُتخطى في أول إصدار
+          prev_tag=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)
+          if [ -n "$prev_tag" ]; then
+            printf '\n**Full Changelog:** %s/compare/%s...%s\n' "$REPO_URL" "$prev_tag" "$TAG" >> "$NOTES"
+          fi
+
+          echo '---- release notes preview ----'
+          cat "$NOTES"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             sadaqa-jaria-*-web.zip
             release-artifacts/*
-          generate_release_notes: true
+          body_path: release-notes.md
+          generate_release_notes: false
