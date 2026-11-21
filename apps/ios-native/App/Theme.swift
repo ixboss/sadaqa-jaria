@@ -8,7 +8,7 @@
 import SwiftUI
 import UIKit
 
-struct TokenTheme: Codable {
+struct TokenTheme: Codable, Equatable {
     let bg: String
     let surface: String
     let surfaceRaised: String
@@ -42,7 +42,7 @@ enum SadaqaTheme {
         accentContrast: "#111612", border: "#1B352F", mushafText: "#F4EFE4", mushafBg: "#07110F"
     )
 
-    static func loadFile() -> TokensFile {
+    private static let cachedFile: TokensFile = {
         let url = Bundle.main.url(forResource: "tokens", withExtension: "json", subdirectory: "Resources")
             ?? Bundle.main.url(forResource: "tokens", withExtension: "json")
         guard let url,
@@ -51,47 +51,69 @@ enum SadaqaTheme {
             return TokensFile(themes: ["dark": fallbackDarkTheme], glass: nil, motion: nil, haptics: nil, typography: nil)
         }
         return tokens
+    }()
+
+    private static let cachedThemes: [String: SadaqaThemeColors] = {
+        let file = cachedFile
+        var map: [String: SadaqaThemeColors] = [:]
+        for (key, token) in file.themes {
+            map[key] = SadaqaThemeColors(token: token, all: file)
+        }
+        if map["dark"] == nil {
+            map["dark"] = SadaqaThemeColors(token: fallbackDarkTheme, all: file)
+        }
+        return map
+    }()
+
+    static func loadFile() -> TokensFile {
+        cachedFile
     }
 
     static func load(key: String) -> SadaqaThemeColors {
-        let file = loadFile()
         let resolvedKey = (key == "night") ? "oled" : key
-        let t = file.themes[resolvedKey] ?? file.themes["dark"] ?? fallbackDarkTheme
-        return SadaqaThemeColors(token: t, all: file)
+        return cachedThemes[resolvedKey] ?? cachedThemes["dark"] ?? SadaqaThemeColors(token: fallbackDarkTheme, all: cachedFile)
     }
 }
 
 /// "night" maps to the tokens 'oled' palette (web theme alias parity).
-struct SadaqaThemeColors {
+struct SadaqaThemeColors: Equatable {
     let token: TokenTheme
     let all: TokensFile
+    let colorScheme: ColorScheme?
+    let bg: Color
+    let surface: Color
+    let surfaceRaised: Color
+    let textPrimary: Color
+    let textSecondary: Color
+    let accent: Color
+    let accentContrast: Color
+    let border: Color
+    let mushafText: Color
+    let mushafBg: Color
 
-    var colorScheme: ColorScheme? {
-        switch token.bg {
-        case "#000000": return .dark
-        default: break
+    init(token: TokenTheme, all: TokensFile) {
+        self.token = token
+        self.all = all
+        if token.bg == "#FAF7F0" || token.bg == "#F4E8D0" {
+            self.colorScheme = .light
+        } else {
+            self.colorScheme = .dark
         }
-        // light/sepia are light schemes; dark/oled are dark
-        let key = offeredAlias
-        return (key == "light" || key == "sepia") ? .light : .dark
+        self.bg = UIColor(hex: token.bg).color
+        self.surface = UIColor(hex: token.surface).color
+        self.surfaceRaised = UIColor(hex: token.surfaceRaised).color
+        self.textPrimary = UIColor(hex: token.textPrimary).color
+        self.textSecondary = UIColor(hex: token.textSecondary).color
+        self.accent = UIColor(hex: token.accent).color
+        self.accentContrast = UIColor(hex: token.accentContrast).color
+        self.border = UIColor(hex: token.border).color
+        self.mushafText = UIColor(hex: token.mushafText).color
+        self.mushafBg = UIColor(hex: token.mushafBg).color
     }
 
-    private var offeredAlias: String {
-        if token.bg == "#FAF7F0" { return "light" }
-        if token.bg == "#F4E8D0" { return "sepia" }
-        return "dark"
+    static func == (lhs: SadaqaThemeColors, rhs: SadaqaThemeColors) -> Bool {
+        lhs.token == rhs.token
     }
-
-    var bg: Color { UIColor(hex: token.bg).color }
-    var surface: Color { UIColor(hex: token.surface).color }
-    var surfaceRaised: Color { UIColor(hex: token.surfaceRaised).color }
-    var textPrimary: Color { UIColor(hex: token.textPrimary).color }
-    var textSecondary: Color { UIColor(hex: token.textSecondary).color }
-    var accent: Color { UIColor(hex: token.accent).color }
-    var accentContrast: Color { UIColor(hex: token.accentContrast).color }
-    var border: Color { UIColor(hex: token.border).color }
-    var mushafText: Color { UIColor(hex: token.mushafText).color }
-    var mushafBg: Color { UIColor(hex: token.mushafBg).color }
 }
 
 extension UIColor {
@@ -116,6 +138,8 @@ extension UIColor {
 
 enum FontRegistry {
     private static var registeredPostScriptNames: [String: String] = [:]
+    private static var verifiedPageFontNames: [String: String?] = [:]
+    private static var verifiedBasmalaFontNames: [String: String?] = [:]
 
     static func fontURL(named resource: String) -> URL? {
         let base = (resource as NSString).deletingPathExtension
@@ -177,29 +201,43 @@ enum FontRegistry {
     /// Returns verified per-page QCF font if registered AND covers `sample`;
     /// nil tells the caller to render plain `word_text`/`text_uthmani` instead.
     static func verifiedMushafFont(page: Int, size: CGFloat, sample: String) -> UIFont? {
+        let cacheKey = "\(page)|\(sample.prefix(16))"
+        if let cached = verifiedPageFontNames[cacheKey] {
+            return cached.flatMap { UIFont(name: $0, size: size) }
+        }
         let res = String(format: "p%03d.ttf", page)
         if let ps = registerAndResolveName(named: res),
            let f = UIFont(name: ps, size: size),
            coversText(f, sample: sample) {
+            verifiedPageFontNames[cacheKey] = ps
             return f
         }
         let fallbackName = String(format: "QCF_P%03d", page)
         if let f = UIFont(name: fallbackName, size: size), coversText(f, sample: sample) {
+            verifiedPageFontNames[cacheKey] = fallbackName
             return f
         }
+        verifiedPageFontNames.updateValue(nil, forKey: cacheKey)
         return nil
     }
 
     /// Verified BSML font — nil triggers Arabic UthmanicHafs Basmala fallback.
     static func verifiedBasmalaFont(size: CGFloat, sample: String) -> UIFont? {
+        let cacheKey = String(sample.prefix(16))
+        if let cached = verifiedBasmalaFontNames[cacheKey] {
+            return cached.flatMap { UIFont(name: $0, size: size) }
+        }
         if let ps = registerAndResolveName(named: "QPC1BSML.ttf"),
            let f = UIFont(name: ps, size: size),
            coversText(f, sample: sample) {
+            verifiedBasmalaFontNames[cacheKey] = ps
             return f
         }
         if let f = UIFont(name: "QCF_BSML", size: size), coversText(f, sample: sample) {
+            verifiedBasmalaFontNames[cacheKey] = "QCF_BSML"
             return f
         }
+        verifiedBasmalaFontNames.updateValue(nil, forKey: cacheKey)
         return nil
     }
 }

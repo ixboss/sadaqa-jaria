@@ -46,12 +46,9 @@ public enum SmartCardResolver {
         return names.indices.contains(wd - 1) ? names[wd - 1] : "Sun"
     }
 
-    /// Arabic 23h wall clock "HH:mm" in the city timezone (web fmtClock).
+    /// 12-hour wall clock "h:mm AM/PM" with Western ASCII digits in the city timezone.
     static func clock(_ ms: Int64, tz: String) -> String {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: tz) ?? .current
-        let c = cal.dateComponents([.hour, .minute], from: Date(ms: ms))
-        return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+        PrayerEngine.formatClock12h(ms, timeZone: tz)
     }
 
     /// "HH:MM:SS" countdown (web fmtHMS).

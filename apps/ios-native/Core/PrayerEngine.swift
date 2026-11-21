@@ -361,6 +361,25 @@ public enum PrayerEngine {
             nextFajr: nextFajrI)
     }
 
+    /// 12-hour wall-clock formatter ("h:mm AM/PM") with Western ASCII digits
+    /// in the city timezone (e.g. "4:22 AM", "12:00 PM", "12:15 AM").
+    public static func formatClock12h(_ ms: Int64, timeZone: String) -> String {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: timeZone) ?? .current
+        let c = cal.dateComponents([.hour, .minute], from: Date(ms: ms))
+        let hour24 = c.hour ?? 0
+        let minute = c.minute ?? 0
+        let isPM = hour24 >= 12
+        let hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12
+        return String(
+            format: "%d:%02d %@",
+            locale: Locale(identifier: "en_US_POSIX"),
+            hour12,
+            minute,
+            isPM ? "PM" : "AM"
+        )
+    }
+
     /** Bound engine (reminders/anchors consumers). */
     public static func bind(_ opts: EngineOptions) -> BoundPrayerEngine {
         BoundPrayerEngine(opts: opts)

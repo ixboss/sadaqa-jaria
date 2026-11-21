@@ -491,6 +491,7 @@ struct ZakatView: View {
                     Text("الذهب").tag("gold")
                     Text("الفضة").tag("silver")
                 }
+                .onChange(of: standard) { _ in saveInputs() }
             }
             Section("الزكاة الواجبة") {
                 let out = compute()
@@ -583,7 +584,11 @@ struct QiyamView: View {
         HStack {
             Text(label).font(.system(size: 14, weight: .semibold))
             Spacer()
-            Text(value).font(.system(size: 14)).monospacedDigit().foregroundStyle(appState.theme.accent)
+            Text(value)
+                .font(.system(size: 14))
+                .monospacedDigit()
+                .environment(\.layoutDirection, .leftToRight)
+                .foregroundStyle(appState.theme.accent)
         }
         .padding(.vertical, 6)
     }

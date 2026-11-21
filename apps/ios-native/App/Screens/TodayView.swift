@@ -37,10 +37,13 @@ struct TodayView: View {
             // title, so the top-left corner never shows a blank void.
             .toolbar(.hidden, for: .navigationBar)
             .task {
+                // Periodic refresh for SmartCard windows & midnight rollover;
+                // the 1 Hz countdown itself ticks inside HeroCountdownText so
+                // TodayView does not recompute Adhan + SQLite every second.
                 now = Date.nowMs
                 while !Task.isCancelled {
-                    try? await Task.sleep(nanoseconds: 1_000_000_000)
-                    now = Date.nowMs // format-only recompute; engine values stay fixed
+                    try? await Task.sleep(nanoseconds: 30_000_000_000)
+                    now = Date.nowMs
                 }
             }
             .task {
@@ -50,7 +53,10 @@ struct TodayView: View {
                     dhikrIdx = (dhikrIdx + 1) % Self.dhikrPillTexts.count
                 }
             }
-            .onAppear { loadDailyProgress() }
+            .onAppear {
+                now = Date.nowMs
+                loadDailyProgress()
+            }
             .sheet(isPresented: $showMonthSchedule) { monthScheduleSheet }
         }
     }
@@ -159,9 +165,10 @@ struct TodayView: View {
             if let n = next {
                 Text("\(n.name.labelAr)\(isTomorrow ? " (غداً)" : "")").font(.system(size: 32, weight: .bold))
                     .foregroundStyle(appState.theme.accent)
-                Text(Self.hms(n.at - now)).monospacedDigit()
-                    .environment(\.layoutDirection, .leftToRight)
-                    .font(.system(size: 28, weight: .bold)).foregroundStyle(appState.theme.textPrimary)
+                HeroCountdownText(targetMs: n.at) {
+                    now = Date.nowMs
+                }
+                .font(.system(size: 28, weight: .bold)).foregroundStyle(appState.theme.textPrimary)
                 Text("الأذان \(Self.clock(n.at, tz: tz))").monospacedDigit()
                     .font(.system(size: 13)).foregroundStyle(appState.theme.textSecondary)
             }
@@ -267,6 +274,9 @@ struct TodayView: View {
                             Text(name.labelAr).font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(isNext ? appState.theme.accent : appState.theme.textSecondary)
                             Text(Self.clock(s.prayers[name] ?? 0, tz: tz)).monospacedDigit()
+                                .environment(\.layoutDirection, .leftToRight)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.78)
                                 .font(.system(size: 13, weight: .bold))
                                 .foregroundStyle(isNext ? appState.theme.accent : appState.theme.textPrimary)
                         }
@@ -449,28 +459,64 @@ struct TodayView: View {
         }
     }
 
+    private static let gregFormatterLock = NSLock()
+    private static var gregFormatters: [String: DateFormatter] = [:]
+
     static func gregDate(_ ms: Int64, tz: String) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "ar")
-        f.timeZone = TimeZone(identifier: tz) ?? .current
-        f.dateFormat = "EEEE · d MMMM"
+        gregFormatterLock.lock()
+        defer { gregFormatterLock.unlock() }
+        let f: DateFormatter
+        if let cached = gregFormatters[tz] {
+            f = cached
+        } else {
+            let created = DateFormatter()
+            created.locale = Locale(identifier: "ar")
+            created.timeZone = TimeZone(identifier: tz) ?? .current
+            created.dateFormat = "EEEE · d MMMM"
+            gregFormatters[tz] = created
+            f = created
+        }
         return f.string(from: Date(ms: ms))
     }
 
-    // formatters (same shapes as the web screens)
+    // formatters (12-hour wall clock h:mm AM/PM with Western ASCII digits)
     static func iso(_ ms: Int64, tz: String) -> String {
         var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: tz) ?? .current
         let c = cal.dateComponents([.year, .month, .day], from: Date(ms: ms))
-        return String(format: "%04d-%02d-%02d", c.year ?? 1970, c.month ?? 1, c.day ?? 1)
+        return String(format: "%04d-%02d-%02d", locale: Locale(identifier: "en_US_POSIX"), c.year ?? 1970, c.month ?? 1, c.day ?? 1)
     }
     static func clock(_ ms: Int64, tz: String) -> String {
-        var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: tz) ?? .current
-        let c = cal.dateComponents([.hour, .minute], from: Date(ms: ms))
-        return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+        PrayerEngine.formatClock12h(ms, timeZone: tz)
     }
     static func hms(_ msLeft: Int64) -> String {
         let s = max(0, Int(msLeft / 1000))
-        return String(format: "%02d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
+        return String(format: "%02d:%02d:%02d", locale: Locale(identifier: "en_US_POSIX"), s / 3600, (s % 3600) / 60, s % 60)
+    }
+}
+
+/// Isolated 1 Hz countdown text — only this leaf redraws every second;
+/// triggers `onReached` once the prayer instant passes.
+private struct HeroCountdownText: View {
+    let targetMs: Int64
+    let onReached: () -> Void
+    @State private var now = Date.nowMs
+
+    var body: some View {
+        Text(TodayView.hms(targetMs - now))
+            .monospacedDigit()
+            .environment(\.layoutDirection, .leftToRight)
+            .task(id: targetMs) {
+                now = Date.nowMs
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                    let current = Date.nowMs
+                    now = current
+                    if current >= targetMs {
+                        onReached()
+                        break
+                    }
+                }
+            }
     }
 }
 
@@ -488,11 +534,30 @@ private struct MonthScheduleSheet: View {
 
     var body: some View {
         NavigationStack {
-            List(rows.indices, id: \.self) { i in
-                HStack {
-                    Text(String(rows[i].iso.dropFirst(5))).font(.system(size: 12, weight: .bold)).monospacedDigit().frame(width: 44, alignment: .leading)
-                    ForEach(rows[i].cells, id: \.self) { c in
-                        Text(c).font(.system(size: 11)).monospacedDigit().frame(maxWidth: .infinity)
+            List {
+                HStack(spacing: 4) {
+                    Text("التاريخ").font(.system(size: 11, weight: .bold)).frame(width: 42, alignment: .leading)
+                    ForEach([PrayerName.fajr, .dhuhr, .asr, .maghrib, .isha], id: \.self) { p in
+                        Text(p.labelAr).font(.system(size: 11, weight: .bold)).frame(maxWidth: .infinity)
+                    }
+                }
+                .foregroundStyle(.secondary)
+
+                ForEach(rows.indices, id: \.self) { i in
+                    HStack(spacing: 4) {
+                        Text(String(rows[i].iso.dropFirst(5)))
+                            .font(.system(size: 11, weight: .bold))
+                            .monospacedDigit()
+                            .frame(width: 42, alignment: .leading)
+                        ForEach(Array(rows[i].cells.enumerated()), id: \.offset) { _, c in
+                            Text(c)
+                                .font(.system(size: 10))
+                                .monospacedDigit()
+                                .environment(\.layoutDirection, .leftToRight)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.70)
+                                .frame(maxWidth: .infinity)
+                        }
                     }
                 }
             }

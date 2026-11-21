@@ -33,6 +33,7 @@ struct SadaqaApp: App {
 
 struct RootView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         if appState.db.loadError != nil {
@@ -49,18 +50,23 @@ struct RootView: View {
     private var mainTabs: some View {
         TabView(selection: $appState.tab) {
             TodayView()
+                .modifier(TabTransitionModifier(isSelected: appState.tab == .today, backgroundColor: appState.theme.bg, initiallyVisible: true))
                 .tabItem { Label("اليوم", systemImage: "sun.max") }
                 .tag(RootTab.today)
             MushafPageView()
+                .modifier(TabTransitionModifier(isSelected: appState.tab == .mushaf, backgroundColor: appState.theme.mushafBg))
                 .tabItem { Label("المصحف", systemImage: "book.closed") }
                 .tag(RootTab.mushaf)
             AthkarView()
+                .modifier(TabTransitionModifier(isSelected: appState.tab == .athkar, backgroundColor: appState.theme.bg))
                 .tabItem { Label("الأذكار", systemImage: "hands.sparkles") }
                 .tag(RootTab.athkar)
             ToolsView()
+                .modifier(TabTransitionModifier(isSelected: appState.tab == .tools, backgroundColor: appState.theme.bg))
                 .tabItem { Label("الأدوات", systemImage: "square.grid.2x2") }
                 .tag(RootTab.tools)
         }
+        .animation(reduceMotion ? nil : .snappy(duration: 0.24), value: appState.tab)
         .tint(appState.theme.accent)
         // font_scale ("حجم الخط") must actually scale UI text — mapped onto
         // Apple's Dynamic Type steps (1.3 → .large keeps the shipped default look)
@@ -89,6 +95,39 @@ struct RootView: View {
         case ..<1.8: return .xLarge
         default: return .xxLarge
         }
+    }
+}
+
+/// Smooth GPU-only cross-fade + subtle scale transition inside native iOS 26
+/// `TabView` — preserves system Liquid Glass tab bar and every tab's state.
+private struct TabTransitionModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let isSelected: Bool
+    let backgroundColor: Color
+    @State private var shown: Bool
+
+    init(isSelected: Bool, backgroundColor: Color, initiallyVisible: Bool = false) {
+        self.isSelected = isSelected
+        self.backgroundColor = backgroundColor
+        _shown = State(initialValue: initiallyVisible)
+    }
+
+    private var visible: Bool { isSelected && shown }
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(visible ? 1.0 : 0.0)
+            .scaleEffect(reduceMotion ? 1.0 : (visible ? 1.0 : 0.985), anchor: .center)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.24), value: visible)
+            .background(backgroundColor.ignoresSafeArea())
+            .onAppear {
+                if isSelected && !shown {
+                    shown = true
+                }
+            }
+            .onChange(of: isSelected) { _, active in
+                shown = active
+            }
     }
 }
 

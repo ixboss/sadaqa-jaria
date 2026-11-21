@@ -23,9 +23,7 @@ private func isoToday(_ ms: Int64, tz: String) -> String {
 }
 
 private func clock(_ ms: Int64, tz: String) -> String {
-    var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: tz) ?? .current
-    let c = cal.dateComponents([.hour, .minute], from: Date(ms: ms))
-    return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+    PrayerEngine.formatClock12h(ms, timeZone: tz)
 }
 
 struct WidgetState: Codable {
@@ -155,6 +153,9 @@ struct PrayerCountdownWidgetView: View {
                     .font(.system(size: 22, weight: .bold))
                 Text(clock(n.at, tz: entry.state?.location.timeZone ?? "UTC"))
                     .font(.system(size: 15)).monospacedDigit()
+                    .environment(\.layoutDirection, .leftToRight)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                 Text(Date(ms: n.at), style: .timer)
                     .font(.system(size: 13)).monospacedDigit().foregroundStyle(.secondary)
             } else {
@@ -174,6 +175,9 @@ struct PrayerCountdownWidgetView: View {
                     .font(.system(size: 13, weight: .semibold))
                 Text(clock(n.at, tz: entry.state?.location.timeZone ?? "UTC"))
                     .font(.system(size: 13)).monospacedDigit()
+                    .environment(\.layoutDirection, .leftToRight)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
         }
     }

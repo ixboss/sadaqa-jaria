@@ -5,6 +5,7 @@
 // These tests are THE "native diff = 0 ms" + ".sadaqa cross-OS" proof.
 // ============================================================================
 
+import CoreGraphics
 import XCTest
 import GRDB
 @testable import SadaqaJaria
@@ -682,5 +683,89 @@ final class TodayProgressTests: XCTestCase {
         let progress = AthkarProgress.compute(categories: categories, items: items, states: states)
         XCTAssertEqual(progress.windows.count, 1, "only known solar windows are shown")
         XCTAssertEqual(progress.windows[0].completed, 0, "2/4 below target is not complete")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 12-hour wall-clock formatting (Western ASCII digits, AM/PM) across Engine,
+// TodayView, and SmartCardResolver.
+// ---------------------------------------------------------------------------
+
+final class ClockFormat12hTests: XCTestCase {
+
+    private func utcMs(_ year: Int, _ month: Int, _ day: Int, _ hour: Int, _ minute: Int) -> Int64 {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        let date = cal.date(from: DateComponents(year: year, month: month, day: day, hour: hour, minute: minute))!
+        return Int64(date.timeIntervalSince1970 * 1000)
+    }
+
+    func testFormatClock12hEdgeCases() {
+        let cases: [(Int, Int, String)] = [
+            (0, 0, "12:00 AM"),
+            (0, 5, "12:05 AM"),
+            (4, 22, "4:22 AM"),
+            (11, 59, "11:59 AM"),
+            (12, 0, "12:00 PM"),
+            (12, 30, "12:30 PM"),
+            (15, 5, "3:05 PM"),
+            (23, 59, "11:59 PM"),
+        ]
+        for (h, m, want) in cases {
+            let ms = utcMs(2026, 11, 21, h, m)
+            let got = PrayerEngine.formatClock12h(ms, timeZone: "UTC")
+            XCTAssertEqual(got, want, "UTC \(h):\(m)")
+            XCTAssertTrue(got.unicodeScalars.allSatisfy { $0.isASCII }, "must use Western ASCII digits only: \(got)")
+        }
+    }
+
+    func testFormatClock12hRespectsTimezone() {
+        // 2026-11-21 02:22 UTC → 4:22 AM Africa/Cairo (UTC+2), 5:22 AM Asia/Riyadh (UTC+3)
+        let ms = utcMs(2026, 11, 21, 2, 22)
+        XCTAssertEqual(PrayerEngine.formatClock12h(ms, timeZone: "UTC"), "2:22 AM")
+        XCTAssertEqual(PrayerEngine.formatClock12h(ms, timeZone: "Africa/Cairo"), "4:22 AM")
+        XCTAssertEqual(PrayerEngine.formatClock12h(ms, timeZone: "Asia/Riyadh"), "5:22 AM")
+    }
+
+    func testTodayAndSmartCardClockMatchEngine12h() {
+        let ms = utcMs(2026, 11, 21, 14, 7)
+        XCTAssertEqual(TodayView.clock(ms, tz: "UTC"), "2:07 PM")
+        XCTAssertEqual(SmartCardResolver.clock(ms, tz: "UTC"), "2:07 PM")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Mushaf HUD GPU-only shrink transform + cached theme loader.
+// ---------------------------------------------------------------------------
+
+final class MushafHudAndThemeTests: XCTestCase {
+
+    func testHudTransformIdentityWhenHiddenAndShrinksWhenVisible() {
+        let hidden = MushafHudLayout.transform(viewportHeight: 844, hudVisible: false)
+        XCTAssertEqual(hidden.scale, 1.0, accuracy: 1e-6)
+        XCTAssertEqual(hidden.offsetY, 0.0, accuracy: 1e-6)
+
+        for height: CGFloat in [667, 812, 844, 932] {
+            let shown = MushafHudLayout.transform(viewportHeight: height, hudVisible: true)
+            XCTAssertGreaterThanOrEqual(shown.scale, MushafHudLayout.minHudScale)
+            XCTAssertLessThanOrEqual(shown.scale, MushafHudLayout.maxHudScale)
+            XCTAssertLessThan(shown.scale, 1.0, "Mushaf must shrink while HUD is visible on \(height)pt")
+            XCTAssertLessThan(shown.offsetY, 0, "Mushaf shifts slightly upward between HUD bars")
+        }
+    }
+
+    func testThemeCacheReturnsConsistentPalettes() {
+        let dark1 = SadaqaTheme.load(key: "dark")
+        let dark2 = SadaqaTheme.load(key: "dark")
+        let light = SadaqaTheme.load(key: "light")
+        let sepia = SadaqaTheme.load(key: "sepia")
+        let night = SadaqaTheme.load(key: "night")
+        let fallback = SadaqaTheme.load(key: "nonexistent-key")
+
+        XCTAssertEqual(dark1, dark2)
+        XCTAssertEqual(dark1, fallback)
+        XCTAssertNotEqual(dark1.token.bg, light.token.bg)
+        XCTAssertNotEqual(light.token.bg, sepia.token.bg)
+        XCTAssertEqual(night.token.bg, "#000000")
     }
 }
