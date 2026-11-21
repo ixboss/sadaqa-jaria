@@ -69,6 +69,15 @@ async function dismissOccasionPopup() {
   const active = await evaljs(`document.getElementById('occasion-overlay')?.classList.contains('active')`);
   if (active) { await evaljs(`document.getElementById('occasion-modal-ok')?.click()`); await sleep(300); }
 }
+// The dock buttons mount when the shell finishes booting (~3s cold on slower
+// disks) — the fixed 2500ms sleep before this used to race the boot:
+// querySelector null → evaljs TypeError crashed the whole unit (2026-11-21).
+// Wait for the tab, then click it (same bounded-loop pattern as every other
+// step in this file).
+async function gotoAthkarTab() {
+  for (let i = 0; i < 60 && !await evaljs(`!!document.querySelector('[data-tab="athkar"]')`); i++) await sleep(100);
+  await evaljs(`document.querySelector('[data-tab="athkar"]').click()`);
+}
 // Raw Input.dispatchTouchEvent never synthesizes a click in headless Chromium
 // (verified: a touchStart/touchEnd pair on a button with a direct onclick handler
 // fires zero click events), so every "tap" assertion silently tested nothing.
@@ -153,7 +162,7 @@ async function main() {
     await dismissOccasionPopup();
 
     // ── go to the athkar tab and open the first category with a real tap ──
-    await evaljs(`document.querySelector('[data-tab="athkar"]').click()`);
+    await gotoAthkarTab();
     for (let i = 0; i < 40 && !await evaljs(`document.querySelectorAll('.athkar-cat-card').length > 0`); i++) await sleep(100);
     let catRect = null;
     for (let i = 0; i < 10 && !catRect; i++) {
@@ -380,7 +389,7 @@ async function main() {
       await send('Page.navigate', { url: BASE });
       await sleep(2500);
       await dismissOccasionPopup();
-      await evaljs(`document.querySelector('[data-tab="athkar"]').click()`);
+      await gotoAthkarTab();
       for (let i = 0; i < 40 && !await evaljs(`document.querySelectorAll('.athkar-cat-card').length > 0`); i++) await sleep(100);
       await evaljs(`document.querySelector('.athkar-cat-card').click()`);
       for (let i = 0; i < 40 && !await evaljs(`document.getElementById('focus-text')?.textContent.trim().length > 0`); i++) await sleep(100);
@@ -411,7 +420,7 @@ async function main() {
     await send('Page.navigate', { url: BASE });
     await sleep(2500);
     await dismissOccasionPopup();
-    await evaljs(`document.querySelector('[data-tab="athkar"]').click()`);
+    await gotoAthkarTab();
     await sleep(600);
     await evaljs(`document.querySelector('.athkar-cat-card').click()`);
     for (let i = 0; i < 40 && !await evaljs(`document.getElementById('focus-text')?.textContent.trim().length > 0`); i++) await sleep(100);
