@@ -46,12 +46,12 @@ public enum SmartCardResolver {
         return names.indices.contains(wd - 1) ? names[wd - 1] : "Sun"
     }
 
-    /// Arabic 23h wall clock "HH:mm" in the city timezone (web fmtClock).
+    /// Wall clock in the city timezone, rendered in the iOS 12-hour AM/PM
+    /// display contract (Western digits; e.g. 2:34 PM, 12:57 AM). The web
+    /// golden keeps its 24h fmtClock — parity fixtures pin resolver kinds and
+    /// epoch instants only, never these display strings.
     static func clock(_ ms: Int64, tz: String) -> String {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: tz) ?? .current
-        let c = cal.dateComponents([.hour, .minute], from: Date(ms: ms))
-        return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+        ClockFormat.twelveHour(ms, tz: tz)
     }
 
     /// "HH:MM:SS" countdown (web fmtHMS).

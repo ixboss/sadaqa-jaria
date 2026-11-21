@@ -5,6 +5,10 @@
 // zero PUA tofu/gibberish ever), LTR-isolated BSML, bookmark toggle, RTL swipe,
 // Surah/Juz/Hizb header, Ayah Action Sheet (Tafsir, Mutashabihat, Bookmark,
 // Copy, Share, Play), plus Khatmah & 114-Surah / 30-Juz navigator.
+// Framing contract (2026-11-21): clean reading = the full-viewport plate with
+// no chrome bars; on tap the HUD overlays and the plate shrinks via a
+// GPU-composited scaleEffect/offset transform — the plate's layout is NEVER
+// re-computed for a HUD toggle (60fps rapid-tap contract).
 // ============================================================================
 
 import SwiftUI
@@ -37,6 +41,10 @@ struct MushafPageView: View {
     @State private var bookmarks: [MushafRepository.BookmarkItem] = []
     @State private var showAudioSheet = false
     @State private var activeRecitation: (surah: Int, ayah: Int)?
+    // Measured HUD chrome heights (sticky — reused on the next open before the
+    // first measurement lands); drive the GPU shrink below.
+    @State private var hudTopHeight: CGFloat = 88
+    @State private var hudBottomHeight: CGFloat = 170
     @StateObject private var pageCache = MushafPageCache()
     @StateObject private var player = AudioPlayerChain()
 
@@ -66,8 +74,6 @@ struct MushafPageView: View {
                 }
             }
             .background(hubTab == .reader ? appState.theme.mushafBg : appState.theme.bg)
-            // Liquid Glass dock stays visible in the reader; the HUD floats above it
-            .toolbar(.visible, for: .tabBar)
             .onAppear {
                 if let target = appState.targetMushafPage, (1...604).contains(target) {
                     page = target
@@ -120,33 +126,16 @@ struct MushafPageView: View {
     }
 
     // -----------------------------------------------------------------------
-    // 1. Reader surface — Full-screen immersive RTL Mushaf + tap-to-toggle HUD
+    // 1. Reader surface — clean full-viewport Mushaf; tap toggles the HUD.
+    // Framing inversion (2026-11-21): NO chrome shares the layout flow — the
+    // page keeps its full reading dimensions at all times and the open-HUD
+    // shrink is a GPU-composited transform (scaleEffect + offset), so rapid
+    // toggles never re-run font metrics or plate diffs and stay at display
+    // refresh rate.
     // -----------------------------------------------------------------------
     private var readerBody: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                // Minimal unobtrusive top metadata strip (hidden while the HUD
-                // is up — the HUD bar carries the same meta, never double-rendered)
-                if !hudVisible {
-                    HStack {
-                        Text(meta.surahName.isEmpty ? "المصحف الشريف" : meta.surahName)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(appState.theme.textSecondary)
-                        Spacer()
-                        Text("ص \(page) · الجزء \(meta.juz) · الحزب \(meta.hizb)")
-                            .font(.system(size: 11))
-                            .monospacedDigit()
-                            .foregroundStyle(appState.theme.textSecondary)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.top, 4)
-                    .padding(.bottom, 2)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        withAnimation(hudAnimation()) { hudVisible = true }
-                    }
-                }
-
+        GeometryReader { geo in
+            ZStack {
                 // True RTL horizontal paged Mushaf (RootView enforces .rightToLeft,
                 // so page 1 sits on the right and swiping left-to-right advances 1 -> 2).
                 MushafPagerView(
@@ -156,7 +145,6 @@ struct MushafPageView: View {
                     theme: appState.theme,
                     mushafScale: appState.mushafScale,
                     selectedAyah: selectedAyahNumber,
-                    hudVisible: hudVisible,
                     onSelectAyah: { ayahNumber in
                         selectedAyahNumber = ayahNumber
                         showAyahSheet = true
@@ -165,63 +153,77 @@ struct MushafPageView: View {
                         withAnimation(hudAnimation()) { hudVisible.toggle() }
                     }
                 )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(width: geo.size.width, height: geo.size.height)
+                .scaleEffect(readerScale(for: geo.size.height), anchor: .center)
+                .offset(y: readerOffsetY())
 
-                // Compact bottom page pill when HUD is hidden
-                if !hudVisible {
-                    HStack(spacing: 14) {
-                        Button {
-                            if page > 1 { page -= 1 }
-                        } label: {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .padding(6)
+                // Floating Liquid Glass HUD overlay (revealed on tap). The
+                // slider drag preview floats ABOVE the card so the card's
+                // height — and therefore the plate scale — never changes mid-drag.
+                if hudVisible {
+                    VStack(spacing: 0) {
+                        readerTopHudBar
+                            .background(
+                                GeometryReader { g in
+                                    Color.clear.preference(key: HUDTopHeightKey.self, value: g.size.height)
+                                }
+                            )
+                        Spacer()
+                        ZStack(alignment: .bottom) {
+                            readerBottomHudCard
+                                .background(
+                                    GeometryReader { g in
+                                        Color.clear.preference(key: HUDBottomHeightKey.self, value: g.size.height)
+                                    }
+                                )
+                            if isDraggingSlider {
+                                dragPreviewPill
+                                    .offset(y: -(hudBottomHeight + 6))
+                                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
+                            }
                         }
-                        .disabled(page <= 1)
-
-                        Button {
-                            withAnimation(hudAnimation()) { hudVisible = true }
-                        } label: {
-                            Text("صفحة \(page) / ٦٠٤")
-                                .font(.system(size: 12, weight: .semibold))
-                                .monospacedDigit()
-                                .foregroundStyle(appState.theme.textSecondary)
-                        }
-
-                        Button {
-                            if page < 604 { page += 1 }
-                        } label: {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 13, weight: .semibold))
-                                .padding(6)
-                        }
-                        .disabled(page >= 604)
                     }
-                    .foregroundStyle(appState.theme.accent)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 3)
-                    .background(appState.theme.surface.opacity(0.88))
-                    .clipShape(Capsule())
-                    .overlay(Capsule().strokeBorder(appState.theme.border))
-                    .padding(.bottom, 6)
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)))
                 }
             }
-            .background(appState.theme.mushafBg)
-
-            // Floating Liquid Glass HUD overlay (revealed on tap)
-            if hudVisible {
-                VStack(spacing: 0) {
-                    readerTopHudBar
-                    Spacer()
-                    readerBottomHudCard
-                }
-                .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)))
+            .onPreferenceChange(HUDTopHeightKey.self) {
+                withAnimation(hudAnimation()) { hudTopHeight = $0 }
+            }
+            .onPreferenceChange(HUDBottomHeightKey.self) {
+                withAnimation(hudAnimation()) { hudBottomHeight = $0 }
             }
         }
+        // Clean reading fills the viewport above the floating dock — the HUD
+        // top bar carries the Surah/Juz/page meta while open.
+        .padding(.bottom, DockMetrics.reservedHeight)
     }
 
     private func hudAnimation() -> Animation? {
         reduceMotion ? nil : .spring(response: 0.30, dampingFraction: 0.86)
+    }
+
+    private struct HUDTopHeightKey: PreferenceKey {
+        static var defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+    }
+
+    private struct HUDBottomHeightKey: PreferenceKey {
+        static var defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+    }
+
+    /// Scale that fits the FIXED-layout page into the free band between the HUD
+    /// chrome (top bar + bottom card + 8pt breathing each side); 1 while closed.
+    private func readerScale(for fullH: CGFloat) -> CGFloat {
+        guard hudVisible, fullH > 120 else { return 1 }
+        let avail = fullH - hudTopHeight - hudBottomHeight - 16
+        return max(0.3, min(1, avail / fullH))
+    }
+
+    /// Re-centers the scaled page inside the free band (GPU offset, no layout).
+    private func readerOffsetY() -> CGFloat {
+        guard hudVisible else { return 0 }
+        return (hudTopHeight - hudBottomHeight) / 2
     }
 
     private func surahTitle(forPage p: Int) -> String {
@@ -304,6 +306,12 @@ struct MushafPageView: View {
         }
         .padding(.horizontal, 14)
         .padding(.top, 8)
+        // Measured so the plate scale fits the free band exactly.
+        .background(
+            GeometryReader { g in
+                Color.clear.preference(key: HUDTopHeightKey.self, value: g.size.height)
+            }
+        )
     }
 
     private var readerBottomHudCard: some View {
@@ -327,18 +335,6 @@ struct MushafPageView: View {
                 .padding(.vertical, 6)
                 .background(appState.theme.surfaceRaised)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
-            }
-
-            if isDraggingSlider {
-                Text("ص \(previewPage) — \(surahTitle(forPage: previewPage))")
-                    .font(.system(size: 12, weight: .bold))
-                    .monospacedDigit()
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 5)
-                    .background(appState.theme.surface)
-                    .foregroundStyle(appState.theme.accent)
-                    .clipShape(Capsule())
-                    .overlay(Capsule().strokeBorder(appState.theme.accent.opacity(0.45)))
             }
 
             HStack(spacing: 8) {
@@ -427,6 +423,28 @@ struct MushafPageView: View {
         .shadow(color: .black.opacity(0.24), radius: 14, y: 4)
         .padding(.horizontal, 14)
         .padding(.bottom, 14)
+        // Measured so the plate scale fits the free band exactly.
+        .background(
+            GeometryReader { g in
+                Color.clear.preference(key: HUDBottomHeightKey.self, value: g.size.height)
+            }
+        )
+    }
+
+    /// Slider drag preview — floats ABOVE the HUD card so the card's height
+    /// (and therefore the plate scale) stays perfectly stable mid-drag.
+    private var dragPreviewPill: some View {
+        let previewPage = min(max(Int(sliderPage.rounded()), 1), 604)
+        return Text("ص \(previewPage) — \(surahTitle(forPage: previewPage))")
+            .font(.system(size: 12, weight: .bold))
+            .monospacedDigit()
+            .foregroundStyle(appState.theme.accent)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 5)
+            .background(appState.theme.surface.opacity(0.95))
+            .clipShape(Capsule())
+            .overlay(Capsule().strokeBorder(appState.theme.accent.opacity(0.45)))
+            .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
     }
 
     private func hudButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
@@ -822,7 +840,6 @@ private struct MushafPagerView: UIViewControllerRepresentable {
     let theme: SadaqaThemeColors
     let mushafScale: Double
     let selectedAyah: Int?
-    let hudVisible: Bool
     let onSelectAyah: (Int) -> Void
     let onToggleHud: () -> Void
 
@@ -862,7 +879,6 @@ private final class PagerCoordinator: NSObject, UIPageViewControllerDataSource, 
             theme: parent.theme,
             mushafScale: parent.mushafScale,
             selectedAyah: parent.selectedAyah,
-            hudVisible: parent.hudVisible,
             onSelectAyah: parent.onSelectAyah,
             onToggleHud: parent.onToggleHud
         )
@@ -879,7 +895,19 @@ private final class PagerCoordinator: NSObject, UIPageViewControllerDataSource, 
     }
 
     func refreshSlotContent() {
-        for (key, vc) in slots { vc.rootView = slotView(key) }
+        // Swapping rootView re-diffs the entire 15-line plate; only re-assign
+        // when a RENDERED input actually changed (ayah highlight, zoom, theme).
+        // HUD toggles and slider ticks then never touch the plates — the 60fps
+        // rapid-toggle fix. (The action closures are behaviorally constant.)
+        for (key, vc) in slots {
+            let next = slotView(key)
+            let cur = vc.rootView
+            if next.selectedAyah != cur.selectedAyah
+                || next.mushafScale != cur.mushafScale
+                || next.theme.token.bg != cur.theme.token.bg {
+                vc.rootView = next
+            }
+        }
     }
 
     func show(_ p: Int, animated: Bool, in pvc: UIPageViewController) {
@@ -930,7 +958,6 @@ struct MushafLazyPageSlot: View {
     let theme: SadaqaThemeColors
     let mushafScale: Double
     let selectedAyah: Int?
-    let hudVisible: Bool
     let onSelectAyah: (Int) -> Void
     let onToggleHud: () -> Void
 
@@ -945,7 +972,6 @@ struct MushafLazyPageSlot: View {
                     theme: theme,
                     mushafScale: mushafScale,
                     selectedAyah: selectedAyah,
-                    hudVisible: hudVisible,
                     onSelectAyah: onSelectAyah,
                     onToggleHud: onToggleHud
                 )
@@ -1063,7 +1089,6 @@ struct MushafPlate: View {
     let theme: SadaqaThemeColors
     let mushafScale: Double
     let selectedAyah: Int?
-    let hudVisible: Bool
     let onSelectAyah: (Int) -> Void
     let onToggleHud: () -> Void
 
@@ -1071,7 +1096,11 @@ struct MushafPlate: View {
         GeometryReader { geo in
             let horizPad: CGFloat = 9
             let availW = max(200, geo.size.width - horizPad * 2)
-            let availH = max(260, geo.size.height - 8)
+            // 20pt chrome headroom: the deep Uthmanic descenders of the last
+            // line draw a few points past the 15-line grid — with the old 8pt
+            // budget the pager's clip bounds shaved the bottom line
+            // (2026-11-21 clean-reading fix).
+            let availH = max(260, geo.size.height - 20)
             let slotCount = (page <= 2) ? max(lines.count, 8) : 15
             let slotH = (page <= 2) ? min(availH / CGFloat(slotCount), 48) : (availH / 15.0)
             let isZoomed = mushafScale > 1.01
@@ -1121,8 +1150,8 @@ struct MushafPlate: View {
                     }
                     .frame(width: availW, alignment: .center)
                     .padding(.horizontal, horizPad)
-                    .padding(.top, hudVisible ? 112 : 10)
-                    .padding(.bottom, hudVisible ? 220 : 28)
+                    .padding(.top, 10)
+                    .padding(.bottom, 28)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture { onToggleHud() }
@@ -1180,7 +1209,9 @@ struct MushafPlate: View {
         if maxLineW > availW && maxLineW > 0 {
             baseSize *= (availW / maxLineW) * 0.97
         }
-        return max(12, min(baseSize * prefFactor, slotH * 0.92))
+        // 0.86 slot cap keeps ascenders/descenders inside the line frame —
+        // 0.92 let deep Uthmanic marks poke into the pager's clip bounds.
+        return max(12, min(baseSize * prefFactor, slotH * 0.86))
     }
 
     @ViewBuilder

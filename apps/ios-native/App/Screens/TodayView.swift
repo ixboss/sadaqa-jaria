@@ -457,16 +457,15 @@ struct TodayView: View {
         return f.string(from: Date(ms: ms))
     }
 
-    // formatters (same shapes as the web screens)
+    // formatters — `clock` renders the 12-hour AM/PM display contract
+    // (ClockFormat); iso/hms keep the web engine shapes
     static func iso(_ ms: Int64, tz: String) -> String {
         var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: tz) ?? .current
         let c = cal.dateComponents([.year, .month, .day], from: Date(ms: ms))
         return String(format: "%04d-%02d-%02d", c.year ?? 1970, c.month ?? 1, c.day ?? 1)
     }
     static func clock(_ ms: Int64, tz: String) -> String {
-        var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: tz) ?? .current
-        let c = cal.dateComponents([.hour, .minute], from: Date(ms: ms))
-        return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+        ClockFormat.twelveHour(ms, tz: tz)
     }
     static func hms(_ msLeft: Int64) -> String {
         let s = max(0, Int(msLeft / 1000))

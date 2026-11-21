@@ -22,10 +22,10 @@ private func isoToday(_ ms: Int64, tz: String) -> String {
     return String(format: "%04d-%02d-%02d", c.year ?? 1970, c.month ?? 1, c.day ?? 1)
 }
 
+/// 12-hour AM/PM display clock shared with the app via ClockFormat.swift
+/// (compiled into this target by XcodeGen).
 private func clock(_ ms: Int64, tz: String) -> String {
-    var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: tz) ?? .current
-    let c = cal.dateComponents([.hour, .minute], from: Date(ms: ms))
-    return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+    ClockFormat.twelveHour(ms, tz: tz)
 }
 
 struct WidgetState: Codable {

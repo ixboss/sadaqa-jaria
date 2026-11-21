@@ -1,8 +1,9 @@
 // ============================================================================
 // SadaqaApp.swift — Phase 5 iOS port entry. Liquid Glass stays on the control
-// layer only (tokens.glassPolicy): the TabView bar + search pill adopt the iOS
-// 26 glass APIs behind #available guards (deployment target 18.0); content
-// surfaces are solid, per ARCHITECTURE §6.
+// layer only (tokens.glassPolicy): the floating dock + search pill are glass;
+// content surfaces are solid, per ARCHITECTURE §6. Tabs are custom layers (not
+// a TabView): the active dock pill slides via matchedGeometryEffect and tab
+// content cross-fades without remounting, so Mushaf state survives switching.
 // ============================================================================
 
 import SwiftUI
@@ -33,6 +34,7 @@ struct SadaqaApp: App {
 
 struct RootView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         if appState.db.loadError != nil {
@@ -47,27 +49,23 @@ struct RootView: View {
     }
 
     private var mainTabs: some View {
-        TabView(selection: $appState.tab) {
-            TodayView()
-                .tabItem { Label("اليوم", systemImage: "sun.max") }
-                .tag(RootTab.today)
-            MushafPageView()
-                .tabItem { Label("المصحف", systemImage: "book.closed") }
-                .tag(RootTab.mushaf)
-            AthkarView()
-                .tabItem { Label("الأذكار", systemImage: "hands.sparkles") }
-                .tag(RootTab.athkar)
-            ToolsView()
-                .tabItem { Label("الأدوات", systemImage: "square.grid.2x2") }
-                .tag(RootTab.tools)
+        ZStack {
+            tabLayer(.today) { TodayView() }
+            tabLayer(.mushaf) { MushafPageView() }
+            tabLayer(.athkar) { AthkarView() }
+            tabLayer(.tools) { ToolsView() }
         }
+        .overlay(alignment: .bottom) {
+            LiquidGlassDock()
+                .padding(.bottom, 4)
+        }
+        // One modifier drives every tab change (dock taps, HUD escape buttons,
+        // smart-card routing): dock pill spring + content cross-fade together.
+        .animation(reduceMotion ? nil : Self.tabSpring, value: appState.tab)
         .tint(appState.theme.accent)
         // font_scale ("حجم الخط") must actually scale UI text — mapped onto
         // Apple's Dynamic Type steps (1.3 → .large keeps the shipped default look)
         .dynamicTypeSize(Self.dynamicSize(forScale: appState.fontScale))
-        // iOS 26 Liquid Glass system bar. Scroll-minimize is deliberately not
-        // applied: it collapses to a small circle that fails to auto-restore
-        // on real devices — the bar stays visible (Mushaf manages its own chrome).
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationSearchPill()
@@ -76,6 +74,24 @@ struct RootView: View {
         .sheet(isPresented: $appState.searchPresented) {
             UniversalSearchView()
                 .environmentObject(appState)
+        }
+    }
+
+    /// Tight spring shared by the dock pill and the content cross-fade.
+    private static let tabSpring = Animation.spring(response: 0.32, dampingFraction: 0.8)
+
+    /// Tab layers mount on first visit and stay alive afterwards (TabView
+    /// lifetime parity): Mushaf reader state survives switching. Inactive
+    /// layers fade to 0 and drop hit-testing; their layout is never rebuilt.
+    @ViewBuilder
+    private func tabLayer<Content: View>(_ tab: RootTab, @ViewBuilder content: () -> Content) -> some View {
+        if appState.visitedTabs.contains(tab) {
+            let active = appState.tab == tab
+            content()
+                .opacity(active ? 1 : 0)
+                .scaleEffect(active || reduceMotion ? 1 : 0.99)
+                .allowsHitTesting(active)
+                .accessibilityHidden(!active)
         }
     }
 
@@ -140,12 +156,99 @@ struct NavigationSearchPill: View {
     }
 }
 
+// ============================================================================
+// LiquidGlassDock — the app's 4-tab floating control layer (اليوم · المصحف ·
+// الأذكار · الأدوات). Liquid Glass lives ONLY on this control surface; the
+// active pill slides via matchedGeometryEffect on the tight tab spring.
+// ============================================================================
+
+enum DockMetrics {
+    /// Dock capsule height (icon + label + paddings) for clearance math.
+    static let height: CGFloat = 62
+    /// Content clearance under the dock (dock + breathing room). Full-bleed
+    /// readers pad their viewport by this so glyphs never hide behind glass.
+    static let reservedHeight: CGFloat = 80
+}
+
+struct LiquidGlassDock: View {
+    @EnvironmentObject var appState: AppState
+    @Namespace private var pillNS
+
+    private struct Item: Identifiable {
+        let tab: RootTab
+        let title: String
+        let icon: String
+        var id: RootTab { tab }
+    }
+
+    // Order matches the RTL dock: اليوم first (rightmost in RTL layout).
+    private let items: [Item] = [
+        .init(tab: .today, title: "اليوم", icon: "sun.max"),
+        .init(tab: .mushaf, title: "المصحف", icon: "book.closed"),
+        .init(tab: .athkar, title: "الأذكار", icon: "hands.sparkles"),
+        .init(tab: .tools, title: "الأدوات", icon: "square.grid.2x2"),
+    ]
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(items) { item in
+                dockButton(item)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        // Liquid Glass — floating control layer only (tokens.glassPolicy)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(appState.theme.border))
+        .shadow(color: .black.opacity(0.20), radius: 12, y: 5)
+        .padding(.horizontal, 28)
+    }
+
+    private func dockButton(_ item: Item) -> some View {
+        let active = appState.tab == item.tab
+        return Button {
+            if appState.tab != item.tab {
+                appState.tab = item.tab
+                HapticsEngine.shared.tick()
+            }
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: item.icon)
+                    .font(.system(size: 17, weight: active ? .semibold : .medium))
+                Text(item.title)
+                    .font(.system(size: 10, weight: active ? .bold : .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(active ? appState.theme.accent : appState.theme.textSecondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 7)
+            .background {
+                if active {
+                    Capsule()
+                        .fill(appState.theme.accent.opacity(0.16))
+                        .overlay(Capsule().strokeBorder(appState.theme.accent.opacity(0.40), lineWidth: 1))
+                        .matchedGeometryEffect(id: "dock.activePill", in: pillNS)
+                }
+            }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(item.title)
+        .accessibilityAddTraits(active ? [.isSelected] : [])
+    }
+}
+
 enum RootTab: Hashable { case today, mushaf, athkar, tools }
 
 /// App-wide state bridged to the GRDB database + settings.
 @MainActor
 final class AppState: ObservableObject {
-    @Published var tab: RootTab = .today
+    /// Tab lifetime: each tab mounts on first visit and stays alive afterwards
+    /// — Mushaf reader state (page, HUD, hub tab) survives switching.
+    @Published var tab: RootTab = .today {
+        didSet { visitedTabs.insert(tab) }
+    }
+    @Published private(set) var visitedTabs: Set<RootTab> = [.today]
     @Published var searchPresented = false
     @Published var targetMushafPage: Int?
     @Published var targetAthkarWindow: String?

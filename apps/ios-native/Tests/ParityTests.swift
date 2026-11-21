@@ -130,6 +130,46 @@ final class SmartCardParityTests: XCTestCase {
 }
 
 // ---------------------------------------------------------------------------
+// ClockFormat — 12-hour AM/PM display clocks (Western digits) shared by the
+// app + widget targets. Pins the wall-time examples from the 2026-11-21
+// display contract (00:57 → 12:57 AM, 14:34 → 2:34 PM, …).
+// ---------------------------------------------------------------------------
+
+final class ClockFormatTests: XCTestCase {
+
+    private func wallClockMs(_ y: Int, _ mo: Int, _ d: Int, _ h: Int, _ mi: Int, tz: String) -> Int64 {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: tz) ?? .current
+        let date = cal.date(from: DateComponents(year: y, month: mo, day: d, hour: h, minute: mi))!
+        return Int64(date.timeIntervalSince1970 * 1000)
+    }
+
+    func testTwelveHourPinsAcrossMeridiemBoundaries() {
+        let tz = "Asia/Riyadh"
+        func at(_ h: Int, _ mi: Int) -> String {
+            ClockFormat.twelveHour(wallClockMs(2026, 11, 21, h, mi, tz: tz), tz: tz)
+        }
+        XCTAssertEqual(at(0, 57), "12:57 AM", "midnight hour reads 12 AM")
+        XCTAssertEqual(at(1, 5), "1:05 AM")
+        XCTAssertEqual(at(11, 59), "11:59 AM")
+        XCTAssertEqual(at(12, 0), "12:00 PM", "noon hour reads 12 PM")
+        XCTAssertEqual(at(14, 34), "2:34 PM")
+        XCTAssertEqual(at(16, 54), "4:54 PM")
+        XCTAssertEqual(at(18, 24), "6:24 PM")
+        XCTAssertEqual(at(22, 56), "10:56 PM")
+        XCTAssertEqual(at(23, 59), "11:59 PM")
+    }
+
+    func testFormatsInCityZoneNotUTC() {
+        // 23:05 wall time in London (BST) must format as 11:05 PM there and
+        // 1:05 AM in Riyadh — the epoch instant converts in the CITY zone.
+        let ms = wallClockMs(2026, 7, 15, 23, 5, tz: "Europe/London")
+        XCTAssertEqual(ClockFormat.twelveHour(ms, tz: "Europe/London"), "11:05 PM")
+        XCTAssertEqual(ClockFormat.twelveHour(ms, tz: "Asia/Riyadh"), "1:05 AM")
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Backup codec parity — validator refusals, merge table, real .sadaqa file.
 // ---------------------------------------------------------------------------
 
