@@ -9,6 +9,7 @@
 // ============================================================================
 import { state, nowMs, haptic, prayerEngineForSettings, HAPTICS } from '../../app-state.js';
 import { shiftCivilIso } from '../../../../../packages/core-data/engines/prayer.js';
+import { formatClock12h } from '../../../../../packages/core-data/engines/timefmt.js';
 import { computeDailyProgress } from '../../../../../packages/core-data/engines/today-progress.js';
 import { monthNameAr, withAdjust } from '../../../../../packages/core-data/engines/hijri.js';
 import { resolveSmartCard } from '../../../../../packages/core-data/engines/smart-card.js';
@@ -16,7 +17,7 @@ import { getGpsFix, findNearestCity, persistLocation } from '../geo.js';
 import { navigate } from '../router.js';
 import { iconSvg, prayerIconName, smartCardIconName } from '../icons.js';
 
-const fmtClock = (ms, tz) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
+const fmtClock = formatClock12h;
 const fmtHMS = (msLeft) => {
   const s = Math.max(0, Math.floor(msLeft / 1000));
   const p = (n) => String(n).padStart(2, '0');
@@ -24,6 +25,12 @@ const fmtHMS = (msLeft) => {
 };
 const PRAYER_LABELS = { fajr: 'الفجر', sunrise: 'الشروق', dhuhr: 'الظهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء' };
 const DAY_LABELS = { Sunday: 'الأحد', Monday: 'الإثنين', Tuesday: 'الثلاثاء', Wednesday: 'الأربعاء', Thursday: 'الخميس', Friday: 'الجمعة', Saturday: 'السبت' };
+
+/** تهريب نصوص قد تأتي من استيراد نسخة احتياطية (settings.location.name_ar
+ * غير مُتحقَّق من قيمه في backup-validate) قبل قالب innerHTML (audit 2026-11-21). */
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
 // Today header dhikr pill — ambient session-only rotation (25s, tap to advance)
 const DHIKR_PILL_TEXTS = ['لا إله إلا الله', 'سبحان الله وبحمده', 'الحمد لله', 'أستغفر الله', 'اللهم صلِّ على نبينا محمد'];
@@ -74,10 +81,11 @@ export async function searchCitiesOffline(db, rawQuery) {
     );
   }
   if (rows.length === 0) {
-    const like = `%${q}%`;
+    // تهريب % و _ قبل LIKE — "100%" كانت تطابق أوسع من المقصود (audit 2026-11-21)
+    const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
     rows = await db.query(
       `SELECT city_id, name_ar, country_ar, lat, lng, timezone FROM cities
-       WHERE name_ar LIKE ? OR name_en LIKE ?
+       WHERE name_ar LIKE ? ESCAPE '\\' OR name_en LIKE ? ESCAPE '\\'
        ORDER BY population DESC LIMIT 16`,
       [like, like],
     );
@@ -109,7 +117,7 @@ function contextualDailyCard(now, engine) {
 
 /** ورد اليوم — athkar-window completion for today via the shared golden engine. */
 async function loadDailyProgress(db, now) {
-  const dayKey = new Intl.DateTimeFormat('en-CA').format(now);
+  const dayKey = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
   const [categories, items, states] = await Promise.all([
     db.query(`SELECT category_id, solar_window FROM athkar_categories`),
     db.query(`SELECT item_id, category_id, count_target FROM athkar_items`),
@@ -126,8 +134,8 @@ export async function renderToday(root) {
   const windowsDone = daily.filter((w) => w.completed >= w.total).length;
   const khatmahPct = Math.round((state.progress.page / 604) * 100);
   const next = engine.next(now);
-  const dateIso = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now);
-  const nextIso = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(next.at);
+  const dateIso = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  const nextIso = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(next.at);
   const day = engine.daySchedule(dateIso);
   const qiyamIso = now < day.prayers.fajr
     ? shiftCivilIso(dateIso, -1)
@@ -150,7 +158,7 @@ export async function renderToday(root) {
         </div>
         <div class="today-actions">
           <button class="city-pill icon-pill" id="today-search-btn" aria-label="بحث شامل" title="بحث في القرآن والأذكار">${iconSvg('search', 15)}</button>
-          <button class="city-pill" id="today-city-btn" aria-label="تغيير المدينة">${iconSvg('location', 14)}<span>${locName}</span></button>
+          <button class="city-pill" id="today-city-btn" aria-label="تغيير المدينة">${iconSvg('location', 14)}<span>${escapeHtml(locName)}</span></button>
           <button class="city-pill dhikr-pill" id="today-dhikr" aria-label="الذكر التالي"><span class="dhikr-txt">${DHIKR_PILL_TEXTS[dhikrIdx % DHIKR_PILL_TEXTS.length]}</span></button>
         </div>
       </div>
@@ -386,7 +394,7 @@ function openMonthSchedule(engine, startIso, tz) {
   const host = document.getElementById('sheet-root');
   const baseMs = Date.parse(`${startIso}T12:00:00Z`);
   const rows = Array.from({ length: 30 }, (_, i) => {
-    const iso = new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC' }).format(baseMs + i * 86_400_000);
+    const iso = new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' }).format(baseMs + i * 86_400_000);
     const s = engine.daySchedule(iso);
     return `<tr>
       <td>${iso.slice(5)}</td>

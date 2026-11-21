@@ -19,8 +19,14 @@ export function qiblaBearing({ lat, lng }) {
   return (deg(θ) + 360) % 360;
 }
 
-/** Great-circle distance in km (haversine) — used to pick the dial fallback threshold. */
+/** Great-circle distance in km (haversine) — used to pick the dial fallback threshold.
+ *  Same validation as qiblaBearing: a NaN/garbage GPS fix used to silently
+ *  return NaN (every NaN threshold comparison is false → silent compass
+ *  degradation) or out-of-range garbage — throwing surfaces the bad fix
+ *  (audit 2026-11-21). */
 export function distanceKm({ lat, lng }) {
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error(`invalid lat: ${lat}`);
+  if (!Number.isFinite(lng) || lng < -180 || lng > 180) throw new Error(`invalid lng: ${lng}`);
   const R = 6371.0088;
   const φ1 = rad(lat), φ2 = rad(KAABA.lat);
   const Δφ = rad(KAABA.lat - lat), Δλ = rad(KAABA.lng - lng);

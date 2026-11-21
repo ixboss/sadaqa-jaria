@@ -102,8 +102,7 @@ fun isoOf(ms: Long, tz: String): String {
 
 fun clockOf(ms: Long, tz: String): String {
     val zone = runCatching { ZoneId.of(tz) }.getOrElse { ZoneId.of("Asia/Riyadh") }
-    val zdt = Instant.ofEpochMilli(ms).atZone(zone)
-    return "%02d:%02d".format(zdt.hour, zdt.minute)
+    return TimeFmt.clock12h(ms, zone)
 }
 
 fun hmsOf(msLeft: Long): String {
@@ -189,6 +188,10 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
     }
     val currentPage = remember { (db.setting("mushaf_page")?.dbl?.toInt() ?: 1).coerceIn(1, 604) }
     var dailyWindows by remember { mutableStateOf(listOf<TodayProgress.WindowProgress>()) }
+    // قراءة مرة واحدة لكل تركيب — كانت تُقرأ من SQLite على خيط الواجهة كل ثانية
+    // وكانت تتعطل على قفل الاستيراد (audit 2026-11-21: import يحمل المراقب
+    // عبر كامل الكتابة فجمّد التكوين ثوانياً). تعديل الإعداد يعيد دخول الشاشة.
+    val hijriAdjust = remember { db.hijriAdjust() }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -220,7 +223,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Spacer(Modifier.height(12.dp))
-        val hijri = HijriEngine.withAdjust(isoOf(now, opts.timeZone), db.hijriAdjust())
+        val hijri = HijriEngine.withAdjust(isoOf(now, opts.timeZone), hijriAdjust)
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -286,7 +289,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
         // Smart Context-Aware Card — the shared §9 resolver's verdict, with a
         // time-of-day contextual card when the resolver only has the countdown
         // duplicate to offer (same windows as the web Today screen)
-        val card = remember(now / 60000, opts) { contextualCard(SmartCardResolver.resolve(now, engine), now, opts.timeZone, db.hijriAdjust()) }
+        val card = remember(now / 60000, opts) { contextualCard(SmartCardResolver.resolve(now, engine), now, opts.timeZone, hijriAdjust) }
         val cardIcon = when (card.kind) {
             SmartCardKind.KAHF -> Icons.Outlined.MenuBook
             SmartCardKind.AFTER_PRAYER -> Icons.Outlined.Adjust

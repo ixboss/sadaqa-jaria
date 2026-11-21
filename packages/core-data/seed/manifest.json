@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-17T17:59:42.394Z",
+  "generatedAt": "2026-11-21T13:39:05.703Z",
   "artifacts": [
     {
       "name": "quran-uthmani.json",
@@ -36,7 +36,7 @@
       "name": "cities.json",
       "source": "https://public.opendatasoft.com/…/geonames-all-cities-with-a-population-1000 (population>=100000)",
       "bytes": 3391600,
-      "sha256": "b25bb55675a5a0be1eba45f89cf546758963a20e142981ce3c261679fc38de04"
+      "sha256": "6b9678237bf8447a6802325c77114d68034547259bdbf0ff7805c04f8403131e"
     }
   ]
 }

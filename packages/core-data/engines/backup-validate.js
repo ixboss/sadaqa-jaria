@@ -56,9 +56,14 @@ export function validateBackup(manifest, payload) {
     if (!Array.isArray(entities)) { errors.push(`payload.${group}: must be an array`); continue; }
     totalEntities += entities.length;
     const allowed = GROUP_ENTITY_TYPES[group];
+    // كل uuid مرة واحدة داخل المجموعة — تكرار كان يمرّ بالتحقق ثم يفجّر
+    // PRIMARY KEY وقت التطبيق فيفشل الاستيراد كله (audit 2026-11-21)
+    const seenUuids = new Set();
     for (const e of entities) {
       if (!e || typeof e !== 'object' || Array.isArray(e)) { errors.push(`payload.${group}: entity must be an object`); continue; }
       if (!UUID_V7_RE.test(String(e.uuid ?? ''))) { errors.push(`payload.${group}[${e.uuid ?? '?'}].uuid: must be a UUIDv7`); continue; }
+      if (seenUuids.has(e.uuid)) { errors.push(`payload.${group}[${e.uuid}]: duplicate uuid`); continue; }
+      seenUuids.add(e.uuid);
       if (!e.type || !allowed.includes(e.type)) { errors.push(`payload.${group}[${e.uuid}].type: must be one of ${allowed.join(', ')}`); continue; }
       if (!Number.isFinite(e.updatedAt) || e.updatedAt <= 0) { errors.push(`payload.${group}[${e.uuid}].updatedAt: must be epoch ms`); continue; }
       // حد زمني مستقبلي: طابع 1e308 كان يتفوق على كل الصفوف المحلية في الدمج

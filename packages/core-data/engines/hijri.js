@@ -60,10 +60,16 @@ export function monthNameAr(m) {
   return HIJRI_MONTHS_AR[m - 1];
 }
 
-/** ±N day adjustment applied at the display layer (schema: hijri_adjust). */
+/** ±N day adjustment applied at the display layer (schema: hijri_adjust).
+ *  Defensive against imported-garbage settings: non-finite → 0, and finite
+ *  values clamp to the schema's own ±3 contract (schema.sql:262 CHECK) — a
+ *  crafted 1e15 used to overflow Date.UTC into an Invalid-time RangeError
+ *  that blanked the whole Today screen (audit 2026-11-21). */
 export function withAdjust(dateIso, adjust) {
+  const n = Number(adjust);
+  const adj = Number.isFinite(n) ? Math.max(-3, Math.min(3, Math.trunc(n))) : 0;
   const [y, m, d] = dateIso.split('-').map(Number);
-  const shifted = new Date(Date.UTC(y, m - 1, d + adjust, 12));
+  const shifted = new Date(Date.UTC(y, m - 1, d + adj, 12));
   return toHijri(`${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`);
 }
 

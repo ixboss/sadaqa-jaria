@@ -154,3 +154,13 @@ test('integrity: parity fixture sample-export verifies (golden bytes)', async ()
   assert.equal(await integrityMatches(fx.manifest, fx.payload), true);
   assert.equal(fx.manifest.integrity, await sha256Hex(JSON.stringify(fx.payload)));
 });
+
+test('duplicate uuid within one group is refused (was: passed validation, then PK-clashed the import)', () => {
+  const dup = { ...VALID, updatedAt: 1_700_000_000_500 };
+  const r = validateBackup(manifest(), { reading: [{ ...VALID }, dup] });
+  assert.equal(r.ok, false);
+  assert.ok(r.errors.some((e) => e.includes('duplicate uuid')), r.errors.join(' | '));
+  // same uuid in DIFFERENT groups is fine (different tables)
+  const other = validateBackup(manifest(), { reading: [{ ...VALID }], meta: [{ ...VALID, type: 'streakDay', kind: 'tasbih', dayKey: '2026-11-21' }] });
+  assert.equal(other.ok, true, other.errors?.join(' | '));
+});

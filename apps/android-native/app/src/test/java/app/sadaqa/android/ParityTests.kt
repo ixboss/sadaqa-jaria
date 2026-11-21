@@ -673,7 +673,7 @@ class TodayProgressTests {
 
     @Test
     fun windowsAggregateCompletedCountsInFixedOrder() {
-        val categories = listOf(cat("c1", "fajr"), cat("c2", "asr"), cat("c3", "isha"))
+        val categories = listOf(cat("c1", "fajr"), cat("c2", "asr"), cat("c3", "night"))
         val items = listOf(item("i10", "c1", 10), item("i11", "c1", 7), item("i20", "c2", 5), item("i30", "c3", 4))
         val states = listOf(st("i10", 10), st("i11", 3), st("i20", 5))
         val windows = TodayProgress.compute(categories, items, states)
@@ -687,12 +687,12 @@ class TodayProgressTests {
 
     @Test
     fun unknownWindowsDroppedAndTargetZeroCompletesOnAnyTap() {
-        val categories = listOf(cat("c1", "isha"), cat("c9", "noon"))
+        val categories = listOf(cat("c1", "night"), cat("c9", "noon"))
         val items = listOf(item("i10", "c1", 0), item("i90", "c9", 2))
         val states = listOf(st("i10", 2), st("i90", 2))
         val windows = TodayProgress.compute(categories, items, states)
 
-        assertEquals("only fajr/asr/isha windows with items are shown", 1, windows.size)
+        assertEquals("only fajr/asr/night windows with items are shown", 1, windows.size)
         assertEquals("count_target 0 -> any tap completes", 1, windows[0].completed)
         assertEquals(1, windows[0].total)
     }

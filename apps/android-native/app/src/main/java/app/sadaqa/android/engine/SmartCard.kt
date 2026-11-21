@@ -94,11 +94,8 @@ object SmartCardResolver {
         )
     }
 
-    /** Arabic 23h wall clock "HH:mm" in the city timezone (web fmtClock). */
-    fun clock(ms: Long, tz: ZoneId): String {
-        val zdt = Instant.ofEpochMilli(ms).atZone(tz)
-        return "%02d:%02d".format(zdt.hour, zdt.minute)
-    }
+    /** 12h AM/PM wall clock "h:mm AM|PM" in the city timezone (web fmtClock = engines/timefmt.js). */
+    fun clock(ms: Long, tz: ZoneId): String = TimeFmt.clock12h(ms, tz)
 
     /** "HH:MM:SS" countdown (web fmtHMS). */
     fun hms(msLeft: Long): String {

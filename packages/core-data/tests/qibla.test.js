@@ -25,3 +25,11 @@ test('bearing always within [0, 360)', () => {
     assert.ok(b >= 0 && b < 360, `${lat},${lng} → ${b}`);
   }
 });
+
+test('distanceKm validates inputs like qiblaBearing (NaN/garbage GPS fix must throw, not return NaN)', () => {
+  assert.throws(() => distanceKm({ lat: NaN, lng: 0 }), /invalid lat/);
+  assert.throws(() => distanceKm({ lat: 95, lng: 0 }), /invalid lat/);
+  assert.throws(() => distanceKm({ lat: 0, lng: 'x' }), /invalid lng/);
+  assert.ok(Math.abs(distanceKm({ lat: 21.4225, lng: 39.8262 })) < 1, 'Kaaba itself ≈ 0 km');
+  assert.ok(Math.abs(distanceKm({ lat: 51.5074, lng: -0.1278 }) - 4793.8) < 50, "London ≈ 4794 km");
+});

@@ -9,6 +9,7 @@ import { prayerEngineForSettings } from '../../app-state.js';
 import { qiblaBearing, distanceKm } from '../../../../../packages/core-data/engines/qibla.js';
 import { toHijri, fromHijri, monthNameAr, events, withAdjust } from '../../../../../packages/core-data/engines/hijri.js';
 import { CALC_METHODS, MADHABS, HIGH_LATITUDE_RULES } from '../../../../../packages/core-data/engines/prayer.js';
+import { formatClock12h } from '../../../../../packages/core-data/engines/timefmt.js';
 import { navigate } from '../router.js';
 import { iconSvg } from '../icons.js';
 import { mountTheme } from '../../main.js';
@@ -16,7 +17,7 @@ import { renderBackup } from './backup.js';
 import { findNearestCity, searchCitiesOffline } from './today.js';
 import { getGpsFix, persistLocation } from '../geo.js';
 
-const fmtClock = (ms, tz) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
+const fmtClock = formatClock12h;
 
 /** تهريب القيم القادمة من الإعدادات المستوردة/المستخدم قبل قوالب innerHTML —
  * هذا الملف لم يكن فيه مهريب أصلاً (audit 2026-11). */
@@ -69,7 +70,7 @@ export function renderQibla(root) {
 
   root.innerHTML = `
   <div class="screen">
-    <div class="screen-header"><h1>اتجاه القبلة</h1><div class="sub">${srcLabel} — ${bearing.toFixed(1)}° من الشمال · ${Math.round(dist).toLocaleString('ar-EG')} كم إلى الكعبة</div></div>
+    <div class="screen-header"><h1>اتجاه القبلة</h1><div class="sub">${escapeHtml(srcLabel)} — ${bearing.toFixed(1)}° من الشمال · ${Math.round(dist).toLocaleString('ar-EG')} كم إلى الكعبة</div></div>
     <div class="card">
       <div class="qibla-wrap"><div class="qibla-dial" id="q-dial"></div></div>
       <div class="qibla-heading"><span id="q-reading">—</span></div>
@@ -392,7 +393,7 @@ export function renderQiyam(root) {
     const wake = tonight.nextFajr - before * 60_000;
     const bedtime = wake - hours * 3_600_000;
     const inLastThird = wake >= tonight.lastThird;
-    const fmtFull = (ms) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
+    const fmtFull = formatClock12h;
     const out = root.querySelector('#qy-out');
     out.hidden = false;
     out.innerHTML = `

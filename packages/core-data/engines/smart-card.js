@@ -21,12 +21,13 @@
 // ============================================================================
 
 import { shiftCivilIso } from './prayer.js';
+import { formatClock12h } from './timefmt.js';
 
 const MIN = 60_000;
 
 const PRAYER_LABELS = { fajr: 'الفجر', sunrise: 'الشروق', dhuhr: 'الظهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء' };
 
-const fmtClock = (ms, tz) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
+const fmtClock = formatClock12h;
 const fmtHMS = (msLeft) => {
   const s = Math.max(0, Math.floor(msLeft / 1000));
   const p = (n) => String(n).padStart(2, '0');
@@ -36,7 +37,9 @@ const fmtHMS = (msLeft) => {
 /** Smart Context-Aware Card (§9 order — evaluated top-down, first match wins). */
 export function resolveSmartCard(now, engine) {
   const tz = engine.opts.timeZone;
-  const iso = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(ms);
+  // date components pinned — bare en-CA default pattern is ICU-dependent and
+  // an unpinned format could stop being y-M-d someday (audit 2026-11-21)
+  const iso = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(ms);
   const dateIso = iso(now);
   const sched = engine.daySchedule(dateIso);
   const wsToday = engine.sunnahWindows(dateIso);

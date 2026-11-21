@@ -85,6 +85,14 @@ object PrayerEngine {
      *    maghribAngle (4.5°) has no equivalent field in adhan 1.2.1 — its
      *    maghrib falls back to sunset, a documented deviation (fixtures never
      *    exercise tehran).
+     *  - "singapore" KNOWN DIVERGENCE (audit 2026-11-21, deferred): golden
+     *    4.4.6 sets rounding = Rounding.Up (ceil to minute) while adhan-java
+     *    1.2.1 always rounds nearest — Singapore times can differ by ≤1 min
+     *    when the raw second is 1..29. Correct fix = replicate Up-rounding
+     *    from the raw solar hour (needs the raw pre-round instant, which 1.2.1
+     *    does not expose) or vendor a newer adhan-java; MUST land together
+     *    with parity fixtures for all 12 methods (fixtures today cover only
+     *    umm_al_qura/muslim_world_league, so CI cannot see this yet).
      *  - polarCircleResolution (the golden prayer.js sets AqrabBalad): adhan
      *    1.2.1 has NO such field on CalculationParameters (verified against
      *    the 1.2.1 sources), so it cannot be mirrored here. Polar-day/night

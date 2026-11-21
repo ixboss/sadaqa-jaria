@@ -23,6 +23,7 @@ import app.sadaqa.android.backup.JsonValue.Obj
 import app.sadaqa.android.backup.JsonValue.Str
 import app.sadaqa.android.backup.UUID7
 import app.sadaqa.android.engine.EngineOptions
+import app.sadaqa.android.engine.PrayerEngine
 import java.io.File
 
 class SadaqaDb private constructor(val connection: SQLiteConnection) {
@@ -351,17 +352,43 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         val defaults = EngineOptions(21.4225, 39.8262, "Asia/Riyadh")
         val loc = setting("location") ?: return defaults
         if (loc.obj == null) return defaults
+        // Imported/corrupted settings DEGRADE to defaults here (golden
+        // bindPrayerEngineFromSettings, audit 2026-11-21): an unknown calc
+        // method or NaN lat from a crafted backup used to throw
+        // IllegalArgumentException on every screen instead. buildParams stays
+        // strict for programmatic callers.
+        // web location settings write `tz` (geo.js) — Android's own writes use
+        // `timeZone`; tolerate both (audit 2026-11: web-imported backups hit
+        // the default Riyadh tz otherwise).
+        val lat = loc["lat"].dbl ?: defaults.lat
+        val lng = loc["lng"].dbl ?: defaults.lng
+        val tzRaw = loc["timeZone"].str ?: loc["tz"].str ?: defaults.timeZone
+        val tz = runCatching { java.time.ZoneId.of(tzRaw).id }.getOrDefault(defaults.timeZone)
+        // prayer_offsets — the golden binder reads settings.prayer_offsets
+        // (prayer.js safeOffsets); Android ignored them entirely, so a
+        // web-imported backup with adjustments showed unshifted times
+        // (audit 2026-11-21). Same whitelist/range contract as the golden.
+        val offsets = parsePrayerOffsets(setting("prayer_offsets"))
         return EngineOptions(
-            lat = loc["lat"].dbl ?: defaults.lat,
-            lng = loc["lng"].dbl ?: defaults.lng,
-            // web location settings write `tz` (geo.js) — Android's own writes use
-            // `timeZone`; tolerate both (audit 2026-11: web-imported backups hit
-            // the default Riyadh tz otherwise).
-            timeZone = loc["timeZone"].str ?: loc["tz"].str ?: defaults.timeZone,
-            method = setting("calc_method")?.str ?: "umm_al_qura",
-            madhab = setting("madhab")?.str ?: "shafi",
-            highLatitudeRule = setting("high_latitude_rule")?.str ?: "middle_of_the_night",
+            lat = if (lat in -90.0..90.0) lat else defaults.lat,
+            lng = if (lng in -180.0..180.0) lng else defaults.lng,
+            timeZone = tz,
+            method = setting("calc_method")?.str?.takeIf { it in PrayerEngine.CALC_METHODS } ?: "umm_al_qura",
+            madhab = setting("madhab")?.str?.takeIf { it in PrayerEngine.MADHABS } ?: "shafi",
+            highLatitudeRule = setting("high_latitude_rule")?.str?.takeIf { it in PrayerEngine.HIGH_LATITUDE_RULES } ?: "middle_of_the_night",
+            offsets = offsets,
         )
+    }
+
+    /** prayer_offsets → valid {name → minutes} (golden prayer.js safeOffsets port). */
+    private fun parsePrayerOffsets(raw: JsonValue?): Map<String, Int> {
+        val fields = raw?.obj ?: return emptyMap()
+        val out = mutableMapOf<String, Int>()
+        for ((name, value) in fields) {
+            val minutes = value.int ?: continue
+            if (PrayerName.of(name) != null && kotlin.math.abs(minutes) <= 60) out[name] = minutes
+        }
+        return out
     }
 
     fun hijriAdjust(): Int = setting("hijri_adjust")?.int ?: 0
