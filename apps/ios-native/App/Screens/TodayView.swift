@@ -13,6 +13,8 @@ struct TodayView: View {
     @State private var showMonthSchedule = false
     @State private var dhikrIdx = 0
     @State private var dailyProgress: [AthkarProgress.WindowProgress] = []
+    @State private var cityNameAr = SadaqaDatabase.defaultLocationNameAr
+    @State private var currentMushafPage = 1
 
     private static let dhikrPillTexts = ["لا إله إلا الله", "سبحان الله وبحمده", "الحمد لله", "أستغفر الله", "اللهم صلِّ على نبينا محمد"]
 
@@ -55,7 +57,10 @@ struct TodayView: View {
             }
             .onAppear {
                 now = Date.nowMs
-                loadDailyProgress()
+                refreshCachedState()
+            }
+            .onChange(of: appState.engineOptions) { _ in
+                refreshCachedState()
             }
             .sheet(isPresented: $showMonthSchedule) { monthScheduleSheet }
         }
@@ -63,25 +68,17 @@ struct TodayView: View {
 
     private var engine: BoundPrayerEngine { PrayerEngine.bind(appState.engineOptions) }
 
-    private var cityNameAr: String {
-        if let loc = appState.db.setting("location"), case .object(let o) = loc,
-           let name = o["name_ar"]?.stringValue, !name.isEmpty {
-            return name
-        }
-        return "مكة المكرمة"
-    }
-
-    private var currentMushafPage: Int {
-        Int(appState.db.setting("mushaf_page")?.doubleValue ?? 1)
-    }
-
     private var dayKey: String {
         let cal = Calendar(identifier: .gregorian)
         let c = cal.dateComponents([.year, .month, .day], from: Date())
-        return String(format: "%04d-%02d-%02d", c.year ?? 1970, c.month ?? 1, c.day ?? 1)
+        return String(format: "%04d-%02d-%02d", locale: ClockFormat.posixLocale, c.year ?? 1970, c.month ?? 1, c.day ?? 1)
     }
 
-    private func loadDailyProgress() {
+    /// Loads SQLite-backed Today screen state on appear/settings change only
+    /// (never inside body or the 1 Hz countdown tick).
+    private func refreshCachedState() {
+        cityNameAr = appState.db.locationNameAr()
+        currentMushafPage = min(max(appState.db.setting("mushaf_page")?.intValue ?? 1, 1), 604)
         dailyProgress = AthkarProgress.load(db: appState.db, dayKey: dayKey)
     }
 
@@ -239,9 +236,9 @@ struct TodayView: View {
                              sub: "ورد المساء من حصن المسلم — قبل غروب الشمس",
                              actionLabel: "افتح أذكار المساء", actionScreen: "adhkar-cat")
         default:
-            return SmartCard(kind: .qiyam, icon: "🌙", badge: "وقت النوم", title: "أذكار النوم",
+            return SmartCard(kind: .sleep, icon: "🌙", badge: "وقت النوم", title: "أذكار النوم",
                              sub: "تسبيح ما قبل النوم يكفيك حاسدك الليلة",
-                             actionLabel: "افتح الأذكار", actionScreen: "adhkar-cat")
+                             actionLabel: "افتح الأذكار", actionScreen: "adhkar-cat", actionWindow: "night")
         }
     }
 
@@ -453,6 +450,7 @@ struct TodayView: View {
         case .kahf: return "book.closed"
         case .after_prayer: return "circle.dashed"
         case .qiyam: return "moon.stars"
+        case .sleep: return "moon.zzz"
         case .morning: return "sunrise"
         case .evening: return "sunset"
         case .next_prayer: return "building.columns"
@@ -486,7 +484,7 @@ struct TodayView: View {
         return String(format: "%04d-%02d-%02d", locale: Locale(identifier: "en_US_POSIX"), c.year ?? 1970, c.month ?? 1, c.day ?? 1)
     }
     static func clock(_ ms: Int64, tz: String) -> String {
-        PrayerEngine.formatClock12h(ms, timeZone: tz)
+        ClockFormat.formatWallClock12h(ms, timeZone: tz)
     }
     static func hms(_ msLeft: Int64) -> String {
         let s = max(0, Int(msLeft / 1000))
@@ -606,7 +604,7 @@ extension AppState {
             targetMushafPage = 293 // سورة الكهف
             tab = .mushaf
         case "adhkar-cat":
-            targetAthkarWindow = card.kind == .after_prayer ? "after_prayer" : (card.kind == .evening ? "asr" : "fajr")
+            targetAthkarWindow = SmartCardResolver.athkarWindow(for: card)
             tab = .athkar
         case "tools-qiyam":
             targetTool = "qiyam"

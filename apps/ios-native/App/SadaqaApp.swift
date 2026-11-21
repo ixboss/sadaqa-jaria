@@ -238,12 +238,14 @@ final class AppState: ObservableObject {
     }
 
     func setSetting(_ key: String, _ value: JSONValue) {
-        try? db.setSetting(key, value)
-        if key == "theme", let s = value.stringValue { currentThemeKey = s }
-        if key == "font_scale" { fontScale = value.doubleValue ?? fontScale }
-        if key == "mushaf_scale" { mushafScale = value.doubleValue ?? mushafScale }
-        if key == "hijri_adjust" { hijriAdjust = value.intValue ?? hijriAdjust }
-        if key == "location" || key == "calc_method" || key == "madhab" || key == "high_latitude_rule" {
+        let sanitized = SadaqaDatabase.sanitizeSettingValue(key: key, value: value)
+        try? db.setSetting(key, sanitized)
+        if key == "theme", let s = sanitized.stringValue { currentThemeKey = s }
+        if key == "font_scale" { fontScale = sanitized.doubleValue ?? fontScale }
+        if key == "mushaf_scale" { mushafScale = sanitized.doubleValue ?? mushafScale }
+        if key == "hijri_adjust" { hijriAdjust = HijriEngine.clampAdjust(sanitized.intValue ?? hijriAdjust) }
+        if key == "location" || key == "calc_method" || key == "madhab" || key == "asr_madhhab"
+            || key == "high_latitude_rule" || key == "high_lat_rule" || key == "prayer_offsets" {
             engineOptions = db.engineOptions()
             WidgetStateBridge.publishWidgetState(db: db)
             AdhanScheduler.shared.reschedule(db: db)

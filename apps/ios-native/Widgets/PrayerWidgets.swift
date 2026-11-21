@@ -23,7 +23,7 @@ private func isoToday(_ ms: Int64, tz: String) -> String {
 }
 
 private func clock(_ ms: Int64, tz: String) -> String {
-    PrayerEngine.formatClock12h(ms, timeZone: tz)
+    ClockFormat.formatWallClock12h(ms, timeZone: tz)
 }
 
 struct WidgetState: Codable {

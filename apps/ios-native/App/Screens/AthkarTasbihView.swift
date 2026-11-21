@@ -24,7 +24,7 @@ struct AthkarCategory: Identifiable {
         switch solarWindow {
         case "fajr": return "sunrise"
         case "asr": return "sunset"
-        case "night": return "moon.stars"
+        case "night", "isha": return "moon.stars"
         case "duha": return "sun.max"
         case "after_prayer": return "building.columns"
         default: return "hands.sparkles"
@@ -35,7 +35,7 @@ struct AthkarCategory: Identifiable {
         switch solarWindow {
         case "fajr": return "الصباح"
         case "asr": return "المساء"
-        case "night": return "الليل"
+        case "night", "isha": return "الليل"
         case "duha": return "الضحى"
         case "after_prayer": return "بعد الصلاة"
         default: return nil
@@ -60,8 +60,10 @@ struct AthkarView: View {
     @State private var navPath = NavigationPath()
 
     private var filtered: [AthkarCategory] {
-        categories.filter { c in
-            let winOk = windowFilter == "all" || c.solarWindow == windowFilter
+        let targetFilter = SmartCardResolver.normalizeAthkarWindow(windowFilter) ?? windowFilter
+        return categories.filter { c in
+            let normalizedWindow = SmartCardResolver.normalizeAthkarWindow(c.solarWindow)
+            let winOk = windowFilter == "all" || normalizedWindow == targetFilter
             let qOk = query.isEmpty || c.nameAr.contains(query)
             return winOk && qOk
         }
@@ -123,9 +125,13 @@ struct AthkarView: View {
     }
 
     private func openTargetWindowIfNeeded() {
-        guard let win = appState.targetAthkarWindow else { return }
+        guard let rawWin = appState.targetAthkarWindow else { return }
+        let win = SmartCardResolver.normalizeAthkarWindow(rawWin) ?? rawWin
         if categories.isEmpty { loadCategories() }
-        if let cat = categories.first(where: { $0.solarWindow == win }) {
+        if win == "night",
+           let sleepCat = categories.first(where: { $0.nameAr.contains("النَّوْم") || $0.nameAr.contains("النوم") }) {
+            navPath = NavigationPath([sleepCat.id])
+        } else if let cat = categories.first(where: { SmartCardResolver.normalizeAthkarWindow($0.solarWindow) == win }) {
             navPath = NavigationPath([cat.id])
         } else {
             windowFilter = win

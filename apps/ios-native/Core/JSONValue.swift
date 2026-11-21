@@ -18,8 +18,16 @@ public indirect enum JSONValue: Sendable {
     // conveniences
     public var stringValue: String? { if case .string(let s) = self { return s }; return nil }
     public var doubleValue: Double? { if case .number(let n) = self { return n }; return nil }
-    public var intValue: Int? { doubleValue.map { Int($0) } }
-    public var int64Value: Int64? { doubleValue.map { Int64($0) } }
+    public var intValue: Int? {
+        guard let d = doubleValue, d.isFinite,
+              d >= Double(Int.min), d < Double(Int.max) else { return nil }
+        return Int(d)
+    }
+    public var int64Value: Int64? {
+        guard let d = doubleValue, d.isFinite,
+              d >= Double(Int64.min), d < Double(Int64.max) else { return nil }
+        return Int64(d)
+    }
     public var boolValue: Bool? { if case .bool(let b) = self { return b }; return nil }
     public var isNull: Bool { if case .null = self { return true }; return false }
 

@@ -15,14 +15,23 @@ enum AthkarProgress {
     struct Report { let windows: [WindowProgress] }
 
     static let windowTitles: [(key: String, titleAr: String)] = [
-        ("fajr", "الصباح"), ("asr", "المساء"), ("isha", "النوم"),
+        ("fajr", "الصباح"), ("asr", "المساء"), ("night", "النوم"),
     ]
+
+    /// Normalizes athkar solar window keys: accepts canonical "night" and legacy "isha".
+    static func normalizeWindow(_ raw: String?) -> String? {
+        SmartCardResolver.normalizeAthkarWindow(raw)
+    }
 
     /// Completion rule mirrors AthkarReaderView: count >= target (or any tap
     /// when the dhikr has no numeric target).
     static func compute(categories: [Category], items: [Item], states: [StateRow]) -> Report {
         var windowOf: [String: String] = [:]
-        for c in categories where c.solarWindow != nil { windowOf[c.id] = c.solarWindow }
+        for c in categories {
+            if let normalized = normalizeWindow(c.solarWindow) {
+                windowOf[c.id] = normalized
+            }
+        }
         let itemById = Dictionary(items.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let done: Set<String> = Set(states.compactMap { s in
             guard let item = itemById[s.itemId] else { return nil }
