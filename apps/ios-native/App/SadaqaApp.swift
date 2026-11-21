@@ -257,6 +257,11 @@ final class AppState: ObservableObject {
     @Published var mushafScale: Double = 1.0
     @Published var hijriAdjust: Int = 0
     @Published var engineOptions: EngineOptions = EngineOptions(lat: 21.4225, lng: 39.8262, timeZone: "Asia/Riyadh")
+    // Cached for views whose body re-evaluates every second (Today hero 1 Hz
+    // countdown): reading user_settings through GRDB there ran a main-thread
+    // SQLite query per tick (audit 2026-11-21).
+    @Published var mushafPage: Int = 1
+    @Published var cityNameAr: String = "مكة المكرمة"
 
     let db = SadaqaDatabase.shared
     // retained while the launch auto-detect request is in flight
@@ -281,6 +286,9 @@ final class AppState: ObservableObject {
         mushafScale = db.setting("mushaf_scale")?.doubleValue ?? 1.0
         hijriAdjust = db.hijriAdjust()
         engineOptions = db.engineOptions()
+        mushafPage = db.setting("mushaf_page")?.intValue ?? 1
+        let city = db.setting("location")?.objectValue?["name_ar"]?.stringValue ?? ""
+        cityNameAr = city.isEmpty ? "مكة المكرمة" : city
         WidgetStateBridge.publishWidgetState(db: db)
         AdhanScheduler.shared.reschedule(db: db)
     }
@@ -307,6 +315,11 @@ final class AppState: ObservableObject {
         if key == "font_scale" { fontScale = value.doubleValue ?? fontScale }
         if key == "mushaf_scale" { mushafScale = value.doubleValue ?? mushafScale }
         if key == "hijri_adjust" { hijriAdjust = value.intValue ?? hijriAdjust }
+        if key == "mushaf_page" { mushafPage = value.intValue ?? mushafPage }
+        if key == "location" {
+            let city = value.objectValue?["name_ar"]?.stringValue ?? ""
+            cityNameAr = city.isEmpty ? cityNameAr : city
+        }
         if key == "location" || key == "calc_method" || key == "madhab" || key == "high_latitude_rule" {
             engineOptions = db.engineOptions()
             WidgetStateBridge.publishWidgetState(db: db)

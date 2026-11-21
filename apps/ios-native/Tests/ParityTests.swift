@@ -349,6 +349,30 @@ final class HijriQiblaParityTests: XCTestCase {
             XCTAssertEqual(QiblaEngine.distanceKm(lat: lat, lng: lng), p["distanceKm"]!.doubleValue!, accuracy: 1e-9, p["name"]!.stringValue!)
         }
     }
+
+    func testWithAdjustClampsToSchemaContract() {
+        // schema.sql hijri_adjust CHECK (-3...3) — imported garbage clamps to
+        // the schema's own bound instead of shifting dates by centuries
+        // (hijri.js withAdjust parity, audit 2026-11-21).
+        XCTAssertEqual(HijriEngine.withAdjust("2026-11-17", 50), HijriEngine.withAdjust("2026-11-17", 3))
+        XCTAssertEqual(HijriEngine.withAdjust("2026-11-17", -999), HijriEngine.withAdjust("2026-11-17", -3))
+        XCTAssertEqual(HijriEngine.withAdjust("2026-11-17", 1), HijriEngine.withAdjust("2026-11-17", 1))
+    }
+
+    func testJSONValueExactConversionsDoNotTrap() {
+        // The trapping Int($0) crashed on crafted settings (hijri_adjust:
+        // 1e300 read on every launch); exact conversions yield nil instead.
+        XCTAssertNil(JSONValue.number(1e300).intValue)
+        XCTAssertNil(JSONValue.number(1e300).int64Value)
+        XCTAssertNil(JSONValue.number(-1e300).intValue)
+        XCTAssertNil(JSONValue.number(Double.nan).intValue)
+        XCTAssertNil(JSONValue.number(Double.infinity).int64Value)
+        XCTAssertEqual(JSONValue.number(3).intValue, 3)
+        XCTAssertEqual(JSONValue.number(-2.0).int64Value, -2)
+        XCTAssertEqual(JSONValue.number(1e15).intValue, 1_000_000_000_000_000)
+        XCTAssertNil(JSONValue.string("7").intValue)
+        XCTAssertNil(JSONValue.null.intValue)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -571,6 +595,47 @@ final class DatabaseWritePathTests: XCTestCase {
         }
     }
 
+    func testImportedGarbageSettingsDegradeToDefaultsAndLoadOffsets() throws {
+        // Golden bindPrayerEngineFromSettings parity (audit 2026-11-21): a
+        // crafted .sadaqa import must DEGRADE to defaults in engineOptions —
+        // an unknown calc_method used to throw unknownMethod out of
+        // daySchedule, blanking the Today hero/schedule.
+        let db = try makeDb()
+        try db.setSetting("location", try JSONValue.parse("""
+            {"lat": 1e15, "lng": 999, "tz": "Not/AZone", "name_ar": "مزيف"}
+            """))
+        try db.setSetting("calc_method", .string("h4x"))
+        try db.setSetting("madhab", .string("maliki"))
+        try db.setSetting("high_latitude_rule", .string("always_12h"))
+        try db.setSetting("hijri_adjust", try JSONValue.parse("1e300"))
+
+        let opts = db.engineOptions()
+        XCTAssertEqual(opts.lat, 21.4225, accuracy: 1e-9)
+        XCTAssertEqual(opts.lng, 39.8262, accuracy: 1e-9)
+        XCTAssertEqual(opts.timeZone, "Asia/Riyadh")
+        XCTAssertEqual(opts.method, "umm_al_qura")
+        XCTAssertEqual(opts.madhab, "shafi")
+        XCTAssertEqual(opts.highLatitudeRule, "middle_of_the_night")
+        XCTAssertEqual(opts.offsets, [:])
+
+        XCTAssertEqual(db.hijriAdjust(), 0, "1e300 must clamp to 0 (Int(exactly:) nil → default), not trap")
+        // and the degraded engine must still produce a schedule — Today stays alive
+        XCTAssertNoThrow(try PrayerEngine.daySchedule("2026-11-18", opts))
+
+        // 50 clamps to the schema's ±3 contract (db loader mirrors withAdjust)
+        try db.setSetting("hijri_adjust", .number(50))
+        XCTAssertEqual(db.hijriAdjust(), 3)
+
+        // prayer_offsets — previously NEVER loaded on iOS (web-imported
+        // adjustments silently ignored); safeOffsets drops malformed entries.
+        try db.setSetting("prayer_offsets", try JSONValue.parse("""
+            {"fajr": 7, "dhuhr": 999, "sunset": 5, "fajr_x": 3, "isha": -60}
+            """))
+        let valid = db.engineOptions()
+        XCTAssertEqual(valid.offsets, ["fajr": 7, "isha": -60], "only schema-named prayers within ±60 minutes survive")
+        XCTAssertNoThrow(try PrayerEngine.daySchedule("2026-11-18", valid))
+    }
+
     func testAudioCatalogDecodesSnakeCaseKeys() throws {
         let json = """
         {
@@ -698,7 +763,7 @@ final class TodayProgressTests: XCTestCase {
     }
 
     func testWindowsAggregateCompletedCountsForToday() {
-        let categories = [category(1, "fajr"), category(2, "asr"), category(3, "isha")]
+        let categories = [category(1, "fajr"), category(2, "asr"), category(3, "night")]
         let items = [item(10, 1, target: 10), item(11, 1, target: 7), item(20, 2, target: 5), item(30, 3, target: 4)]
         let states = [stateRow(10, 10), stateRow(11, 3, completed: false), stateRow(20, 5)]
         let progress = AthkarProgress.compute(categories: categories, items: items, states: states)
@@ -715,12 +780,15 @@ final class TodayProgressTests: XCTestCase {
         XCTAssertEqual(progress.windows[2].total, 1)
     }
 
-    func testUnknownWindowIsDroppedAndCountBelowTargetIsIncomplete() {
-        let categories = [category(1, "isha"), category(9, "noon")]
-        let items = [item(10, 1, target: 4), item(90, 9, target: 2)]
-        let states = [stateRow(10, 2), stateRow(90, 2)]
+    func testSleepWindowUsesSchemaNightKeyAndDropsUnknownWindows() {
+        // schema.sql:220 CHECK list — sleep athkar are tagged `night`; 'isha'
+        // and 'noon' are not window keys and their rows are dropped wholesale.
+        let categories = [category(1, "night"), category(2, "isha"), category(9, "noon")]
+        let items = [item(10, 1, target: 4), item(20, 2, target: 2), item(90, 9, target: 2)]
+        let states = [stateRow(10, 2), stateRow(20, 2), stateRow(90, 2)]
         let progress = AthkarProgress.compute(categories: categories, items: items, states: states)
         XCTAssertEqual(progress.windows.count, 1, "only known solar windows are shown")
+        XCTAssertEqual(progress.windows[0].titleAr, "النوم")
         XCTAssertEqual(progress.windows[0].completed, 0, "2/4 below target is not complete")
     }
 }

@@ -14,8 +14,11 @@ enum AthkarProgress {
     struct WindowProgress: Equatable { let titleAr: String; let completed: Int; let total: Int }
     struct Report { let windows: [WindowProgress] }
 
+    // Sleep athkar are tagged `night` in the DB (schema.sql:220 CHECK list —
+    // 'isha' is a key the schema forbids, so the النوم window could NEVER
+    // render; audit 2026-11-21). Mirrors today-progress.js + TodayProgress.kt.
     static let windowTitles: [(key: String, titleAr: String)] = [
-        ("fajr", "الصباح"), ("asr", "المساء"), ("isha", "النوم"),
+        ("fajr", "الصباح"), ("asr", "المساء"), ("night", "النوم"),
     ]
 
     /// Completion rule mirrors AthkarReaderView: count >= target (or any tap

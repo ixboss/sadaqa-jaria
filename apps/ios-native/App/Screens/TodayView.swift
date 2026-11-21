@@ -57,17 +57,12 @@ struct TodayView: View {
 
     private var engine: BoundPrayerEngine { PrayerEngine.bind(appState.engineOptions) }
 
-    private var cityNameAr: String {
-        if let loc = appState.db.setting("location"), case .object(let o) = loc,
-           let name = o["name_ar"]?.stringValue, !name.isEmpty {
-            return name
-        }
-        return "مكة المكرمة"
-    }
+    // Cached in AppState — the body re-evaluates every 1 Hz for the hero
+    // countdown, and these computed reads used to run a main-thread SQLite
+    // query per tick (audit 2026-11-21).
+    private var cityNameAr: String { appState.cityNameAr }
 
-    private var currentMushafPage: Int {
-        Int(appState.db.setting("mushaf_page")?.doubleValue ?? 1)
-    }
+    private var currentMushafPage: Int { appState.mushafPage }
 
     private var dayKey: String {
         let cal = Calendar(identifier: .gregorian)

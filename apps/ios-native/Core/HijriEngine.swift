@@ -89,8 +89,12 @@ public enum HijriEngine {
     }
 
     /// ±N day adjustment applied at the display layer (schema: hijri_adjust).
+    /// Defensive against imported-garbage settings: clamp to the schema's own
+    /// ±3 contract (schema.sql CHECK) — the web golden clamps in withAdjust
+    /// (hijri.js, audit 2026-11-21).
     public static func withAdjust(_ dateIso: String, _ adjust: Int) -> HijriDate {
-        let shifted = noonUTC(dateIso).addingTimeInterval(Double(adjust) * 86_400)
+        let adj = max(-3, min(3, adjust))
+        let shifted = noonUTC(dateIso).addingTimeInterval(Double(adj) * 86_400)
         return toHijri(isoOf(shifted))
     }
 

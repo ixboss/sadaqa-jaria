@@ -174,20 +174,54 @@ public final class SadaqaDatabase: @unchecked Sendable {
     }
 
     /// Engine options derived from settings (defaults mirror app-state.js).
+    /// Imported/corrupted settings DEGRADE to defaults here (golden
+    /// bindPrayerEngineFromSettings / Android SadaqaDb.kt, audit 2026-11-21):
+    /// an unknown calc method from a crafted backup used to throw
+    /// unknownMethod out of daySchedule, blanking the Today hero/schedule.
+    /// buildParams stays strict for programmatic callers.
     public func engineOptions() -> EngineOptions {
         let defaults = EngineOptions(lat: 21.4225, lng: 39.8262, timeZone: "Asia/Riyadh")
         guard let loc = setting("location"), case .object(let o) = loc else { return defaults }
+        let lat = o["lat"]?.doubleValue ?? defaults.lat
+        let lng = o["lng"]?.doubleValue ?? defaults.lng
+        // web exports write `tz` (older keys write `timeZone`) — accept both;
+        // an unknown zone identifier degrades to the default like the golden's
+        // safeTimeZone.
+        let tzRaw = o["timeZone"]?.stringValue ?? o["tz"]?.stringValue ?? defaults.timeZone
         return EngineOptions(
-            lat: o["lat"]?.doubleValue ?? defaults.lat,
-            lng: o["lng"]?.doubleValue ?? defaults.lng,
-            // web exports write `tz` (older keys write `timeZone`) — accept both.
-            timeZone: o["timeZone"]?.stringValue ?? o["tz"]?.stringValue ?? defaults.timeZone,
-            method: setting("calc_method")?.stringValue ?? "umm_al_qura",
-            madhab: setting("madhab")?.stringValue ?? "shafi",
-            highLatitudeRule: setting("high_latitude_rule")?.stringValue ?? "middle_of_the_night")
+            lat: lat.isFinite && lat >= -90 && lat <= 90 ? lat : defaults.lat,
+            lng: lng.isFinite && lng >= -180 && lng <= 180 ? lng : defaults.lng,
+            timeZone: TimeZone(identifier: tzRaw) != nil ? tzRaw : defaults.timeZone,
+            method: Self.safeEnum(setting("calc_method")?.stringValue, PrayerEngine.calcMethods, "umm_al_qura"),
+            madhab: Self.safeEnum(setting("madhab")?.stringValue, PrayerEngine.madhabs, "shafi"),
+            highLatitudeRule: Self.safeEnum(setting("high_latitude_rule")?.stringValue, PrayerEngine.highLatitudeRules, "middle_of_the_night"),
+            offsets: Self.safeOffsets(setting("prayer_offsets")))
     }
 
-    public func hijriAdjust() -> Int { setting("hijri_adjust")?.intValue ?? 0 }
+    static func safeEnum(_ value: String?, _ allowed: [String], _ fallback: String) -> String {
+        guard let value, allowed.contains(value) else { return fallback }
+        return value
+    }
+
+    /// prayer_offsets → valid {name → minutes} — drop malformed entries
+    /// wholesale (golden prayer.js safeOffsets port; Android
+    /// parsePrayerOffsets mirror). Loading these is also the parity fix: iOS
+    /// ignored per-prayer adjustments from a web-imported backup entirely
+    /// (audit 2026-11-21).
+    static func safeOffsets(_ raw: JSONValue?) -> [String: Int] {
+        guard case .object(let fields)? = raw else { return [:] }
+        var out: [String: Int] = [:]
+        for (name, value) in fields {
+            guard let m = value.intValue, PrayerName(rawValue: name) != nil, abs(m) <= 60 else { continue }
+            out[name] = m
+        }
+        return out
+    }
+
+    /// Clamp to the schema's own ±3 contract (schema.sql CHECK) — the golden
+    /// (hijri.js withAdjust) clamps the same way;intValue is nil-safe via
+    /// Int(exactly:) (JSONValue, audit 2026-11-21).
+    public func hijriAdjust() -> Int { min(3, max(-3, setting("hijri_adjust")?.intValue ?? 0)) }
 
     // ------------------------------------------------------------------
     // Cities & Arabic FTS normalization (mirrors packages/core-data/engines/search.js)

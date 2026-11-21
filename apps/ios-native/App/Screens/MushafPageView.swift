@@ -623,6 +623,9 @@ struct MushafPageView: View {
         pageCache.preload(around: curPage, db: db)
         Task {
             try? db.setSetting("mushaf_page", .number(Double(curPage)))
+            // keep the AppState cache in sync (Today's ورد اليوم card reads it
+            // per render; this write bypasses AppState.setSetting)
+            appState.mushafPage = curPage
             WidgetStateBridge.publishReadingPosition(page: curPage, db: db)
         }
     }

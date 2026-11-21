@@ -18,8 +18,12 @@ public indirect enum JSONValue: Sendable {
     // conveniences
     public var stringValue: String? { if case .string(let s) = self { return s }; return nil }
     public var doubleValue: Double? { if case .number(let n) = self { return n }; return nil }
-    public var intValue: Int? { doubleValue.map { Int($0) } }
-    public var int64Value: Int64? { doubleValue.map { Int64($0) } }
+    // exact conversions only — the trapping `Int($0)` crashed on crafted
+    // settings (hijri_adjust: 1e300 read on every launch → crash loop,
+    // audit 2026-11-21); out-of-range/nan Doubles now yield nil so callers'
+    // `?? default` fallbacks engage.
+    public var intValue: Int? { doubleValue.flatMap { Int(exactly: $0) } }
+    public var int64Value: Int64? { doubleValue.flatMap { Int64(exactly: $0) } }
     public var boolValue: Bool? { if case .bool(let b) = self { return b }; return nil }
     public var isNull: Bool { if case .null = self { return true }; return false }
 
