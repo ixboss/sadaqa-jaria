@@ -32,7 +32,7 @@ import androidx.glance.unit.ColorProvider
 import app.sadaqa.android.engine.EngineOptions
 import app.sadaqa.android.engine.PrayerEngine
 import app.sadaqa.android.engine.PrayerName
-import app.sadaqa.android.engine.SmartCardResolver
+import app.sadaqa.android.engine.TimeFmt
 
 /** Reads the app-published widget state; recomputes next prayer offline. */
 object WidgetData {
@@ -62,7 +62,7 @@ object WidgetData {
 
     /** Formats a prayer timestamp as 12-hour "h:mm AM/PM" with Western ASCII digits. */
     fun formatPrayerTime(epochMs: Long, tz: String): String =
-        SmartCardResolver.clock(epochMs, tz)
+        TimeFmt.formatWallClock12h(epochMs, tz)
 
     /** App-published daily dhikr pick (empty until the app first publishes). */
     fun dailyDhikr(context: Context): String =

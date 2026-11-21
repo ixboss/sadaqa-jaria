@@ -22,7 +22,9 @@ import com.batoulapps.adhan.Prayer
 import com.batoulapps.adhan.PrayerAdjustments
 import com.batoulapps.adhan.PrayerTimes
 import com.batoulapps.adhan.SunnahTimes
+import java.time.ZoneId
 import java.util.Date
+import java.util.Locale
 import java.util.TimeZone
 
 /** Canonical prayer order (display + API) — matches prayer.js PRAYER_NAMES. */
@@ -65,6 +67,15 @@ data class SunnahWindows(val duha: Long, val duhaEnd: Long, val midnight: Long, 
 
 object PrayerEngine {
 
+    const val DEFAULT_LAT = 21.4225
+    const val DEFAULT_LNG = 39.8262
+    const val DEFAULT_TIMEZONE = "Asia/Riyadh"
+    const val DEFAULT_METHOD = "umm_al_qura"
+    const val DEFAULT_MADHAB = "shafi"
+    const val DEFAULT_HIGH_LATITUDE_RULE = "middle_of_the_night"
+    const val MIN_OFFSET_MINUTES = -60
+    const val MAX_OFFSET_MINUTES = 60
+
     val CALC_METHODS = listOf(
         "muslim_world_league", "egyptian", "umm_al_qura", "karachi",
         "moonsighting", "north_america", "dubai", "kuwait", "qatar",
@@ -73,26 +84,66 @@ object PrayerEngine {
     val MADHABS = listOf("shafi", "hanafi")
     val HIGH_LATITUDE_RULES = listOf("middle_of_the_night", "seventh_of_the_night", "twilight_angle")
 
-    /** buildParams port — same 12 method keys, same madhab/HLR/offset semantics.
-     *
-     *  PARITY NOTES:
-     *  - "gulf" is deliberately absent everywhere (resolved 2026-11-18): the
-     *    golden's vendored adhan 4.4.6 defines no Gulf factory, so the golden
-     *    METHOD_MAP no longer lists it. A stale "gulf" pref hits the else
-     *    branch and throws, matching the golden buildParams.
-     *  - "turkey"/"tehran": adhan 1.2.1 lacks enum entries; they are built
-     *    from the vendored 4.4.6 values (CalculationMethod.js:75-85). Tehran's
-     *    maghribAngle (4.5°) has no equivalent field in adhan 1.2.1 — its
-     *    maghrib falls back to sunset, a documented deviation (fixtures never
-     *    exercise tehran).
-     *  - polarCircleResolution (the golden prayer.js sets AqrabBalad): adhan
-     *    1.2.1 has NO such field on CalculationParameters (verified against
-     *    the 1.2.1 sources), so it cannot be mirrored here. Polar-day/night
-     *    cases surface as NaN hours in the golden — TimeComponents.fromDouble
-     *    returns null for those in 1.2.1 — and requireTime throws the golden's
-     *    explicit "prayer time unresolved" error instead. */
+    /** Degrade unknown/corrupt calculation method safely to default. */
+    fun sanitizeMethod(raw: String?): String {
+        val norm = raw?.trim()?.lowercase(Locale.US) ?: return DEFAULT_METHOD
+        return if (norm in CALC_METHODS) norm else DEFAULT_METHOD
+    }
+
+    /** Degrade unknown/corrupt madhab safely to default (accepts 'shafi'/'shafii'/'hanafi'). */
+    fun sanitizeMadhab(raw: String?): String = when (raw?.trim()?.lowercase(Locale.US)) {
+        "hanafi" -> "hanafi"
+        "shafi", "shafii" -> "shafi"
+        else -> DEFAULT_MADHAB
+    }
+
+    /** Degrade unknown/corrupt high-latitude rule safely to default (accepts legacy 'seventh_of_night'). */
+    fun sanitizeHighLatitudeRule(raw: String?): String = when (raw?.trim()?.lowercase(Locale.US)) {
+        "middle_of_the_night" -> "middle_of_the_night"
+        "seventh_of_the_night", "seventh_of_night" -> "seventh_of_the_night"
+        "twilight_angle" -> "twilight_angle"
+        else -> DEFAULT_HIGH_LATITUDE_RULE
+    }
+
+    /** Validate an IANA timezone id, falling back to DEFAULT_TIMEZONE on corrupt input. */
+    fun sanitizeTimeZone(raw: String?): String {
+        val trimmed = raw?.trim().orEmpty()
+        if (trimmed.isEmpty()) return DEFAULT_TIMEZONE
+        return if (runCatching { ZoneId.of(trimmed) }.isSuccess) trimmed else DEFAULT_TIMEZONE
+    }
+
+    /** Keep only known prayer keys and clamp minute offsets to [-60, +60]. */
+    fun sanitizeOffsets(raw: Map<String, Int>): Map<String, Int> {
+        if (raw.isEmpty()) return emptyMap()
+        val out = LinkedHashMap<String, Int>()
+        for ((k, v) in raw) {
+            val prayer = PrayerName.of(k.trim().lowercase(Locale.US)) ?: continue
+            val clamped = v.coerceIn(MIN_OFFSET_MINUTES, MAX_OFFSET_MINUTES)
+            if (clamped != 0) out[prayer.key] = clamped
+        }
+        return out
+    }
+
+    /** Validate and normalize an entire EngineOptions instance so corrupt settings never crash calculation. */
+    fun sanitizeOptions(opts: EngineOptions): EngineOptions {
+        val validCoords = opts.lat.isFinite() && opts.lat in -90.0..90.0 &&
+            opts.lng.isFinite() && opts.lng in -180.0..180.0
+        return EngineOptions(
+            lat = if (validCoords) opts.lat else DEFAULT_LAT,
+            lng = if (validCoords) opts.lng else DEFAULT_LNG,
+            timeZone = sanitizeTimeZone(opts.timeZone),
+            method = sanitizeMethod(opts.method),
+            madhab = sanitizeMadhab(opts.madhab),
+            highLatitudeRule = sanitizeHighLatitudeRule(opts.highLatitudeRule),
+            offsets = sanitizeOffsets(opts.offsets),
+        )
+    }
+
+    /** buildParams port — same 12 method keys, same madhab/HLR/offset semantics,
+     *  with safe degradation to defaults on corrupt/out-of-range settings and
+     *  [-60, +60] minute clamping on prayer offsets. */
     fun buildParams(opts: EngineOptions): CalculationParameters {
-        val params: CalculationParameters = when (opts.method) {
+        val params: CalculationParameters = when (sanitizeMethod(opts.method)) {
             "muslim_world_league" -> CalculationMethod.MUSLIM_WORLD_LEAGUE.parameters
             "egyptian" -> CalculationMethod.EGYPTIAN.parameters
             "umm_al_qura" -> CalculationMethod.UMM_AL_QURA.parameters
@@ -105,32 +156,29 @@ object PrayerEngine {
             "singapore" -> CalculationMethod.SINGAPORE.parameters
             "turkey" -> handBuiltTurkey()
             "tehran" -> handBuiltTehran()
-            else -> throw IllegalArgumentException("unknown calc method: ${opts.method}")
+            else -> CalculationMethod.UMM_AL_QURA.parameters
         }
-        params.madhab = when (opts.madhab) {
-            "shafi" -> Madhab.SHAFI
+        params.madhab = when (sanitizeMadhab(opts.madhab)) {
             "hanafi" -> Madhab.HANAFI
-            else -> throw IllegalArgumentException("unknown madhab: ${opts.madhab}")
+            else -> Madhab.SHAFI
         }
-        params.highLatitudeRule = when (opts.highLatitudeRule) {
-            "middle_of_the_night" -> HighLatitudeRule.MIDDLE_OF_THE_NIGHT
+        params.highLatitudeRule = when (sanitizeHighLatitudeRule(opts.highLatitudeRule)) {
             "seventh_of_the_night" -> HighLatitudeRule.SEVENTH_OF_THE_NIGHT
             "twilight_angle" -> HighLatitudeRule.TWILIGHT_ANGLE
-            else -> throw IllegalArgumentException("unknown highLatitudeRule: ${opts.highLatitudeRule}")
+            else -> HighLatitudeRule.MIDDLE_OF_THE_NIGHT
         }
         if (opts.offsets.isNotEmpty()) {
             val adj = PrayerAdjustments()
-            for ((name, minutes) in opts.offsets) {
-                require(PrayerName.of(name) != null) { "unknown prayer for offset: $name" }
-                require(kotlin.math.abs(minutes) <= 60) { "offset for $name out of range: $minutes" }
-                when (PrayerName.of(name)) {
+            for ((name, rawMinutes) in opts.offsets) {
+                val prayer = PrayerName.of(name.trim().lowercase(Locale.US)) ?: continue
+                val minutes = rawMinutes.coerceIn(MIN_OFFSET_MINUTES, MAX_OFFSET_MINUTES)
+                when (prayer) {
                     PrayerName.FAJR -> adj.fajr = minutes
                     PrayerName.SUNRISE -> adj.sunrise = minutes
                     PrayerName.DHUHR -> adj.dhuhr = minutes
                     PrayerName.ASR -> adj.asr = minutes
                     PrayerName.MAGHRIB -> adj.maghrib = minutes
                     PrayerName.ISHA -> adj.isha = minutes
-                    else -> {}
                 }
             }
             params.adjustments = adj
@@ -165,7 +213,7 @@ object PrayerEngine {
     /** computeForDate → true UTC instants (epoch ms) for the 6 prayers.
      *  Unresolvable prayer times THROW (golden parity — never silent epoch-0). */
     fun computeForDate(dateIso: String, opts: EngineOptions): Map<PrayerName, Long> {
-        require(opts.lat in -90.0..90.0 && opts.lng in -180.0..180.0) { "invalid lat/lng" }
+        require(opts.lat.isFinite() && opts.lat in -90.0..90.0 && opts.lng.isFinite() && opts.lng in -180.0..180.0) { "invalid lat/lng" }
         val pt = PrayerTimes(Coordinates(opts.lat, opts.lng), dateComponentsOf(dateIso), buildParams(opts))
         val out = mutableMapOf<PrayerName, Long>()
         for (name in PrayerName.entries) {
@@ -183,7 +231,9 @@ object PrayerEngine {
             clear()
             set(p[0], p[1] - 1, p[2] - 1, 12, 0, 0)
         }
-        val prevIso = "%04d-%02d-%02d".format(
+        val prevIso = String.format(
+            Locale.US,
+            "%04d-%02d-%02d",
             prevCal.get(java.util.Calendar.YEAR),
             prevCal.get(java.util.Calendar.MONTH) + 1,
             prevCal.get(java.util.Calendar.DAY_OF_MONTH),
@@ -198,8 +248,8 @@ object PrayerEngine {
 
     /** next(nowEpochMs) — scans yesterday/today/tomorrow in the city tz. */
     fun next(nowMs: Long, opts: EngineOptions): NextPrayer {
-        val fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
-            .withZone(java.time.ZoneId.of(opts.timeZone))
+        val fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US)
+            .withZone(ZoneId.of(sanitizeTimeZone(opts.timeZone)))
         val todayIso = fmt.format(java.time.Instant.ofEpochMilli(nowMs))
         val yesterday = daySchedule(shiftCivilIso(todayIso, -1), opts)
         val today = daySchedule(todayIso, opts)
@@ -241,7 +291,9 @@ object PrayerEngine {
             val p = dateIso.split("-").map { it.toInt() }
             set(p[0], p[1] - 1, p[2] + 1, 12, 0, 0)
         }
-        val nextIso = "%04d-%02d-%02d".format(
+        val nextIso = String.format(
+            Locale.US,
+            "%04d-%02d-%02d",
             cal.get(java.util.Calendar.YEAR),
             cal.get(java.util.Calendar.MONTH) + 1,
             cal.get(java.util.Calendar.DAY_OF_MONTH),

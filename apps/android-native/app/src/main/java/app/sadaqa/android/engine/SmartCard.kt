@@ -14,7 +14,7 @@ import java.util.Locale
 
 enum class SmartCardKind(val key: String) {
     KAHF("kahf"), AFTER_PRAYER("after_prayer"), QIYAM("qiyam"),
-    MORNING("morning"), EVENING("evening"), NEXT_PRAYER("next_prayer");
+    MORNING("morning"), EVENING("evening"), SLEEP("night"), NEXT_PRAYER("next_prayer");
 }
 
 data class SmartCard(
@@ -86,6 +86,17 @@ object SmartCardResolver {
                 "ابدأ أذكار المساء", "adhkar-cat",
             )
         }
+        // 5b. Night / sleep window (after Isha+20m until last third begins) → sleep athkar ('night' window)
+        val isNightSleepWindow =
+            (now >= sched.prayers.getValue(PrayerName.ISHA) && now < wsToday.lastThird) ||
+                (now < sched.prayers.getValue(PrayerName.FAJR) && now < wsNight.lastThird)
+        if (isNightSleepWindow) {
+            return SmartCard(
+                SmartCardKind.SLEEP, "🌙", "وقت النوم", "أذكار النوم",
+                "ورد النوم من حصن المسلم — اقرأها قبل أن تنام",
+                "ابدأ أذكار النوم", "adhkar-sleep",
+            )
+        }
         // 6. else → next-prayer details
         return SmartCard(
             SmartCardKind.NEXT_PRAYER, "🕌", "الوقت الحالي",
@@ -96,27 +107,11 @@ object SmartCardResolver {
     }
 
     /** 12-hour wall clock "h:mm AM/PM" with Western ASCII digits in the city timezone. */
-    fun clock(ms: Long, tz: ZoneId): String {
-        val zdt = Instant.ofEpochMilli(ms).atZone(tz)
-        val hour24 = zdt.hour
-        val hour12 = when {
-            hour24 == 0 -> 12
-            hour24 > 12 -> hour24 - 12
-            else -> hour24
-        }
-        val period = if (hour24 < 12) "AM" else "PM"
-        return String.format(Locale.US, "%d:%02d %s", hour12, zdt.minute, period)
-    }
+    fun clock(ms: Long, tz: ZoneId): String = TimeFmt.formatWallClock12h(ms, tz)
 
     /** Convenience overload accepting an IANA timezone id (falls back to Asia/Riyadh). */
-    fun clock(ms: Long, timeZone: String): String {
-        val zone = runCatching { ZoneId.of(timeZone) }.getOrElse { ZoneId.of("Asia/Riyadh") }
-        return clock(ms, zone)
-    }
+    fun clock(ms: Long, timeZone: String): String = TimeFmt.formatWallClock12h(ms, timeZone)
 
     /** "HH:MM:SS" countdown with Western ASCII digits (web fmtHMS). */
-    fun hms(msLeft: Long): String {
-        val s = maxOf(0, (msLeft / 1000).toInt())
-        return String.format(Locale.US, "%02d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
-    }
+    fun hms(msLeft: Long): String = TimeFmt.formatHms(msLeft)
 }

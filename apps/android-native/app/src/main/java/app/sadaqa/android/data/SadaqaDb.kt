@@ -23,7 +23,10 @@ import app.sadaqa.android.backup.JsonValue.Obj
 import app.sadaqa.android.backup.JsonValue.Str
 import app.sadaqa.android.backup.UUID7
 import app.sadaqa.android.engine.EngineOptions
+import app.sadaqa.android.engine.PrayerEngine
+import app.sadaqa.android.engine.PrayerName
 import java.io.File
+import java.util.Locale
 
 class SadaqaDb private constructor(val connection: SQLiteConnection) {
 
@@ -36,8 +39,118 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
          *  slider drag re-scheduled exact alarms on each tick). Keys starting
          *  with "notification"/"adhan" are included forward-compatibly. */
         private val PRAYER_SETTING_KEYS = setOf(
-            "location", "calc_method", "madhab", "high_latitude_rule", "prayer_offsets", "hijri_adjust",
+            "location", "calc_method", "madhab", "asr_madhhab",
+            "high_latitude_rule", "high_lat_rule", "prayer_offsets", "hijri_adjust",
         )
+
+        private const val DEFAULT_CITY_NAME_AR = "مكة المكرمة"
+        private const val MAX_LOCATION_NAME_LEN = 100
+        private const val HIJRI_ADJUST_MIN = -3
+        private const val HIJRI_ADJUST_MAX = 3
+
+        /** Strips ASCII control characters, collapses whitespace, trims, and caps length. */
+        fun sanitizeDisplayText(raw: String?, maxLen: Int = MAX_LOCATION_NAME_LEN): String {
+            if (raw == null) return ""
+            val cleaned = buildString(raw.length) {
+                for (ch in raw) {
+                    if (ch >= ' ' && ch != '\u007F') append(ch)
+                    else if (ch == '\t' || ch == '\n' || ch == '\r') append(' ')
+                }
+            }.trim().replace(Regex("\\s{2,}"), " ")
+            return if (cleaned.length <= maxLen) cleaned else cleaned.substring(0, maxLen).trimEnd()
+        }
+
+        /** Safe finite/range-checked conversion to Int before calling .toInt() (prevents 1e300 overflow). */
+        fun safeClampedInt(value: JsonValue?, min: Int, max: Int, default: Int): Int {
+            val d = value?.dbl ?: return default
+            if (!d.isFinite()) return default
+            if (d <= min.toDouble()) return min
+            if (d >= max.toDouble()) return max
+            return d.toInt().coerceIn(min, max)
+        }
+
+        /** Safe finite/range-checked conversion to Long (returns default on NaN/Infinity/out-of-range). */
+        fun safeLong(value: JsonValue?, default: Long = 0L): Long {
+            val d = value?.dbl ?: return default
+            if (!d.isFinite()) return default
+            if (d <= Long.MIN_VALUE.toDouble()) return Long.MIN_VALUE
+            if (d >= 9223372036854775808.0) return Long.MAX_VALUE
+            return d.toLong()
+        }
+
+        /** Safe finite/range-checked nullable Long (returns null on Null/NaN/Infinity/out-of-range). */
+        fun safeLongOrNull(value: JsonValue?): Long? {
+            val d = value?.dbl ?: return null
+            if (!d.isFinite() || d < Long.MIN_VALUE.toDouble() || d >= 9223372036854775808.0) return null
+            return d.toLong()
+        }
+
+        /** Parse and clamp prayer_offsets object ({ "fajr": 2, ... }) to [-60, +60]. */
+        fun parsePrayerOffsets(value: JsonValue?): Map<String, Int> {
+            val obj = value?.obj ?: return emptyMap()
+            val out = LinkedHashMap<String, Int>()
+            for ((rawKey, rawVal) in obj) {
+                val prayer = PrayerName.of(rawKey.trim().lowercase(Locale.US)) ?: continue
+                if (rawVal.dbl == null) continue
+                val clamped = safeClampedInt(rawVal, PrayerEngine.MIN_OFFSET_MINUTES, PrayerEngine.MAX_OFFSET_MINUTES, 0)
+                if (clamped != 0) out[prayer.key] = clamped
+            }
+            return out
+        }
+
+        /** Sanitizes a location JSON setting (strips device-local gps, trims name_ar/name_en,
+         *  validates lat in [-90, 90] and lon/lng in [-180, 180], and validates timeZone/tz). */
+        fun sanitizeLocationValue(value: JsonValue): JsonValue {
+            val obj = value.obj ?: return Obj(
+                mapOf(
+                    "lat" to Num(PrayerEngine.DEFAULT_LAT),
+                    "lng" to Num(PrayerEngine.DEFAULT_LNG),
+                    "timeZone" to Str(PrayerEngine.DEFAULT_TIMEZONE),
+                    "name_ar" to Str(DEFAULT_CITY_NAME_AR),
+                ),
+            )
+            val rawLat = obj["lat"]?.dbl
+            val rawLng = obj["lng"]?.dbl ?: obj["lon"]?.dbl
+            val validCoords = rawLat != null && rawLat.isFinite() && rawLat in -90.0..90.0 &&
+                rawLng != null && rawLng.isFinite() && rawLng in -180.0..180.0
+            val safeLat = if (validCoords) rawLat!! else PrayerEngine.DEFAULT_LAT
+            val safeLng = if (validCoords) rawLng!! else PrayerEngine.DEFAULT_LNG
+            val safeTz = PrayerEngine.sanitizeTimeZone(obj["timeZone"]?.str ?: obj["tz"]?.str)
+            val safeNameAr = sanitizeDisplayText(obj["name_ar"]?.str).ifEmpty { DEFAULT_CITY_NAME_AR }
+
+            val out = LinkedHashMap<String, JsonValue>()
+            out["lat"] = Num(safeLat)
+            out["lng"] = Num(safeLng)
+            out["timeZone"] = Str(safeTz)
+            out["name_ar"] = Str(safeNameAr)
+            val safeNameEn = sanitizeDisplayText(obj["name_en"]?.str)
+            if (safeNameEn.isNotEmpty()) out["name_en"] = Str(safeNameEn)
+            obj["cityId"]?.let { cid ->
+                val safeId = safeClampedInt(cid, 0, Int.MAX_VALUE, -1)
+                if (safeId >= 0) out["cityId"] = Num(safeId.toDouble())
+            }
+            return Obj(out)
+        }
+
+        /** Sanitizes imported `.sadaqa` setting values before persisting to user_settings. */
+        fun sanitizeImportedSetting(key: String, value: JsonValue): JsonValue = when (key) {
+            "location" -> sanitizeLocationValue(value)
+            "hijri_adjust" -> Num(safeClampedInt(value, HIJRI_ADJUST_MIN, HIJRI_ADJUST_MAX, 0).toDouble())
+            "calc_method" -> Str(PrayerEngine.sanitizeMethod(value.str))
+            "madhab", "asr_madhhab" -> Str(PrayerEngine.sanitizeMadhab(value.str))
+            "high_latitude_rule", "high_lat_rule" -> Str(PrayerEngine.sanitizeHighLatitudeRule(value.str))
+            "prayer_offsets" -> Obj(parsePrayerOffsets(value).mapValues { (_, v) -> Num(v.toDouble()) })
+            "mushaf_page" -> Num(safeClampedInt(value, 1, 604, 1).toDouble())
+            "mushaf_scale" -> {
+                val d = value.dbl?.takeIf { it.isFinite() }?.coerceIn(0.8, 2.0) ?: 1.0
+                Num(d)
+            }
+            "font_scale" -> {
+                val d = value.dbl?.takeIf { it.isFinite() }?.coerceIn(0.85, 1.6) ?: 1.0
+                Num(d)
+            }
+            else -> value
+        }
 
         /**
          * In-place migrations keyed on meta.schema_version. v1 is the seed
@@ -348,23 +461,40 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
     }
 
     fun engineOptions(): EngineOptions {
-        val defaults = EngineOptions(21.4225, 39.8262, "Asia/Riyadh")
-        val loc = setting("location") ?: return defaults
-        if (loc.obj == null) return defaults
-        return EngineOptions(
-            lat = loc["lat"].dbl ?: defaults.lat,
-            lng = loc["lng"].dbl ?: defaults.lng,
-            // web location settings write `tz` (geo.js) — Android's own writes use
-            // `timeZone`; tolerate both (audit 2026-11: web-imported backups hit
-            // the default Riyadh tz otherwise).
-            timeZone = loc["timeZone"].str ?: loc["tz"].str ?: defaults.timeZone,
-            method = setting("calc_method")?.str ?: "umm_al_qura",
-            madhab = setting("madhab")?.str ?: "shafi",
-            highLatitudeRule = setting("high_latitude_rule")?.str ?: "middle_of_the_night",
+        val loc = setting("location")?.obj
+        val rawLat = loc?.get("lat")?.dbl
+        val rawLng = loc?.get("lng")?.dbl ?: loc?.get("lon")?.dbl
+        val validCoords = rawLat != null && rawLat.isFinite() && rawLat in -90.0..90.0 &&
+            rawLng != null && rawLng.isFinite() && rawLng in -180.0..180.0
+        val rawTz = loc?.get("timeZone")?.str ?: loc?.get("tz")?.str
+        val rawMethod = setting("calc_method")?.str
+        val rawMadhab = setting("madhab")?.str ?: setting("asr_madhhab")?.str
+        val rawHlr = setting("high_latitude_rule")?.str ?: setting("high_lat_rule")?.str
+        val offsets = parsePrayerOffsets(setting("prayer_offsets"))
+        return PrayerEngine.sanitizeOptions(
+            EngineOptions(
+                lat = if (validCoords) rawLat!! else PrayerEngine.DEFAULT_LAT,
+                lng = if (validCoords) rawLng!! else PrayerEngine.DEFAULT_LNG,
+                // web location settings write `tz` (geo.js) — Android's own writes use
+                // `timeZone`; tolerate both (audit 2026-11: web-imported backups hit
+                // the default Riyadh tz otherwise).
+                timeZone = rawTz ?: PrayerEngine.DEFAULT_TIMEZONE,
+                method = rawMethod ?: PrayerEngine.DEFAULT_METHOD,
+                madhab = rawMadhab ?: PrayerEngine.DEFAULT_MADHAB,
+                highLatitudeRule = rawHlr ?: PrayerEngine.DEFAULT_HIGH_LATITUDE_RULE,
+                offsets = offsets,
+            ),
         )
     }
 
-    fun hijriAdjust(): Int = setting("hijri_adjust")?.int ?: 0
+    /** Sanitized display name for the active city (falls back to مكة المكرمة). */
+    fun locationNameAr(): String {
+        val raw = setting("location")?.get("name_ar")?.str
+        return sanitizeDisplayText(raw).ifEmpty { DEFAULT_CITY_NAME_AR }
+    }
+
+    /** Hijri calendar day adjustment clamped safely to [-3, +3]. */
+    fun hijriAdjust(): Int = safeClampedInt(setting("hijri_adjust"), HIJRI_ADJUST_MIN, HIJRI_ADJUST_MAX, 0)
 
     // ------------------------------------------------------------------
     // Cities & Arabic FTS normalization (mirrors packages/core-data/engines/search.js)
@@ -797,21 +927,22 @@ class SadaqaDb private constructor(val connection: SQLiteConnection) {
         val del = if (e["deleted"].bool == true) 1L else 0L
         val type = e["type"].str ?: ""
         val uuid = e["uuid"].str ?: ""
-        val updatedAt = e["updatedAt"].long ?: 0L
+        val updatedAt = safeLong(e["updatedAt"], 0L)
         when (type) {
-            "bookmark" -> execute("INSERT INTO bookmarks (uuid, page, line_number, ayah_number, label_ar, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET page = excluded.page, line_number = excluded.line_number, ayah_number = excluded.ayah_number, label_ar = excluded.label_ar, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any?>(uuid, (e["page"].int ?: 1).toLong(), (e["lineNumber"].int ?: 1).toLong(), e["ayahNumber"].long, e["labelAr"].str, e["createdAt"].long ?: updatedAt, updatedAt, del))
-            "highlight" -> execute("INSERT INTO highlights (uuid, ayah_number, word_start, word_end, color_key, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET ayah_number = excluded.ayah_number, word_start = excluded.word_start, word_end = excluded.word_end, color_key = excluded.color_key, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any?>(uuid, e["ayahNumber"].long, e["wordStart"].long, e["wordEnd"].long, e["colorKey"].str, updatedAt, del))
-            "note" -> execute("INSERT INTO notes (uuid, ayah_number, body, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET ayah_number = excluded.ayah_number, body = excluded.body, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any?>(uuid, e["ayahNumber"].long, e["body"].str ?: "", e["createdAt"].long ?: updatedAt, updatedAt, del))
-            "khatmahPlan" -> execute("INSERT INTO khatmah_plans (uuid, name_ar, mode, start_date, end_date, daily_pages, active, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET name_ar = excluded.name_ar, mode = excluded.mode, start_date = excluded.start_date, end_date = excluded.end_date, daily_pages = excluded.daily_pages, active = excluded.active, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any?>(uuid, e["nameAr"].str ?: "ختمتي", e["mode"].str ?: "rate", e["startDate"].str, e["endDate"].str, e["dailyPages"].long, if (e["active"].bool == false) 0L else 1L, e["createdAt"].long ?: updatedAt, updatedAt, del))
-            "tasbihCounter" -> execute("INSERT INTO tasbih_counters (uuid, label_ar, dhikr_text, target, count, total_lifetime, sort_order, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET label_ar = excluded.label_ar, dhikr_text = excluded.dhikr_text, target = excluded.target, count = excluded.count, total_lifetime = excluded.total_lifetime, sort_order = excluded.sort_order, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any?>(uuid, e["labelAr"].str ?: "ورد", e["dhikrText"].str ?: "", e["target"].long, (e["count"].int ?: 0).toLong(), (e["totalLifetime"].int ?: 0).toLong(), (e["sortOrder"].int ?: 0).toLong(), updatedAt, del))
-            "tasbihSession" -> execute("INSERT INTO tasbih_sessions (uuid, counter_uuid, count_delta, occurred_at) VALUES (?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET count_delta = excluded.count_delta, occurred_at = excluded.occurred_at", listOf<Any?>(uuid, e["counterUuid"].str ?: "", (e["countDelta"].int ?: 1).toLong(), e["occurredAt"].long ?: 0L))
-            "adhkarState" -> execute("INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(item_id, day_key) DO UPDATE SET count = excluded.count, completed_at = excluded.completed_at, updated_at = excluded.updated_at", listOf<Any?>(e["itemId"].str ?: "", e["dayKey"].str ?: "", (e["count"].int ?: 0).toLong(), e["completedAt"].long, updatedAt))
+            "bookmark" -> execute("INSERT INTO bookmarks (uuid, page, line_number, ayah_number, label_ar, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET page = excluded.page, line_number = excluded.line_number, ayah_number = excluded.ayah_number, label_ar = excluded.label_ar, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any?>(uuid, safeClampedInt(e["page"], 1, 604, 1).toLong(), safeClampedInt(e["lineNumber"], 1, 15, 1).toLong(), safeLongOrNull(e["ayahNumber"]), e["labelAr"].str?.let { sanitizeDisplayText(it, 200) }, safeLongOrNull(e["createdAt"]) ?: updatedAt, updatedAt, del))
+            "highlight" -> execute("INSERT INTO highlights (uuid, ayah_number, word_start, word_end, color_key, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET ayah_number = excluded.ayah_number, word_start = excluded.word_start, word_end = excluded.word_end, color_key = excluded.color_key, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any?>(uuid, safeLongOrNull(e["ayahNumber"]), safeLongOrNull(e["wordStart"]), safeLongOrNull(e["wordEnd"]), e["colorKey"].str, updatedAt, del))
+            "note" -> execute("INSERT INTO notes (uuid, ayah_number, body, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET ayah_number = excluded.ayah_number, body = excluded.body, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any?>(uuid, safeLongOrNull(e["ayahNumber"]), e["body"].str ?: "", safeLongOrNull(e["createdAt"]) ?: updatedAt, updatedAt, del))
+            "khatmahPlan" -> execute("INSERT INTO khatmah_plans (uuid, name_ar, mode, start_date, end_date, daily_pages, active, created_at, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET name_ar = excluded.name_ar, mode = excluded.mode, start_date = excluded.start_date, end_date = excluded.end_date, daily_pages = excluded.daily_pages, active = excluded.active, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any?>(uuid, sanitizeDisplayText(e["nameAr"].str, 120).ifEmpty { "ختمتي" }, e["mode"].str ?: "rate", e["startDate"].str, e["endDate"].str, safeLongOrNull(e["dailyPages"]), if (e["active"].bool == false) 0L else 1L, safeLongOrNull(e["createdAt"]) ?: updatedAt, updatedAt, del))
+            "tasbihCounter" -> execute("INSERT INTO tasbih_counters (uuid, label_ar, dhikr_text, target, count, total_lifetime, sort_order, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET label_ar = excluded.label_ar, dhikr_text = excluded.dhikr_text, target = excluded.target, count = excluded.count, total_lifetime = excluded.total_lifetime, sort_order = excluded.sort_order, updated_at = excluded.updated_at, deleted = excluded.deleted", listOf<Any?>(uuid, sanitizeDisplayText(e["labelAr"].str, 120).ifEmpty { "ورد" }, e["dhikrText"].str ?: "", safeLongOrNull(e["target"]), safeClampedInt(e["count"], 0, Int.MAX_VALUE, 0).toLong(), safeClampedInt(e["totalLifetime"], 0, Int.MAX_VALUE, 0).toLong(), safeClampedInt(e["sortOrder"], 0, Int.MAX_VALUE, 0).toLong(), updatedAt, del))
+            "tasbihSession" -> execute("INSERT INTO tasbih_sessions (uuid, counter_uuid, count_delta, occurred_at) VALUES (?, ?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET count_delta = excluded.count_delta, occurred_at = excluded.occurred_at", listOf<Any?>(uuid, e["counterUuid"].str ?: "", safeClampedInt(e["countDelta"], 1, Int.MAX_VALUE, 1).toLong(), safeLong(e["occurredAt"], 0L)))
+            "adhkarState" -> execute("INSERT INTO adhkar_state (item_id, day_key, count, completed_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(item_id, day_key) DO UPDATE SET count = excluded.count, completed_at = excluded.completed_at, updated_at = excluded.updated_at", listOf<Any?>(e["itemId"].str ?: "", e["dayKey"].str ?: "", safeClampedInt(e["count"], 0, Int.MAX_VALUE, 0).toLong(), safeLongOrNull(e["completedAt"]), updatedAt))
             "streakDay" -> execute("INSERT OR REPLACE INTO streak_days (kind, day_key, done_at) VALUES (?, ?, ?)", listOf<Any?>(e["kind"].str ?: "", e["dayKey"].str ?: "", updatedAt))
-            "khatmahPageLog" -> execute("INSERT INTO khatmah_page_log (plan_uuid, page, completed_at) VALUES (?, ?, ?) ON CONFLICT(plan_uuid, page) DO UPDATE SET completed_at = excluded.completed_at", listOf<Any?>(e["planUuid"].str ?: "", (e["page"].int ?: 1).toLong(), e["completedAt"].long ?: updatedAt))
+            "khatmahPageLog" -> execute("INSERT INTO khatmah_page_log (plan_uuid, page, completed_at) VALUES (?, ?, ?) ON CONFLICT(plan_uuid, page) DO UPDATE SET completed_at = excluded.completed_at", listOf<Any?>(e["planUuid"].str ?: "", safeClampedInt(e["page"], 1, 604, 1).toLong(), safeLongOrNull(e["completedAt"]) ?: updatedAt))
             "setting" -> {
-                val key = e["key"].str ?: ""
-                if (key == "device_id") return
-                execute("INSERT INTO user_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", listOf<Any?>(key, CanonicalJson.serialize(e["value"] ?: Null), updatedAt))
+                val key = e["key"].str?.trim() ?: ""
+                if (key.isEmpty() || key == "device_id") return
+                val sanitized = sanitizeImportedSetting(key, e["value"])
+                execute("INSERT INTO user_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", listOf<Any?>(key, CanonicalJson.serialize(sanitized), updatedAt))
             }
             else -> throw IllegalArgumentException("unsupported entity type: $type")
         }

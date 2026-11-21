@@ -1805,7 +1805,7 @@ fun SettingsScreen(db: SadaqaDb, onBack: () -> Unit) {
     var mushafScale by remember { mutableFloatStateOf((db.setting("mushaf_scale")?.dbl ?: 1.0).toFloat().coerceIn(0.8f, 2.0f)) }
     var opts by remember { mutableStateOf(db.engineOptions()) }
     var hijriAdjust by remember { mutableIntStateOf(db.hijriAdjust()) }
-    var cityName by remember { mutableStateOf(db.setting("location")?.get("name_ar")?.str ?: "مكة المكرمة") }
+    var cityName by remember { mutableStateOf(db.locationNameAr()) }
     var showCityPicker by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var method by remember { mutableStateOf(db.setting("calc_method")?.str ?: "umm_al_qura") }

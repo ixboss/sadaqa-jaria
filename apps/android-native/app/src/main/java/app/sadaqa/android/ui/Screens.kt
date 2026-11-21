@@ -108,9 +108,9 @@ fun isoOf(ms: Long, tz: String): String {
 }
 
 /** 12-hour wall clock "h:mm AM/PM" with Western ASCII digits in the city timezone. */
-fun clockOf(ms: Long, tz: String): String = SmartCardResolver.clock(ms, tz)
+fun clockOf(ms: Long, tz: String): String = TimeFmt.formatWallClock12h(ms, tz)
 
-fun hmsOf(msLeft: Long): String = SmartCardResolver.hms(msLeft)
+fun hmsOf(msLeft: Long): String = TimeFmt.formatHms(msLeft)
 
 fun dayKeyOf(ms: Long, tz: String): String = isoOf(ms, tz)
 
@@ -257,13 +257,9 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
     var nextEpoch by remember(opts) { mutableIntStateOf(0) }
     var showCityPicker by remember { mutableStateOf(false) }
     var showMonthSchedule by remember { mutableStateOf(false) }
-    var cityName by remember {
-        mutableStateOf(
-            db.setting("location")?.get("name_ar")?.str ?: "مكة المكرمة"
-        )
-    }
+    var cityName by remember { mutableStateOf(db.locationNameAr()) }
     var hijriAdjust by remember { mutableIntStateOf(db.hijriAdjust()) }
-    val currentPage = remember { (db.setting("mushaf_page")?.dbl?.toInt() ?: 1).coerceIn(1, 604) }
+    val currentPage = remember { (db.setting("mushaf_page")?.dbl?.let { if (it.isFinite()) it.toInt() else 1 } ?: 1).coerceIn(1, 604) }
     var dailyWindows by remember { mutableStateOf(listOf<TodayProgress.WindowProgress>()) }
 
     LaunchedEffect(Unit) {
@@ -380,6 +376,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
             SmartCardKind.KAHF -> Icons.Outlined.MenuBook
             SmartCardKind.AFTER_PRAYER -> Icons.Outlined.Adjust
             SmartCardKind.QIYAM -> Icons.Outlined.NightsStay
+            SmartCardKind.SLEEP -> Icons.Outlined.NightsStay
             SmartCardKind.MORNING -> Icons.Outlined.WbTwilight
             SmartCardKind.EVENING -> Icons.Outlined.WbSunny
             SmartCardKind.NEXT_PRAYER -> Icons.Outlined.AccountBalance
@@ -639,17 +636,24 @@ object AthkarNav {
     var pendingCategory: String? = null
     suspend fun openCategory(db: SadaqaDb, kind: String) {
         pendingCategory = when (kind) {
-            "morning" -> db.firstCategoryByWindow("fajr")
-            "evening" -> db.firstCategoryByWindow("asr")
-            "sleep" -> db.firstCategoryByWindow("night")
-            else -> db.firstCategoryByWindow("after_prayer")
+            "morning" -> db.firstCategoryByWindows(listOf("fajr"))
+            "evening" -> db.firstCategoryByWindows(listOf("asr"))
+            "sleep", "night", "isha" -> db.firstCategoryByWindows(listOf("night", "isha"))
+            else -> db.firstCategoryByWindows(listOf("after_prayer"))
         }
         pendingCategory?.let { Navigator.open("athkar-reader/$it") }
     }
 }
 
-private suspend fun SadaqaDb.firstCategoryByWindow(window: String): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-    queryOne("SELECT category_id FROM athkar_categories WHERE solar_window = ? ORDER BY sort_order LIMIT 1", listOf(window))?.strings?.get("category_id")
+private suspend fun SadaqaDb.firstCategoryByWindows(windows: List<String>): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    for (window in windows) {
+        val id = queryOne(
+            "SELECT category_id FROM athkar_categories WHERE solar_window = ? ORDER BY sort_order LIMIT 1",
+            listOf(window),
+        )?.strings?.get("category_id")
+        if (id != null) return@withContext id
+    }
+    null
 }
 
 @Immutable
@@ -1176,7 +1180,7 @@ private fun contextualCard(resolved: SmartCard, nowMs: Long, tz: String, hijriAd
             "افتح أذكار المساء", "adhkar-cat",
         )
         else -> SmartCard(
-            SmartCardKind.QIYAM, "🌙", "وقت النوم", "أذكار النوم",
+            SmartCardKind.SLEEP, "🌙", "وقت النوم", "أذكار النوم",
             "تسبيح ما قبل النوم يكفيك حاسدك الليلة",
             "افتح الأذكار", "adhkar-sleep",
         )
