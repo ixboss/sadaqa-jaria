@@ -28,9 +28,9 @@ struct MushafPageView: View {
     @State private var hudVisible = false
     @State private var meta = MushafRepository.PageMeta(surahName: "", juz: 1, hizb: 1)
     @State private var isBookmarked = false
-@State private var selectedAyahNumber: Int?
-@State private var showAyahSheet = false
-@State private var showAppearanceSheet = false
+    @State private var selectedAyahNumber: Int?
+    @State private var showAyahSheet = false
+    @State private var showAppearanceSheet = false
     @State private var surahQuery = ""
     @State private var surahs: [MushafRepository.SurahItem] = []
     @State private var juzStarts: [(juz: Int, page: Int)] = []
@@ -96,7 +96,7 @@ struct MushafPageView: View {
                 reloadPage()
                 HapticsEngine.shared.play(pattern: appState.theme.all.haptics?.pageFlipSettle ?? [10])
             }
-            .sheet(isPresented: $showAyahSheet) {
+            .sheet(isPresented: $showAyahSheet, onDismiss: { selectedAyahNumber = nil }) {
                 if let ayahNum = selectedAyahNumber {
                     AyahActionSheet(ayahNumber: ayahNum, onPlay: { surah, ayah in
                         showAyahSheet = false
@@ -123,11 +123,21 @@ struct MushafPageView: View {
     // 1. Reader surface — Full-screen immersive RTL Mushaf + tap-to-toggle HUD
     // -----------------------------------------------------------------------
     private var readerBody: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                // Minimal unobtrusive top metadata strip (hidden while the HUD
-                // is up — the HUD bar carries the same meta, never double-rendered)
-                if !hudVisible {
+        GeometryReader { geo in
+            let hudTransform = MushafHudLayout.transform(viewportHeight: geo.size.height, hudVisible: hudVisible)
+            ZStack {
+                appState.theme.mushafBg
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if hudVisible {
+                            withAnimation(hudAnimation()) { hudVisible = false }
+                        }
+                    }
+
+                VStack(spacing: 0) {
+                    // Minimal unobtrusive top metadata strip — stays in layout with
+                    // opacity toggle so MushafPagerView's GeometryReader frame never
+                    // resizes on HUD toggle (zero 15-line TextKit re-layout).
                     HStack {
                         Text(meta.surahName.isEmpty ? "المصحف الشريف" : meta.surahName)
                             .font(.system(size: 12, weight: .semibold))
@@ -141,81 +151,47 @@ struct MushafPageView: View {
                     .padding(.horizontal, 12)
                     .padding(.top, 4)
                     .padding(.bottom, 2)
+                    .opacity(hudVisible ? 0 : 1)
+                    .allowsHitTesting(!hudVisible)
+                    .animation(hudAnimation(), value: hudVisible)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         withAnimation(hudAnimation()) { hudVisible = true }
                     }
+
+                    // True RTL horizontal paged Mushaf — full-screen when HUD is hidden
+                    // (no bottom page bar), smoothly shrunk via pure GPU transform when
+                    // HUD opens so top/bottom controls never cover the Mushaf text.
+                    MushafPagerView(
+                        page: $page,
+                        pageCache: pageCache,
+                        db: appState.db,
+                        theme: appState.theme,
+                        mushafScale: appState.mushafScale,
+                        selectedAyah: selectedAyahNumber,
+                        onSelectAyah: { ayahNumber in
+                            selectedAyahNumber = ayahNumber
+                            showAyahSheet = true
+                        },
+                        onToggleHud: {
+                            withAnimation(hudAnimation()) { hudVisible.toggle() }
+                        }
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .scaleEffect(hudTransform.scale, anchor: .center)
+                    .offset(y: hudTransform.offsetY)
+                    .animation(hudAnimation(), value: hudVisible)
                 }
 
-                // True RTL horizontal paged Mushaf (RootView enforces .rightToLeft,
-                // so page 1 sits on the right and swiping left-to-right advances 1 -> 2).
-                MushafPagerView(
-                    page: $page,
-                    pageCache: pageCache,
-                    db: appState.db,
-                    theme: appState.theme,
-                    mushafScale: appState.mushafScale,
-                    selectedAyah: selectedAyahNumber,
-                    hudVisible: hudVisible,
-                    onSelectAyah: { ayahNumber in
-                        selectedAyahNumber = ayahNumber
-                        showAyahSheet = true
-                    },
-                    onToggleHud: {
-                        withAnimation(hudAnimation()) { hudVisible.toggle() }
+                // Floating Liquid Glass HUD overlay (revealed on tap)
+                if hudVisible {
+                    VStack(spacing: 0) {
+                        readerTopHudBar
+                        Spacer(minLength: 0)
+                        readerBottomHudCard
                     }
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                // Compact bottom page pill when HUD is hidden
-                if !hudVisible {
-                    HStack(spacing: 14) {
-                        Button {
-                            if page > 1 { page -= 1 }
-                        } label: {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .padding(6)
-                        }
-                        .disabled(page <= 1)
-
-                        Button {
-                            withAnimation(hudAnimation()) { hudVisible = true }
-                        } label: {
-                            Text("صفحة \(page) / ٦٠٤")
-                                .font(.system(size: 12, weight: .semibold))
-                                .monospacedDigit()
-                                .foregroundStyle(appState.theme.textSecondary)
-                        }
-
-                        Button {
-                            if page < 604 { page += 1 }
-                        } label: {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 13, weight: .semibold))
-                                .padding(6)
-                        }
-                        .disabled(page >= 604)
-                    }
-                    .foregroundStyle(appState.theme.accent)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 3)
-                    .background(appState.theme.surface.opacity(0.88))
-                    .clipShape(Capsule())
-                    .overlay(Capsule().strokeBorder(appState.theme.border))
-                    .padding(.bottom, 6)
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)))
                 }
-            }
-            .background(appState.theme.mushafBg)
-
-            // Floating Liquid Glass HUD overlay (revealed on tap)
-            if hudVisible {
-                VStack(spacing: 0) {
-                    readerTopHudBar
-                    Spacer()
-                    readerBottomHudCard
-                }
-                .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)))
             }
         }
     }
@@ -229,7 +205,7 @@ struct MushafPageView: View {
     }
 
     private var readerTopHudBar: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             HStack(spacing: 10) {
                 Button {
                     hudVisible = false
@@ -238,7 +214,7 @@ struct MushafPageView: View {
                     Image(systemName: "chevron.forward")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(appState.theme.textSecondary)
-                        .padding(7)
+                        .padding(6)
                 }
                 .accessibilityLabel("رجوع")
 
@@ -258,7 +234,7 @@ struct MushafPageView: View {
                     Image(systemName: "textformat.size")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(appState.theme.textSecondary)
-                        .padding(7)
+                        .padding(6)
                 }
                 Button {
                     togglePageBookmark()
@@ -266,7 +242,7 @@ struct MushafPageView: View {
                     Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(isBookmarked ? appState.theme.accent : appState.theme.textSecondary)
-                        .padding(7)
+                        .padding(6)
                 }
                 Button {
                     withAnimation(hudAnimation()) { hudVisible = false }
@@ -274,11 +250,11 @@ struct MushafPageView: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(appState.theme.textSecondary)
-                        .padding(7)
+                        .padding(6)
                 }
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .padding(.vertical, 6)
             .background(.ultraThinMaterial)
             .clipShape(Capsule())
             .overlay(Capsule().strokeBorder(appState.theme.border))
@@ -297,18 +273,18 @@ struct MushafPageView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .padding(4)
+            .padding(3)
             .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(appState.theme.border))
         }
         .padding(.horizontal, 14)
-        .padding(.top, 8)
+        .padding(.top, 4)
     }
 
     private var readerBottomHudCard: some View {
         let previewPage = min(max(Int(sliderPage.rounded()), 1), 604)
-        return VStack(spacing: 10) {
+        return VStack(spacing: 8) {
             if let active = activeRecitation {
                 HStack {
                     Image(systemName: "waveform").foregroundStyle(appState.theme.accent)
@@ -400,33 +376,17 @@ struct MushafPageView: View {
                     hubTab = .reading
                 }
                 hudButton("إخفاء", icon: "eye.slash") {
-                    withAnimation(.easeOut(duration: 0.2)) { hudVisible = false }
-                }
-            }
-
-            // Main-nav escape hatch — jump straight to a tab from the reader
-            HStack(spacing: 8) {
-                hudButton("اليوم", icon: "sun.max") {
-                    hudVisible = false
-                    appState.tab = .today
-                }
-                hudButton("الأذكار", icon: "hands.sparkles") {
-                    hudVisible = false
-                    appState.tab = .athkar
-                }
-                hudButton("الأدوات", icon: "square.grid.2x2") {
-                    hudVisible = false
-                    appState.tab = .tools
+                    withAnimation(hudAnimation()) { hudVisible = false }
                 }
             }
         }
-        .padding(12)
+        .padding(10)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(appState.theme.border))
         .shadow(color: .black.opacity(0.24), radius: 14, y: 4)
         .padding(.horizontal, 14)
-        .padding(.bottom, 14)
+        .padding(.bottom, 8)
     }
 
     private func hudButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
@@ -811,6 +771,23 @@ final class MushafPageCache: ObservableObject {
     }
 }
 
+/// Pure GPU-transform metrics for shrinking the Mushaf page cleanly between the
+/// top and bottom HUD bars without altering `MushafPlate`'s layout frame.
+enum MushafHudLayout {
+    static let hudVerticalFootprint: CGFloat = 216
+    static let maxHudScale: CGFloat = 0.78
+    static let minHudScale: CGFloat = 0.58
+    static let hudVerticalOffset: CGFloat = -14
+
+    static func transform(viewportHeight: CGFloat, hudVisible: Bool) -> (scale: CGFloat, offsetY: CGFloat) {
+        guard hudVisible else { return (1.0, 0) }
+        let safeH = max(viewportHeight, 1)
+        let ideal = (safeH - hudVerticalFootprint) / safeH
+        let scale = min(maxHudScale, max(minHudScale, ideal))
+        return (scale, hudVerticalOffset)
+    }
+}
+
 // True native pager — UIPageViewController (scroll / horizontal) with RTL page
 // order (page 1 sits right, a left-to-right swipe advances 1 -> 2). Only the
 // current ± adjacent slots are instantiated on demand; the binding stays the
@@ -822,7 +799,6 @@ private struct MushafPagerView: UIViewControllerRepresentable {
     let theme: SadaqaThemeColors
     let mushafScale: Double
     let selectedAyah: Int?
-    let hudVisible: Bool
     let onSelectAyah: (Int) -> Void
     let onToggleHud: () -> Void
 
@@ -839,7 +815,7 @@ private struct MushafPagerView: UIViewControllerRepresentable {
 
     func updateUIViewController(_ pvc: UIPageViewController, context: Context) {
         context.coordinator.parent = self
-        context.coordinator.refreshSlotContent()
+        context.coordinator.refreshSlotContentIfNeeded()
         context.coordinator.syncExternalPage(in: pvc)
     }
 }
@@ -847,11 +823,25 @@ private struct MushafPagerView: UIViewControllerRepresentable {
 // fileprivate: holds the private MushafPagerView struct as `parent`
 @MainActor
 private final class PagerCoordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+    private struct SlotRenderState: Equatable {
+        let theme: SadaqaThemeColors
+        let mushafScale: Double
+        let selectedAyah: Int?
+    }
+
     var parent: MushafPagerView
     private var current = 0
+    private var lastRenderState: SlotRenderState
     private var slots: [Int: UIHostingController<MushafLazyPageSlot>] = [:]
 
-    init(_ parent: MushafPagerView) { self.parent = parent }
+    init(_ parent: MushafPagerView) {
+        self.parent = parent
+        self.lastRenderState = SlotRenderState(
+            theme: parent.theme,
+            mushafScale: parent.mushafScale,
+            selectedAyah: parent.selectedAyah
+        )
+    }
 
     private func slotView(_ p: Int) -> MushafLazyPageSlot {
         MushafLazyPageSlot(
@@ -862,9 +852,12 @@ private final class PagerCoordinator: NSObject, UIPageViewControllerDataSource, 
             theme: parent.theme,
             mushafScale: parent.mushafScale,
             selectedAyah: parent.selectedAyah,
-            hudVisible: parent.hudVisible,
-            onSelectAyah: parent.onSelectAyah,
-            onToggleHud: parent.onToggleHud
+            onSelectAyah: { [weak self] ayah in
+                MainActor.assumeIsolated { self?.parent.onSelectAyah(ayah) }
+            },
+            onToggleHud: { [weak self] in
+                MainActor.assumeIsolated { self?.parent.onToggleHud() }
+            }
         )
     }
 
@@ -878,7 +871,17 @@ private final class PagerCoordinator: NSObject, UIPageViewControllerDataSource, 
         return vc
     }
 
-    func refreshSlotContent() {
+    /// Only rebuild cached page hosting controllers when content-affecting
+    /// inputs (theme, mushafScale, selectedAyah) actually change — HUD toggles
+    /// never tear down or re-measure the 15-line plate layout.
+    func refreshSlotContentIfNeeded() {
+        let next = SlotRenderState(
+            theme: parent.theme,
+            mushafScale: parent.mushafScale,
+            selectedAyah: parent.selectedAyah
+        )
+        guard next != lastRenderState else { return }
+        lastRenderState = next
         for (key, vc) in slots { vc.rootView = slotView(key) }
     }
 
@@ -930,7 +933,6 @@ struct MushafLazyPageSlot: View {
     let theme: SadaqaThemeColors
     let mushafScale: Double
     let selectedAyah: Int?
-    let hudVisible: Bool
     let onSelectAyah: (Int) -> Void
     let onToggleHud: () -> Void
 
@@ -945,7 +947,6 @@ struct MushafLazyPageSlot: View {
                     theme: theme,
                     mushafScale: mushafScale,
                     selectedAyah: selectedAyah,
-                    hudVisible: hudVisible,
                     onSelectAyah: onSelectAyah,
                     onToggleHud: onToggleHud
                 )
@@ -1063,15 +1064,15 @@ struct MushafPlate: View {
     let theme: SadaqaThemeColors
     let mushafScale: Double
     let selectedAyah: Int?
-    let hudVisible: Bool
     let onSelectAyah: (Int) -> Void
     let onToggleHud: () -> Void
 
     var body: some View {
         GeometryReader { geo in
             let horizPad: CGFloat = 9
+            let vertPad: CGFloat = 8
             let availW = max(200, geo.size.width - horizPad * 2)
-            let availH = max(260, geo.size.height - 8)
+            let availH = max(260, geo.size.height - vertPad * 2)
             let slotCount = (page <= 2) ? max(lines.count, 8) : 15
             let slotH = (page <= 2) ? min(availH / CGFloat(slotCount), 48) : (availH / 15.0)
             let isZoomed = mushafScale > 1.01
@@ -1121,8 +1122,8 @@ struct MushafPlate: View {
                     }
                     .frame(width: availW, alignment: .center)
                     .padding(.horizontal, horizPad)
-                    .padding(.top, hudVisible ? 112 : 10)
-                    .padding(.bottom, hudVisible ? 220 : 28)
+                    .padding(.top, 10)
+                    .padding(.bottom, 28)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture { onToggleHud() }
@@ -1136,7 +1137,7 @@ struct MushafPlate: View {
                 }
                 .frame(width: availW, height: availH, alignment: .center)
                 .padding(.horizontal, horizPad)
-                .padding(.vertical, 4)
+                .padding(.vertical, vertPad)
                 .contentShape(Rectangle())
                 .onTapGesture { onToggleHud() }
             }

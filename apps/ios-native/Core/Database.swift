@@ -173,21 +173,128 @@ public final class SadaqaDatabase: @unchecked Sendable {
         WidgetStateBridge.prayersChanged()
     }
 
-    /// Engine options derived from settings (defaults mirror app-state.js).
-    public func engineOptions() -> EngineOptions {
-        let defaults = EngineOptions(lat: 21.4225, lng: 39.8262, timeZone: "Asia/Riyadh")
-        guard let loc = setting("location"), case .object(let o) = loc else { return defaults }
-        return EngineOptions(
-            lat: o["lat"]?.doubleValue ?? defaults.lat,
-            lng: o["lng"]?.doubleValue ?? defaults.lng,
-            // web exports write `tz` (older keys write `timeZone`) — accept both.
-            timeZone: o["timeZone"]?.stringValue ?? o["tz"]?.stringValue ?? defaults.timeZone,
-            method: setting("calc_method")?.stringValue ?? "umm_al_qura",
-            madhab: setting("madhab")?.stringValue ?? "shafi",
-            highLatitudeRule: setting("high_latitude_rule")?.stringValue ?? "middle_of_the_night")
+    public static let defaultLocationNameAr = "مكة المكرمة"
+    public static let defaultLat = 21.4225
+    public static let defaultLng = 39.8262
+    public static let defaultTimeZone = "Asia/Riyadh"
+    public static let prayerOffsetMin = -60
+    public static let prayerOffsetMax = 60
+
+    public static func validatedCalcMethod(_ raw: String?) -> String {
+        guard let m = raw?.trimmingCharacters(in: .whitespacesAndNewlines),
+              PrayerEngine.calcMethods.contains(m) else {
+            return "umm_al_qura"
+        }
+        return m
     }
 
-    public func hijriAdjust() -> Int { setting("hijri_adjust")?.intValue ?? 0 }
+    public static func validatedMadhab(_ raw: String?) -> String {
+        guard let m = raw?.trimmingCharacters(in: .whitespacesAndNewlines),
+              PrayerEngine.madhabs.contains(m) else {
+            return "shafi"
+        }
+        return m
+    }
+
+    public static func validatedHighLatitudeRule(_ raw: String?) -> String {
+        guard let r = raw?.trimmingCharacters(in: .whitespacesAndNewlines),
+              PrayerEngine.highLatitudeRules.contains(r) else {
+            return "middle_of_the_night"
+        }
+        return r
+    }
+
+    public static func sanitizedPrayerOffsets(_ raw: JSONValue?) -> [String: Int] {
+        guard let obj = raw?.objectValue else { return [:] }
+        let validKeys = Set(PrayerName.allCases.map(\.rawValue))
+        var out: [String: Int] = [:]
+        for (k, v) in obj where validKeys.contains(k) {
+            if let mins = v.intValue {
+                out[k] = min(max(mins, prayerOffsetMin), prayerOffsetMax)
+            }
+        }
+        return out
+    }
+
+    public static func sanitizedLocation(_ raw: JSONValue?) -> (lat: Double, lng: Double, timeZone: String, nameAr: String) {
+        guard case .object(let o) = raw else {
+            return (defaultLat, defaultLng, defaultTimeZone, defaultLocationNameAr)
+        }
+        let rawLat = o["lat"]?.doubleValue
+        let rawLng = o["lng"]?.doubleValue ?? o["lon"]?.doubleValue
+        let coordsValid = rawLat.map { $0.isFinite && (-90.0...90.0).contains($0) } == true
+            && rawLng.map { $0.isFinite && (-180.0...180.0).contains($0) } == true
+        let lat = coordsValid ? (rawLat ?? defaultLat) : defaultLat
+        let lng = coordsValid ? (rawLng ?? defaultLng) : defaultLng
+
+        let rawTz = (o["timeZone"]?.stringValue ?? o["tz"]?.stringValue)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let tz = (rawTz.flatMap { TimeZone(identifier: $0) != nil ? $0 : nil }) ?? defaultTimeZone
+
+        let trimmedName = o["name_ar"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let nameAr = trimmedName.isEmpty ? defaultLocationNameAr : trimmedName
+        return (lat, lng, tz, nameAr)
+    }
+
+    public static func sanitizeSettingValue(key: String, value: JSONValue, stripGps: Bool = false) -> JSONValue {
+        switch key {
+        case "hijri_adjust":
+            let clamped = HijriEngine.clampAdjust(value.intValue ?? 0)
+            return .number(Double(clamped))
+        case "calc_method":
+            return .string(validatedCalcMethod(value.stringValue))
+        case "madhab", "asr_madhhab":
+            return .string(validatedMadhab(value.stringValue))
+        case "high_latitude_rule", "high_lat_rule":
+            return .string(validatedHighLatitudeRule(value.stringValue))
+        case "prayer_offsets":
+            let cleaned = sanitizedPrayerOffsets(value)
+            return .object(cleaned.mapValues { .number(Double($0)) })
+        case "location":
+            guard case .object(let o) = value else { return value }
+            let clean = sanitizedLocation(value)
+            var out = stripGps ? o.filter { $0.key != "gps" } : o
+            out["lat"] = .number(clean.lat)
+            out["lng"] = .number(clean.lng)
+            if out["lon"] != nil { out["lon"] = nil }
+            out["tz"] = .string(clean.timeZone)
+            out["timeZone"] = .string(clean.timeZone)
+            out["name_ar"] = .string(clean.nameAr)
+            return .object(out)
+        default:
+            return value
+        }
+    }
+
+    public func locationNameAr() -> String {
+        Self.sanitizedLocation(setting("location")).nameAr
+    }
+
+    public func prayerOffsets() -> [String: Int] {
+        Self.sanitizedPrayerOffsets(setting("prayer_offsets"))
+    }
+
+    /// Engine options derived from settings (defaults mirror app-state.js),
+    /// with validated coordinates, method/madhab/HLR, and clamped offsets.
+    public func engineOptions() -> EngineOptions {
+        let loc = Self.sanitizedLocation(setting("location"))
+        let method = Self.validatedCalcMethod(setting("calc_method")?.stringValue)
+        let madhab = Self.validatedMadhab(setting("madhab")?.stringValue ?? setting("asr_madhhab")?.stringValue)
+        let hlr = Self.validatedHighLatitudeRule(setting("high_latitude_rule")?.stringValue ?? setting("high_lat_rule")?.stringValue)
+        return EngineOptions(
+            lat: loc.lat,
+            lng: loc.lng,
+            timeZone: loc.timeZone,
+            method: method,
+            madhab: madhab,
+            highLatitudeRule: hlr,
+            offsets: prayerOffsets()
+        )
+    }
+
+    public func hijriAdjust() -> Int {
+        HijriEngine.clampAdjust(setting("hijri_adjust")?.intValue ?? 0)
+    }
 
     // ------------------------------------------------------------------
     // Cities & Arabic FTS normalization (mirrors packages/core-data/engines/search.js)
@@ -870,10 +977,11 @@ public final class SadaqaDatabase: @unchecked Sendable {
         case "setting":
             let key = e["key"]?.stringValue ?? ""
             if key == "device_id" { return }
+            let sanitized = Self.sanitizeSettingValue(key: key, value: e["value"] ?? .null, stripGps: true)
             try db.execute(sql: """
                 INSERT INTO user_settings (key, value, updated_at) VALUES (?, ?, ?)
                 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-                """, arguments: [key, CanonicalJSON.serialize(e["value"] ?? .null), e["updatedAt"]?.int64Value ?? 0])
+                """, arguments: [key, CanonicalJSON.serialize(sanitized), e["updatedAt"]?.int64Value ?? 0])
         default:
             throw BackupCodecError.refused("unsupported entity type: \(type)")
         }

@@ -88,9 +88,18 @@ public enum HijriEngine {
         return monthsAr[m - 1]
     }
 
+    public static let minAdjust = -3
+    public static let maxAdjust = 3
+
+    /// Clamps `hijri_adjust` to the supported [-3, +3] day window.
+    public static func clampAdjust(_ adjust: Int) -> Int {
+        min(max(adjust, minAdjust), maxAdjust)
+    }
+
     /// ±N day adjustment applied at the display layer (schema: hijri_adjust).
     public static func withAdjust(_ dateIso: String, _ adjust: Int) -> HijriDate {
-        let shifted = noonUTC(dateIso).addingTimeInterval(Double(adjust) * 86_400)
+        let clamped = clampAdjust(adjust)
+        let shifted = noonUTC(dateIso).addingTimeInterval(Double(clamped) * 86_400)
         return toHijri(isoOf(shifted))
     }
 

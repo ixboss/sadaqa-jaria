@@ -361,6 +361,12 @@ public enum PrayerEngine {
             nextFajr: nextFajrI)
     }
 
+    /// 12-hour wall-clock formatter ("h:mm AM/PM") with Western ASCII digits
+    /// in the city timezone (e.g. "4:22 AM", "12:00 PM", "12:15 AM").
+    public static func formatClock12h(_ ms: Int64, timeZone: String) -> String {
+        ClockFormat.formatWallClock12h(ms, timeZone: timeZone)
+    }
+
     /** Bound engine (reminders/anchors consumers). */
     public static func bind(_ opts: EngineOptions) -> BoundPrayerEngine {
         BoundPrayerEngine(opts: opts)

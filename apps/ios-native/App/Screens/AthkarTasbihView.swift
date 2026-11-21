@@ -24,7 +24,7 @@ struct AthkarCategory: Identifiable {
         switch solarWindow {
         case "fajr": return "sunrise"
         case "asr": return "sunset"
-        case "night": return "moon.stars"
+        case "night", "isha": return "moon.stars"
         case "duha": return "sun.max"
         case "after_prayer": return "building.columns"
         default: return "hands.sparkles"
@@ -35,7 +35,7 @@ struct AthkarCategory: Identifiable {
         switch solarWindow {
         case "fajr": return "الصباح"
         case "asr": return "المساء"
-        case "night": return "الليل"
+        case "night", "isha": return "الليل"
         case "duha": return "الضحى"
         case "after_prayer": return "بعد الصلاة"
         default: return nil
@@ -60,8 +60,10 @@ struct AthkarView: View {
     @State private var navPath = NavigationPath()
 
     private var filtered: [AthkarCategory] {
-        categories.filter { c in
-            let winOk = windowFilter == "all" || c.solarWindow == windowFilter
+        let targetFilter = SmartCardResolver.normalizeAthkarWindow(windowFilter) ?? windowFilter
+        return categories.filter { c in
+            let normalizedWindow = SmartCardResolver.normalizeAthkarWindow(c.solarWindow)
+            let winOk = windowFilter == "all" || normalizedWindow == targetFilter
             let qOk = query.isEmpty || c.nameAr.contains(query)
             return winOk && qOk
         }
@@ -123,9 +125,13 @@ struct AthkarView: View {
     }
 
     private func openTargetWindowIfNeeded() {
-        guard let win = appState.targetAthkarWindow else { return }
+        guard let rawWin = appState.targetAthkarWindow else { return }
+        let win = SmartCardResolver.normalizeAthkarWindow(rawWin) ?? rawWin
         if categories.isEmpty { loadCategories() }
-        if let cat = categories.first(where: { $0.solarWindow == win }) {
+        if win == "night",
+           let sleepCat = categories.first(where: { $0.nameAr.contains("النَّوْم") || $0.nameAr.contains("النوم") }) {
+            navPath = NavigationPath([sleepCat.id])
+        } else if let cat = categories.first(where: { SmartCardResolver.normalizeAthkarWindow($0.solarWindow) == win }) {
             navPath = NavigationPath([cat.id])
         } else {
             windowFilter = win
@@ -270,6 +276,20 @@ struct AthkarReaderView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 120)
             }
+            .task(id: autoMode) {
+                guard autoMode else { return }
+                while !Task.isCancelled && autoMode {
+                    guard let idx = nextIncompleteIndex() else {
+                        autoMode = false
+                        break
+                    }
+                    let item = items[idx]
+                    let delayNs = UInt64(Self.repSeconds(for: item.textAr) * 1_000_000_000)
+                    try? await Task.sleep(nanoseconds: delayNs)
+                    guard !Task.isCancelled && autoMode else { break }
+                    tap(item, index: idx, proxy: proxy)
+                }
+            }
         }
         .background(appState.theme.bg)
         .navigationTitle(categoryName)
@@ -277,6 +297,21 @@ struct AthkarReaderView: View {
             loadItems()
             HapticsEngine.shared.prepare()
         }
+        .onDisappear {
+            autoMode = false
+        }
+    }
+
+    private func nextIncompleteIndex() -> Int? {
+        items.firstIndex { item in
+            let count = counts[item.id] ?? 0
+            return item.countTarget > 0 ? count < item.countTarget : count == 0
+        }
+    }
+
+    private static func repSeconds(for text: String) -> Double {
+        let words = text.split { $0.isWhitespace }.count
+        return min(14.0, max(3.5, Double(words) * 0.45 + 1.5))
     }
 
     private var dayKey: String {
@@ -407,7 +442,7 @@ struct TasbihCounter: Identifiable {
     let dhikrText: String
     let target: Int?
     var count: Int
-    let totalLifetime: Int
+    var totalLifetime: Int
 }
 
 struct TasbihView: View {
@@ -417,20 +452,18 @@ struct TasbihView: View {
     @State private var selected = 0
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 14) {
-                    if let c = counters[safe: selected] { dial(c) }
-                    presetPicker
-                    if let c = counters[safe: selected] { stats(c) }
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 120)
+        ScrollView {
+            VStack(spacing: 14) {
+                if let c = counters[safe: selected] { dial(c) }
+                presetPicker
+                if let c = counters[safe: selected] { stats(c) }
             }
-            .background(appState.theme.bg)
-            .navigationTitle("السبحة")
-            .onAppear { reload() }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 120)
         }
+        .background(appState.theme.bg)
+        .navigationTitle("السبحة")
+        .onAppear { reload() }
     }
 
     private func reload() {
@@ -491,11 +524,11 @@ struct TasbihView: View {
         guard let idx = counters.firstIndex(where: { $0.uuid == c.uuid }) else { return }
         let newCount = counters[idx].count + 1
         counters[idx].count = newCount // synchronous, async batch would race
+        counters[idx].totalLifetime += 1
         if let t = c.target, newCount == t { HapticsEngine.shared.complete() } else { HapticsEngine.shared.tick() }
 
         let now = Date.nowMs
         try? appState.db.recordTasbihTap(counterUuid: c.uuid, target: c.target, newCount: newCount, dayKey: dayKeyOf(now), now: now)
-        WidgetStateBridge.prayersChanged() // cheap: refresh widget timeline data
     }
 
     private var presetPicker: some View {

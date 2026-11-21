@@ -12,7 +12,7 @@
 import Foundation
 
 public enum SmartCardKind: String, Codable, Sendable {
-    case kahf, after_prayer, qiyam, morning, evening, next_prayer
+    case kahf, after_prayer, qiyam, morning, evening, sleep, next_prayer
 }
 
 public struct SmartCard: Sendable {
@@ -23,6 +23,19 @@ public struct SmartCard: Sendable {
     public let sub: String
     public let actionLabel: String
     public let actionScreen: String
+    public let actionWindow: String?
+
+    public init(kind: SmartCardKind, icon: String, badge: String, title: String, sub: String,
+                actionLabel: String, actionScreen: String, actionWindow: String? = nil) {
+        self.kind = kind
+        self.icon = icon
+        self.badge = badge
+        self.title = title
+        self.sub = sub
+        self.actionLabel = actionLabel
+        self.actionScreen = actionScreen
+        self.actionWindow = actionWindow
+    }
 }
 
 public enum SmartCardResolver {
@@ -46,18 +59,36 @@ public enum SmartCardResolver {
         return names.indices.contains(wd - 1) ? names[wd - 1] : "Sun"
     }
 
-    /// Arabic 23h wall clock "HH:mm" in the city timezone (web fmtClock).
+    /// 12-hour wall clock "h:mm AM/PM" with Western ASCII digits in the city timezone.
     static func clock(_ ms: Int64, tz: String) -> String {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: tz) ?? .current
-        let c = cal.dateComponents([.hour, .minute], from: Date(ms: ms))
-        return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+        ClockFormat.formatWallClock12h(ms, timeZone: tz)
+    }
+
+    /// Normalizes athkar solar window keys: accepts both canonical "night" and legacy "isha".
+    public static func normalizeAthkarWindow(_ raw: String?) -> String? {
+        guard let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed == "isha" ? "night" : trimmed
+    }
+
+    /// Resolves the target athkar window for a SmartCard ("fajr" / "asr" / "after_prayer" / "night").
+    public static func athkarWindow(for card: SmartCard) -> String {
+        if let explicit = normalizeAthkarWindow(card.actionWindow) {
+            return explicit
+        }
+        switch card.kind {
+        case .after_prayer: return "after_prayer"
+        case .evening: return "asr"
+        case .sleep: return "night"
+        default: return "fajr"
+        }
     }
 
     /// "HH:MM:SS" countdown (web fmtHMS).
     static func hms(_ msLeft: Int64) -> String {
         let s = max(0, Int(msLeft / 1000))
-        return String(format: "%02d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
+        return String(format: "%02d:%02d:%02d", locale: ClockFormat.posixLocale, s / 3600, (s % 3600) / 60, s % 60)
     }
 
     public static func resolve(now: Int64, engine: BoundPrayerEngine) -> SmartCard {
@@ -71,7 +102,8 @@ public enum SmartCardResolver {
               let fajr = sched.prayers[.fajr],
               let dhuhr = sched.prayers[.dhuhr],
               let asr = sched.prayers[.asr],
-              let maghrib = sched.prayers[.maghrib] else {
+              let maghrib = sched.prayers[.maghrib],
+              let isha = sched.prayers[.isha] else {
             return SmartCard(kind: .next_prayer, icon: "🕌", badge: "الوقت الحالي",
                              title: "مواقيت الصلاة",
                              sub: "افتح جدول المواقيت والمدينة",
@@ -90,7 +122,7 @@ public enum SmartCardResolver {
            prevName != .sunrise, now - prevAt >= 0, now - prevAt <= 20 * minMs {
             return SmartCard(kind: .after_prayer, icon: "📿", badge: "الوقت الحالي", title: "أذكار ما بعد الصلاة",
                              sub: "بعد صلاة \(prevName.labelAr) — الاستغفار والدعاء مستقراً",
-                             actionLabel: "ابدأ الأذكار", actionScreen: "adhkar-cat")
+                             actionLabel: "ابدأ الأذكار", actionScreen: "adhkar-cat", actionWindow: "after_prayer")
         }
         // 3. Last third of the current night → Qiyam
         if now >= wsNight.lastThird && now < fajr {
@@ -102,15 +134,21 @@ public enum SmartCardResolver {
         if now >= fajr && now < wsToday.duha {
             return SmartCard(kind: .morning, icon: "🌅", badge: "الوقت الحالي", title: "أذكار الصباح",
                              sub: "ورد الصباح من حصن المسلم — اقرأها قبل أن تنشغل",
-                             actionLabel: "ابدأ أذكار الصباح", actionScreen: "adhkar-cat")
+                             actionLabel: "ابدأ أذكار الصباح", actionScreen: "adhkar-cat", actionWindow: "fajr")
         }
         // 5. Asr window (asr → maghrib) → evening athkar
         if now >= asr && now < maghrib {
             return SmartCard(kind: .evening, icon: "🌇", badge: "الوقت الحالي", title: "أذكار المساء",
                              sub: "ورد المساء من حصن المسلم — قبل غروب الشمس",
-                             actionLabel: "ابدأ أذكار المساء", actionScreen: "adhkar-cat")
+                             actionLabel: "ابدأ أذكار المساء", actionScreen: "adhkar-cat", actionWindow: "asr")
         }
-        // 6. else → next-prayer details
+        // 6. Sleep adhkar window (after Isha post-prayer window until the last third of the night)
+        if (now >= isha && now < wsToday.lastThird) || (now < wsNight.lastThird) {
+            return SmartCard(kind: .sleep, icon: "🌙", badge: "وقت النوم", title: "أذكار النوم",
+                             sub: "ورد النوم من حصن المسلم — قبل أن تنام",
+                             actionLabel: "ابدأ أذكار النوم", actionScreen: "adhkar-cat", actionWindow: "night")
+        }
+        // 7. else → next-prayer details
         return SmartCard(kind: .next_prayer, icon: "🕌", badge: "الوقت الحالي",
                          title: "\(nxt.name.labelAr) \(clock(nxt.at, tz: tz))",
                          sub: "الصلاة القادمة بعد \(hms(nxt.at - now))",

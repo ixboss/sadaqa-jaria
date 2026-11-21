@@ -131,7 +131,7 @@ final class AdhanNotificationDelegate: NSObject, UNUserNotificationCenterDelegat
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                willPresent notification: UNNotificationRequest,
+                                willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .sound])
     }

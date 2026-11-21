@@ -67,8 +67,9 @@ targets:
     sources:
       - path: Widgets
       # widget computes prayer times directly — include the self-contained engine
-      # (imports only Foundation + Adhan; the rest of Core needs GRDB)
+      # and shared 12-hour clock formatter (Foundation + Adhan only; no GRDB)
       - path: Core/PrayerEngine.swift
+      - path: Core/ClockFormat.swift
     dependencies:
       - package: Adhan
     info:

@@ -5,6 +5,7 @@
 // These tests are THE "native diff = 0 ms" + ".sadaqa cross-OS" proof.
 // ============================================================================
 
+import CoreGraphics
 import XCTest
 import GRDB
 @testable import SadaqaJaria
@@ -682,5 +683,224 @@ final class TodayProgressTests: XCTestCase {
         let progress = AthkarProgress.compute(categories: categories, items: items, states: states)
         XCTAssertEqual(progress.windows.count, 1, "only known solar windows are shown")
         XCTAssertEqual(progress.windows[0].completed, 0, "2/4 below target is not complete")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 12-hour wall-clock formatting (Western ASCII digits, AM/PM) across Engine,
+// TodayView, and SmartCardResolver.
+// ---------------------------------------------------------------------------
+
+final class ClockFormat12hTests: XCTestCase {
+
+    private func utcMs(_ year: Int, _ month: Int, _ day: Int, _ hour: Int, _ minute: Int) -> Int64 {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        let date = cal.date(from: DateComponents(year: year, month: month, day: day, hour: hour, minute: minute))!
+        return Int64(date.timeIntervalSince1970 * 1000)
+    }
+
+    func testFormatClock12hEdgeCases() {
+        let cases: [(Int, Int, String)] = [
+            (0, 0, "12:00 AM"),
+            (0, 5, "12:05 AM"),
+            (0, 57, "12:57 AM"),
+            (4, 22, "4:22 AM"),
+            (11, 59, "11:59 AM"),
+            (12, 0, "12:00 PM"),
+            (12, 30, "12:30 PM"),
+            (14, 34, "2:34 PM"),
+            (15, 5, "3:05 PM"),
+            (23, 59, "11:59 PM"),
+        ]
+        for (h, m, want) in cases {
+            XCTAssertEqual(ClockFormat.to12h(hour24: h, minute: m), want, "to12h \(h):\(m)")
+            let ms = utcMs(2026, 11, 21, h, m)
+            let got = ClockFormat.formatWallClock12h(ms, timeZone: "UTC")
+            XCTAssertEqual(got, want, "UTC \(h):\(m)")
+            XCTAssertEqual(PrayerEngine.formatClock12h(ms, timeZone: "UTC"), want)
+            XCTAssertTrue(got.unicodeScalars.allSatisfy { $0.isASCII }, "must use Western ASCII digits only: \(got)")
+        }
+    }
+
+    func testFormatClock12hRespectsTimezone() {
+        // 2026-11-21 02:22 UTC → 4:22 AM Africa/Cairo (UTC+2), 5:22 AM Asia/Riyadh (UTC+3)
+        let ms = utcMs(2026, 11, 21, 2, 22)
+        XCTAssertEqual(PrayerEngine.formatClock12h(ms, timeZone: "UTC"), "2:22 AM")
+        XCTAssertEqual(PrayerEngine.formatClock12h(ms, timeZone: "Africa/Cairo"), "4:22 AM")
+        XCTAssertEqual(PrayerEngine.formatClock12h(ms, timeZone: "Asia/Riyadh"), "5:22 AM")
+    }
+
+    func testTodayAndSmartCardClockMatchEngine12h() {
+        let ms = utcMs(2026, 11, 21, 14, 7)
+        XCTAssertEqual(TodayView.clock(ms, tz: "UTC"), "2:07 PM")
+        XCTAssertEqual(SmartCardResolver.clock(ms, tz: "UTC"), "2:07 PM")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Mushaf HUD GPU-only shrink transform + cached theme loader.
+// ---------------------------------------------------------------------------
+
+final class MushafHudAndThemeTests: XCTestCase {
+
+    func testHudTransformIdentityWhenHiddenAndShrinksWhenVisible() {
+        let hidden = MushafHudLayout.transform(viewportHeight: 844, hudVisible: false)
+        XCTAssertEqual(hidden.scale, 1.0, accuracy: 1e-6)
+        XCTAssertEqual(hidden.offsetY, 0.0, accuracy: 1e-6)
+
+        for height: CGFloat in [667, 812, 844, 932] {
+            let shown = MushafHudLayout.transform(viewportHeight: height, hudVisible: true)
+            XCTAssertGreaterThanOrEqual(shown.scale, MushafHudLayout.minHudScale)
+            XCTAssertLessThanOrEqual(shown.scale, MushafHudLayout.maxHudScale)
+            XCTAssertLessThan(shown.scale, 1.0, "Mushaf must shrink while HUD is visible on \(height)pt")
+            XCTAssertLessThan(shown.offsetY, 0, "Mushaf shifts slightly upward between HUD bars")
+        }
+    }
+
+    func testThemeCacheReturnsConsistentPalettes() {
+        let dark1 = SadaqaTheme.load(key: "dark")
+        let dark2 = SadaqaTheme.load(key: "dark")
+        let light = SadaqaTheme.load(key: "light")
+        let sepia = SadaqaTheme.load(key: "sepia")
+        let night = SadaqaTheme.load(key: "night")
+        let fallback = SadaqaTheme.load(key: "nonexistent-key")
+
+        XCTAssertEqual(dark1, dark2)
+        XCTAssertEqual(dark1, fallback)
+        XCTAssertNotEqual(dark1.token.bg, light.token.bg)
+        XCTAssertNotEqual(light.token.bg, sepia.token.bg)
+        XCTAssertEqual(night.token.bg, "#000000")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Audit hardening: Sleep Adhkar ('night' + legacy 'isha'), JSONValue overflow
+// guard, HijriEngine clamping, and .sadaqa settings sanitization.
+// ---------------------------------------------------------------------------
+
+final class AuditHardeningTests: XCTestCase {
+
+    func testSleepAdhkarWindowAcceptsNightAndLegacyIsha() throws {
+        let categories = [
+            AthkarProgress.Category(id: "1", titleAr: "الصباح", solarWindow: "fajr"),
+            AthkarProgress.Category(id: "2", titleAr: "النوم", solarWindow: "night"),
+            AthkarProgress.Category(id: "3", titleAr: "النوم القديم", solarWindow: "isha"),
+        ]
+        let items = [
+            AthkarProgress.Item(id: "a", categoryId: "1", target: 1),
+            AthkarProgress.Item(id: "b", categoryId: "2", target: 1),
+            AthkarProgress.Item(id: "c", categoryId: "3", target: 1),
+        ]
+        let states = [
+            AthkarProgress.StateRow(itemId: "b", count: 1, completedAt: 1_763_600_000_000),
+            AthkarProgress.StateRow(itemId: "c", count: 1, completedAt: 1_763_600_000_000),
+        ]
+        let report = AthkarProgress.compute(categories: categories, items: items, states: states)
+        let sleepRow = try XCTUnwrap(report.windows.first { $0.titleAr == "النوم" })
+        XCTAssertEqual(sleepRow.total, 2, "both 'night' and legacy 'isha' roll into النوم")
+        XCTAssertEqual(sleepRow.completed, 2)
+
+        let opts = EngineOptions(lat: 21.4225, lng: 39.8262, timeZone: "Asia/Riyadh")
+        let engine = PrayerEngine.bind(opts)
+        let sched = try engine.daySchedule("2026-11-18")
+        // 45 min after Isha (past the 20-min post-prayer window, before last third)
+        let afterIsha = sched.prayers[.isha]! + 45 * 60_000
+        let card = SmartCardResolver.resolve(now: afterIsha, engine: engine)
+        XCTAssertEqual(card.kind, .sleep)
+        XCTAssertEqual(SmartCardResolver.athkarWindow(for: card), "night")
+        XCTAssertEqual(SmartCardResolver.normalizeAthkarWindow("isha"), "night")
+        XCTAssertEqual(SmartCardResolver.normalizeAthkarWindow("night"), "night")
+    }
+
+    func testJSONValueIntGuardsAgainstOverflowAndNonFinite() {
+        XCTAssertNil(JSONValue.number(1e300).intValue)
+        XCTAssertNil(JSONValue.number(-1e300).intValue)
+        XCTAssertNil(JSONValue.number(Double.nan).intValue)
+        XCTAssertNil(JSONValue.number(Double.infinity).intValue)
+        XCTAssertNil(JSONValue.number(-Double.infinity).intValue)
+        XCTAssertNil(JSONValue.number(Double(Int.max)).intValue)
+
+        XCTAssertNil(JSONValue.number(1e300).int64Value)
+        XCTAssertNil(JSONValue.number(-1e300).int64Value)
+        XCTAssertNil(JSONValue.number(Double.nan).int64Value)
+        XCTAssertNil(JSONValue.number(Double.infinity).int64Value)
+
+        XCTAssertEqual(JSONValue.number(42).intValue, 42)
+        XCTAssertEqual(JSONValue.number(-3).intValue, -3)
+        XCTAssertEqual(JSONValue.number(1_764_300_000_000).int64Value, 1_764_300_000_000)
+    }
+
+    func testHijriAdjustIsClampedToMinus3ThroughPlus3() {
+        XCTAssertEqual(HijriEngine.clampAdjust(-99), -3)
+        XCTAssertEqual(HijriEngine.clampAdjust(99), 3)
+        XCTAssertEqual(HijriEngine.withAdjust("2026-11-18", 50), HijriEngine.withAdjust("2026-11-18", 3))
+        XCTAssertEqual(HijriEngine.withAdjust("2026-11-18", -50), HijriEngine.withAdjust("2026-11-18", -3))
+    }
+
+    func testDatabaseSettingsValidationAndSanitization() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("audit-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let repoDb = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Resources/sadaqa.db")
+        let testDb = Bundle(for: FixtureLoader.self).url(forResource: "sadaqa", withExtension: "db")
+        let src = Bundle.main.url(forResource: "sadaqa", withExtension: "db") ?? testDb ?? repoDb
+        let dst = dir.appendingPathComponent("sadaqa.db")
+        try FileManager.default.copyItem(at: src, to: dst)
+        let db = SadaqaDatabase(queue: try DatabaseQueue(path: dst.path))
+
+        // Write untrusted / extreme values directly to user_settings (simulating raw .sadaqa data)
+        try db.setSetting("hijri_adjust", .number(1e300))
+        XCTAssertEqual(db.hijriAdjust(), 0, "1e300 must not trap and falls back to 0")
+        try db.setSetting("hijri_adjust", .number(12))
+        XCTAssertEqual(db.hijriAdjust(), 3, "hijri_adjust clamped to +3")
+        try db.setSetting("hijri_adjust", .number(-12))
+        XCTAssertEqual(db.hijriAdjust(), -3, "hijri_adjust clamped to -3")
+
+        try db.setSetting("calc_method", .string("bogus_method"))
+        try db.setSetting("asr_madhhab", .string("hanafi"))
+        try db.setSetting("high_lat_rule", .string("seventh_of_the_night"))
+        try db.setSetting("prayer_offsets", .object([
+            "fajr": .number(120),
+            "dhuhr": .number(-90),
+            "asr": .number(5),
+            "isha": .number(1e300),
+            "invalid_prayer": .number(10),
+        ]))
+        try db.setSetting("location", .object([
+            "lat": .number(999),
+            "lon": .number(-999),
+            "tz": .string("Invalid/Zone"),
+            "name_ar": .string("   القاهرة   "),
+        ]))
+
+        let opts = db.engineOptions()
+        XCTAssertEqual(opts.method, "umm_al_qura", "invalid calc_method falls back to default")
+        XCTAssertEqual(opts.madhab, "hanafi", "accepts asr_madhhab alias")
+        XCTAssertEqual(opts.highLatitudeRule, "seventh_of_the_night", "accepts high_lat_rule alias")
+        XCTAssertEqual(opts.lat, SadaqaDatabase.defaultLat, accuracy: 1e-6, "out-of-range lat falls back")
+        XCTAssertEqual(opts.lng, SadaqaDatabase.defaultLng, accuracy: 1e-6, "out-of-range lon falls back")
+        XCTAssertEqual(opts.timeZone, SadaqaDatabase.defaultTimeZone, "invalid tz falls back")
+        XCTAssertEqual(opts.offsets["fajr"], 60, "clamped to +60")
+        XCTAssertEqual(opts.offsets["dhuhr"], -60, "clamped to -60")
+        XCTAssertEqual(opts.offsets["asr"], 5)
+        XCTAssertNil(opts.offsets["isha"], "non-finite/overflow offset dropped")
+        XCTAssertNil(opts.offsets["invalid_prayer"], "unknown prayer key dropped")
+        XCTAssertEqual(db.locationNameAr(), "القاهرة", "location.name_ar trimmed")
+
+        // Valid coordinates with `lon` alias & whitespace-only name_ar
+        try db.setSetting("location", .object([
+            "lat": .number(30.0444),
+            "lon": .number(31.2357),
+            "tz": .string("Africa/Cairo"),
+            "name_ar": .string("   "),
+        ]))
+        let cairoOpts = db.engineOptions()
+        XCTAssertEqual(cairoOpts.lat, 30.0444, accuracy: 1e-6)
+        XCTAssertEqual(cairoOpts.lng, 31.2357, accuracy: 1e-6)
+        XCTAssertEqual(cairoOpts.timeZone, "Africa/Cairo")
+        XCTAssertEqual(db.locationNameAr(), SadaqaDatabase.defaultLocationNameAr, "blank name_ar falls back")
     }
 }
