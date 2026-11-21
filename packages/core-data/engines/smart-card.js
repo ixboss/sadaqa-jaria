@@ -21,12 +21,13 @@
 // ============================================================================
 
 import { shiftCivilIso } from './prayer.js';
+import { formatTime12h } from './timefmt.js';
 
 const MIN = 60_000;
 
 const PRAYER_LABELS = { fajr: 'الفجر', sunrise: 'الشروق', dhuhr: 'الظهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء' };
 
-const fmtClock = (ms, tz) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
+const fmtClock = (ms, tz) => formatTime12h(ms, tz);
 const fmtHMS = (msLeft) => {
   const s = Math.max(0, Math.floor(msLeft / 1000));
   const p = (n) => String(n).padStart(2, '0');
@@ -54,8 +55,8 @@ export function resolveSmartCard(now, engine) {
     return { kind: 'after_prayer', icon: '📿', badge: 'الوقت الحالي', title: 'أذكار ما بعد الصلاة', sub: `بعد صلاة ${PRAYER_LABELS[prev.name]} — الاستغفار والدعاء مستقراً`, action: { label: 'ابدأ الأذكار', screen: 'adhkar-cat', args: { id: 'after-prayer' } } };
   }
   // 3. Last third of night (current night) → Qiyam
-  if (now >= wsNight.lastThird && now < sched.prayers.fajr) {
-    return { kind: 'qiyam', icon: '🌙', badge: 'الثلث الأخير', title: 'وقت القيام', sub: `الثلث الأخير حتى الفجر ${fmtClock(sched.prayers.fajr, tz)}`, action: { label: 'افتح حاسبة القيام', screen: 'tools-qiyam' } };
+  if ((now >= wsNight.lastThird && now < sched.prayers.fajr) || now >= wsToday.lastThird) {
+    return { kind: 'qiyam', icon: '🌙', badge: 'الثلث الأخير', title: 'وقت القيام', sub: `الثلث الأخير حتى الفجر ${fmtClock(now < sched.prayers.fajr ? sched.prayers.fajr : wsToday.nextFajr, tz)}`, action: { label: 'افتح حاسبة القيام', screen: 'tools-qiyam' } };
   }
   // 4. Fajr window (fajr → duha start) → morning athkar
   if (now >= sched.prayers.fajr && now < wsToday.duha) {
@@ -65,7 +66,11 @@ export function resolveSmartCard(now, engine) {
   if (now >= sched.prayers.asr && now < sched.prayers.maghrib) {
     return { kind: 'evening', icon: '🌇', badge: 'الوقت الحالي', title: 'أذكار المساء', sub: 'ورد المساء من حصن المسلم — قبل غروب الشمس', action: { label: 'ابدأ أذكار المساء', screen: 'adhkar-cat', args: { id: 'evening' } } };
   }
-  // 6. else → next-prayer details
+  // 6. Night / Sleep window (after Isha post-prayer until last third of night) → sleep adhkar
+  if ((now >= sched.prayers.isha && now < wsToday.lastThird) || now < wsNight.lastThird) {
+    return { kind: 'night', icon: '🌙', badge: 'قبل النوم', title: 'أذكار النوم', sub: 'ورد النوم من حصن المسلم — الاستغفار والآيات الواقية قبل أن تنام', action: { label: 'ابدأ أذكار النوم', screen: 'adhkar-cat', args: { id: 'night' } } };
+  }
+  // 7. else → next-prayer details
   const next = engine.next(now);
   return { kind: 'next_prayer', icon: '🕌', badge: 'الوقت الحالي', title: `${PRAYER_LABELS[next.name]} ${fmtClock(next.at, tz)}`, sub: `الصلاة القادمة بعد ${fmtHMS(next.at - now)}`, action: { label: 'التقويم الهجري', screen: 'tools-hijri', args: {} } };
 }

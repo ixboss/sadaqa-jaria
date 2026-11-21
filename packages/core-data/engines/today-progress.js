@@ -15,9 +15,10 @@
 // ============================================================================
 
 const WINDOWS = [
-  { key: 'fajr', titleAr: 'الصباح' },
-  { key: 'asr', titleAr: 'المساء' },
-  { key: 'isha', titleAr: 'النوم' },
+  { keys: ['fajr'], titleAr: 'الصباح' },
+  { keys: ['asr'], titleAr: 'المساء' },
+  // Schema (schema.sql:220) uses 'night' for Sleep Adhkar; retain legacy 'isha' alias.
+  { keys: ['night', 'isha'], titleAr: 'النوم' },
 ];
 
 export function computeDailyProgress(categories, items, states) {
@@ -25,16 +26,19 @@ export function computeDailyProgress(categories, items, states) {
   for (const c of categories) {
     if (c.solar_window) windowOf.set(c.category_id, c.solar_window);
   }
+  const itemById = new Map();
+  for (const it of items) itemById.set(it.item_id, it);
+
   const done = new Set();
   for (const s of states) {
-    const item = items.find((it) => it.item_id === s.item_id);
+    const item = itemById.get(s.item_id);
     if (!item) continue;
     const complete = item.count_target > 0 ? s.count >= item.count_target : s.count > 0;
     if (complete) done.add(s.item_id);
   }
   const windows = WINDOWS
-    .map(({ key, titleAr }) => {
-      const windowItems = items.filter((it) => windowOf.get(it.category_id) === key);
+    .map(({ keys, titleAr }) => {
+      const windowItems = items.filter((it) => keys.includes(windowOf.get(it.category_id)));
       return {
         titleAr,
         completed: windowItems.filter((it) => done.has(it.item_id)).length,

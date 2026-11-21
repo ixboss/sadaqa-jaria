@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toHijri, fromHijri, withAdjust, events, whiteDays, monthNameAr } from '../engines/hijri.js';
+import { toHijri, fromHijri, withAdjust, clampHijriAdjust, events, whiteDays, monthNameAr } from '../engines/hijri.js';
 
 test('round-trip stability over a sampled Gregorian range (property test)', () => {
   let checked = 0;
@@ -26,10 +26,21 @@ test('hijri year advances by 354/355 days (lunar)', () => {
   assert.ok(yDiff === 0 || yDiff === 1, `unexpected year drift ${a.y} → ${b.y}`);
 });
 
-test('withAdjust shifts the civil day before conversion', () => {
+test('withAdjust shifts the civil day before conversion and clamps extreme/malformed values to [-3, +3]', () => {
   const base = toHijri('2026-01-01');
   const shifted = withAdjust('2026-01-02', -1);
   assert.deepEqual(shifted, base);
+
+  // Clamping extreme and non-finite adjustments prevents RangeError / Invalid Date
+  assert.equal(clampHijriAdjust(1e300), 3);
+  assert.equal(clampHijriAdjust(-1e300), -3);
+  assert.equal(clampHijriAdjust(NaN), 0);
+  assert.equal(clampHijriAdjust(Infinity), 0);
+  assert.equal(clampHijriAdjust(-Infinity), 0);
+  assert.equal(clampHijriAdjust('bad'), 0);
+  assert.deepEqual(withAdjust('2026-01-10', 1e300), withAdjust('2026-01-10', 3));
+  assert.deepEqual(withAdjust('2026-01-10', -999), withAdjust('2026-01-10', -3));
+  assert.deepEqual(withAdjust('2026-01-10', NaN), toHijri('2026-01-10'));
 });
 
 test('events(2026): exactly one Ramadan start, Eid pair ordered after it', () => {

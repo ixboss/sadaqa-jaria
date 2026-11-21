@@ -149,20 +149,47 @@ async function main() {
     await send('Page.enable'); await send('Runtime.enable'); await send('Log.enable');
     await send('Emulation.setDeviceMetricsOverride', { ...VIEWPORT, deviceScaleFactor: 2, mobile: true });
     await send('Page.navigate', { url: BASE });
-    await sleep(2500);
+    // Wait for the dock to mount AND app boot (click listeners + initOccasionSystem) to finish
+    let athkarTabReady = false;
+    for (let i = 0; i < 100 && !athkarTabReady; i++) {
+      athkarTabReady = await evaljs(
+        `Boolean(document.querySelector('[data-tab="athkar"]#nav-tab-athkar') && document.querySelector('.nav-tab.active') && typeof window.openCategory === 'function')`,
+      ).catch(() => false);
+      if (!athkarTabReady) await sleep(150);
+    }
+    if (!athkarTabReady) throw new Error('dock tab [data-tab="athkar"] never mounted/initialized');
+    await sleep(300);
     await dismissOccasionPopup();
 
     // ── go to the athkar tab and open the first category with a real tap ──
     await evaljs(`document.querySelector('[data-tab="athkar"]').click()`);
     for (let i = 0; i < 40 && !await evaljs(`document.querySelectorAll('.athkar-cat-card').length > 0`); i++) await sleep(100);
+    await sleep(450); // wait for 360ms screen slide transition to finish before measuring rect
+    await dismissOccasionPopup();
     let catRect = null;
-    for (let i = 0; i < 10 && !catRect; i++) {
-      catRect = await evaljs(`(() => { const c = document.querySelector('.athkar-cat-card'); if (!c) return null; const r = c.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, name: c.querySelector('.cat-name').textContent }; })()`);
-      if (!catRect) { console.log('   [diag] cat card rect unavailable:', await evaljs(`state.currentScreen + ' cards=' + document.querySelectorAll('.athkar-cat-card').length`)); await sleep(400); }
+    for (let i = 0; i < 20 && !catRect; i++) {
+      catRect = await evaljs(`(() => {
+        const c = document.querySelector('.athkar-cat-card');
+        if (!c) return null;
+        const r = c.getBoundingClientRect();
+        const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+        if (r.width <= 0 || r.height <= 0 || cx < 0 || cx > window.innerWidth || cy < 0 || cy > window.innerHeight) return null;
+        const hit = document.elementFromPoint(cx, cy);
+        if (!hit || !c.contains(hit)) return null;
+        return { x: cx, y: cy, name: c.querySelector('.cat-name').textContent };
+      })()`);
+      if (!catRect) await sleep(150);
     }
-    if (!catRect) throw new Error('athkar category card never rendered a rect');
-    await tap(catRect.x, catRect.y);
-    for (let i = 0; i < 40 && !await evaljs(`document.getElementById('focus-text')?.textContent.trim().length > 0`); i++) await sleep(100);
+    if (!catRect) throw new Error('athkar category card never rendered an unobstructed rect');
+    let focusReady = false;
+    for (let attempt = 0; attempt < 2 && !focusReady; attempt++) {
+      await tap(catRect.x, catRect.y);
+      for (let i = 0; i < 30 && !focusReady; i++) {
+        focusReady = await evaljs(`Array.isArray(state.dhikrEntries) && state.dhikrEntries.length > 0 && document.getElementById('focus-text')?.textContent.trim().length > 0`);
+        if (!focusReady) await sleep(100);
+      }
+    }
+    if (!focusReady) throw new Error('tapping athkar category card never opened focus screen');
     await waitFocusSettled();
 
     // ═══ (a) Focus layout renders ═══

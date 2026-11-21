@@ -1100,8 +1100,93 @@ __define("packages/core-data/vendor/adhan/Adhan.js", ["packages/core-data/vendor
   exports["Shafaq"] = Shafaq;
 });
 
-__define("packages/core-data/engines/prayer.js", ["packages/core-data/vendor/adhan/Adhan.js"], function (exports, __deps) {
+__define("packages/core-data/engines/timefmt.js", [], function (exports, __deps) {
+// ============================================================================
+// timefmt.js — Shared 12-hour ASCII wall-clock formatter (all JS targets).
+// Produces strict `h:mm AM/PM` with Western ASCII digits (0-9) and regular
+// ASCII space — never 24-hour, never Arabic-Indic digits, never U+202F.
+// ============================================================================
+
+const ARABIC_INDIC = '٠١٢٣٤٥٦٧٨٩';
+
+function normalizeDigits(str) {
+  return String(str).replace(/[٠-٩]/g, (ch) => String(ARABIC_INDIC.indexOf(ch)));
+}
+
+function formatHm12(hour24, minute) {
+  const h24 = ((hour24 % 24) + 24) % 24;
+  const period = h24 >= 12 ? 'PM' : 'AM';
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h12}:${String(minute).padStart(2, '0')} ${period}`;
+}
+
+/**
+ * Convert a 24-hour wall-clock string ("HH:MM", "H:MM", or "HH:MM:SS") — or
+ * an already-formatted 12-hour string ("h:mm AM/PM") — into canonical ASCII
+ * 12-hour format: `h:mm AM/PM` (e.g. "14:34" → "2:34 PM", "00:57" → "12:57 AM").
+ * Returns '' on malformed or out-of-range inputs.
+ */
+function to12h(hhmm) {
+  if (typeof hhmm !== 'string') return '';
+  const clean = normalizeDigits(hhmm).trim();
+  if (!clean) return '';
+
+  // Already 12-hour: e.g. "2:34 pm", "12:05 AM"
+  const m12 = clean.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+  if (m12) {
+    const h = Number(m12[1]);
+    const mi = Number(m12[2]);
+    const mer = m12[3].toUpperCase();
+    if (h < 1 || h > 12 || mi < 0 || mi > 59) return '';
+    return `${h}:${String(mi).padStart(2, '0')} ${mer}`;
+  }
+
+  // 24-hour: "00:00" .. "23:59" (optional ":ss")
+  const m24 = clean.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!m24) return '';
+  const h = Number(m24[1]);
+  const mi = Number(m24[2]);
+  if (h < 0 || h > 23 || mi < 0 || mi > 59) return '';
+  return formatHm12(h, mi);
+}
+
+/**
+ * Format a Date or epoch-ms instant in `timeZone` as canonical ASCII 12-hour
+ * `h:mm AM/PM` (e.g. "4:54 PM", "12:57 AM"). Degrades to '' on non-finite dates
+ * and falls back to UTC if an invalid IANA timezone string is supplied.
+ */
+function formatTime12h(date, timeZone) {
+  const ms = date instanceof Date ? date.getTime() : Number(date);
+  if (!Number.isFinite(ms)) return '';
+
+  const opts = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
+  let dtf;
+  if (typeof timeZone === 'string' && timeZone.length > 0) {
+    try {
+      dtf = new Intl.DateTimeFormat('en-US', { ...opts, timeZone });
+    } catch {
+      dtf = new Intl.DateTimeFormat('en-US', { ...opts, timeZone: 'UTC' });
+    }
+  } else {
+    dtf = new Intl.DateTimeFormat('en-US', opts);
+  }
+
+  let h = NaN;
+  let mi = NaN;
+  for (const { type, value } of dtf.formatToParts(ms)) {
+    if (type === 'hour') h = Number(value);
+    else if (type === 'minute') mi = Number(value);
+  }
+  if (!Number.isFinite(h) || !Number.isFinite(mi)) return '';
+  return formatHm12(h, mi);
+}
+  exports["to12h"] = to12h;
+  exports["formatTime12h"] = formatTime12h;
+});
+
+__define("packages/core-data/engines/prayer.js", ["packages/core-data/vendor/adhan/Adhan.js", "packages/core-data/engines/timefmt.js"], function (exports, __deps) {
   const { Coordinates, CalculationMethod, CalculationParameters, PrayerTimes, SunnahTimes, Prayer, HighLatitudeRule, Madhab, PolarCircleResolution, Qibla: adhanQibla } = __deps["packages/core-data/vendor/adhan/Adhan.js"];
+  const { formatTime12h } = __deps["packages/core-data/engines/timefmt.js"];
 // ============================================================================
 // prayer.js — Sadaqa Jaria v2 prayer-time engine (shared core, target-agnostic)
 // ---------------------------------------------------------------------------
@@ -1126,6 +1211,12 @@ __define("packages/core-data/engines/prayer.js", ["packages/core-data/vendor/adh
 // city rows, deliberate.
 // ============================================================================
 
+
+
+/** Format a prayer instant (Date or epoch ms) in `timeZone` as ASCII 12-hour `h:mm AM/PM`. */
+function formatTime(date, timeZone) {
+  return formatTime12h(date, timeZone);
+}
 
 /** Canonical prayer order (display + API). */
 const PRAYER_NAMES = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
@@ -1354,6 +1445,10 @@ function schedule(year, month1, opts) {
  * (REA_SPEC §4.3 formulas, derived from adhan's own sunrise/maghrib/fajr).
  */
 function sunnahWindows(dateIso, opts) {
+  if (!opts || typeof opts !== 'object') throw new Error('opts is required');
+  if (!opts.timeZone) throw new Error('timeZone is required (IANA name)');
+  if (!Number.isFinite(opts.lat) || opts.lat < -90 || opts.lat > 90) throw new Error(`invalid lat: ${opts.lat}`);
+  if (!Number.isFinite(opts.lng) || opts.lng < -180 || opts.lng > 180) throw new Error(`invalid lng: ${opts.lng}`);
   const [y, mo, d] = dateIso.split('-').map(Number);
   const coords = new Coordinates(opts.lat, opts.lng);
   const params = buildParams(opts);
@@ -1388,17 +1483,53 @@ function bindPrayerEngine(opts) {
   };
 }
 
+const DEFAULT_LAT = 21.4225;
+const DEFAULT_LNG = 39.8262;
+const DEFAULT_TZ = 'Asia/Riyadh';
+const PRAYER_OFFSET_LIMIT = 60;
+
+function finiteCoord(v, min, max) {
+  if (v === null || v === undefined || v === '' || typeof v === 'boolean') return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < min || n > max) return null;
+  return n;
+}
+
+/** Clamp and filter persisted prayer_offsets to valid prayer keys in [-60, +60]. */
+function sanitizePrayerOffsets(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const name of PRAYER_NAMES) {
+    if (!Object.prototype.hasOwnProperty.call(raw, name)) continue;
+    const v = raw[name];
+    if (v === null || v === undefined || v === '' || typeof v === 'boolean') continue;
+    const n = Number(v);
+    if (!Number.isFinite(n)) continue;
+    out[name] = Math.max(-PRAYER_OFFSET_LIMIT, Math.min(PRAYER_OFFSET_LIMIT, Math.round(n)));
+  }
+  return out;
+}
+
 /** Bind a prayer engine from a persisted user_settings map (shared by web + Electron). */
 function bindPrayerEngineFromSettings(settings = {}) {
-  const loc = settings.location ?? { lat: 21.4225, lng: 39.8262, tz: 'Asia/Riyadh' };
+  const safe = settings && typeof settings === 'object' && !Array.isArray(settings) ? settings : {};
+  const loc = safe.location && typeof safe.location === 'object' && !Array.isArray(safe.location) ? safe.location : {};
+  const lat = finiteCoord(loc.lat, -90, 90);
+  const lng = finiteCoord(loc.lng, -180, 180);
+  const coordsValid = lat !== null && lng !== null;
+  const method = typeof safe.calc_method === 'string' && METHOD_MAP[safe.calc_method] ? safe.calc_method : 'umm_al_qura';
+  const madhab = typeof safe.madhab === 'string' && MADHAB_MAP[safe.madhab] ? safe.madhab : 'shafi';
+  const highLatitudeRule = typeof safe.high_latitude_rule === 'string' && HLR_MAP[safe.high_latitude_rule]
+    ? safe.high_latitude_rule
+    : 'middle_of_the_night';
   return bindPrayerEngine({
-    lat: Number(loc.lat ?? 21.4225),
-    lng: Number(loc.lng ?? 39.8262),
-    timeZone: safeTimeZone(loc.timeZone || loc.tz),
-    method: settings.calc_method ?? 'umm_al_qura',
-    madhab: settings.madhab ?? 'shafi',
-    highLatitudeRule: settings.high_latitude_rule ?? 'middle_of_the_night',
-    offsets: settings.prayer_offsets ?? {},
+    lat: coordsValid ? lat : DEFAULT_LAT,
+    lng: coordsValid ? lng : DEFAULT_LNG,
+    timeZone: safeTimeZone(loc.timeZone || loc.tz, DEFAULT_TZ),
+    method,
+    madhab,
+    highLatitudeRule,
+    offsets: sanitizePrayerOffsets(safe.prayer_offsets),
   });
 }
 
@@ -1418,6 +1549,7 @@ function safeTimeZone(tz, fallback = 'Asia/Riyadh') {
   exports["rawQibla"] = adhanQibla;
   exports["RawCoordinates"] = Coordinates;
   exports["RawParameters"] = CalculationParameters;
+  exports["formatTime"] = formatTime;
   exports["PRAYER_NAMES"] = PRAYER_NAMES;
   exports["CALC_METHODS"] = CALC_METHODS;
   exports["MADHABS"] = MADHABS;
@@ -1433,6 +1565,7 @@ function safeTimeZone(tz, fallback = 'Asia/Riyadh') {
   exports["schedule"] = schedule;
   exports["sunnahWindows"] = sunnahWindows;
   exports["bindPrayerEngine"] = bindPrayerEngine;
+  exports["sanitizePrayerOffsets"] = sanitizePrayerOffsets;
   exports["bindPrayerEngineFromSettings"] = bindPrayerEngineFromSettings;
 });
 
@@ -1446,10 +1579,17 @@ const KAABA = { lat: 21.4225, lng: 39.8262 };
 const rad = (deg) => (deg * Math.PI) / 180;
 const deg = (r) => (r * 180) / Math.PI;
 
-/** Initial great-circle bearing (degrees, 0=N, clockwise) from {lat,lng} to the Kaaba. */
-function qiblaBearing({ lat, lng }) {
+function validateCoords(coords) {
+  if (!coords || typeof coords !== 'object') throw new Error('invalid coords: object required');
+  const { lat, lng } = coords;
   if (!Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error(`invalid lat: ${lat}`);
   if (!Number.isFinite(lng) || lng < -180 || lng > 180) throw new Error(`invalid lng: ${lng}`);
+  return { lat, lng };
+}
+
+/** Initial great-circle bearing (degrees, 0=N, clockwise) from {lat,lng} to the Kaaba. */
+function qiblaBearing(coords) {
+  const { lat, lng } = validateCoords(coords);
   const φ1 = rad(lat), φ2 = rad(KAABA.lat), Δλ = rad(KAABA.lng - lng);
   const θ = Math.atan2(
     Math.sin(Δλ) * Math.cos(φ2),
@@ -1459,11 +1599,12 @@ function qiblaBearing({ lat, lng }) {
 }
 
 /** Great-circle distance in km (haversine) — used to pick the dial fallback threshold. */
-function distanceKm({ lat, lng }) {
+function distanceKm(coords) {
+  const { lat, lng } = validateCoords(coords);
   const R = 6371.0088;
   const φ1 = rad(lat), φ2 = rad(KAABA.lat);
   const Δφ = rad(KAABA.lat - lat), Δλ = rad(KAABA.lng - lng);
-  const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  const a = Math.min(1, Math.max(0, Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2));
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 

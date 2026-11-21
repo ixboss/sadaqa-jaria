@@ -72,6 +72,8 @@ export function smartCardIconName(kind) {
     qiyam: 'moon',
     morning: 'sunrise',
     evening: 'sunset',
+    night: 'moon',
+    sleep: 'moon',
     next_prayer: 'mosque',
     daily_morning: 'sunrise',
     daily_evening: 'sunset',

@@ -33,6 +33,12 @@ import {
   PolarCircleResolution,
   Qibla as adhanQibla,
 } from '../vendor/adhan/Adhan.js';
+import { formatTime12h } from './timefmt.js';
+
+/** Format a prayer instant (Date or epoch ms) in `timeZone` as ASCII 12-hour `h:mm AM/PM`. */
+export function formatTime(date, timeZone) {
+  return formatTime12h(date, timeZone);
+}
 
 /** Canonical prayer order (display + API). */
 export const PRAYER_NAMES = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
@@ -261,6 +267,10 @@ export function schedule(year, month1, opts) {
  * (REA_SPEC §4.3 formulas, derived from adhan's own sunrise/maghrib/fajr).
  */
 export function sunnahWindows(dateIso, opts) {
+  if (!opts || typeof opts !== 'object') throw new Error('opts is required');
+  if (!opts.timeZone) throw new Error('timeZone is required (IANA name)');
+  if (!Number.isFinite(opts.lat) || opts.lat < -90 || opts.lat > 90) throw new Error(`invalid lat: ${opts.lat}`);
+  if (!Number.isFinite(opts.lng) || opts.lng < -180 || opts.lng > 180) throw new Error(`invalid lng: ${opts.lng}`);
   const [y, mo, d] = dateIso.split('-').map(Number);
   const coords = new Coordinates(opts.lat, opts.lng);
   const params = buildParams(opts);
@@ -295,17 +305,53 @@ export function bindPrayerEngine(opts) {
   };
 }
 
+const DEFAULT_LAT = 21.4225;
+const DEFAULT_LNG = 39.8262;
+const DEFAULT_TZ = 'Asia/Riyadh';
+const PRAYER_OFFSET_LIMIT = 60;
+
+function finiteCoord(v, min, max) {
+  if (v === null || v === undefined || v === '' || typeof v === 'boolean') return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < min || n > max) return null;
+  return n;
+}
+
+/** Clamp and filter persisted prayer_offsets to valid prayer keys in [-60, +60]. */
+export function sanitizePrayerOffsets(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const name of PRAYER_NAMES) {
+    if (!Object.prototype.hasOwnProperty.call(raw, name)) continue;
+    const v = raw[name];
+    if (v === null || v === undefined || v === '' || typeof v === 'boolean') continue;
+    const n = Number(v);
+    if (!Number.isFinite(n)) continue;
+    out[name] = Math.max(-PRAYER_OFFSET_LIMIT, Math.min(PRAYER_OFFSET_LIMIT, Math.round(n)));
+  }
+  return out;
+}
+
 /** Bind a prayer engine from a persisted user_settings map (shared by web + Electron). */
 export function bindPrayerEngineFromSettings(settings = {}) {
-  const loc = settings.location ?? { lat: 21.4225, lng: 39.8262, tz: 'Asia/Riyadh' };
+  const safe = settings && typeof settings === 'object' && !Array.isArray(settings) ? settings : {};
+  const loc = safe.location && typeof safe.location === 'object' && !Array.isArray(safe.location) ? safe.location : {};
+  const lat = finiteCoord(loc.lat, -90, 90);
+  const lng = finiteCoord(loc.lng, -180, 180);
+  const coordsValid = lat !== null && lng !== null;
+  const method = typeof safe.calc_method === 'string' && METHOD_MAP[safe.calc_method] ? safe.calc_method : 'umm_al_qura';
+  const madhab = typeof safe.madhab === 'string' && MADHAB_MAP[safe.madhab] ? safe.madhab : 'shafi';
+  const highLatitudeRule = typeof safe.high_latitude_rule === 'string' && HLR_MAP[safe.high_latitude_rule]
+    ? safe.high_latitude_rule
+    : 'middle_of_the_night';
   return bindPrayerEngine({
-    lat: Number(loc.lat ?? 21.4225),
-    lng: Number(loc.lng ?? 39.8262),
-    timeZone: safeTimeZone(loc.timeZone || loc.tz),
-    method: settings.calc_method ?? 'umm_al_qura',
-    madhab: settings.madhab ?? 'shafi',
-    highLatitudeRule: settings.high_latitude_rule ?? 'middle_of_the_night',
-    offsets: settings.prayer_offsets ?? {},
+    lat: coordsValid ? lat : DEFAULT_LAT,
+    lng: coordsValid ? lng : DEFAULT_LNG,
+    timeZone: safeTimeZone(loc.timeZone || loc.tz, DEFAULT_TZ),
+    method,
+    madhab,
+    highLatitudeRule,
+    offsets: sanitizePrayerOffsets(safe.prayer_offsets),
   });
 }
 
