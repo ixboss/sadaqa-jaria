@@ -10,10 +10,11 @@ package app.sadaqa.android.engine
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 enum class SmartCardKind(val key: String) {
     KAHF("kahf"), AFTER_PRAYER("after_prayer"), QIYAM("qiyam"),
-    MORNING("morning"), EVENING("evening"), NEXT_PRAYER("next_prayer");
+    MORNING("morning"), EVENING("evening"), SLEEP("night"), NEXT_PRAYER("next_prayer");
 }
 
 data class SmartCard(
@@ -30,7 +31,7 @@ object SmartCardResolver {
 
     private const val MIN_MS = 60_000L
 
-    private val isoFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    private val isoFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US)
 
     fun resolve(now: Long, engine: BoundPrayerEngine): SmartCard {
         val tz = ZoneId.of(engine.opts.timeZone)
@@ -40,7 +41,7 @@ object SmartCardResolver {
         val wsToday = engine.sunnahWindows(dateIso)
         val yIso = PrayerEngine.shiftCivilIso(dateIso, -1)
         val wsNight = engine.sunnahWindows(yIso) // the night in progress (maghrib → fajr)
-        val dow = DateTimeFormatter.ofPattern("EEE", java.util.Locale.US).withZone(tz).format(instant)
+        val dow = DateTimeFormatter.ofPattern("EEE", Locale.US).withZone(tz).format(instant)
 
         // 1. Friday between Fajr and Jumu'ah → Surah Al-Kahf
         if (dow == "Fri" && now >= sched.prayers.getValue(PrayerName.FAJR) && now < sched.prayers.getValue(PrayerName.DHUHR)) {
@@ -85,6 +86,17 @@ object SmartCardResolver {
                 "ابدأ أذكار المساء", "adhkar-cat",
             )
         }
+        // 5b. Night / sleep window (after Isha+20m until last third begins) → sleep athkar ('night' window)
+        val isNightSleepWindow =
+            (now >= sched.prayers.getValue(PrayerName.ISHA) && now < wsToday.lastThird) ||
+                (now < sched.prayers.getValue(PrayerName.FAJR) && now < wsNight.lastThird)
+        if (isNightSleepWindow) {
+            return SmartCard(
+                SmartCardKind.SLEEP, "🌙", "وقت النوم", "أذكار النوم",
+                "ورد النوم من حصن المسلم — اقرأها قبل أن تنام",
+                "ابدأ أذكار النوم", "adhkar-sleep",
+            )
+        }
         // 6. else → next-prayer details
         return SmartCard(
             SmartCardKind.NEXT_PRAYER, "🕌", "الوقت الحالي",
@@ -94,15 +106,12 @@ object SmartCardResolver {
         )
     }
 
-    /** Arabic 23h wall clock "HH:mm" in the city timezone (web fmtClock). */
-    fun clock(ms: Long, tz: ZoneId): String {
-        val zdt = Instant.ofEpochMilli(ms).atZone(tz)
-        return "%02d:%02d".format(zdt.hour, zdt.minute)
-    }
+    /** 12-hour wall clock "h:mm AM/PM" with Western ASCII digits in the city timezone. */
+    fun clock(ms: Long, tz: ZoneId): String = TimeFmt.formatWallClock12h(ms, tz)
 
-    /** "HH:MM:SS" countdown (web fmtHMS). */
-    fun hms(msLeft: Long): String {
-        val s = maxOf(0, (msLeft / 1000).toInt())
-        return "%02d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
-    }
+    /** Convenience overload accepting an IANA timezone id (falls back to Asia/Riyadh). */
+    fun clock(ms: Long, timeZone: String): String = TimeFmt.formatWallClock12h(ms, timeZone)
+
+    /** "HH:MM:SS" countdown with Western ASCII digits (web fmtHMS). */
+    fun hms(msLeft: Long): String = TimeFmt.formatHms(msLeft)
 }

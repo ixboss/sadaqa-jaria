@@ -33,9 +33,13 @@ sealed interface JsonValue {
         (this as? Obj)?.fields?.get(key) ?: Null
 
     val str: String? get() = (this as? Str)?.value
-    val dbl: Double? get() = (this as? Num)?.value
-    val int: Int? get() = (this as? Num)?.value?.let { if (it == it.toLong().toDouble()) it.toInt() else null }
-    val long: Long? get() = (this as? Num)?.value?.let { if (it == it.toLong().toDouble()) it.toLong() else null }
+    val dbl: Double? get() = (this as? Num)?.value?.takeIf { it.isFinite() }
+    val int: Int? get() = (this as? Num)?.value?.let {
+        if (it.isFinite() && it >= Int.MIN_VALUE.toDouble() && it <= Int.MAX_VALUE.toDouble() && it == it.toInt().toDouble()) it.toInt() else null
+    }
+    val long: Long? get() = (this as? Num)?.value?.let {
+        if (it.isFinite() && it >= Long.MIN_VALUE.toDouble() && it < 9223372036854775808.0 && it == it.toLong().toDouble()) it.toLong() else null
+    }
     val bool: Boolean? get() = (this as? Bool)?.value
     val arr: List<JsonValue>? get() = (this as? Arr)?.items
     val obj: Map<String, JsonValue>? get() = (this as? Obj)?.fields

@@ -17,13 +17,16 @@ import app.sadaqa.android.backup.JsonValue.Obj
 import app.sadaqa.android.backup.JsonValue.Str
 import app.sadaqa.android.backup.UUID7
 import app.sadaqa.android.data.SadaqaDb
+import app.sadaqa.android.data.Sha256
 import app.sadaqa.android.data.TodayProgress
 import app.sadaqa.android.engine.EngineOptions
 import app.sadaqa.android.engine.HijriEngine
 import app.sadaqa.android.engine.PrayerEngine
 import app.sadaqa.android.engine.PrayerName
 import app.sadaqa.android.engine.QiblaEngine
+import app.sadaqa.android.engine.SmartCardKind
 import app.sadaqa.android.engine.SmartCardResolver
+import app.sadaqa.android.engine.TimeFmt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -692,8 +695,282 @@ class TodayProgressTests {
         val states = listOf(st("i10", 2), st("i90", 2))
         val windows = TodayProgress.compute(categories, items, states)
 
-        assertEquals("only fajr/asr/isha windows with items are shown", 1, windows.size)
+        assertEquals("only fajr/asr/night|isha windows with items are shown", 1, windows.size)
         assertEquals("count_target 0 -> any tap completes", 1, windows[0].completed)
         assertEquals(1, windows[0].total)
+    }
+
+    @Test
+    fun sleepAdhkarMatchesCanonicalNightWindowAndLegacyIsha() {
+        val categories = listOf(cat("c_night", "night"), cat("c_isha", "isha"))
+        val items = listOf(item("i1", "c_night", 3), item("i2", "c_isha", 1))
+        val states = listOf(st("i1", 3))
+        val windows = TodayProgress.compute(categories, items, states)
+
+        assertEquals(1, windows.size)
+        assertEquals("النوم", windows[0].titleAr)
+        assertEquals(1, windows[0].completed)
+        assertEquals(2, windows[0].total)
+    }
+
+    @Test
+    fun smartCardTriggersSleepAdhkarOnNightWindow() {
+        val opts = EngineOptions(21.4225, 39.8262, "Asia/Riyadh")
+        val engine = PrayerEngine.bind(opts)
+        val sched = engine.daySchedule("2026-11-21")
+        // 30 minutes after Isha (past the 20-minute post-prayer window, before last third)
+        val afterIsha = sched.prayers.getValue(PrayerName.ISHA) + 30 * 60_000L
+        val cardEvening = SmartCardResolver.resolve(afterIsha, engine)
+        assertEquals(SmartCardKind.SLEEP, cardEvening.kind)
+        assertEquals("night", cardEvening.kind.key)
+        assertEquals("adhkar-sleep", cardEvening.actionScreen)
+
+        // 30 minutes after midnight (before last third starts)
+        val afterMidnight = java.time.ZonedDateTime.of(
+            2026, 11, 22, 0, 30, 0, 0, java.time.ZoneId.of("Asia/Riyadh"),
+        ).toInstant().toEpochMilli()
+        val cardLate = SmartCardResolver.resolve(afterMidnight, engine)
+        assertEquals(SmartCardKind.SLEEP, cardLate.kind)
+        assertEquals("night", cardLate.kind.key)
+        assertEquals("adhkar-sleep", cardLate.actionScreen)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 12-hour prayer wall-clock formatting — h:mm AM/PM with Western ASCII digits
+// across app surfaces (Today, Qiyam, SmartCard, 30-day table) and Glance widgets.
+// ---------------------------------------------------------------------------
+
+class PrayerClockFormatTests {
+
+    @Test
+    fun formats12HourWithWesternAsciiDigitsAtBoundaries() {
+        val utc = java.time.ZoneId.of("UTC")
+        val midnight = java.time.ZonedDateTime.of(2026, 11, 21, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val earlyAm = java.time.ZonedDateTime.of(2026, 11, 21, 4, 37, 0, 0, utc).toInstant().toEpochMilli()
+        val noon = java.time.ZonedDateTime.of(2026, 11, 21, 12, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val justAfterNoon = java.time.ZonedDateTime.of(2026, 11, 21, 12, 5, 0, 0, utc).toInstant().toEpochMilli()
+        val afternoon = java.time.ZonedDateTime.of(2026, 11, 21, 15, 19, 0, 0, utc).toInstant().toEpochMilli()
+        val lateNight = java.time.ZonedDateTime.of(2026, 11, 21, 23, 59, 0, 0, utc).toInstant().toEpochMilli()
+
+        assertEquals("12:00 AM", TimeFmt.formatWallClock12h(midnight, "UTC"))
+        assertEquals("4:37 AM", TimeFmt.formatWallClock12h(earlyAm, "UTC"))
+        assertEquals("12:00 PM", TimeFmt.formatWallClock12h(noon, "UTC"))
+        assertEquals("12:05 PM", TimeFmt.formatWallClock12h(justAfterNoon, "UTC"))
+        assertEquals("3:19 PM", TimeFmt.formatWallClock12h(afternoon, "UTC"))
+        assertEquals("11:59 PM", TimeFmt.formatWallClock12h(lateNight, "UTC"))
+
+        assertEquals("12:00 AM", SmartCardResolver.clock(midnight, utc))
+        assertEquals("4:37 AM", SmartCardResolver.clock(earlyAm, utc))
+        assertEquals("12:00 PM", SmartCardResolver.clock(noon, utc))
+        assertEquals("12:05 PM", SmartCardResolver.clock(justAfterNoon, utc))
+        assertEquals("3:19 PM", SmartCardResolver.clock(afternoon, utc))
+        assertEquals("11:59 PM", SmartCardResolver.clock(lateNight, utc))
+
+        // Widget helper delegates to TimeFmt
+        assertEquals("4:37 AM", app.sadaqa.android.widget.WidgetData.formatPrayerTime(earlyAm, "UTC"))
+        assertEquals("3:19 PM", app.sadaqa.android.widget.WidgetData.formatPrayerTime(afternoon, "UTC"))
+    }
+
+    @Test
+    fun to12hConverts24hAndArabicIndicStringsToWesternAscii12h() {
+        assertEquals("12:57 AM", TimeFmt.to12h("00:57"))
+        assertEquals("4:05 AM", TimeFmt.to12h("04:05"))
+        assertEquals("12:00 PM", TimeFmt.to12h("12:00"))
+        assertEquals("2:34 PM", TimeFmt.to12h("14:34"))
+        assertEquals("4:54 PM", TimeFmt.to12h("16:54"))
+        assertEquals("11:59 PM", TimeFmt.to12h("23:59"))
+        assertEquals("2:34 PM", TimeFmt.to12h("١٤:٣٤"))
+        assertEquals("12:57 AM", TimeFmt.to12h("٠٠:٥٧"))
+        assertEquals("4:54 PM", TimeFmt.to12h("4:54 pm"))
+    }
+
+    @Test
+    fun enforcesWesternAsciiDigitsUnderArabicDefaultLocale() {
+        val prev = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale.forLanguageTag("ar-EG"))
+            val cairo = java.time.ZoneId.of("Africa/Cairo")
+            val fajrMs = java.time.ZonedDateTime.of(2026, 11, 21, 4, 52, 0, 0, cairo).toInstant().toEpochMilli()
+            val maghribMs = java.time.ZonedDateTime.of(2026, 11, 21, 17, 4, 0, 0, cairo).toInstant().toEpochMilli()
+
+            val fajrStr = TimeFmt.formatWallClock12h(fajrMs, "Africa/Cairo")
+            val maghribStr = app.sadaqa.android.widget.WidgetData.formatPrayerTime(maghribMs, "Africa/Cairo")
+            val hmsStr = TimeFmt.formatHms(3_723_000L)
+
+            assertEquals("4:52 AM", fajrStr)
+            assertEquals("5:04 PM", maghribStr)
+            assertEquals("2:34 PM", TimeFmt.to12h("14:34"))
+            assertEquals("01:02:03", hmsStr)
+            assertTrue("clock must contain only ASCII characters", fajrStr.all { it.code < 128 })
+            assertTrue("widget clock must contain only ASCII characters", maghribStr.all { it.code < 128 })
+            assertTrue("countdown must contain only ASCII characters", hmsStr.all { it.code < 128 })
+        } finally {
+            java.util.Locale.setDefault(prev)
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// .sadaqa import hardening — coordinate bounds, string sanitization, clamping
+// of hijri_adjust [-3,+3] & prayer_offsets [-60,+60], corrupt setting fallback,
+// and 1e300 numeric overflow guards.
+// ---------------------------------------------------------------------------
+
+class BackupImportHardeningTests {
+
+    private fun makeDb(): SadaqaDb {
+        val f = File("build/tmp-p5/hardening-${System.nanoTime()}.db")
+        f.parentFile?.mkdirs()
+        return SadaqaDb.open(f, ::seedBytesOf)
+    }
+
+    private fun seedBytesOf(): ByteArray = sequenceOf(
+        File("src/main/assets/sadaqa.db"),
+        File("app/src/main/assets/sadaqa.db"),
+        File("../../../packages/core-data/build/sadaqa.db"),
+        File("../../packages/core-data/build/sadaqa.db"),
+        File("../../ios-native/Resources/sadaqa.db"),
+        File("packages/core-data/build/sadaqa.db"),
+    ).firstOrNull { it.exists() }?.readBytes() ?: throw IllegalStateException("seed db missing")
+
+    private fun buildBackupText(prefs: List<JsonValue>, now: Long = 1_794_988_800_000L): String {
+        val payload = Obj(
+            mapOf(
+                "reading" to Arr(emptyList()),
+                "dhikr" to Arr(emptyList()),
+                "prefs" to Arr(prefs),
+                "meta" to Arr(emptyList()),
+            ),
+        )
+        val integrity = Sha256.hex(CanonicalJson.serialize(payload))
+        val manifest = Obj(
+            mapOf(
+                "format" to Str("sadaqa-backup"),
+                "formatVersion" to Num(1.0),
+                "createdAt" to Num(now.toDouble()),
+                "deviceId" to Str("018f3f2e-7abc-7def-8abc-000000000099"),
+                "integrity" to Str(integrity),
+            ),
+        )
+        return CanonicalJson.serialize(Obj(mapOf("manifest" to manifest, "payload" to payload)))
+    }
+
+    private fun settingEntity(key: String, value: JsonValue, now: Long = 1_794_988_800_000L): JsonValue =
+        Obj(
+            mapOf(
+                "uuid" to Str(UUID7.synthUuid7("setting:$key", now)),
+                "type" to Str("setting"),
+                "updatedAt" to Num(now.toDouble()),
+                "key" to Str(key),
+                "value" to value,
+            ),
+        )
+
+    @Test
+    fun sanitizesCorruptSettingsAndPreventsNumericOverflowOnImport() {
+        val db = makeDb()
+        try {
+            val backup = buildBackupText(
+                listOf(
+                    settingEntity(
+                        "location",
+                        Obj(
+                            mapOf(
+                                "lat" to Num(999.0),
+                                "lon" to Num(-999.0),
+                                "tz" to Str("Invalid/Zone"),
+                                "name_ar" to Str("  \u0000الرياض\n\tالمكرمة\u0007  "),
+                                "gps" to Obj(mapOf("lat" to Num(24.7), "lng" to Num(46.6))),
+                            ),
+                        ),
+                    ),
+                    settingEntity("hijri_adjust", Num(1e300)),
+                    settingEntity("calc_method", Str("corrupt_method")),
+                    settingEntity("asr_madhhab", Str("unknown_madhab")),
+                    settingEntity("high_lat_rule", Str("bogus_rule")),
+                    settingEntity(
+                        "prayer_offsets",
+                        Obj(
+                            mapOf(
+                                "fajr" to Num(1e300),
+                                "dhuhr" to Num(-1e300),
+                                "maghrib" to Num(5.0),
+                                "bogus" to Num(10.0),
+                            ),
+                        ),
+                    ),
+                ),
+            )
+
+            db.importBackup(backup, "merge")
+
+            // String sanitized & control chars stripped; device-local gps stripped
+            assertEquals("الرياض المكرمة", db.locationNameAr())
+            assertEquals(JsonValue.Null, db.setting("location")!!["gps"])
+
+            // Out-of-range lat/lon & invalid tz degraded safely to Makkah defaults
+            val opts = db.engineOptions()
+            assertEquals(PrayerEngine.DEFAULT_LAT, opts.lat, 1e-6)
+            assertEquals(PrayerEngine.DEFAULT_LNG, opts.lng, 1e-6)
+            assertEquals(PrayerEngine.DEFAULT_TIMEZONE, opts.timeZone)
+            assertEquals(PrayerEngine.DEFAULT_METHOD, opts.method)
+            assertEquals(PrayerEngine.DEFAULT_MADHAB, opts.madhab)
+            assertEquals(PrayerEngine.DEFAULT_HIGH_LATITUDE_RULE, opts.highLatitudeRule)
+
+            // hijri_adjust clamped to [-3, +3] without 1e300 crash
+            assertEquals(3, db.hijriAdjust())
+
+            // prayer_offsets loaded & clamped to [-60, +60], unknown keys dropped
+            assertEquals(mapOf("fajr" to 60, "dhuhr" to -60, "maghrib" to 5), opts.offsets)
+
+            // PrayerEngine computes cleanly with clamped offsets applied
+            val baseOpts = opts.copy(offsets = emptyMap())
+            val baseSched = PrayerEngine.daySchedule("2026-11-21", baseOpts)
+            val adjSched = PrayerEngine.daySchedule("2026-11-21", opts)
+            assertEquals(
+                60 * 60_000L,
+                adjSched.prayers.getValue(PrayerName.FAJR) - baseSched.prayers.getValue(PrayerName.FAJR),
+            )
+            assertEquals(
+                -60 * 60_000L,
+                adjSched.prayers.getValue(PrayerName.DHUHR) - baseSched.prayers.getValue(PrayerName.DHUHR),
+            )
+            assertEquals(
+                5 * 60_000L,
+                adjSched.prayers.getValue(PrayerName.MAGHRIB) - baseSched.prayers.getValue(PrayerName.MAGHRIB),
+            )
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun engineDegradesSafelyOnDirectCorruptOptionsAndNegativeHijriOverflow() {
+        val db = makeDb()
+        try {
+            db.setSetting("hijri_adjust", Num(-1e300))
+            assertEquals(-3, db.hijriAdjust())
+
+            val corrupt = EngineOptions(
+                lat = 21.4225,
+                lng = 39.8262,
+                timeZone = "Bad/Zone",
+                method = "nonexistent",
+                madhab = "invalid",
+                highLatitudeRule = "invalid_hlr",
+                offsets = mapOf("fajr" to 120, "unknown" to 10),
+            )
+            val sched = PrayerEngine.daySchedule("2026-11-21", corrupt)
+            assertTrue(sched.prayers.getValue(PrayerName.FAJR) > 0L)
+            val sanitized = PrayerEngine.sanitizeOptions(corrupt)
+            assertEquals(PrayerEngine.DEFAULT_TIMEZONE, sanitized.timeZone)
+            assertEquals(PrayerEngine.DEFAULT_METHOD, sanitized.method)
+            assertEquals(PrayerEngine.DEFAULT_MADHAB, sanitized.madhab)
+            assertEquals(PrayerEngine.DEFAULT_HIGH_LATITUDE_RULE, sanitized.highLatitudeRule)
+            assertEquals(mapOf("fajr" to 60), sanitized.offsets)
+        } finally {
+            db.close()
+        }
     }
 }

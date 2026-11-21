@@ -15,7 +15,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -27,15 +26,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.GridView
@@ -46,42 +48,48 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import app.sadaqa.android.data.SadaqaDb
+import app.sadaqa.android.ui.AthkarScreen
+import app.sadaqa.android.ui.LiquidGlassSurface
 import app.sadaqa.android.ui.LocalSadaqaTheme
+import app.sadaqa.android.ui.MushafScreen
+import app.sadaqa.android.ui.SadaqaColors
 import app.sadaqa.android.ui.SadaqaTheme
 import app.sadaqa.android.ui.SearchSheet
 import app.sadaqa.android.ui.TodayScreen
-import app.sadaqa.android.ui.MushafScreen
-import app.sadaqa.android.ui.AthkarScreen
 import app.sadaqa.android.ui.ToolsScreen
+import app.sadaqa.android.ui.rememberGlassPalette
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,8 +99,9 @@ class MainActivity : ComponentActivity() {
             val dbState by app.dbState.collectAsState()
             val themeKey by app.themeKey.collectAsState()
             val fontScale by app.fontScale.collectAsState()
-            MaterialTheme(colorScheme = SadaqaTheme.colorScheme(themeKey)) {
-                val colors = SadaqaTheme.colors(themeKey)
+            val colorScheme = remember(themeKey) { SadaqaTheme.colorScheme(themeKey) }
+            val colors = remember(themeKey) { SadaqaTheme.colors(themeKey) }
+            MaterialTheme(colorScheme = colorScheme) {
                 when (val state = dbState) {
                     SadaqaApp.DbState.Loading -> Box(
                         Modifier.fillMaxSize().background(colors.bg).safeDrawingPadding(),
@@ -123,7 +132,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
-                    is SadaqaApp.DbState.Ready -> CompositionLocalRoot(db = state.db, themeKey = themeKey, fontScale = fontScale)
+                    is SadaqaApp.DbState.Ready -> CompositionLocalRoot(db = state.db, colors = colors, fontScale = fontScale)
                 }
             }
         }
@@ -131,8 +140,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun CompositionLocalRoot(db: SadaqaDb, themeKey: String, fontScale: Float) {
-    val colors = SadaqaTheme.colors(themeKey)
+private fun CompositionLocalRoot(db: SadaqaDb, colors: SadaqaColors, fontScale: Float) {
     val baseDensity = LocalDensity.current
     val scaledDensity = remember(baseDensity, fontScale) {
         Density(density = baseDensity.density, fontScale = baseDensity.fontScale * fontScale)
@@ -165,99 +173,144 @@ private fun RequestNotificationsPermission() {
     }
 }
 
+@Immutable
+private data class NavTabSpec(val icon: ImageVector, val label: String, val key: String)
+
+private val NAV_TABS = listOf(
+    NavTabSpec(Icons.Outlined.Today, "اليوم", "today"),
+    NavTabSpec(Icons.Outlined.MenuBook, "المصحف", "mushaf"),
+    NavTabSpec(Icons.Outlined.Spa, "الأذكار", "athkar"),
+    NavTabSpec(Icons.Outlined.GridView, "الأدوات", "tools"),
+)
+
+private val NAV_CAPSULE_SHAPE = RoundedCornerShape(30.dp)
+private val NAV_PILL_SHAPE = RoundedCornerShape(24.dp)
+
 @Composable
 fun RootScaffold(db: SadaqaDb) {
     var tab by rememberSaveable { mutableStateOf("today") }
     var pendingTool by rememberSaveable { mutableStateOf<String?>(null) }
     var searchOpen by rememberSaveable { mutableStateOf(false) }
 
-    val navigate: (String) -> Unit = { target ->
-        if (target.startsWith("tools-")) {
-            pendingTool = target.removePrefix("tools-")
-            tab = "tools"
-        } else {
-            if (target == "tools") pendingTool = null
-            tab = target
+    val navigate: (String) -> Unit = remember {
+        { target ->
+            if (target.startsWith("tools-")) {
+                pendingTool = target.removePrefix("tools-")
+                tab = "tools"
+            } else {
+                if (target == "tools") pendingTool = null
+                tab = target
+            }
+        }
+    }
+    val onOpenTools = remember(navigate) { { navigate("tools") } }
+    val onOpenSearch = remember { { searchOpen = true } }
+    val onClearInitial = remember { { pendingTool = null } }
+    val onSelectTab: (String) -> Unit = remember {
+        { selected ->
+            pendingTool = null
+            tab = selected
         }
     }
 
-    Column(Modifier.fillMaxSize().background(LocalSadaqaTheme.current.bg).safeDrawingPadding()) {
-        Box(Modifier.weight(1f)) {
+    Box(Modifier.fillMaxSize().background(LocalSadaqaTheme.current.bg).safeDrawingPadding()) {
+        Box(Modifier.fillMaxSize()) {
             when (tab) {
-                "today" -> TodayScreen(db, onOpenTool = { navigate("tools") }, onNavigate = navigate)
-                "mushaf" -> MushafScreen(db, onNavigateMain = navigate, onOpenSearch = { searchOpen = true })
+                "today" -> TodayScreen(db, onOpenTool = onOpenTools, onNavigate = navigate)
+                "mushaf" -> MushafScreen(db, onNavigateMain = navigate, onOpenSearch = onOpenSearch)
                 "athkar" -> AthkarScreen(db)
-                "tools" -> ToolsScreen(db, initialSub = pendingTool, onClearInitial = { pendingTool = null })
+                "tools" -> ToolsScreen(db, initialSub = pendingTool, onClearInitial = onClearInitial)
             }
         }
-        GlassPillNav(selected = tab, onSelect = { pendingTool = null; tab = it })
+        GlassPillNav(
+            selected = tab,
+            onSelect = onSelectTab,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
     if (searchOpen) SearchSheet(db) { searchOpen = false }
 }
 
 /**
- * Floating glass pill navigation — single translucent 4-tab capsule.
- * Search lives in the screen headers / Mushaf HUD, not a separate orb.
+ * Floating Liquid Glass pill navigation — single translucent 4-tab capsule
+ * floating above screen content with directional specular highlight border
+ * and a spring-animated active glass lens.
  */
 @Composable
-fun GlassPillNav(selected: String, onSelect: (String) -> Unit) {
-    val shape = RoundedCornerShape(28.dp)
-    val isDark = LocalSadaqaTheme.current.bg.luminance() < 0.4f
-    val glassBg = if (isDark) {
-        Brush.verticalGradient(listOf(Color(0xCC122521), Color(0xB8091513)))
-    } else {
-        Brush.verticalGradient(listOf(Color(0xE6FAF7F0), Color(0xD8F1ECE1)))
+fun GlassPillNav(
+    selected: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val glass = rememberGlassPalette()
+    val density = LocalDensity.current
+    val selectedIndex = remember(selected) {
+        NAV_TABS.indexOfFirst { it.key == selected }.coerceAtLeast(0)
     }
-    val glassBorder = if (isDark) Color(0x28FFFFFF) else Color(0x22000000)
-
-    val tabs = remember {
-        listOf(
-            Triple(Icons.Outlined.Today, "اليوم", "today"),
-            Triple(Icons.Outlined.MenuBook, "المصحف", "mushaf"),
-            Triple(Icons.Outlined.Spa, "الأذكار", "athkar"),
-            Triple(Icons.Outlined.GridView, "الأدوات", "tools"),
+    val activeFillBrush = remember(glass) {
+        Brush.verticalGradient(listOf(glass.activeFillTop, glass.activeFillBottom))
+    }
+    val activeBorderBrush = remember(glass) {
+        Brush.linearGradient(
+            colors = listOf(glass.activeBorderTop, glass.activeBorderBottom),
+            start = Offset.Zero,
+            end = Offset.Infinite,
         )
     }
-    val selectedIndex = tabs.indexOfFirst { it.third == selected }.coerceAtLeast(0)
-    val activeFill = if (isDark) Color(0x292DD4BF) else Color(0x240F766E)
-    val activeStroke = if (isDark) Color(0x572DD4BF) else Color(0x4D0F766E)
-    val pillShape = RoundedCornerShape(22.dp)
 
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        BoxWithConstraints(
+        LiquidGlassSurface(
+            shape = NAV_CAPSULE_SHAPE,
+            elevation = 16.dp,
+            glass = glass,
             modifier = Modifier
-                .weight(1f)
-                .clip(shape)
-                .background(glassBg, shape)
-                .border(1.dp, glassBorder, shape)
-                .padding(5.dp),
+                .fillMaxWidth()
+                .widthIn(max = 420.dp),
         ) {
-            val gap = 4.dp
-            val slotW = ((maxWidth - gap * 3) / 4f).coerceAtLeast(1.dp)
-            val indicatorOffset by animateDpAsState(
-                targetValue = (slotW + gap) * selectedIndex,
-                animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow),
-                label = "nav-indicator",
-            )
-            Box(
-                Modifier
-                    .offset(x = indicatorOffset)
-                    .width(slotW)
-                    .height(48.dp)
-                    .clip(pillShape)
-                    .background(activeFill, pillShape)
-                    .border(1.dp, activeStroke, pillShape),
-            )
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(gap),
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(5.dp),
             ) {
-                for ((ico, label, key) in tabs) {
-                    NavItem(ico, label, key, selected, isDark, Modifier.weight(1f), onSelect)
+                val gap = 4.dp
+                val slotW = ((maxWidth - gap * 3) / 4f).coerceAtLeast(1.dp)
+                val targetOffsetPx = with(density) { ((slotW + gap) * selectedIndex).toPx() }
+                val indicatorOffsetPx by animateFloatAsState(
+                    targetValue = targetOffsetPx,
+                    animationSpec = spring(dampingRatio = 0.84f, stiffness = Spring.StiffnessMediumLow),
+                    label = "nav-indicator",
+                )
+                Box(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                    Box(
+                        Modifier
+                            .offset { IntOffset(x = indicatorOffsetPx.roundToInt(), y = 0) }
+                            .width(slotW)
+                            .fillMaxHeight()
+                            .clip(NAV_PILL_SHAPE)
+                            .background(activeFillBrush, NAV_PILL_SHAPE)
+                            .border(1.dp, activeBorderBrush, NAV_PILL_SHAPE),
+                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(gap),
+                    ) {
+                        for (spec in NAV_TABS) {
+                            NavItem(
+                                icon = spec.icon,
+                                label = spec.label,
+                                key = spec.key,
+                                active = selected == spec.key,
+                                activeTint = glass.activeContent,
+                                modifier = Modifier.weight(1f),
+                                onSelect = onSelect,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -269,15 +322,12 @@ private fun NavItem(
     icon: ImageVector,
     label: String,
     key: String,
-    selected: String,
-    isDark: Boolean,
+    active: Boolean,
+    activeTint: Color,
     modifier: Modifier = Modifier,
     onSelect: (String) -> Unit,
 ) {
     val theme = LocalSadaqaTheme.current
-    val active = selected == key
-    val activeTint = if (isDark) Color(0xFF5EEAD4) else Color(0xFF0F766E)
-    val pillShape = RoundedCornerShape(22.dp)
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -285,23 +335,25 @@ private fun NavItem(
         animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMedium),
         label = "nav-press",
     )
+    val contentColor = if (active) activeTint else theme.textSecondary
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
         modifier = modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(pillShape)
+            .clip(NAV_PILL_SHAPE)
             .clickable(interactionSource = interactionSource, indication = null) { onSelect(key) }
-            .padding(vertical = 7.dp),
+            .padding(vertical = 8.dp),
     ) {
-        Icon(icon, contentDescription = label, tint = if (active) activeTint else theme.textSecondary, modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = label, tint = contentColor, modifier = Modifier.size(20.dp))
         Text(
             label,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
-            color = if (active) activeTint else theme.textSecondary,
+            color = contentColor,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
