@@ -161,3 +161,69 @@ test('next(): DST spring-forward midnight uses civil yesterday (not now - 86400s
   assert.equal(r.previous.name, 'isha');
   assert.equal(r.previous.at, mar29.prayers.isha);
 });
+
+// ---------------------------------------------------------------------------
+// bindPrayerEngineFromSettings — imported/corrupted settings must degrade to
+// defaults, never throw (audit 2026-11-21: garbage calc_method used to brick
+// the Today screen and kill the Electron tray engine).
+// ---------------------------------------------------------------------------
+import { bindPrayerEngineFromSettings, wallClockToInstant } from '../engines/prayer.js';
+
+test('binder: unknown calc method / madhab / hlr fall back to defaults', () => {
+  const eng = bindPrayerEngineFromSettings({
+    calc_method: 'garbage_method',
+    madhab: '<script>',
+    high_latitude_rule: 'nope',
+    location: { lat: 21.4225, lng: 39.8262, tz: 'Asia/Riyadh' },
+  });
+  const sched = eng.daySchedule('2026-11-17'); // must not throw
+  assert.ok(Number.isFinite(sched.prayers.fajr));
+  assert.equal(eng.opts.method, 'umm_al_qura');
+  assert.equal(eng.opts.madhab, 'shafi');
+  assert.equal(eng.opts.highLatitudeRule, 'middle_of_the_night');
+});
+
+test('binder: NaN / out-of-range lat-lng and bad tz degrade to Mecca defaults', () => {
+  const eng = bindPrayerEngineFromSettings({ location: { lat: '<img>', lng: 9999, tz: 'Not/AZone' } });
+  assert.equal(eng.opts.lat, 21.4225);
+  assert.equal(eng.opts.lng, 39.8262);
+  assert.equal(eng.opts.timeZone, 'Asia/Riyadh');
+  const sched = eng.daySchedule('2026-11-17');
+  assert.ok(Number.isFinite(sched.prayers.maghrib));
+});
+
+test('binder: malformed prayer_offsets dropped; valid ones kept', () => {
+  const eng = bindPrayerEngineFromSettings({
+    prayer_offsets: { fajr: 7, dhuhr: 'x', isha: 999, bogus: 5 },
+    location: { lat: 21.4225, lng: 39.8262, tz: 'Asia/Riyadh' },
+  });
+  assert.deepEqual(eng.opts.offsets, { fajr: 7 });
+});
+
+test('binder: non-object location / settings survive', () => {
+  for (const bad of [{ location: 'garbage' }, { location: ['x'] }, { location: null }, null, undefined]) {
+    const eng = bindPrayerEngineFromSettings(bad ?? undefined);
+    assert.equal(eng.opts.timeZone, 'Asia/Riyadh');
+    assert.ok(Number.isFinite(eng.opts.lat));
+  }
+});
+
+test('wallClockToInstant resolves every real-world IANA offset (Kabul/Yangon/Eucla/Chatham/LordHowe)', () => {
+  const cases = [
+    ['Asia/Kabul', { y: 2026, mo: 5, d: 15, h: 9, mi: 0, s: 0 }, 270],   // +04:30
+    ['Asia/Yangon', { y: 2026, mo: 5, d: 15, h: 9, mi: 30, s: 0 }, 390], // +06:30
+    ['Australia/Eucla', { y: 2026, mo: 5, d: 15, h: 8, mi: 45, s: 0 }, 525], // +08:45
+    ['Pacific/Chatham', { y: 2026, mo: 5, d: 15, h: 12, mi: 45, s: 0 }, 765], // +12:45 (winter)
+    ['Australia/Lord_Howe', { y: 2026, mo: 6, d: 15, h: 10, mi: 30, s: 0 }, 630], // +10:30 (winter)
+  ];
+  for (const [tz, wall, offMin] of cases) {
+    const inst = wallClockToInstant(wall, tz);
+    const back = civilParts(inst, tz);
+    assert.equal(back.h, wall.h, `${tz} hour round-trip`);
+    assert.equal(back.mi, wall.mi, `${tz} minute round-trip`);
+    assert.equal(back.d, wall.d, `${tz} day round-trip`);
+    // the probe found the documented standard offset for that season
+    const minutes = Math.round((inst - Date.UTC(wall.y, wall.mo, wall.d, wall.h, wall.mi, wall.s)) / 60000);
+    assert.equal(minutes, -offMin, `${tz} UTC offset minutes = -${offMin} (instant = wall - offset)`);
+  }
+});

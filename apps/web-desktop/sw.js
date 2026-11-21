@@ -3,7 +3,7 @@
 // (never block install on the 42 MB sadaqa.db). Runtime cache-first:
 // sadaqa.db, QPC1 per-page fonts, and audio packs.
 // ============================================================================
-const CACHE = 'sadaqa-v2-v15';
+const CACHE = 'sadaqa-v2-v16';
 const SHELL = [
   'index.html',
   '../../icons/icon-192.png',
@@ -42,6 +42,7 @@ const SHELL = [
   'vendor/sqlite-wasm/index.mjs',
   'vendor/sqlite-wasm/sqlite3.wasm',
   '../../packages/core-data/engines/prayer.js',
+  '../../packages/core-data/engines/timefmt.js',
   '../../packages/core-data/engines/hijri.js',
   '../../packages/core-data/engines/qibla.js',
   '../../packages/core-data/engines/search.js',

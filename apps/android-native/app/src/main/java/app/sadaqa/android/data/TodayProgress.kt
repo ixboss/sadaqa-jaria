@@ -12,7 +12,9 @@ object TodayProgress {
     data class StateRow(val itemId: String, val count: Int)
     data class WindowProgress(val titleAr: String, val completed: Int, val total: Int)
 
-    private val WINDOWS = listOf("fajr" to "الصباح", "asr" to "المساء", "isha" to "النوم")
+    // Sleep athkar are tagged `night` in the DB (schema CHECK list — 'isha'
+    // is forbidden there and could never render; audit 2026-11-21).
+    private val WINDOWS = listOf("fajr" to "الصباح", "asr" to "المساء", "night" to "النوم")
 
     fun compute(categories: List<Category>, items: List<Item>, states: List<StateRow>): List<WindowProgress> {
         val windowOf = HashMap<String, String>()

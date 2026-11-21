@@ -72,3 +72,19 @@ test('monthNameAr is total over 1..12 and throws outside', () => {
   assert.throws(() => monthNameAr(0), /1\.\.12/);
   assert.throws(() => monthNameAr(13), /1\.\.12/);
 });
+
+test('withAdjust: non-finite adjust degrades to 0 instead of throwing (imported garbage setting)', () => {
+  const iso = '2026-11-17';
+  const base = withAdjust(iso, 0);
+  for (const bad of [NaN, undefined, null, 'garbage', Infinity]) {
+    assert.deepEqual(withAdjust(iso, bad), base);
+  }
+});
+
+test('withAdjust: finite-but-huge garbage clamps to the schema ±3 contract (no RangeError)', () => {
+  const iso = '2026-11-17';
+  const plus3 = withAdjust(iso, 3);
+  const minus3 = withAdjust(iso, -3);
+  assert.deepEqual(withAdjust(iso, 1e15), plus3);
+  assert.deepEqual(withAdjust(iso, -1e15), minus3);
+});

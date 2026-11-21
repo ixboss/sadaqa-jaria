@@ -14,10 +14,13 @@
 // or any tap when count_target is 0.
 // ============================================================================
 
+// Sleep athkar are tagged `night` in the DB (schema.sql:220 CHECK list —
+// 'isha' was a key the schema forbids, so the النوم window could NEVER
+// render; audit 2026-11-21). The Android port (TodayProgress.kt) mirrors.
 const WINDOWS = [
   { key: 'fajr', titleAr: 'الصباح' },
   { key: 'asr', titleAr: 'المساء' },
-  { key: 'isha', titleAr: 'النوم' },
+  { key: 'night', titleAr: 'النوم' },
 ];
 
 export function computeDailyProgress(categories, items, states) {

@@ -9,7 +9,9 @@ const item = (id, categoryId, countTarget) => ({ item_id: id, category_id: categ
 const st = (itemId, count) => ({ item_id: itemId, count });
 
 test('ورد اليوم — windows aggregate completed/target counts in fixed order', () => {
-  const categories = [cat('c1', 'fajr'), cat('c2', 'asr'), cat('c3', 'isha')];
+  // DB-true tags (schema.sql:220): fajr / asr / night — NOT 'isha', which the
+  // CHECK list forbids (audit 2026-11-21: 'isha' fixtures hid the sleep window).
+  const categories = [cat('c1', 'fajr'), cat('c2', 'asr'), cat('c3', 'night')];
   const items = [item('i10', 'c1', 10), item('i11', 'c1', 7), item('i20', 'c2', 5), item('i30', 'c3', 4)];
   const states = [st('i10', 10), st('i11', 3), st('i20', 5)];
   const { windows } = computeDailyProgress(categories, items, states);
@@ -21,12 +23,19 @@ test('ورد اليوم — windows aggregate completed/target counts in fixed o
   assert.deepEqual(windows[2], { titleAr: 'النوم', completed: 0, total: 1 }, 'i30 has no state row yet');
 });
 
+test('regression: sleep athkar tagged `night` (real DB value) render the النوم window', () => {
+  const categories = [cat('sleep-cat', 'night')];
+  const items = [item('s1', 'sleep-cat', 5)];
+  const { windows } = computeDailyProgress(categories, items, []);
+  assert.deepEqual(windows, [{ titleAr: 'النوم', completed: 0, total: 1 }]);
+});
+
 test('unknown solar windows are dropped; target 0 completes on any tap', () => {
-  const categories = [cat('c1', 'isha'), cat('c9', 'noon')];
+  const categories = [cat('c1', 'night'), cat('c9', 'noon')];
   const items = [item('i10', 'c1', 0), item('i90', 'c9', 2)];
   const states = [st('i10', 2), st('i90', 2)];
   const { windows } = computeDailyProgress(categories, items, states);
 
-  assert.equal(windows.length, 1, 'only fajr/asr/isha windows are shown');
+  assert.equal(windows.length, 1, 'only fajr/asr/night windows are shown');
   assert.equal(windows[0].completed, 1, 'count_target 0 → any tap completes');
 });

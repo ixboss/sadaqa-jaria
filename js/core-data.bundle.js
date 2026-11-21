@@ -1198,7 +1198,12 @@ function tzOffsetMinutes(wallParts, timeZone) {
   const { y, mo, d, h, mi, s } = wallParts;
   const naive = Date.UTC(y, mo, d, h, mi, s);
   // DST transitions never jump more than ±2h; probe the plausible range.
-  for (const guess of [0, 60, -60, 120, -120, 180, -180, 210, -210, 240, -240, 300, -300, 330, -330, 345, -345, 420, -420, 480, -480, 540, -540, 570, -570, 600, -600, 660, -660, 720, -720, 780, -780, 840, -840]) {
+  // Covers EVERY offset IANA can produce: half/quarter zones (Kabul +04:30,
+  // Yangon +06:30, Eucla +08:45, Lord Howe +10:30, Chatham +12:45/+13:45,
+  // Kathmandu +05:45) and the legacy LMT-era ±30/±90/±150/±690/±750 —
+  // missing entries used to throw "cannot resolve UTC offset" for those
+  // zones (audit 2026-11-21).
+  for (const guess of [0, 30, -30, 60, -60, 90, -90, 120, -120, 150, -150, 180, -180, 210, -210, 240, -240, 270, -270, 300, -300, 330, -330, 345, -345, 390, -390, 420, -420, 480, -480, 525, -525, 540, -540, 570, -570, 600, -600, 630, -630, 660, -660, 690, -690, 720, -720, 750, -750, 765, -765, 780, -780, 825, -825, 840, -840]) {
     const instant = naive - guess * 60_000;
     const back = civilParts(instant, timeZone);
     if (back.y === y && back.mo === mo && back.d === d && back.h === h && back.mi === mi && back.s === s) {
@@ -1388,17 +1393,39 @@ function bindPrayerEngine(opts) {
   };
 }
 
-/** Bind a prayer engine from a persisted user_settings map (shared by web + Electron). */
+/** Bind a prayer engine from a persisted user_settings map (shared by web + Electron).
+ * Imported/corrupted settings must DEGRADE TO DEFAULTS here, never throw:
+ * an unknown calc method (or a NaN lat from a crafted backup) used to brick
+ * the Today/Qibla screens and silently kill the Electron tray engine
+ * (audit 2026-11-21). buildParams below still validates strictly for
+ * programmatic callers. */
+function safeEnum(value, allowed, fallback) {
+  return allowed.includes(value) ? value : fallback;
+}
+
+/** prayer_offsets: { name → minutes } — drop malformed entries wholesale. */
+function safeOffsets(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out = {};
+  for (const [name, minutes] of Object.entries(raw)) {
+    const m = Number(minutes);
+    if (PRAYER_NAMES.includes(name) && Number.isFinite(m) && Math.abs(m) <= 60) out[name] = m;
+  }
+  return out;
+}
+
 function bindPrayerEngineFromSettings(settings = {}) {
-  const loc = settings.location ?? { lat: 21.4225, lng: 39.8262, tz: 'Asia/Riyadh' };
+  const rawLoc = settings.location && typeof settings.location === 'object' && !Array.isArray(settings.location) ? settings.location : {};
+  const lat = Number(rawLoc.lat ?? 21.4225);
+  const lng = Number(rawLoc.lng ?? 39.8262);
   return bindPrayerEngine({
-    lat: Number(loc.lat ?? 21.4225),
-    lng: Number(loc.lng ?? 39.8262),
-    timeZone: safeTimeZone(loc.timeZone || loc.tz),
-    method: settings.calc_method ?? 'umm_al_qura',
-    madhab: settings.madhab ?? 'shafi',
-    highLatitudeRule: settings.high_latitude_rule ?? 'middle_of_the_night',
-    offsets: settings.prayer_offsets ?? {},
+    lat: Number.isFinite(lat) && lat >= -90 && lat <= 90 ? lat : 21.4225,
+    lng: Number.isFinite(lng) && lng >= -180 && lng <= 180 ? lng : 39.8262,
+    timeZone: safeTimeZone(rawLoc.timeZone || rawLoc.tz),
+    method: safeEnum(settings.calc_method, CALC_METHODS, 'umm_al_qura'),
+    madhab: safeEnum(settings.madhab, MADHABS, 'shafi'),
+    highLatitudeRule: safeEnum(settings.high_latitude_rule, HIGH_LATITUDE_RULES, 'middle_of_the_night'),
+    offsets: safeOffsets(settings.prayer_offsets),
   });
 }
 
@@ -1458,8 +1485,14 @@ function qiblaBearing({ lat, lng }) {
   return (deg(θ) + 360) % 360;
 }
 
-/** Great-circle distance in km (haversine) — used to pick the dial fallback threshold. */
+/** Great-circle distance in km (haversine) — used to pick the dial fallback threshold.
+ *  Same validation as qiblaBearing: a NaN/garbage GPS fix used to silently
+ *  return NaN (every NaN threshold comparison is false → silent compass
+ *  degradation) or out-of-range garbage — throwing surfaces the bad fix
+ *  (audit 2026-11-21). */
 function distanceKm({ lat, lng }) {
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error(`invalid lat: ${lat}`);
+  if (!Number.isFinite(lng) || lng < -180 || lng > 180) throw new Error(`invalid lng: ${lng}`);
   const R = 6371.0088;
   const φ1 = rad(lat), φ2 = rad(KAABA.lat);
   const Δφ = rad(KAABA.lat - lat), Δλ = rad(KAABA.lng - lng);

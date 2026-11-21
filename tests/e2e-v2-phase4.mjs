@@ -188,6 +188,41 @@ async function main() {
       new RegExp(`^\\d+ / ${daily.rows.length} أوراد$`).test(daily.badge.replace(/\s+/g, ' ')), daily.badge);
     ok('today: screen bottom padding clears the dock (~96px)', daily.bottomPad > 80 && daily.bottomPad <= 110, `${daily.bottomPad}px`);
 
+    // 3d. security: imported-garbage settings must not XSS the hub nor brick
+    // the prayer engine (audit 2026-11-21: setting VALUES are importable via
+    // .sadaqa and unvalidated by backup-validate — the escape + degrade
+    // contract under test).
+    await evaljs(`(() => {
+      const s = window.__sadaqa.state.settings;
+      s.location = { lat: 21.4225, lng: 39.8262, tz: 'Asia/Riyadh', name_ar: '<img src=x onerror="window.__xssProbe=1">' };
+      s.calc_method = 'garbage_method';
+      s.hijri_adjust = 'zzz';
+      return true;
+    })()`);
+    await evaljs(`(async () => {
+      const m = await import(new URL('./js/ui/screens/today.js', location.href));
+      await m.renderToday(document.getElementById('screen-root'));
+      return true;
+    })()`);
+    const sec = await evaljs(`({ pill: document.getElementById('today-city-btn')?.innerHTML ?? '',
+      injected: window.__xssProbe === true,
+      hero: !!document.getElementById('hero-countdown'),
+      schedule: document.querySelectorAll('.prayer-row').length,
+      hijriOk: /\\d+\\s+.+?\\s+\\d+\\s+هـ/.test(document.querySelector('.screen-header .sub')?.textContent ?? '') })`);
+    ok('security: poisoned location name_ar renders as text (no img element, no onerror fired)',
+      sec.pill.includes('&lt;img') && !sec.pill.includes('<img') && sec.injected === false, sec.pill.slice(0, 90));
+    ok('security: garbage calc_method degrades to default — hero + 6 prayer rows still render',
+      sec.hero && sec.schedule === 6, `schedule=${sec.schedule}`);
+    ok('security: garbage hijri_adjust degrades to 0 — Hijri date still renders', sec.hijriOk);
+    // restore clean settings for the remaining sections
+    await evaljs(`(() => {
+      const s = window.__sadaqa.state.settings;
+      s.location = { lat: 21.4225, lng: 39.8262, tz: 'Asia/Riyadh', name_ar: 'مكة المكرمة' };
+      s.calc_method = 'umm_al_qura';
+      s.hijri_adjust = 0;
+      return true;
+    })()`);
+
     // 4. Smart Context-Aware Card matrix — real resolution order, synthetic instants
     const matrix = await evaljs(`(async () => {
       const { prayerEngineForSettings } = await import(new URL('./js/app-state.js', location.href));

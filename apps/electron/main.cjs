@@ -55,7 +55,11 @@ function resolveUnder(root, urlPath) {
 }
 
 function registerAppProtocol() {
-  const CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob: https:; connect-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'none';";
+  // Desktop is zero-server: every renderer fetch is same-origin app:// (audio
+  // packs, catalog, db). The web PWA's `connect-src https:` / `media-src
+  // https:` allowances are PWA leftovers that give a compromised renderer a
+  // silent exfiltration channel — tightened here to 'self' + blob: only.
+  const CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob:; connect-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none';";
   protocol.handle('app', async (request) => {
     try {
       const u = new URL(request.url);
@@ -73,8 +77,8 @@ function registerAppProtocol() {
           const st = await fsp.stat(file);
           if (!st.isFile()) continue;
           const ext = path.extname(file).toLowerCase();
-          const headers = { 'content-type': MIME[ext] ?? 'application/octet-stream' };
-          if (ext === '.html') headers['content-security-policy'] = CSP;
+          const headers = { 'content-type': MIME[ext] ?? 'application/octet-stream', 'x-content-type-options': 'nosniff' };
+          if (ext === '.html' || ext === '.svg') headers['content-security-policy'] = CSP;
           const body = await fsp.readFile(file);
           return new Response(body, { headers });
         } catch { /* try next candidate */ }
@@ -152,6 +156,13 @@ function guardSql(kind, sql) {
   if (s.includes(';')) throw new Error('multi-statement sql forbidden');
   if (/^\s*(SELECT|WITH)\b/i.test(s)) {
     if (kind !== 'read') throw new Error('read query not allowed in write channel');
+    // WITH-classified statements must be reads ALL THE WAY THROUGH: SQLite
+    // allows CTE-prefixed DML, and until 2026-11-21 the write detection for
+    // those rested solely on better-sqlite3's prepare-time reader flag —
+    // fail closed here too (DML keywords anywhere in the statement).
+    if (/^\s*WITH\b/i.test(s) && /\b(INSERT|UPDATE|DELETE|REPLACE|ATTACH|DETACH|PRAGMA|CREATE|DROP|ALTER|VACUUM)\b/i.test(s)) {
+      throw new Error('dml inside cte-prefixed statement forbidden');
+    }
     return s;
   }
   if (/^\s*(INSERT|UPDATE|DELETE)\b/i.test(s)) {
@@ -203,7 +214,15 @@ function registerIpc() {
     const dir = path.join(app.getPath('userData'), 'audio', safeReciter);
     return { dir, file: path.join(dir, `${safeKey}.mp3`) };
   };
+  // سقف بايتات لكل ملف (أطول سورة mp3 ≈ ٥٨ م.ب عند ٦٤kbps) — كان بإمكان
+  // renderer مُخترق أن يملأ القرص بصمت عبر audio:put المتكرر (audit 2026-11-21)
+  const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
+  const MAX_EXPORT_BYTES = 64 * 1024 * 1024;
+  const byteLengthOf = (bytes) => (bytes instanceof ArrayBuffer ? bytes.byteLength : (bytes?.length ?? -1));
   ipcMain.handle('audio:put', async (_e, { reciter, key, bytes }) => {
+    if (!Number.isInteger(byteLengthOf(bytes)) || byteLengthOf(bytes) < 0 || byteLengthOf(bytes) > MAX_AUDIO_BYTES) {
+      throw new Error('audio:put bytes missing or too large');
+    }
     const { dir, file } = audioDirFor(reciter, key);
     await fsp.mkdir(dir, { recursive: true });
     await fsp.writeFile(file, Buffer.from(bytes));
@@ -227,6 +246,8 @@ function registerIpc() {
   // .sadaqa files via native dialogs — defaultPath اسم ملف فقط (لا مسار مطلق
   // من الـ renderer) وبمرشّح امتداد واحد (audit 2026-11)
   ipcMain.handle('file:save', async (_e, { bytes, name }) => {
+    const size = byteLengthOf(bytes);
+    if (!Number.isInteger(size) || size < 0 || size > MAX_EXPORT_BYTES) throw new Error('file:save bytes missing or too large');
     const { canceled, filePath } = await dialog.showSaveDialog({
       defaultPath: path.basename(String(name ?? 'sadaqa-backup.sadaqa')),
       filters: [{ name: 'Sadaqa Backup', extensions: ['sadaqa'] }],
@@ -253,9 +274,14 @@ function registerIpc() {
 let tray = null;
 const firedAdhan = new Set();
 let engine = null;
+// 12h AM/PM clock from the shared engines (bound in loadEngine, next to the
+// prayer engine — both live in packages/core-data so they fail together).
+let fmtClock12h = null;
 
 async function loadEngine() {
   const prayer = await import(pathToFileURL(path.join(PKG_DIR, 'core-data', 'engines', 'prayer.js')).href);
+  const timefmt = await import(pathToFileURL(path.join(PKG_DIR, 'core-data', 'engines', 'timefmt.js')).href);
+  fmtClock12h = timefmt.formatClock12h;
   const settings = {};
   try {
     const rows = db.prepare(`SELECT key, value FROM user_settings`).all();
@@ -332,8 +358,7 @@ function rebuildTrayMenu() {
   const now = Date.now();
   const next = engine.next(now);
   const tz = engine.opts.timeZone;
-  const clock = (ms) => new Intl.DateTimeFormat('ar', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms);
-  const menuLabel = `الصلاة القادمة: ${PRAYER_AR[next.name]} ${clock(next.at)}`;
+  const menuLabel = `الصلاة القادمة: ${PRAYER_AR[next.name]} ${fmtClock12h(next.at, tz)}`;
   if (menuLabel !== lastTrayMenuLabel) {
     lastTrayMenuLabel = menuLabel;
     const items = [
@@ -439,6 +464,9 @@ async function runProbe() {
     const win = new BrowserWindow({ show: false, webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true,
     } });
+    // نفس حواجز النافذة الرئيسية — حاجز كل نافذة مبدأ لا استثناء له (audit 2026-11-21)
+    win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('app://sadaqa/')) e.preventDefault(); });
     win.webContents.on('dom-ready', async () => {
       try {
         const r = await win.webContents.executeJavaScript(
@@ -490,5 +518,8 @@ app.whenReady().then(async () => {
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 
-app.on('before-quit', () => { app.__quitting = true; });
+app.on('before-quit', () => {
+  app.__quitting = true;
+  try { tray?.destroy(); } catch { /* already gone */ } // لا أيقونة شبح على Windows
+});
 app.on('window-all-closed', () => { /* tray-resident: stay alive */ });
