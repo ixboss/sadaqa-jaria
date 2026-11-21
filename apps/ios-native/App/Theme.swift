@@ -42,7 +42,11 @@ enum SadaqaTheme {
         accentContrast: "#111612", border: "#1B352F", mushafText: "#F4EFE4", mushafBg: "#07110F"
     )
 
-    static func loadFile() -> TokensFile {
+    /// tokens.json is a static bundle resource — decode ONCE. appState.theme is
+    /// read dozens of times per frame in hot paths (HUD toggles, 1 Hz ticker);
+    /// re-reading + re-decoding the file per access was a measurable main-thread
+    /// stall (2026-11-21 HUD 30fps investigation).
+    private static let cachedFile: TokensFile = {
         let url = Bundle.main.url(forResource: "tokens", withExtension: "json", subdirectory: "Resources")
             ?? Bundle.main.url(forResource: "tokens", withExtension: "json")
         guard let url,
@@ -51,6 +55,10 @@ enum SadaqaTheme {
             return TokensFile(themes: ["dark": fallbackDarkTheme], glass: nil, motion: nil, haptics: nil, typography: nil)
         }
         return tokens
+    }()
+
+    static func loadFile() -> TokensFile {
+        cachedFile
     }
 
     static func load(key: String) -> SadaqaThemeColors {
