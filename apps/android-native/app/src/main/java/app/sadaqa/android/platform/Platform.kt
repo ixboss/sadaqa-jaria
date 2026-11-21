@@ -118,7 +118,7 @@ object AdhanScheduler {
 
     fun isoOf(ms: Long, tz: String): String {
         val zone = runCatching { java.time.ZoneId.of(tz) }.getOrElse { java.time.ZoneId.of("Asia/Riyadh") }
-        return DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(zone)
+        return DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US).withZone(zone)
             .format(java.time.Instant.ofEpochMilli(ms))
     }
 
@@ -302,7 +302,7 @@ object AudioStore {
 
     /** Resolve local audio for an ayah: downloads dir → bundled starter → null. */
     fun localFile(context: Context, reciter: String, surah: Int, ayah: Int): File? {
-        val key = "%03d%03d.mp3".format(surah, ayah)
+        val key = String.format(Locale.US, "%03d%03d.mp3", surah, ayah)
         val downloaded = File(baseDir(context), "$reciter/$key")
         if (downloaded.exists()) return downloaded
         val starter = File(context.filesDir, "starter/alafasy/$key")

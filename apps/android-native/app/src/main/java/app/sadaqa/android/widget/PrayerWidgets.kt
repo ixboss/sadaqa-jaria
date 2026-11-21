@@ -32,6 +32,7 @@ import androidx.glance.unit.ColorProvider
 import app.sadaqa.android.engine.EngineOptions
 import app.sadaqa.android.engine.PrayerEngine
 import app.sadaqa.android.engine.PrayerName
+import app.sadaqa.android.engine.SmartCardResolver
 
 /** Reads the app-published widget state; recomputes next prayer offline. */
 object WidgetData {
@@ -58,6 +59,10 @@ object WidgetData {
         }.getOrNull() ?: return null
         return Triple(next.name, next.at, opts.timeZone)
     }
+
+    /** Formats a prayer timestamp as 12-hour "h:mm AM/PM" with Western ASCII digits. */
+    fun formatPrayerTime(epochMs: Long, tz: String): String =
+        SmartCardResolver.clock(epochMs, tz)
 
     /** App-published daily dhikr pick (empty until the app first publishes). */
     fun dailyDhikr(context: Context): String =
@@ -97,10 +102,8 @@ object PrayerCountdownWidget : GlanceAppWidget() {
                         next.first.labelAr,
                         style = TextStyle(color = ColorProvider(Color(0xFFE5C158)), fontSize = 20.sp),
                     )
-                    val zone = runCatching { java.time.ZoneId.of(next.third) }.getOrElse { java.time.ZoneId.of("Asia/Riyadh") }
-                    val zdt = java.time.Instant.ofEpochMilli(next.second).atZone(zone)
                     Text(
-                        "%02d:%02d".format(zdt.hour, zdt.minute),
+                        WidgetData.formatPrayerTime(next.second, next.third),
                         style = TextStyle(color = ColorProvider(Color.White), fontSize = 15.sp),
                     )
                 } else {

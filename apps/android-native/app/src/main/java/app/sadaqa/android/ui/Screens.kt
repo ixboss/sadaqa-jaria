@@ -33,6 +33,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -72,6 +74,8 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -86,32 +90,64 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
+import java.util.Locale
 import java.util.UUID
 import java.time.ZoneId
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 
 // ---------------------------------------------------------------------------
-// formatters (same shapes as the web screens)
+// formatters (12-hour wall clock h:mm AM/PM with Western ASCII digits)
 // ---------------------------------------------------------------------------
+
+private val ISO_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US)
 
 fun isoOf(ms: Long, tz: String): String {
     val zone = runCatching { ZoneId.of(tz) }.getOrElse { ZoneId.of("Asia/Riyadh") }
-    return DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(zone).format(Instant.ofEpochMilli(ms))
+    return ISO_FORMATTER.withZone(zone).format(Instant.ofEpochMilli(ms))
 }
 
-fun clockOf(ms: Long, tz: String): String {
-    val zone = runCatching { ZoneId.of(tz) }.getOrElse { ZoneId.of("Asia/Riyadh") }
-    val zdt = Instant.ofEpochMilli(ms).atZone(zone)
-    return "%02d:%02d".format(zdt.hour, zdt.minute)
-}
+/** 12-hour wall clock "h:mm AM/PM" with Western ASCII digits in the city timezone. */
+fun clockOf(ms: Long, tz: String): String = SmartCardResolver.clock(ms, tz)
 
-fun hmsOf(msLeft: Long): String {
-    val s = maxOf(0, (msLeft / 1000).toInt())
-    return "%02d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
-}
+fun hmsOf(msLeft: Long): String = SmartCardResolver.hms(msLeft)
 
 fun dayKeyOf(ms: Long, tz: String): String = isoOf(ms, tz)
+
+private val PILL_SHAPE = RoundedCornerShape(50)
+
+private val PRAYER_ICONS: Map<PrayerName, ImageVector> = mapOf(
+    PrayerName.FAJR to Icons.Outlined.WbTwilight,
+    PrayerName.SUNRISE to Icons.Outlined.WbSunny,
+    PrayerName.DHUHR to Icons.Outlined.WbSunny,
+    PrayerName.ASR to Icons.Outlined.WbTwilight,
+    PrayerName.MAGHRIB to Icons.Outlined.NightsStay,
+    PrayerName.ISHA to Icons.Outlined.NightsStay,
+)
+
+private val PRAYER_CHUNKS: List<List<PrayerName>> = PrayerName.entries.chunked(3)
+
+private val MONTH_PRAYER_COLS: List<PrayerName> = listOf(
+    PrayerName.FAJR, PrayerName.DHUHR, PrayerName.ASR, PrayerName.MAGHRIB, PrayerName.ISHA,
+)
+
+@Immutable
+private data class QuickAppEntry(val icon: ImageVector, val label: String, val targetTab: String)
+
+private val QUICK_APP_ENTRIES: List<QuickAppEntry> = listOf(
+    QuickAppEntry(Icons.Outlined.Adjust, "السبحة", "tools-tasbih"),
+    QuickAppEntry(Icons.Outlined.Spa, "الأذكار", "athkar"),
+    QuickAppEntry(Icons.Outlined.MenuBook, "المصحف", "mushaf"),
+    QuickAppEntry(Icons.Outlined.Explore, "القبلة", "tools-qibla"),
+)
+
+private val ATHKAR_WINDOW_FILTERS: List<Pair<String, String>> = listOf(
+    "all" to "الكل",
+    "fajr" to "الصباح",
+    "asr" to "المساء",
+    "after_prayer" to "بعد الصلاة",
+    "night" to "النوم والليل",
+)
 
 fun Modifier.tactilePress(onClick: () -> Unit): Modifier = composed {
     val interactionSource = remember { MutableInteractionSource() }
@@ -139,7 +175,7 @@ private val DHIKR_PILL_TEXTS = listOf(
 private fun DhikrPill() {
     val theme = LocalSadaqaTheme.current
     val context = LocalContext.current
-    var dhikrIdx by remember { mutableStateOf(0) }
+    var dhikrIdx by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
         while (true) {
             kotlinx.coroutines.delay(25_000)
@@ -160,10 +196,9 @@ private fun DhikrPill() {
             fontWeight = FontWeight.SemiBold,
             color = theme.accent,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .background(theme.surface)
-                .border(1.dp, theme.border, RoundedCornerShape(50))
+                .liquidGlassPill(shape = PILL_SHAPE, elevation = 4.dp)
                 .clickable {
                     dhikrIdx = (dhikrIdx + 1) % DHIKR_PILL_TEXTS.size
                     Haptics.tick(context)
@@ -173,13 +208,53 @@ private fun DhikrPill() {
     }
 }
 
+/**
+ * Isolated 1-second countdown leaf — only this Text recomposes each second,
+ * keeping the rest of [TodayScreen] idle between minute and prayer boundaries.
+ */
+@Composable
+private fun LivePrayerCountdown(targetMs: Long, onExpired: () -> Unit) {
+    val theme = LocalSadaqaTheme.current
+    var remainingMs by remember(targetMs) {
+        mutableLongStateOf(maxOf(0L, targetMs - System.currentTimeMillis()))
+    }
+    LaunchedEffect(targetMs) {
+        var notified = false
+        while (true) {
+            val left = targetMs - System.currentTimeMillis()
+            remainingMs = maxOf(0L, left)
+            if (left <= 0L) {
+                if (!notified) {
+                    notified = true
+                    onExpired()
+                }
+                break
+            }
+            kotlinx.coroutines.delay(1000L)
+        }
+    }
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Text(
+            hmsOf(remainingMs),
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = theme.textPrimary,
+            style = TextStyle(fontFeatureSettings = "tnum", textDirection = TextDirection.Ltr),
+        )
+    }
+}
+
 @Composable
 fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Unit = {}) {
     val theme = LocalSadaqaTheme.current
     var opts by remember { mutableStateOf(db.engineOptions()) }
-    val engine = PrayerEngine.bind(opts)
+    val engine = remember(opts) { PrayerEngine.bind(opts) }
     val scope = rememberCoroutineScope()
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    // Low-frequency clock (once per minute + prayer boundary) — the 1-second
+    // countdown lives inside LivePrayerCountdown so the rest of the screen does
+    // not recompose every second.
+    var minuteNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var nextEpoch by remember(opts) { mutableIntStateOf(0) }
     var showCityPicker by remember { mutableStateOf(false) }
     var showMonthSchedule by remember { mutableStateOf(false) }
     var cityName by remember {
@@ -187,14 +262,21 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
             db.setting("location")?.get("name_ar")?.str ?: "مكة المكرمة"
         )
     }
+    var hijriAdjust by remember { mutableIntStateOf(db.hijriAdjust()) }
     val currentPage = remember { (db.setting("mushaf_page")?.dbl?.toInt() ?: 1).coerceIn(1, 604) }
     var dailyWindows by remember { mutableStateOf(listOf<TodayProgress.WindowProgress>()) }
 
     LaunchedEffect(Unit) {
         while (true) {
-            kotlinx.coroutines.delay(1000)
-            now = System.currentTimeMillis() // format-only; engine values stay fixed
+            val cur = System.currentTimeMillis()
+            val delayMs = (60_000L - (cur % 60_000L)).coerceAtLeast(1_000L)
+            kotlinx.coroutines.delay(delayMs)
+            minuteNow = System.currentTimeMillis()
         }
+    }
+
+    LaunchedEffect(opts) {
+        hijriAdjust = withContext(Dispatchers.IO) { db.hijriAdjust() }
     }
 
     // ورد اليوم — athkar-window completion for today (reload on tab entry)
@@ -215,12 +297,36 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
         dailyWindows = loaded
     }
 
+    val todayIso = remember(minuteNow, opts.timeZone) { isoOf(minuteNow, opts.timeZone) }
+    val hijri = remember(todayIso, hijriAdjust) { HijriEngine.withAdjust(todayIso, hijriAdjust) }
+    val next = remember(opts, todayIso, nextEpoch) {
+        runCatching { engine.next(System.currentTimeMillis()) }.getOrNull()
+    }
+    val sched = remember(opts, todayIso) { runCatching { engine.daySchedule(todayIso) }.getOrNull() }
+    val minuteBucket = minuteNow / 60_000L
+    val card = remember(minuteBucket, opts, hijriAdjust, nextEpoch) {
+        val t = System.currentTimeMillis()
+        contextualCard(SmartCardResolver.resolve(t, engine), t, opts.timeZone, hijriAdjust)
+    }
+    val qiyamIso = remember(sched, todayIso, minuteNow) {
+        if (sched != null && minuteNow < sched.prayers.getValue(PrayerName.FAJR)) {
+            PrayerEngine.shiftCivilIso(todayIso, -1)
+        } else todayIso
+    }
+    val wsNight = remember(opts, qiyamIso) { runCatching { engine.sunnahWindows(qiyamIso) }.getOrNull() }
+    val doneCount = remember(dailyWindows) { dailyWindows.count { it.completed >= it.total } }
+    val onNextExpired = remember {
+        {
+            minuteNow = System.currentTimeMillis()
+            nextEpoch += 1
+        }
+    }
+
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Spacer(Modifier.height(12.dp))
-        val hijri = HijriEngine.withAdjust(isoOf(now, opts.timeZone), db.hijriAdjust())
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -228,32 +334,23 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
         ) {
             Column(Modifier.weight(1f)) {
                 Text("اليوم", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
-                Text("${hijri.d} ${HijriEngine.monthNameAr(hijri.m)} ${hijri.y} هـ · ${isoOf(now, opts.timeZone)}", fontSize = 12.sp, color = theme.textSecondary)
+                Text("${hijri.d} ${HijriEngine.monthNameAr(hijri.m)} ${hijri.y} هـ · $todayIso", fontSize = 12.sp, color = theme.textSecondary)
             }
             DhikrPill()
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
                 modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(theme.surface)
-                    .border(1.dp, theme.border, RoundedCornerShape(50))
+                    .liquidGlassPill(shape = PILL_SHAPE, elevation = 4.dp)
                     .clickable { showCityPicker = true }
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             ) {
                 Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = theme.accent, modifier = Modifier.size(14.dp))
-                Text(cityName, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.accent)
+                Text(cityName, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.accent, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
 
-        // hero — next prayer (recomputes cleanly at each prayer boundary so countdown never freezes at 00:00:00)
-        val todayIso = isoOf(now, opts.timeZone)
-        var nextEpoch by remember(opts, todayIso) { mutableIntStateOf(0) }
-        val next = remember(opts, todayIso, nextEpoch) { runCatching { engine.next(now) }.getOrNull() }
-        val nextExpired = next != null && now >= next.at
-        LaunchedEffect(nextExpired) {
-            if (nextExpired) nextEpoch += 1
-        }
+        // hero — next prayer (matte card; only LivePrayerCountdown ticks every second)
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
                 .background(Brush.verticalGradient(listOf(theme.accent.copy(alpha = 0.12f), theme.surface)))
@@ -263,19 +360,14 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
         ) {
             Text("الصلاة القادمة", fontSize = 12.sp, color = theme.textSecondary)
             if (next != null) {
-                val isTomorrow = isoOf(next.at, opts.timeZone) != todayIso
-                Text(next.name.labelAr, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = theme.accent)
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                    Text(
-                        hmsOf(next.at - now),
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = theme.textPrimary,
-                        style = TextStyle(fontFeatureSettings = "tnum"),
-                    )
+                val isTomorrow = remember(next.at, opts.timeZone, todayIso) {
+                    isoOf(next.at, opts.timeZone) != todayIso
                 }
+                val adhanClock = remember(next.at, opts.timeZone) { clockOf(next.at, opts.timeZone) }
+                Text(next.name.labelAr, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = theme.accent)
+                LivePrayerCountdown(targetMs = next.at, onExpired = onNextExpired)
                 Text(
-                    "الأذان ${clockOf(next.at, opts.timeZone)}${if (isTomorrow) " (غداً)" else ""}",
+                    "الأذان $adhanClock${if (isTomorrow) " (غداً)" else ""}",
                     fontSize = 13.sp,
                     color = theme.textSecondary,
                     style = TextStyle(fontFeatureSettings = "tnum"),
@@ -283,10 +375,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
             }
         }
 
-        // Smart Context-Aware Card — the shared §9 resolver's verdict, with a
-        // time-of-day contextual card when the resolver only has the countdown
-        // duplicate to offer (same windows as the web Today screen)
-        val card = remember(now / 60000, opts) { contextualCard(SmartCardResolver.resolve(now, engine), now, opts.timeZone, db.hijriAdjust()) }
+        // Smart Context-Aware Card — solid matte surface
         val cardIcon = when (card.kind) {
             SmartCardKind.KAHF -> Icons.Outlined.MenuBook
             SmartCardKind.AFTER_PRAYER -> Icons.Outlined.Adjust
@@ -310,7 +399,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = theme.accent,
-                        modifier = Modifier.border(1.dp, theme.accent.copy(alpha = 0.36f), RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp),
+                        modifier = Modifier.border(1.dp, theme.accent.copy(alpha = 0.36f), PILL_SHAPE).padding(horizontal = 10.dp, vertical = 3.dp),
                     )
                 }
                 Text(card.title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
@@ -327,7 +416,6 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
         }
 
         // 6-prayer 3-column grid, next highlighted + month schedule trigger
-        val sched = remember(opts, todayIso) { runCatching { engine.daySchedule(todayIso) }.getOrNull() }
         if (sched != null) {
             CardBox {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -338,38 +426,35 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = theme.accent,
-                            modifier = Modifier.clip(RoundedCornerShape(50)).background(theme.surfaceRaised)
+                            modifier = Modifier.clip(PILL_SHAPE).background(theme.surfaceRaised)
                                 .clickable { showMonthSchedule = true }.padding(horizontal = 10.dp, vertical = 4.dp),
                         )
                     }
-                    val icons = mapOf(
-                        PrayerName.FAJR to Icons.Outlined.WbTwilight,
-                        PrayerName.SUNRISE to Icons.Outlined.WbSunny,
-                        PrayerName.DHUHR to Icons.Outlined.WbSunny,
-                        PrayerName.ASR to Icons.Outlined.WbTwilight,
-                        PrayerName.MAGHRIB to Icons.Outlined.NightsStay,
-                        PrayerName.ISHA to Icons.Outlined.NightsStay,
-                    )
-                    for (chunk in PrayerName.entries.chunked(3)) {
+                    for (chunk in PRAYER_CHUNKS) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             for (name in chunk) {
                                 val isNext = next?.name == name
+                                val timeText = remember(sched, name, opts.timeZone) {
+                                    clockOf(sched.prayers.getValue(name), opts.timeZone)
+                                }
                                 Column(
                                     Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
                                         .background(if (isNext) theme.accent.copy(alpha = 0.14f) else theme.surfaceRaised)
                                         .border(1.dp, if (isNext) theme.accent.copy(alpha = 0.45f) else Color.Transparent, RoundedCornerShape(12.dp))
-                                        .padding(vertical = 10.dp),
+                                        .padding(vertical = 10.dp, horizontal = 4.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
-                                    Icon(icons[name] ?: Icons.Outlined.AccountBalance, contentDescription = null, tint = if (isNext) theme.accent else theme.textSecondary, modifier = Modifier.size(16.dp))
-                                    Text(name.labelAr, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (isNext) theme.accent else theme.textSecondary)
+                                    Icon(PRAYER_ICONS[name] ?: Icons.Outlined.AccountBalance, contentDescription = null, tint = if (isNext) theme.accent else theme.textSecondary, modifier = Modifier.size(16.dp))
+                                    Text(name.labelAr, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (isNext) theme.accent else theme.textSecondary, maxLines = 1)
                                     Text(
-                                        clockOf(sched.prayers.getValue(name), opts.timeZone),
-                                        fontSize = 13.sp,
+                                        timeText,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = if (isNext) theme.accent else theme.textPrimary,
-                                        style = TextStyle(fontFeatureSettings = "tnum"),
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        style = TextStyle(fontFeatureSettings = "tnum", textDirection = TextDirection.Ltr),
                                     )
                                 }
                             }
@@ -384,20 +469,15 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("تطبيقاتك اليومية", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for ((ico, label, targetTab) in listOf(
-                        Triple(Icons.Outlined.Adjust, "السبحة", "tools-tasbih"),
-                        Triple(Icons.Outlined.Spa, "الأذكار", "athkar"),
-                        Triple(Icons.Outlined.MenuBook, "المصحف", "mushaf"),
-                        Triple(Icons.Outlined.Explore, "القبلة", "tools-qibla"),
-                    )) {
+                    for (appEntry in QUICK_APP_ENTRIES) {
                         Column(
                             Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(theme.surfaceRaised)
-                                .tactilePress { onNavigate(targetTab) }.padding(vertical = 12.dp),
+                                .tactilePress { onNavigate(appEntry.targetTab) }.padding(vertical = 12.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            Icon(ico, contentDescription = null, tint = theme.accent, modifier = Modifier.size(20.dp))
-                            Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.textPrimary)
+                            Icon(appEntry.icon, contentDescription = null, tint = theme.accent, modifier = Modifier.size(20.dp))
+                            Text(appEntry.label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = theme.textPrimary, maxLines = 1)
                         }
                     }
                 }
@@ -405,23 +485,21 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
         }
 
         // Qiyam windows (the night whose Fajr has not passed yet)
-        val qiyamIso = if (sched != null && now < sched.prayers.getValue(PrayerName.FAJR)) {
-            isoOf(now - 86_400_000, opts.timeZone)
-        } else todayIso
-        val wsNight = remember(opts, qiyamIso) { runCatching { engine.sunnahWindows(qiyamIso) }.getOrNull() }
         if (wsNight != null) {
+            val midnightStr = remember(wsNight.midnight, opts.timeZone) { clockOf(wsNight.midnight, opts.timeZone) }
+            val lastThirdStr = remember(wsNight.lastThird, opts.timeZone) { clockOf(wsNight.lastThird, opts.timeZone) }
+            val nextFajrStr = remember(wsNight.nextFajr, opts.timeZone) { clockOf(wsNight.nextFajr, opts.timeZone) }
             CardBox {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("قيام الليل", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
-                    Text("منتصف الليل: ${clockOf(wsNight.midnight, opts.timeZone)}", fontSize = 13.sp, color = theme.textSecondary)
-                    Text("الثلث الأخير: ${clockOf(wsNight.lastThird, opts.timeZone)} — حتى الفجر ${clockOf(wsNight.nextFajr, opts.timeZone)}", fontSize = 13.sp, color = theme.textSecondary)
+                    Text("منتصف الليل: $midnightStr", fontSize = 13.sp, color = theme.textSecondary, style = TextStyle(fontFeatureSettings = "tnum"))
+                    Text("الثلث الأخير: $lastThirdStr — حتى الفجر $nextFajrStr", fontSize = 13.sp, color = theme.textSecondary, style = TextStyle(fontFeatureSettings = "tnum"))
                 }
             }
         }
 
         // ورد اليوم — compact daily progress (athkar windows + khatmah position)
         if (dailyWindows.isNotEmpty()) {
-            val doneCount = dailyWindows.count { it.completed >= it.total }
             CardBox {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -435,14 +513,14 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                                 Modifier
                                     .weight(1f)
                                     .height(6.dp)
-                                    .clip(RoundedCornerShape(50))
+                                    .clip(PILL_SHAPE)
                                     .background(theme.surfaceRaised)
                             ) {
                                 Box(
                                     Modifier
                                         .fillMaxHeight()
                                         .fillMaxWidth(if (w.total > 0) (w.completed.toFloat() / w.total).coerceIn(0f, 1f) else 0f)
-                                        .clip(RoundedCornerShape(50))
+                                        .clip(PILL_SHAPE)
                                         .background(theme.accent)
                                 )
                             }
@@ -467,7 +545,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = theme.accent,
-                        modifier = Modifier.clip(RoundedCornerShape(50)).background(theme.accent.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.clip(PILL_SHAPE).background(theme.accent.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 4.dp),
                     )
                 }
                 Button(
@@ -477,7 +555,7 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
                 ) { Text("تابع القراءة — صفحة $currentPage") }
             }
         }
-        Spacer(Modifier.height(36.dp))
+        Spacer(Modifier.height(96.dp))
     }
 
     if (showCityPicker) {
@@ -493,27 +571,43 @@ fun TodayScreen(db: SadaqaDb, onOpenTool: () -> Unit, onNavigate: (String) -> Un
     }
 
     if (showMonthSchedule) {
-        // P3: the 30-row table is pure engine output for (civil day, options) —
-        // computed once per open instead of 30 daySchedule calls on every 1s tick.
-        val scheduleTodayIso = isoOf(now, opts.timeZone)
-        val monthScheduleRows = remember(scheduleTodayIso, opts) {
+        val monthScheduleRows = remember(todayIso, opts) {
             List(30) { offset ->
-                val iso = PrayerEngine.shiftCivilIso(scheduleTodayIso, offset.toLong())
-                iso to runCatching { engine.daySchedule(iso) }.getOrNull()
-            }
+                val iso = PrayerEngine.shiftCivilIso(todayIso, offset.toLong())
+                val s = runCatching { engine.daySchedule(iso) }.getOrNull()
+                if (s == null) null else iso.drop(5) to MONTH_PRAYER_COLS.map { p -> clockOf(s.prayers.getValue(p), opts.timeZone) }
+            }.filterNotNull()
         }
         AlertDialog(
             onDismissRequest = { showMonthSchedule = false },
             containerColor = theme.surface,
             title = { Text("جدول ٣٠ يوماً", color = theme.textPrimary) },
             text = {
-                Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for ((iso, s) in monthScheduleRows) {
-                        if (s != null) {
-                            Row(Modifier.fillMaxWidth()) {
-                                Text(iso.drop(5), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.accent, modifier = Modifier.width(44.dp))
-                                for (p in listOf(PrayerName.FAJR, PrayerName.DHUHR, PrayerName.ASR, PrayerName.MAGHRIB, PrayerName.ISHA)) {
-                                    Text(clockOf(s.prayers.getValue(p), opts.timeZone), fontSize = 11.sp, color = theme.textPrimary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("اليوم", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = theme.textSecondary, modifier = Modifier.width(34.dp))
+                        for (p in MONTH_PRAYER_COLS) {
+                            Text(p.labelAr, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = theme.textSecondary, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, maxLines = 1)
+                        }
+                    }
+                    LazyColumn(
+                        Modifier.heightIn(max = 320.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        items(monthScheduleRows, key = { it.first }) { (dateLabel, times) ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(dateLabel, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = theme.accent, modifier = Modifier.width(34.dp), maxLines = 1)
+                                for (t in times) {
+                                    Text(
+                                        t,
+                                        fontSize = 9.5.sp,
+                                        color = theme.textPrimary,
+                                        modifier = Modifier.weight(1f),
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        style = TextStyle(fontFeatureSettings = "tnum", textDirection = TextDirection.Ltr),
+                                    )
                                 }
                             }
                         }
@@ -558,11 +652,36 @@ private suspend fun SadaqaDb.firstCategoryByWindow(window: String): String? = ko
     queryOne("SELECT category_id FROM athkar_categories WHERE solar_window = ? ORDER BY sort_order LIMIT 1", listOf(window))?.strings?.get("category_id")
 }
 
+@Immutable
+private data class AthkarCatRow(
+    val id: String,
+    val name: String,
+    val normalizedName: String,
+    val window: String,
+    val count: Int,
+)
+
+@Immutable
+private data class FeaturedAthkarTile(
+    val id: String,
+    val icon: ImageVector,
+    val title: String,
+    val sub: String,
+)
+
+private fun iconForAthkarWindow(w: String): ImageVector = when (w) {
+    "fajr" -> Icons.Outlined.WbTwilight
+    "asr" -> Icons.Outlined.WbSunny
+    "night" -> Icons.Outlined.NightsStay
+    "duha" -> Icons.Outlined.WbSunny
+    "after_prayer" -> Icons.Outlined.AccountBalance
+    else -> Icons.Outlined.Spa
+}
+
 @Composable
 fun AthkarScreen(db: SadaqaDb) {
     val theme = LocalSadaqaTheme.current
-    data class CatRow(val id: String, val name: String, val window: String, val count: Int)
-    var categories by remember { mutableStateOf(listOf<CatRow>()) }
+    var categories by remember { mutableStateOf(listOf<AthkarCatRow>()) }
     var openReader by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
     var windowFilter by remember { mutableStateOf("all") }
@@ -571,9 +690,11 @@ fun AthkarScreen(db: SadaqaDb) {
         categories = withContext(Dispatchers.IO) {
             db.query("SELECT c.category_id, c.name_ar, c.solar_window, (SELECT COUNT(*) FROM athkar_items i WHERE i.category_id = c.category_id) AS items FROM athkar_categories c ORDER BY c.sort_order")
                 .map {
-                    CatRow(
+                    val name = it.strings["name_ar"] ?: ""
+                    AthkarCatRow(
                         id = it.strings["category_id"] ?: "",
-                        name = it.strings["name_ar"] ?: "",
+                        name = name,
+                        normalizedName = SadaqaDb.normalizeArabicForSearch(name),
                         window = it.strings["solar_window"] ?: "general",
                         count = it.longs["items"]?.toInt() ?: 0,
                     )
@@ -594,90 +715,97 @@ fun AthkarScreen(db: SadaqaDb) {
         return
     }
 
-    fun iconForWindow(w: String): ImageVector = when (w) {
-        "fajr" -> Icons.Outlined.WbTwilight
-        "asr" -> Icons.Outlined.WbSunny
-        "night" -> Icons.Outlined.NightsStay
-        "duha" -> Icons.Outlined.WbSunny
-        "after_prayer" -> Icons.Outlined.AccountBalance
-        else -> Icons.Outlined.Spa
+    val featuredPairs by remember {
+        derivedStateOf {
+            val morning = categories.firstOrNull { it.window == "fajr" }
+            val evening = categories.firstOrNull { it.window == "asr" && it.name.contains("المَسَاء") }
+                ?: categories.firstOrNull { it.window == "asr" }
+            val afterPrayer = categories.firstOrNull { it.window == "after_prayer" }
+            val sleep = categories.firstOrNull { it.name.contains("النَّوْم") || it.name.contains("النوم") }
+                ?: categories.firstOrNull { it.window == "night" }
+            listOfNotNull(
+                morning?.let { FeaturedAthkarTile(it.id, Icons.Outlined.WbTwilight, "أذكار الصباح", "${it.count} ذكراً") },
+                evening?.let { FeaturedAthkarTile(it.id, Icons.Outlined.WbSunny, "أذكار المساء", "${it.count} ذكراً") },
+                afterPrayer?.let { FeaturedAthkarTile(it.id, Icons.Outlined.AccountBalance, "أذكار بعد الصلاة", "${it.count} ذكراً") },
+                sleep?.let { FeaturedAthkarTile(it.id, Icons.Outlined.NightsStay, "أذكار النوم", "${it.count} ذكراً") },
+            ).chunked(2)
+        }
     }
 
-    val morning = categories.firstOrNull { it.window == "fajr" }
-    val evening = categories.firstOrNull { it.window == "asr" && it.name.contains("المَسَاء") } ?: categories.firstOrNull { it.window == "asr" }
-    val afterPrayer = categories.firstOrNull { it.window == "after_prayer" }
-    val sleep = categories.firstOrNull { it.name.contains("النَّوْم") || it.name.contains("النوم") } ?: categories.firstOrNull { it.window == "night" }
-
-    val filtered = categories.filter { c ->
-        (windowFilter == "all" || c.window == windowFilter) && (query.isBlank() || c.name.contains(query.trim()))
+    val filtered by remember {
+        derivedStateOf {
+            val trimmed = query.trim()
+            val normQ = if (trimmed.isEmpty()) "" else SadaqaDb.normalizeArabicForSearch(trimmed)
+            categories.filter { c ->
+                (windowFilter == "all" || c.window == windowFilter) &&
+                    (trimmed.isEmpty() || c.name.contains(trimmed) || (normQ.isNotEmpty() && c.normalizedName.contains(normQ)))
+            }
+        }
     }
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Spacer(Modifier.height(12.dp))
-        Text("الأذكار", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
+        item(key = "header") {
+            Text("الأذكار", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
+        }
 
-        // Featured 2-column dashboard
-        val featured = listOfNotNull(
-            morning?.let { listOf(it.id, Icons.Outlined.WbTwilight, "أذكار الصباح", "${it.count} ذكراً") },
-            evening?.let { listOf(it.id, Icons.Outlined.WbSunny, "أذكار المساء", "${it.count} ذكراً") },
-            afterPrayer?.let { listOf(it.id, Icons.Outlined.AccountBalance, "أذكار بعد الصلاة", "${it.count} ذكراً") },
-            sleep?.let { listOf(it.id, Icons.Outlined.NightsStay, "أذكار النوم", "${it.count} ذكراً") },
-        )
-        for (pair in featured.chunked(2)) {
+        // Featured 2-column dashboard (matte tiles)
+        items(featuredPairs.size, key = { idx -> "featured-$idx" }) { idx ->
+            val pair = featuredPairs[idx]
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                for (item in pair) {
-                    val id = item[0] as String
-                    val ico = item[1] as ImageVector
-                    val title = item[2] as String
-                    val sub = item[3] as String
+                for (tile in pair) {
                     Column(
                         Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(theme.surface)
                             .border(1.dp, theme.border, RoundedCornerShape(16.dp))
-                            .tactilePress { openReader = id }.padding(14.dp),
+                            .tactilePress { openReader = tile.id }.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Box(
                             Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(theme.accent.copy(alpha = 0.14f)),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Icon(ico, contentDescription = null, tint = theme.accent, modifier = Modifier.size(18.dp))
+                            Icon(tile.icon, contentDescription = null, tint = theme.accent, modifier = Modifier.size(18.dp))
                         }
-                        Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
-                        Text(sub, fontSize = 11.sp, color = theme.textSecondary, style = TextStyle(fontFeatureSettings = "tnum"))
+                        Text(tile.title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
+                        Text(tile.sub, fontSize = 11.sp, color = theme.textSecondary, style = TextStyle(fontFeatureSettings = "tnum"))
                     }
                 }
             }
         }
 
-        TextField(
-            value = query,
-            onValueChange = { query = it },
-            placeholder = { Text("بحث في الأذكار") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        item(key = "search-bar") {
+            TextField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = { Text("بحث في الأذكار") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for ((k, label) in listOf("all" to "الكل", "fajr" to "الصباح", "asr" to "المساء", "after_prayer" to "بعد الصلاة", "night" to "النوم والليل")) {
-                val active = windowFilter == k
-                Text(
-                    label,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (active) theme.accentContrast else theme.textSecondary,
-                    modifier = Modifier.clip(RoundedCornerShape(50))
-                        .background(if (active) theme.accent else theme.surface)
-                        .border(1.dp, theme.border, RoundedCornerShape(50))
-                        .clickable { windowFilter = k }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                )
+        item(key = "window-filters") {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for ((k, label) in ATHKAR_WINDOW_FILTERS) {
+                    val active = windowFilter == k
+                    Text(
+                        label,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (active) theme.accentContrast else theme.textSecondary,
+                        modifier = Modifier.clip(PILL_SHAPE)
+                            .background(if (active) theme.accent else theme.surface)
+                            .border(1.dp, theme.border, PILL_SHAPE)
+                            .clickable { windowFilter = k }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
             }
         }
 
-        for (c in filtered) {
+        items(filtered, key = { it.id }, contentType = { "athkar-category" }) { c ->
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
                     .background(theme.surface).border(1.dp, theme.border, RoundedCornerShape(14.dp))
@@ -689,7 +817,7 @@ fun AthkarScreen(db: SadaqaDb) {
                     Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(iconForWindow(c.window), contentDescription = null, tint = theme.accent, modifier = Modifier.size(17.dp))
+                    Icon(iconForAthkarWindow(c.window), contentDescription = null, tint = theme.accent, modifier = Modifier.size(17.dp))
                 }
                 Column(Modifier.weight(1f)) {
                     Text(c.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = theme.textPrimary, lineHeight = 22.sp)
@@ -698,7 +826,64 @@ fun AthkarScreen(db: SadaqaDb) {
                 Icon(Icons.Outlined.ChevronLeft, contentDescription = null, tint = theme.textSecondary, modifier = Modifier.size(16.dp))
             }
         }
-        Spacer(Modifier.height(36.dp))
+    }
+}
+
+@Immutable
+private data class AthkarReaderItem(val id: String, val text: String, val target: Int, val source: String?)
+
+@Composable
+private fun AthkarItemCard(
+    item: AthkarReaderItem,
+    count: Int,
+    onTap: () -> Unit,
+) {
+    val theme = LocalSadaqaTheme.current
+    val done = if (item.target > 0) count >= item.target else count > 0
+    val targetProgress = if (item.target > 0) (count.toFloat() / item.target).coerceIn(0f, 1f) else if (done) 1f else 0f
+    val animProgress by animateFloatAsState(
+        targetValue = targetProgress,
+        animationSpec = spring(dampingRatio = 0.84f, stiffness = Spring.StiffnessMediumLow),
+        label = "dhikr-ring",
+    )
+    Column(
+        Modifier.fillMaxWidth().defaultMinSize(minHeight = 160.dp).clip(RoundedCornerShape(16.dp))
+            .background(theme.surface)
+            .border(1.dp, if (done) theme.accent.copy(alpha = 0.6f) else theme.border, RoundedCornerShape(16.dp))
+            .clickable(onClick = onTap)
+            .padding(18.dp),
+    ) {
+        Text(item.text, fontSize = 21.sp, color = theme.textPrimary, lineHeight = 34.sp)
+        if (item.target > 0) {
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("$count", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = theme.accent, style = TextStyle(fontFeatureSettings = "tnum"))
+                Text("من ${item.target}", fontSize = 13.sp, color = theme.textSecondary)
+                if (done) {
+                    Text(
+                        "✓ اكتمل",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = theme.accent,
+                        modifier = Modifier
+                            .clip(PILL_SHAPE)
+                            .background(theme.accent.copy(alpha = 0.16f))
+                            .padding(horizontal = 9.dp, vertical = 3.dp),
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                Box(Modifier.size(46.dp), contentAlignment = Alignment.Center) {
+                    Canvas(Modifier.fillMaxSize()) {
+                        val stroke = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+                        drawArc(color = theme.surfaceRaised, startAngle = 0f, sweepAngle = 360f, useCenter = false, style = stroke)
+                        drawArc(color = theme.accent, startAngle = -90f, sweepAngle = 360f * animProgress, useCenter = false, style = stroke)
+                    }
+                    Text("${minOf(count, item.target)}/${item.target}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary, style = TextStyle(fontFeatureSettings = "tnum"))
+                }
+            }
+        }
+        if (!item.source.isNullOrEmpty()) {
+            Text("التحقق: ${item.source}", fontSize = 12.sp, color = theme.textSecondary, lineHeight = 18.sp, modifier = Modifier.padding(top = 8.dp))
+        }
     }
 }
 
@@ -707,113 +892,82 @@ fun AthkarReaderScreen(db: SadaqaDb, categoryId: String, onBack: () -> Unit) {
     val theme = LocalSadaqaTheme.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    data class Item(val id: String, val text: String, val target: Int, val source: String?)
     var categoryName by remember { mutableStateOf("الأذكار") }
-    var items by remember { mutableStateOf(listOf<Item>()) }
+    var items by remember { mutableStateOf(listOf<AthkarReaderItem>()) }
     var counts by remember { mutableStateOf(mapOf<String, Int>()) }
 
     LaunchedEffect(categoryId) {
         val day = dayKeyOf(System.currentTimeMillis(), ZoneId.systemDefault().id)
         val loaded = withContext(Dispatchers.IO) {
-            categoryName = db.queryOne("SELECT name_ar FROM athkar_categories WHERE category_id = ?", listOf(categoryId))?.strings?.get("name_ar") ?: "الأذكار"
+            val name = db.queryOne("SELECT name_ar FROM athkar_categories WHERE category_id = ?", listOf(categoryId))?.strings?.get("name_ar") ?: "الأذكار"
             val list = db.query("SELECT item_id, text_ar, count_target, source_ar FROM athkar_items WHERE category_id = ? ORDER BY sort_order", listOf(categoryId))
-                .map { Item(it.strings["item_id"] ?: "", it.strings["text_ar"] ?: "", it.longs["count_target"]?.toInt() ?: 1, it.strings["source_ar"]) }
+                .map { AthkarReaderItem(it.strings["item_id"] ?: "", it.strings["text_ar"] ?: "", it.longs["count_target"]?.toInt() ?: 1, it.strings["source_ar"]) }
             val state = db.query("SELECT item_id, count FROM adhkar_state WHERE day_key = ?", listOf(day))
                 .associate { (it.strings["item_id"] ?: "") to (it.longs["count"]?.toInt() ?: 0) }
-            list to state
+            Triple(name, list, state)
         }
-        items = loaded.first
-        counts = loaded.second
+        categoryName = loaded.first
+        items = loaded.second
+        counts = loaded.third
     }
 
-    val doneTotal = items.count { it -> val c = counts[it.id] ?: 0; if (it.target > 0) c >= it.target else c > 0 }
+    val doneTotal by remember {
+        derivedStateOf {
+            items.count { item ->
+                val c = counts[item.id] ?: 0
+                if (item.target > 0) c >= item.target else c > 0
+            }
+        }
+    }
     val animTotalProgress by animateFloatAsState(
         targetValue = if (items.isEmpty()) 0f else doneTotal.toFloat() / items.size,
         animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow),
         label = "athkar-total",
     )
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Icon(Icons.Outlined.ArrowForward, contentDescription = "رجوع", tint = theme.textSecondary, modifier = Modifier.clickable { onBack() }.padding(6.dp).size(20.dp))
-            Text(categoryName, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary, modifier = Modifier.weight(1f))
-            Text("$doneTotal / ${items.size}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = theme.accent, style = TextStyle(fontFeatureSettings = "tnum"))
-        }
-        LinearProgressIndicator(
-            progress = { animTotalProgress },
-            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)),
-            color = theme.accent,
-            trackColor = theme.surfaceRaised,
-        )
-        for (item in items) {
-            val count = counts[item.id] ?: 0
-            val done = if (item.target > 0) count >= item.target else count > 0
-            val targetProgress = if (item.target > 0) (count.toFloat() / item.target).coerceIn(0f, 1f) else if (done) 1f else 0f
-            val animProgress by animateFloatAsState(
-                targetValue = targetProgress,
-                animationSpec = spring(dampingRatio = 0.84f, stiffness = Spring.StiffnessMediumLow),
-                label = "dhikr-ring",
-            )
-            Column(
-                Modifier.fillMaxWidth().defaultMinSize(minHeight = 160.dp).clip(RoundedCornerShape(16.dp))
-                    .background(theme.surface)
-                    .border(1.dp, if (done) theme.accent.copy(alpha = 0.6f) else theme.border, RoundedCornerShape(16.dp))
-                    .clickable {
-                        // synchronous local increment (rapid-tap contract)
-                        val target = item.target
-                        val cur = counts[item.id] ?: 0
-                        if (target > 0 && cur >= target) return@clickable
-                        val c = cur + 1
-                        counts = counts + (item.id to c)
-                        if (target > 0 && c == target) Haptics.complete(context) else Haptics.tick(context)
-                        val now = System.currentTimeMillis()
-                        val day = dayKeyOf(now, ZoneId.systemDefault().id)
-                        scope.launch {
-                            withContext(Dispatchers.IO) {
-                                db.incrementDhikrTap(item.id, categoryId, cur, target, day, now)
-                            }
-                        }
-                    }
-                    .padding(18.dp),
-            ) {
-                Text(item.text, fontSize = 21.sp, color = theme.textPrimary, lineHeight = 34.sp)
-                if (item.target > 0) {
-                    Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("$count", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = theme.accent)
-                        Text("من ${item.target}", fontSize = 13.sp, color = theme.textSecondary)
-                        if (done) {
-                            Text(
-                                "✓ اكتمل",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = theme.accent,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(theme.accent.copy(alpha = 0.16f))
-                                    .padding(horizontal = 9.dp, vertical = 3.dp),
-                            )
-                        }
-                        Spacer(Modifier.weight(1f))
-                        Box(Modifier.size(46.dp), contentAlignment = Alignment.Center) {
-                            Canvas(Modifier.fillMaxSize()) {
-                                val stroke = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
-                                drawArc(color = theme.surfaceRaised, startAngle = 0f, sweepAngle = 360f, useCenter = false, style = stroke)
-                                drawArc(color = theme.accent, startAngle = -90f, sweepAngle = 360f * animProgress, useCenter = false, style = stroke)
-                            }
-                            Text("${minOf(count, item.target)}/${item.target}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary, style = TextStyle(fontFeatureSettings = "tnum"))
-                        }
-                    }
+        item(key = "reader-header") {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Outlined.ArrowForward, contentDescription = "رجوع", tint = theme.textSecondary, modifier = Modifier.clickable { onBack() }.padding(6.dp).size(20.dp))
+                    Text(categoryName, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary, modifier = Modifier.weight(1f))
+                    Text("$doneTotal / ${items.size}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = theme.accent, style = TextStyle(fontFeatureSettings = "tnum"))
                 }
-                if (!item.source.isNullOrEmpty()) {
-                    Text("التحقق: ${item.source}", fontSize = 12.sp, color = theme.textSecondary, lineHeight = 18.sp, modifier = Modifier.padding(top = 8.dp))
-                }
+                LinearProgressIndicator(
+                    progress = { animTotalProgress },
+                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(PILL_SHAPE),
+                    color = theme.accent,
+                    trackColor = theme.surfaceRaised,
+                )
             }
         }
-        Spacer(Modifier.height(36.dp))
+        items(items, key = { it.id }, contentType = { "athkar-item" }) { item ->
+            val count = counts[item.id] ?: 0
+            AthkarItemCard(
+                item = item,
+                count = count,
+                onTap = {
+                    // synchronous local increment (rapid-tap contract)
+                    val target = item.target
+                    val cur = counts[item.id] ?: 0
+                    if (target > 0 && cur >= target) return@AthkarItemCard
+                    val c = cur + 1
+                    counts = counts + (item.id to c)
+                    if (target > 0 && c == target) Haptics.complete(context) else Haptics.tick(context)
+                    val now = System.currentTimeMillis()
+                    val day = dayKeyOf(now, ZoneId.systemDefault().id)
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            db.incrementDhikrTap(item.id, categoryId, cur, target, day, now)
+                        }
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -822,20 +976,29 @@ fun AthkarReaderScreen(db: SadaqaDb, categoryId: String, onBack: () -> Unit) {
 // DB write behind it with count = count + 1 (never a stale absolute).
 // ---------------------------------------------------------------------------
 
+@Immutable
+private data class TasbihCounterUi(
+    val uuid: String,
+    val label: String,
+    val dhikr: String,
+    val target: Int?,
+    val count: Int,
+    val lifetime: Int,
+)
+
 @Composable
 fun TasbihScreen(db: SadaqaDb, onClose: () -> Unit) {
     val theme = LocalSadaqaTheme.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    data class Counter(val uuid: String, val label: String, val dhikr: String, val target: Int?, var count: Int, val lifetime: Int)
-    var counters by remember { mutableStateOf(listOf<Counter>()) }
+    var counters by remember { mutableStateOf(listOf<TasbihCounterUi>()) }
     var selected by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
         counters = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             db.ensureDefaultTasbihPresets(System.currentTimeMillis())
             db.query("SELECT * FROM tasbih_counters WHERE deleted = 0 ORDER BY sort_order").map {
-                Counter(it.strings["uuid"] ?: "", it.strings["label_ar"] ?: "", it.strings["dhikr_text"] ?: "", it.longs["target"]?.toInt(), it.longs["count"]?.toInt() ?: 0, it.longs["total_lifetime"]?.toInt() ?: 0)
+                TasbihCounterUi(it.strings["uuid"] ?: "", it.strings["label_ar"] ?: "", it.strings["dhikr_text"] ?: "", it.longs["target"]?.toInt(), it.longs["count"]?.toInt() ?: 0, it.longs["total_lifetime"]?.toInt() ?: 0)
             }
         }
     }
@@ -847,7 +1010,7 @@ fun TasbihScreen(db: SadaqaDb, onClose: () -> Unit) {
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Icon(Icons.Outlined.ArrowForward, contentDescription = "رجوع", tint = theme.textSecondary, modifier = Modifier.clickable { onClose() }.padding(6.dp).size(20.dp))
-            Text("السبحة", fontSize = 22.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = theme.textPrimary)
+            Text("السبحة", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary)
         }
         val counter = counters.getOrNull(selected)
         if (counter != null) {
@@ -870,11 +1033,15 @@ fun TasbihScreen(db: SadaqaDb, onClose: () -> Unit) {
                             // THE rapid-tap contract: local count increments synchronously
                             val idx = counters.indexOfFirst { it.uuid == counter.uuid }
                             if (idx >= 0) {
-                                val newCount = counters[idx].count + 1
-                                counters = counters.toMutableList().also { it[idx] = counters[idx].copy(count = newCount) }
-                                if (counter.target != null && newCount == counter.target) Haptics.complete(context) else Haptics.tick(context)
-                                val cUuid = counter.uuid
-                                val targetVal = counter.target
+                                val current = counters[idx]
+                                val newCount = current.count + 1
+                                val newLifetime = current.lifetime + 1
+                                counters = counters.toMutableList().also {
+                                    it[idx] = current.copy(count = newCount, lifetime = newLifetime)
+                                }
+                                if (current.target != null && newCount == current.target) Haptics.complete(context) else Haptics.tick(context)
+                                val cUuid = current.uuid
+                                val targetVal = current.target
                                 val now = System.currentTimeMillis()
                                 val day = dayKeyOf(now, ZoneId.systemDefault().id)
                                 scope.launch {
@@ -892,7 +1059,7 @@ fun TasbihScreen(db: SadaqaDb, onClose: () -> Unit) {
                         drawArc(color = theme.accent, startAngle = -90f, sweepAngle = 360f * animProgress, useCenter = false, style = stroke)
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("${counter.count}", fontSize = 52.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = theme.textPrimary, style = TextStyle(fontFeatureSettings = "tnum"))
+                        Text("${counter.count}", fontSize = 52.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary, style = TextStyle(fontFeatureSettings = "tnum"))
                         Text(counter.dhikr, fontSize = 14.sp, color = theme.textSecondary)
                         if (counter.target != null) {
                             if (done) {
@@ -902,7 +1069,7 @@ fun TasbihScreen(db: SadaqaDb, onClose: () -> Unit) {
                                     fontWeight = FontWeight.Bold,
                                     color = theme.accent,
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
+                                        .clip(PILL_SHAPE)
                                         .background(theme.accent.copy(alpha = 0.16f))
                                         .padding(horizontal = 10.dp, vertical = 3.dp),
                                 )
@@ -920,7 +1087,7 @@ fun TasbihScreen(db: SadaqaDb, onClose: () -> Unit) {
                         fontSize = 12.sp,
                         color = if (i == selected) theme.accentContrast else theme.textPrimary,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(50))
+                            .clip(PILL_SHAPE)
                             .background(if (i == selected) theme.accent else theme.surface)
                             .clickable { selected = i }
                             .padding(horizontal = 12.dp, vertical = 7.dp),
@@ -930,11 +1097,11 @@ fun TasbihScreen(db: SadaqaDb, onClose: () -> Unit) {
             CardBox {
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                     Text("الإجمالي التاريخي", fontSize = 14.sp, color = theme.textPrimary, modifier = Modifier.weight(1f))
-                    Text("${counter.lifetime}", fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = theme.textPrimary)
+                    Text("${counter.lifetime}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = theme.textPrimary, style = TextStyle(fontFeatureSettings = "tnum"))
                 }
             }
         }
-        Spacer(Modifier.height(36.dp))
+        Spacer(Modifier.height(96.dp))
     }
 }
 
@@ -1054,6 +1221,7 @@ fun CityPickerDialog(
     }
 
     LaunchedEffect(q) {
+        if (q.isNotBlank()) kotlinx.coroutines.delay(140L)
         cities = withContext(Dispatchers.IO) { db.searchCities(q, 20) }
     }
 
@@ -1083,8 +1251,11 @@ fun CityPickerDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for (c in cities) {
+                LazyColumn(
+                    Modifier.heightIn(max = 260.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    items(cities, key = { it.id }) { c ->
                         Column(
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(theme.surfaceRaised)
                                 .clickable {

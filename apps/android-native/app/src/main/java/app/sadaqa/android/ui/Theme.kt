@@ -11,12 +11,16 @@ import android.content.Context
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import java.io.File
+import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
+@Immutable
 data class SadaqaColors(
     val bg: Color,
     val surface: Color,
@@ -50,30 +54,41 @@ data class TokenPalette(
 
 object SadaqaTheme {
 
+    @Volatile
     private var cached: Map<String, TokenPalette>? = null
+    private val colorsCache = ConcurrentHashMap<String, SadaqaColors>()
+    private val schemeCache = ConcurrentHashMap<String, ColorScheme>()
 
     /** Map tokens.json theme keys to Compose colors (fallback = dark defaults). */
     fun colors(key: String): SadaqaColors {
         val resolved = if (key == "night") "oled" else key
-        val palette = readTokens()[resolved] ?: readTokens()["dark"] ?: return darkDefaults
-        return SadaqaColors(
+        colorsCache[resolved]?.let { return it }
+        val tokens = readTokens()
+        val palette = tokens[resolved] ?: tokens["dark"] ?: return darkDefaults
+        val built = SadaqaColors(
             bg = hex(palette.bg), surface = hex(palette.surface), surfaceRaised = hex(palette.surfaceRaised),
             textPrimary = hex(palette.textPrimary), textSecondary = hex(palette.textSecondary),
             accent = hex(palette.accent), accentContrast = hex(palette.accentContrast),
             border = hex(palette.border), mushafText = hex(palette.mushafText), mushafBg = hex(palette.mushafBg),
         )
+        colorsCache[resolved] = built
+        return built
     }
 
     fun colorScheme(key: String): ColorScheme {
-        val c = colors(key)
-        val dark = key == "dark" || key == "night" || key == "oled"
+        val resolved = if (key == "night") "oled" else key
+        schemeCache[resolved]?.let { return it }
+        val c = colors(resolved)
+        val dark = resolved == "dark" || resolved == "oled"
         val builder = if (dark) darkColorScheme() else lightColorScheme()
-        return builder.copy(
+        val built = builder.copy(
             background = c.bg, surface = c.surface, surfaceVariant = c.surfaceRaised,
             primary = c.accent, onPrimary = c.accentContrast,
             onBackground = c.textPrimary, onSurface = c.textPrimary,
             outline = c.border, secondary = c.surfaceRaised,
         )
+        schemeCache[resolved] = built
+        return built
     }
 
     private fun readTokens(): Map<String, TokenPalette> {
@@ -119,9 +134,10 @@ object ContextHolder {
 // ---------------------------------------------------------------------------
 
 object QpcFonts {
-    private val cache = mutableMapOf<Int, Pair<FontFamily, android.graphics.Typeface>>()
-    private var basmala: Pair<FontFamily, android.graphics.Typeface>? = null
-    private var uthmanicFamily: FontFamily? = null
+    private val cache = ConcurrentHashMap<Int, Pair<FontFamily, android.graphics.Typeface>>()
+    @Volatile private var basmala: Pair<FontFamily, android.graphics.Typeface>? = null
+    @Volatile private var uthmanicFamily: FontFamily? = null
+    @Volatile private var uthmanicTf: android.graphics.Typeface? = null
 
     fun uthmanic(context: Context): FontFamily {
         uthmanicFamily?.let { return it }
@@ -147,11 +163,15 @@ object QpcFonts {
         return if (coversText(pair.second, sample)) pair.second else null
     }
 
-    fun uthmanicTypeface(context: Context): android.graphics.Typeface =
-        runCatching {
+    fun uthmanicTypeface(context: Context): android.graphics.Typeface {
+        uthmanicTf?.let { return it }
+        val tf = runCatching {
             val file = ensureExtracted(context, "fonts/UthmanicHafs1Ver18.ttf")
             if (file != null) android.graphics.Typeface.createFromFile(file) else android.graphics.Typeface.DEFAULT
         }.getOrDefault(android.graphics.Typeface.DEFAULT)
+        uthmanicTf = tf
+        return tf
+    }
 
     fun verifiedBasmala(context: Context, sample: String): FontFamily? {
         val pair = loadBasmalaPair(context) ?: return null
@@ -160,7 +180,7 @@ object QpcFonts {
 
     private fun loadPagePair(context: Context, page: Int): Pair<FontFamily, android.graphics.Typeface>? {
         cache[page]?.let { return it }
-        val file = ensureExtracted(context, "fonts/p%03d.ttf".format(page)) ?: return null
+        val file = ensureExtracted(context, String.format(Locale.US, "fonts/p%03d.ttf", page)) ?: return null
         return runCatching {
             val tf = android.graphics.Typeface.createFromFile(file)
             val pair = FontFamily(Font(file)) to tf

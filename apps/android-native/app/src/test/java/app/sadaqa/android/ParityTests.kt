@@ -697,3 +697,57 @@ class TodayProgressTests {
         assertEquals(1, windows[0].total)
     }
 }
+
+// ---------------------------------------------------------------------------
+// 12-hour prayer wall-clock formatting — h:mm AM/PM with Western ASCII digits
+// across app surfaces (Today, Qiyam, SmartCard, 30-day table) and Glance widgets.
+// ---------------------------------------------------------------------------
+
+class PrayerClockFormatTests {
+
+    @Test
+    fun formats12HourWithWesternAsciiDigitsAtBoundaries() {
+        val utc = java.time.ZoneId.of("UTC")
+        val midnight = java.time.ZonedDateTime.of(2026, 11, 21, 0, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val earlyAm = java.time.ZonedDateTime.of(2026, 11, 21, 4, 37, 0, 0, utc).toInstant().toEpochMilli()
+        val noon = java.time.ZonedDateTime.of(2026, 11, 21, 12, 0, 0, 0, utc).toInstant().toEpochMilli()
+        val justAfterNoon = java.time.ZonedDateTime.of(2026, 11, 21, 12, 5, 0, 0, utc).toInstant().toEpochMilli()
+        val afternoon = java.time.ZonedDateTime.of(2026, 11, 21, 15, 19, 0, 0, utc).toInstant().toEpochMilli()
+        val lateNight = java.time.ZonedDateTime.of(2026, 11, 21, 23, 59, 0, 0, utc).toInstant().toEpochMilli()
+
+        assertEquals("12:00 AM", SmartCardResolver.clock(midnight, utc))
+        assertEquals("4:37 AM", SmartCardResolver.clock(earlyAm, utc))
+        assertEquals("12:00 PM", SmartCardResolver.clock(noon, utc))
+        assertEquals("12:05 PM", SmartCardResolver.clock(justAfterNoon, utc))
+        assertEquals("3:19 PM", SmartCardResolver.clock(afternoon, utc))
+        assertEquals("11:59 PM", SmartCardResolver.clock(lateNight, utc))
+
+        // Widget helper delegates to the same canonical formatter
+        assertEquals("4:37 AM", app.sadaqa.android.widget.WidgetData.formatPrayerTime(earlyAm, "UTC"))
+        assertEquals("3:19 PM", app.sadaqa.android.widget.WidgetData.formatPrayerTime(afternoon, "UTC"))
+    }
+
+    @Test
+    fun enforcesWesternAsciiDigitsUnderArabicDefaultLocale() {
+        val prev = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale.forLanguageTag("ar-EG"))
+            val cairo = java.time.ZoneId.of("Africa/Cairo")
+            val fajrMs = java.time.ZonedDateTime.of(2026, 11, 21, 4, 52, 0, 0, cairo).toInstant().toEpochMilli()
+            val maghribMs = java.time.ZonedDateTime.of(2026, 11, 21, 17, 4, 0, 0, cairo).toInstant().toEpochMilli()
+
+            val fajrStr = SmartCardResolver.clock(fajrMs, "Africa/Cairo")
+            val maghribStr = app.sadaqa.android.widget.WidgetData.formatPrayerTime(maghribMs, "Africa/Cairo")
+            val hmsStr = SmartCardResolver.hms(3_723_000L)
+
+            assertEquals("4:52 AM", fajrStr)
+            assertEquals("5:04 PM", maghribStr)
+            assertEquals("01:02:03", hmsStr)
+            assertTrue("clock must contain only ASCII characters", fajrStr.all { it.code < 128 })
+            assertTrue("widget clock must contain only ASCII characters", maghribStr.all { it.code < 128 })
+            assertTrue("countdown must contain only ASCII characters", hmsStr.all { it.code < 128 })
+        } finally {
+            java.util.Locale.setDefault(prev)
+        }
+    }
+}
